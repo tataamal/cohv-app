@@ -1,0 +1,93 @@
+ID SAP;NAMA;Kode;Nama Bagian;MRP;Kategori
+KMI-U132;Novita;3001;Cutting;MW1;Plant C
+KMI-U132;Novita;3001;Cutting;MW2;Plant C
+KMI-U132;Novita;3001;Cutting;MW3;Plant C
+KMI-U115;Maisa;3002;Assembly Sub;MF1;Plant C
+KMI-U115;Maisa;3003;Assembly Unit;MF2;Plant C
+KMI-U141;Mustakim;3004;Primer;MF3;Plant C
+KMI-U131;Lia;3022;Sample Metal;MS1;Plant C
+KMI-U131;Lia;3022;Sample Metal;MS3;Plant C
+KMI-U131;Lia;3022;Sample Metal;MS4;Plant C
+KMI-U172;Dhea;3007;casting;MA1;Plant B
+KMI-U172;Dhea;3008;machining;MA2;Plant B
+KMI-U172;Dhea;3009;assembly;MA3;Plant B
+KMI-U116;Bella;3010;painting;MA4;Plant B
+KMI-U116;Bella;3010;Primer Accecories;MA7;Plant B
+KMI-U116;Bella;3011;packing;MA5;Plant B
+KMI-U117;Arfina;3012;Machining;D21;Plant D
+KMI-U117;Arfina;3013;Ebd;D26;Plant D
+KMI-U128;Arum;3014;Assembly;D22;Plant D
+KMI-U128;Arum;3014;Assembly;D27;Plant D
+KMI-U124;Fiki;3015;painting;D23;Plant D
+KMI-U124;Fiki;3015;painting;D28;Plant D
+KMI-U124;Fiki;3016;Packing;D24;Plant D
+KMI-U121;Ribkha;3017;Machining;DR1;Plant E
+KMI-U142;Shovi;3018;Assembly;DR2;Plant E
+KMI-U142;Shovi;3018;Assembly;DR3;Plant E
+KMI-U139;Rangga;3019;Painting;G31;Plant E
+KMI-U143;Nilan;3021;Packaging;PG1;Plant A
+KMI-U143;Nilan;3021;Packaging;PG2;Plant A
+KMI-U143;Nilan;3021;Packaging;PG3;Plant A
+KMI-U081;Yeni;1001;Laminating;WW1;Material Preparation
+KMI-U082;Badar;1002;Finger Joint;WW2;Material Preparation
+KMI-U081;Yeni;1003;Cutting;WW3;Material Preparation
+KMI-U170;Anggi;1010;Slicer;RW3;Material Preparation
+KMI-U168;Hendra;1011;Sawmill;SM1;Material Preparation
+KMI-U168;Hendra;1011;Sawmill;RW1;Material Preparation
+KMI-U086;Yuni;1004;Wood Enggneering;WE1;Pembahanan
+KMI-U086;Yuni;1004;Wood Enggneering;WE2;Pembahanan
+KMI-U165;Susilo;1005;Moulding;WM1;Pembahanan
+KMI-U083;Khusnul;1006;Pemb. Panel;PN1;Pembahanan
+KMI-U097;Wiwin;1007;Pemb.Veneer;PV1;Pembahanan
+KMI-U097;Wiwin;1007;Pemb.Veneer;PV2;Pembahanan
+KMI-U097;Wiwin;1008;Veneer Lmnt;VN1;Pembahanan
+KMI-U097;Wiwin;1008;Veneer Lmnt;VN2;Pembahanan
+KMI-U110;Rica;1009;Panel Combine;PN2;Pembahanan
+KMI-U092;Eko;1012;Drawer machining;GW1;Drawer & Project
+KMI-U092;Eko;1012;Drawer painting;GW2;Drawer & Project
+KMI-U092;Eko;1012;Drawer Assy;GW3;Drawer & Project
+KMI-U088;Winda;2001;Machining case Goods;GA1;Plant A
+KMI-U088;Winda;2001;Machining case Goods;GA2;Plant A
+KMI-U085;Philip;2002;Assembly Case goods;GD1;Plant A
+KMI-U085;Philip;2002;Assembly Case goods;GD2;Plant A
+KMI-U098;Elvira;2003;Machining Bed & Dining;C11;Plant A
+KMI-U098;Elvira;2004;Assembly Bed & Dining;C12;Plant A
+KMI-U108;Risma;2005;Ebd;EB2;Plant A
+KMI-U108;Risma;2006;Drawer;GW1;Plant A
+KMI-U108;Risma;2006;Drawer;GW2;Plant A
+KMI-U108;Risma;2006;Drawer;GW3;Plant A
+KMI-U100;Okta;2026;Sample;RD2;Plant A
+KMI-U100;Okta;2026;Sample;RD3;Plant A
+KMI-U100;Okta;2026;Sample;RD4;Plant A
+KMI-U040;Risna;2027;Sample;RD5;Plant A
+KMI-U090;Ella;2009;Pemb Chair;CH1;Plant B
+KMI-U090;Ella;2010;Machining Chair;CH2;Plant B
+KMI-U091;Putri;2011;Assembly Chair;CH3;Plant B
+KMI-U091;Putri;2011;Assembly Chair;CH7;Plant B
+KMI-U091;Putri;2012;Painting Chair;CH4;Plant B
+KMI-U091;Putri;2012;Bleaching;CH8;Plant B
+KMI-U091;Putri;2013;Packing Chair;CH5;Plant B
+KMI-U103;Ike;2014;Uph;UH1;Plant B
+KMI-U103;Ike;2014;Uph;UH2;Plant B
+KMI-U095;Novi;2007;painting;GF1;Plant C
+KMI-U102;Selly;2007;painting;GF1;Plant C
+KMI-U096;Silvi;2008;Packing;GF2;Plant C
+KMI-U114;Eka;2019;Box Packaging Surabaya;CP1;Plant C
+KMI-U114;Eka;2019;Box Packaging Surabaya;CP2;Plant C
+KMI-U114;Eka;2019;Box Packaging Surabaya;CP3;Plant C
+KMI-U114;Eka;2019;Box Packaging Surabaya;CSK;Plant C
+KMI-U093;RIBKHA;2015;Machining;GT1;Plant G
+KMI-U093;RIBKHA;2016;Assembly;GT2;Plant G
+KMI-U093;RIBKHA;2017;painting;GT3;Plant G
+KMI-U093;RIBKHA;2018;Packing;GT4;Plant G
+KMI-U170;Anggi;2025;Playfield Painting;GT5;Plant G
+KMI-U170;Anggi;2025;Playfield Machining;GT6;Plant G
+KMI-U170;Anggi;2025;Playfield Packing;GT7;Plant G
+vacant;Vacant;2020;Cutting Metal;MW1;Plant D Metal
+vacant;Vacant;2020;Cutting Metal;MW2;Plant D Metal
+vacant;Vacant;2020;Cutting Metal;MW3;Plant D Metal
+KMI-CT08;Dwi Agustina;2021;Assembly Sub;MF1;Plant D Metal
+KMI-CT08;Dwi Agustina;2022;Assembly Unit;MF2;Plant D Metal
+KMI-U044;Dyah;2023;Painting Primer;MF3;Plant D Metal
+KMI-U044;Dyah;2024;Painting ;MF4;Plant D Metal
+KMI-U063;Olip;1201;Hardware Terbungkus;WH1;Hardware Terbungkus
