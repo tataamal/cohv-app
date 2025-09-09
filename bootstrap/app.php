@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Console\Scheduling\Schedule;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,4 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
+    })->withSchedule(function (Schedule $schedule) {
+        $schedule->command('app:sync_cohv')->everyThirtyMinutes();
+        $schedule->command('app:sync_gr_historical')->twiceDaily(5, 20);
     })->create();

@@ -490,38 +490,20 @@ def run_both_mode():
 
 # --- Main execution ---
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Sinkronisasi data dari SAP ke SQL.",
-        formatter_class=argparse.RawTextHelpFormatter
-    )
-    parser.add_argument(
-        'mode',
-        choices=['otomatis', 'manual', 'both'],
-        nargs='?',
-        default='both',
-        help=(
-            "Pilih mode eksekusi:\n"
-            "'manual'   - Menjalankan sinkronisasi sekali saja lalu keluar.\n"
-            "'otomatis' - Menjalankan sekali, lalu dijadwalkan setiap 2 jam (default).\n"
-            "'both'     - Dijadwalkan setiap 20 jam DAN bisa dipicu manual dengan menekan 'Enter'."
-        )
-    )
-    args = parser.parse_args()
-
+    # Logika yang kompleks di bawah ini kita hapus semua
+    # parser = argparse.ArgumentParser(...)
+    # args = parser.parse_args()
+    # if args.mode == ...
+    
+    # GANTI SEMUA LOGIKA DI ATAS DENGAN INI:
     try:
-        if args.mode == 'manual':
-            logging.info(">>> MODE: MANUAL <<<")
-            run_job()
-            logging.info("Eksekusi manual selesai.")
-        elif args.mode == 'otomatis':
-            logging.info(">>> MODE: OTOMATIS <<<")
-            run_automatic_mode()
-        elif args.mode == 'both':
-            logging.info(">>> MODE: BOTH (OTOMATIS + MANUAL) <<<")
-            run_both_mode()
+        logging.info(">>> Skrip dipanggil oleh Laravel. Memulai sinkronisasi... <<<")
+        run_job()
+        logging.info(">>> Sinkronisasi selesai. Skrip akan keluar. <<<")
     except KeyboardInterrupt:
-        logging.info("Program dihentikan oleh user (Ctrl+C).")
+        logging.info("Proses sinkronisasi dihentikan oleh user.")
     except Exception as e:
-        logging.error(f"Error tidak terduga: {e}")
+        # Log error fatal jika terjadi
+        logging.error(f"Terjadi error fatal di level utama: {e}", exc_info=True)
     finally:
-        logging.info("Program selesai.")
+        logging.info("Program Python selesai.")
