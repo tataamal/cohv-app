@@ -1,30 +1,30 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <title>{{ $title ?? 'KMI System' }}</title>
 
-    <style>
-        [x-cloak] { display: none !important; }
-    </style>
+    {{-- Menggunakan Vite untuk memuat SCSS Bootstrap dan JS utama --}}
+    @vite(['resources/js/app.js', 'resources/scss/app.scss'])
+    
+    <title>{{ $title ?? 'KMI System' }}</title>
+    {{-- Font Awesome untuk ikon, karena kita menggunakannya di halaman dashboard --}}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
 
     @stack('styles')
 </head>
-<body x-data="{ isLoading: false }"
-      class="h-full bg-gray-50 antialiased font-sans">
+<body class="h-100 bg-body-tertiary">
     
-    {{-- Overlay Loading --}}
-    <div x-show="isLoading" x-cloak class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
-        <div class="loader mb-8"></div>
-        <h2 class="text-xl font-semibold text-gray-700">Memuat Halaman...</h2>
+    {{-- Overlay Loading (DIUBAH KE VANILLA JS) --}}
+    <div id="loading-overlay" class="loading-overlay d-none">
+        <div class="loader mb-4"></div>
+        <h2 class="h4 fw-semibold text-secondary">Memuat Halaman...</h2>
     </div>
     
-    {{-- Ini adalah tempat "Surat" atau konten halaman akan dimasukkan --}}
+    {{-- Ini adalah tempat konten halaman akan dimasukkan --}}
     {{ $slot }}
-
-    @stack('scripts')
+    {{-- Tumpukan skrip custom dari setiap halaman --}}
+    @stack('custom-scripts')
 </body>
 </html>

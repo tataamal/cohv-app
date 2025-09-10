@@ -1,10 +1,5 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
-@import '@fortawesome/fontawesome-free/css/all.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 @font-face {
   font-family: 'Plus Jakarta Sans';
@@ -27,4 +22,13 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+:root {
+  --bs-primary: #8B5CF6; /* Warna ungu dari Tailwind */
+  --bs-primary-rgb: 139, 92, 246;
+  --bs-btn-hover-bg: #7C3AED;
+  --bs-btn-hover-border-color: #7C3AED;
+  --bs-link-color: #8B5CF6;
+  --bs-link-hover-color: #7C3AED;
 }

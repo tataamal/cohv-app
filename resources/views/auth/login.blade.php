@@ -4,134 +4,118 @@
     </x-slot:title>
 
     {{-- KONTEN UTAMA HALAMAN LOGIN --}}
-    <div class="flex min-h-screen bg-gray-50 overflow-hidden">
-        
-        {{-- Kolom Kiri: Form Login (40% dari layar desktop) --}}
-        <div class="flex w-full flex-col justify-center py-12 px-4 sm:px-6 lg:w-2/5 lg:flex-none lg:px-20 xl:px-24">
-            <div class="mx-auto w-full max-w-md">
-                {{-- Logo dan Judul Perusahaan --}}
-                <div class="flex items-center space-x-3 mb-12">
-                    <div class="h-10 w-10 p-1.5 rounded-full shadow-sm bg-white flex items-center justify-center">
-                        <img src="{{ asset('images/KMI.png') }}" alt="Logo KMI">
+    <div class="container-fluid">
+        <div class="row min-vh-100 g-0">
+            
+            {{-- Kolom Kiri: Form Login --}}
+            <div class="col-lg-5 d-flex flex-column justify-content-center py-5 px-4 px-sm-5">
+                <div class="mx-auto w-100" style="max-width: 28rem;">
+                    {{-- Logo dan Judul Perusahaan --}}
+                    <div class="d-flex align-items-center mb-5">
+                        <div class="shadow-sm bg-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; padding: 0.375rem;">
+                            <img src="{{ asset('images/KMI.png') }}" alt="Logo KMI" class="img-fluid">
+                        </div>
+                        <h1 class="h6 fw-semibold text-body-secondary mb-0">PT. Kayu Mabel Indonesia</h1>
                     </div>
-                    <h1 class="text-base font-semibold text-gray-800">PT. Kayu Mabel Indonesia</h1>
-                </div>
 
-                {{-- Judul Form --}}
-                <div class="text-left mb-8">
-                    <h2 id="form-title" class="text-3xl font-bold tracking-tight text-gray-900">Login Admin</h2>
-                    <p class="mt-2 text-sm text-gray-600">Silakan masukkan kredensial Anda untuk melanjutkan.</p>
-                </div>
-                
-                {{-- Alert Error --}}
-                @if($errors->any())
-                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-md" role="alert">
-                        <p class="font-bold">Terjadi Kesalahan</p>
-                        <p>{{ $errors->first() }}</p>
+                    {{-- Judul Form --}}
+                    <div class="text-left mb-4">
+                        <h2 id="form-title" class="h2 fw-bold text-dark">Login Admin</h2>
+                        <p class="mt-2 text-muted">Silakan masukkan kredensial Anda untuk melanjutkan.</p>
                     </div>
-                @endif
+                    
+                    {{-- Alert Error --}}
+                    @if($errors->any())
+                        <div class="alert alert-danger border-0 border-start border-4 border-danger" role="alert">
+                            <p class="fw-bold mb-1">Terjadi Kesalahan</p>
+                            <p class="mb-0">{{ $errors->first() }}</p>
+                        </div>
+                    @endif
 
-                {{-- Card Wrapper untuk Form --}}
-                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
-                    <form id="admin-form" class="space-y-4" action="{{ route('login.admin') }}" method="POST">
-                        @csrf
-                        <div>
-                            <label for="admin_sap_id" class="block text-sm font-medium text-gray-700 mb-1">SAP ID</label>
-                            <input id="admin_sap_id" name="sap_id" type="text" required autofocus placeholder="Masukkan SAP ID"
-                                   class="block w-full rounded-lg border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 sm:text-sm transition duration-150 ease-in-out">
-                        </div>
-                        <div>
-                            <label for="admin_password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                            <input id="admin_password" name="password" type="password" required placeholder="Masukkan Password"
-                                   class="block w-full rounded-lg border-gray-300 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 sm:text-sm transition duration-150 ease-in-out">
-                        </div>
-                        <div class="pt-4">
-                            <button type="submit" class="group flex w-full justify-center items-center rounded-lg border border-transparent bg-purple-600 py-3 px-4 text-sm font-semibold text-white shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-300 ease-in-out disabled:opacity-75 disabled:cursor-not-allowed">
-                                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span class="button-text">Masuk</span>
-                            </button>
-                        </div>
-                    </form>
+                    {{-- Card Wrapper untuk Form --}}
+                    <div class="bg-white p-4 p-sm-5 rounded-4 shadow-lg">
+                        <form id="admin-form" class="row g-3" action="{{ route('login.admin') }}" method="POST">
+                            @csrf
+                            <div class="col-12">
+                                <label for="admin_sap_id" class="form-label">SAP ID</label>
+                                <input id="admin_sap_id" name="sap_id" type="text" required autofocus placeholder="Masukkan SAP ID"
+                                       class="form-control form-control-lg">
+                            </div>
+                            <div class="col-12">
+                                <label for="admin_password" class="form-label">Password</label>
+                                <input id="admin_password" name="password" type="password" required placeholder="Masukkan Password"
+                                       class="form-control form-control-lg">
+                            </div>
+                            <div class="col-12 pt-3">
+                                <button type="submit" class="btn btn-primary btn-lg w-100 d-flex justify-content-center align-items-center">
+                                    <div class="spinner-border spinner-border-sm me-3 d-none" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <span class="button-text">Masuk</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        {{-- Kolom Kanan: Preview Dashboard (60% dari layar desktop) --}}
-        <div id="interactive-panel" class="relative hidden lg:flex w-3/5 items-center justify-center p-8 xl:p-12 bg-gray-100">
-            <div id="interactive-card" class="w-full max-w-2xl p-8 space-y-6 bg-white rounded-2xl shadow-2xl transform -rotate-3 border xl:scale-95 transition-transform duration-300 ease-out">
-                
-                <h2 class="text-2xl font-bold text-gray-800">Analytics</h2>
+            {{-- Kolom Kanan: Preview Dashboard --}}
+            <div id="interactive-panel" class="col-lg-7 d-none d-lg-flex align-items-center justify-content-center p-5" style="background-color: #f8f9fa;">
+                <div id="interactive-card" class="w-100 bg-white rounded-4 shadow-lg p-5" style="max-width: 42rem; transform: rotate(-3deg);">
+                    
+                    <h2 class="h3 fw-bold text-dark">Analytics</h2>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div class="p-5 bg-white border rounded-xl">
-                        <div class="flex justify-between items-start">
-                            <p class="text-sm font-medium text-gray-500">Sales</p>
-                            <div class="p-1.5 bg-gray-100 rounded-md">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                    <div class="row g-4 mt-3">
+                        <div class="col-sm-6">
+                            <div class="p-4 bg-white border rounded-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <p class="text-muted mb-0">Sales</p>
+                                    <div class="p-1 bg-light rounded-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-graph-up-arrow text-secondary" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M0 0h1v15h15v1H0zm10 3.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.9l-3.613 4.417a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61L13.445 4H10.5a.5.5 0 0 1-.5-.5"/></svg>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex align-items-baseline">
+                                    <p id="sales-count" class="h2 fw-bold text-dark me-2 mb-0">0</p>
+                                    <p class="small fw-semibold text-danger d-flex align-items-center mb-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-arrow-down me-1" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 1a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 13.293V1.5A.5.5 0 0 1 8 1"/></svg>
+                                        -2%
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                        <div class="mt-2 flex items-baseline space-x-2">
-                            <p id="sales-count" class="text-3xl font-bold text-gray-900">0</p>
-                            <p class="text-sm font-semibold text-red-500 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-0.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                                -2%
-                            </p>
-                        </div>
-                    </div>
-                    <div class="p-5 bg-white border rounded-xl">
-                        <div class="flex justify-between items-start">
-                            <p class="text-sm font-medium text-gray-500">Views</p>
-                            <div class="p-1.5 bg-gray-100 rounded-md">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        <div class="col-sm-6">
+                            <div class="p-4 bg-white border rounded-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <p class="text-muted mb-0">Views</p>
+                                    <div class="p-1 bg-light rounded-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye-fill text-secondary" viewBox="0 0 16 16"><path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8m8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7"/></svg>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex align-items-baseline">
+                                    <p id="views-count" class="h2 fw-bold text-dark me-2 mb-0">0</p>
+                                    <p class="small fw-semibold text-success d-flex align-items-center mb-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-arrow-up me-1" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L7.5 2.707V14.5a.5.5 0 0 0 .5.5"/></svg>
+                                        +8%
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                        <div class="mt-2 flex items-baseline space-x-2">
-                            <p id="views-count" class="text-3xl font-bold text-gray-900">0</p>
-                            <p class="text-sm font-semibold text-green-500 flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-0.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
-                                +8%
-                            </p>
-                        </div>
                     </div>
-                </div>
-
-                <div>
-                    <h3 class="text-base font-medium text-gray-700">Store traffic</h3>
-                    <div class="mt-4 h-40 w-full">
-                        <svg class="w-full h-full" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <defs><linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stop-color="#A855F7" stop-opacity="0.2"/><stop offset="95%" stop-color="#A855F7" stop-opacity="0"/></linearGradient></defs>
-                            <path d="M0 101.5C124.833 21.333 234.3 -46.5 354 51.5C473.7 149.5 491.5 163 609 101.5" stroke="#A855F7" stroke-width="3" stroke-linecap="round"/>
-                            <path d="M0 101.5C124.833 21.333 234.3 -46.5 354 51.5C473.7 149.5 491.5 163 609 101.5V192H0V101.5Z" fill="url(#chartGradient)"/>
-                        </svg>
+                    
+                    <div class="mt-4">
+                         <h3 class="h6 text-body-secondary">Store traffic</h3>
+                         <div class="mt-3" style="height: 160px; width: 100%;">
+                            <svg class="w-100 h-100" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <defs><linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stop-color="var(--bs-primary)" stop-opacity="0.2"/><stop offset="95%" stop-color="var(--bs-primary)" stop-opacity="0"/></linearGradient></defs>
+                                <path d="M0 101.5C124.833 21.333 234.3 -46.5 354 51.5C473.7 149.5 491.5 163 609 101.5" stroke="var(--bs-primary)" stroke-width="3" stroke-linecap="round"/>
+                                <path d="M0 101.5C124.833 21.333 234.3 -46.5 354 51.5C473.7 149.5 491.5 163 609 101.5V192H0V101.5Z" fill="url(#chartGradient)"/>
+                            </svg>
+                         </div>
+                         <div class="d-flex justify-content-between small text-muted mt-2 px-2">
+                             <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
+                         </div>
                     </div>
-                    <div class="flex justify-between text-xs text-gray-400 mt-2 px-2">
-                        <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
-                    </div>
-                </div>
-
-                <div>
-                    <h3 class="text-base font-medium text-gray-700 mb-3">Recent customers</h3>
-                    <div class="space-y-3">
-                        <div class="flex items-center space-x-3">
-                            <img class="h-9 w-9 rounded-full object-cover" src="https://ui-avatars.com/api/?name=Olivia+Rhye&background=f3e8ff&color=7c3aed" alt="Avatar Olivia">
-                            <div class="flex-1">
-                                <p class="text-sm font-medium text-gray-800">Olivia Rhye</p>
-                                <p class="text-xs text-gray-500">olivia@kmi.com</p>
-                            </div>
-                            <span class="text-xs font-medium py-1 px-2.5 rounded-full bg-green-100 text-green-700">Sent</span>
-                        </div>
-                         <div class="flex items-center space-x-3">
-                            <img class="h-9 w-9 rounded-full object-cover" src="https://ui-avatars.com/api/?name=Phoenix+Baker&background=e0f2fe&color=0284c7" alt="Avatar Phoenix">
-                            <div class="flex-1">
-                                <p class="text-sm font-medium text-gray-800">Phoenix Baker</p>
-                                <p class="text-xs text-gray-500">phoenix@kmi.com</p>
-                            </div>
-                            <span class="text-xs font-medium py-1 px-2.5 rounded-full bg-blue-100 text-blue-700">Processing</span>
-                        </div>
-                    </div>
+                    
                 </div>
             </div>
         </div>
@@ -140,7 +124,7 @@
     @push('scripts')
     <script>
         function initializeApp() {
-            // Fungsi untuk animasi angka naik
+            // Fungsi untuk animasi angka naik (Tidak ada perubahan, berfungsi seperti sebelumnya)
             function animateCountUp(el, endValue, duration) {
                 let startTime = null;
                 const startValue = 0;
@@ -158,21 +142,21 @@
                 window.requestAnimationFrame(step);
             }
 
-            // Fungsi untuk panel interaktif di sebelah kanan
+            // Fungsi untuk panel interaktif di sebelah kanan (Tidak ada perubahan)
             function initializeInteractivePanel() {
                 const panel = document.getElementById('interactive-panel');
                 const card = document.getElementById('interactive-card');
                 if (!panel || !card) return;
-                const maxRotate = 8;
+                const maxRotate = 6; // Sedikit diturunkan agar lebih smooth
                 panel.addEventListener('mousemove', (e) => {
                     const { width, height, left, top } = panel.getBoundingClientRect();
                     const mouseX = e.clientX - left; const mouseY = e.clientY - top;
                     const xPct = (mouseX / width - 0.5) * 2; const yPct = (mouseY / height - 0.5) * 2;
                     const rotateY = xPct * maxRotate; const rotateX = -yPct * maxRotate;
-                    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(0.95) rotate(-3deg)`;
+                    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(-3deg)`;
                 });
                 panel.addEventListener('mouseleave', () => {
-                    card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(0.95) rotate(-3deg)';
+                    card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) rotate(-3deg)';
                 });
             }
 
@@ -183,11 +167,12 @@
                     adminForm.addEventListener('submit', function() {
                         const button = adminForm.querySelector('button[type="submit"]');
                         const buttonText = button.querySelector('.button-text');
-                        const spinner = button.querySelector('svg');
+                        const spinner = button.querySelector('.spinner-border');
 
                         button.disabled = true;
-                        if (spinner) spinner.classList.remove('hidden');
-                        if (buttonText) buttonText.classList.add('hidden');
+                        // PERUBAHAN: Menggunakan kelas 'd-none' dari Bootstrap
+                        if (spinner) spinner.classList.remove('d-none');
+                        if (buttonText) buttonText.classList.add('d-none');
                     });
                 }
             }

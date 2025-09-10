@@ -1,0 +1,348 @@
+// resources/scss/app.scss
+
+// =================================================================
+// 1. KUSTOMISASI VARIABEL BOOTSTRAP (WAJIB sebelum import utama)
+// =================================================================
+
+// Mengintegrasikan Google Fonts dengan cara yang benar
+$font-family-sans-serif: "Plus Jakarta Sans", sans-serif;
+
+// Mengganti warna tema utama Bootstrap
+$primary: #8B5CF6; // Ini akan otomatis menghasilkan warna :root dan kelas utilitas (bg-primary, text-primary, dll)
+
+// =================================================================
+// 2. IMPORT BOOTSTRAP
+// =================================================================
+@use 'bootstrap/scss/bootstrap';
+
+
+// =================================================================
+// 3. CSS KUSTOM ANDA
+// =================================================================
+
+// -- Loader Global --
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(4px);
+    transition: opacity 0.3s ease;
+}
+
+.loader {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid var(--bs-primary); // Menggunakan warna primary yang sudah kita definisikan
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+// -- Styling Kustom untuk Sidebar Layout (Versi Final) --
+
+:root {
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 80px;
+    --transition-speed: 0.3s;
+}
+
+.sidebar {
+    width: var(--sidebar-width);
+    transition: width var(--transition-speed) ease, 
+                transform var(--transition-speed) ease;
+
+    .sidebar-brand {
+        height: 56px; // Tinggi Navbar Bootstrap
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            transition: all var(--transition-speed) ease;
+        }
+    }
+    
+    .nav-link {
+        white-space: nowrap;
+        overflow: hidden;
+        font-weight: 500;
+        color: #555;
+
+        .nav-icon {
+            width: 24px;
+            text-align: center;
+            margin-right: 0.75rem;
+            transition: margin var(--transition-speed) ease;
+        }
+
+        &.active, &:hover {
+            color: var(--bs-primary);
+            background-color: var(--bs-primary-bg-subtle);
+        }
+        
+        &.active-parent {
+            background-color: transparent;
+            color: var(--bs-primary);
+        }
+    }
+
+    .collapse .nav-link {
+        position: relative;
+        padding-left: 3.25rem;
+        font-weight: 400;
+        color: #6c757d;
+
+        &.active, &:hover {
+            color: var(--bs-primary);
+            background-color: transparent;
+        }
+    }
+
+    .collapse-arrow {
+        transition: transform var(--transition-speed) ease;
+    }
+    a[aria-expanded="true"] .collapse-arrow {
+        transform: rotate(180deg);
+    }
+}
+
+body.sidebar-collapsed .sidebar {
+    width: var(--sidebar-collapsed-width);
+
+    .sidebar-brand {
+        .logo-img { width: 40px; height: 40px; }
+    }
+
+    .nav-link {
+        justify-content: center;
+        .nav-icon {
+            margin-right: 0;
+            font-size: 1.25rem;
+        }
+    }
+
+    .sidebar-text {
+        transition: opacity 0.1s ease;
+        opacity: 0;
+        width: 0;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .sidebar {
+        position: fixed;
+        top: 0; bottom: 0; left: 0;
+        z-index: 1031;
+        transform: translateX(calc(-1 * var(--sidebar-width)));
+    }
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+    .sidebar-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1030;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease;
+    }
+    body.sidebar-open .sidebar-overlay {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+// =================================================================
+// STYLING KUSTOM UNTUK SIDEBAR LAYOUT (VERSI DESAIN BARU)
+// =================================================================
+
+:root {
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 80px;
+    --transition-speed: 0.3s;
+}
+
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--bs-body-tertiary);
+    transition: width var(--transition-speed) ease, 
+                transform var(--transition-speed) ease;
+
+    .sidebar-brand {
+        height: 56px;
+        .logo-img {
+            width: 32px; height: 32px;
+            transition: all var(--transition-speed) ease;
+        }
+    }
+    
+    .nav-link {
+        white-space: nowrap;
+        overflow: hidden;
+        font-weight: 500;
+        color: var(--bs-secondary-color);
+        padding: 0.75rem 1rem; // Padding yang lebih nyaman
+        border-radius: 0.5rem; // Sudut yang lebih lembut
+
+        .nav-icon {
+            width: 24px;
+            text-align: center;
+            margin-right: 0.75rem;
+            transition: all var(--transition-speed) ease;
+        }
+
+        &:hover {
+            color: var(--bs-body-color);
+            background-color: var(--bs-secondary-bg);
+        }
+        
+        &.active {
+            color: var(--bs-primary);
+            background-color: var(--bs-primary-bg-subtle);
+            font-weight: 600;
+        }
+        
+        &.active-parent {
+            background-color: transparent;
+            color: var(--bs-primary);
+        }
+    }
+
+    .submenu .nav-link {
+        color: var(--bs-secondary-color);
+        font-weight: 400;
+        position: relative;
+        padding-left: 3.5rem; // Dorong ke dalam agar lebih jelas
+
+        &.active {
+            color: var(--bs-primary);
+            font-weight: 600;
+            background-color: transparent;
+
+            // Garis indikator modern
+            &::before {
+                content: '';
+                position: absolute;
+                left: 1.75rem;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 3px;
+                height: 1rem;
+                background-color: var(--bs-primary);
+                border-radius: 3px;
+            }
+        }
+
+        &:hover { background-color: transparent; }
+    }
+
+    .collapse-arrow {
+        transition: transform var(--transition-speed) ease;
+    }
+    a[aria-expanded="true"] .collapse-arrow {
+        transform: rotate(180deg);
+    }
+}
+
+// State ketika sidebar dilipat (desktop)
+body.sidebar-collapsed .sidebar {
+    width: var(--sidebar-collapsed-width);
+
+    .sidebar-brand {
+        .logo-img { width: 40px; height: 40px; }
+    }
+
+    .nav-link {
+        justify-content: center;
+        .nav-icon {
+            margin-right: 0;
+            font-size: 1.2rem;
+        }
+    }
+
+    .sidebar-text, .nav-section-title {
+        transition: opacity 0.1s ease;
+        opacity: 0;
+        width: 0;
+    }
+}
+
+
+// State untuk mobile (sidebar muncul dari kiri)
+@media (max-width: 991.98px) {
+    .sidebar {
+        position: fixed; top: 0; bottom: 0; left: 0;
+        z-index: 1031;
+        transform: translateX(calc(-1 * var(--sidebar-width)));
+    }
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+    .sidebar-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1030;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease;
+    }
+
+    #sidebar-collapse-toggle {
+        .collapse-icon {
+            transition: transform var(--transition-speed) ease;
+        }
+    }
+
+    // Saat sidebar dilipat, putar ikonnya
+    body.sidebar-collapsed #sidebar-collapse-toggle .collapse-icon {
+        transform: rotate(180deg);
+    }
+
+    body.sidebar-open .sidebar-overlay {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .sidebar-footer {
+    .btn-logout:hover {
+        // Efek hover merah yang bersih
+        background-color: var(--bs-danger-bg-subtle);
+        color: var(--bs-danger-text-emphasis);
+    }
+
+    .collapse-icon {
+        transition: transform var(--transition-speed) ease;
+    }
+}
+
+
+// Perilaku Footer saat Sidebar terlipat
+body.sidebar-collapsed .sidebar-footer {
+    // Pusatkan semua item di footer
+    .user-info, .btn {
+        justify-content: center !important;
+    }
+
+    // Ganti ikon collapse agar menunjuk ke arah yang benar
+    .collapse-icon {
+        transform: rotate(180deg);
+    }
+}
+}
+body {
+    // Gradien lembut yang cocok dengan tema ungu Anda
+    background-image: linear-gradient(120deg, #f3e8ff 0%, #e9d5ff 100%);
+    background-attachment: fixed; // Membuat gradien tetap diam saat di-scroll
+}

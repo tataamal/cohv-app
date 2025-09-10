@@ -126,8 +126,7 @@ class adminController extends Controller
                   ->orWhere('MATNR', 'like', "%{$term}%")
                   ->orWhere('MAKTX', 'like', "%{$term}%");
             });
-        })
-        ->paginate(10);
+        })->get();
 
         $outstandingReservasi = ProductionTData4::where('WERKSX', $kode)
                                     ->whereColumn('KALAB', '<', 'BDMNG')
