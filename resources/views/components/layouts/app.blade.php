@@ -1,40 +1,47 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    
+    <!-- PERBAIKAN: Cukup panggil file scss dan js utama -->
+    @vite(['resources/js/app.js', 'resources/scss/app.scss'])
+    
     <title>{{ $title ?? 'KMI System' }}</title>
     
-    {{-- ✅ SEMUA ASET (CSS & JS) SEKARANG DIKELOLA OLEH VITE --}}
-    <style>
-        [x-cloak] { display: none !important; }
-    </style>
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
     @stack('styles')
 </head>
-<body 
-    x-data="{ sidebarOpen: false, sidebarCollapsed: window.innerWidth < 1024, isLoading: false }" 
-    @resize.window="sidebarCollapsed = window.innerWidth < 1024"
-    x-init="$watch('isLoading', value => { if (value) startLoaderTypingEffect() })"
-    @link-clicked.window="isLoading = true; setTimeout(() => { window.location.href = $event.detail.href }, 150)"
-    class="h-full bg-gray-100 antialiased font-sans">
+<body class="h-100 bg-light">
 
-    <div class="flex h-full">
+    <!-- PERBAIKAN: Semua atribut Alpine.js dihapus -->
+    <!-- State sidebar akan dikontrol oleh kelas pada tag <body> ini dari JavaScript -->
+
+    <div class="d-flex h-100">
+        <!-- Komponen Sidebar -->
         <x-navigation.sidebar />
         
-        <div x-show="sidebarOpen" @click="sidebarOpen = false" x-cloak class="fixed inset-0 bg-black/30 z-30 lg:hidden"></div>
+        <!-- Overlay untuk mobile, dikontrol oleh JS -->
+        <div id="sidebar-overlay" class="sidebar-overlay d-lg-none"></div>
 
-        <div class="flex flex-col flex-1 min-w-0">
+        <div class="d-flex flex-column flex-grow-1">
+            <!-- Komponen Topbar -->
             <x-navigation.topbar />
 
-            <main class="flex-1 overflow-y-auto">
-                <div class="max-w-7xl mx-auto px-6 sm:px-8 py-8">
+            <!-- Konten Utama Halaman -->
+            <main class="flex-grow-1" style="overflow-y: auto;">
+                <div class="container-fluid p-4">
                     {{ $slot }}
                 </div>
             </main>
         </div>
+    </div>
+    
+    <!-- Loader global, dipindahkan dari layout landing agar konsisten -->
+    <div id="loading-overlay" class="loading-overlay d-none">
+        <div class="loader mb-4"></div>
+        <h2 class="h4 fw-semibold text-secondary">Memuat Halaman...</h2>
     </div>
 
     @stack('scripts')

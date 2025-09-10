@@ -209,7 +209,7 @@ class ManufactController extends Controller
             });
         }
 
-        $tdata = $query->orderBy('KDAUF')->orderBy('KDPOS')->paginate(10);
+        $tdata = $query->orderBy('KDAUF')->orderBy('KDPOS')->get();
 
         // Kunci untuk data terkait
         $kdaufValues = $tdata->pluck('KDAUF')->filter()->unique();
