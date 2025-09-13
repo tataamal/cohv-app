@@ -1,11 +1,16 @@
 // resources/js/app.js
 
 import './bootstrap';
-
+import './sidebar.js';
 import * as bootstrap from 'bootstrap';
 window.bootstrap = bootstrap; 
 // Impor Chart.js di paling atas agar tersedia untuk semua fungsi
 import Chart from 'chart.js/auto';
+
+import { Calendar } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
 // =================================================================
 // 1. DEFINISIKAN OBJECT & FUNGSI GLOBAL
@@ -256,3 +261,131 @@ function initDashboardCharts() {
         }
     });
 }
+
+function initializeGoodReceiptCalendar() {
+    // Pastikan elemen #calendar ada di DOM
+    const calendarEl = document.getElementById('calendar');
+
+    // Jika elemen ditemukan, baru inisialisasi
+    if (calendarEl) {
+        // Kita juga perlu Bootstrap Modal di sini
+        const modalElement = document.getElementById('detailModal');
+        const detailModal = new bootstrap.Modal(modalElement);
+        const modalTitle = document.getElementById('modalTitle');
+        const modalTableBody = document.getElementById('modal-table-body');
+
+        const calendar = new Calendar(calendarEl, {
+            plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin], // Daftarkan plugin
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek'
+            },
+            // Mengambil data dari variabel global yang di-set oleh Blade
+            events: window.processedCalendarData || [], 
+
+            eventContent: function(arg) {
+                let arrayOfDomNodes = [];
+                let container = document.createElement('div');
+                container.classList.add('fc-event-main-content', 'p-1', 'small'); // Padding dan ukuran font kecil
+
+                const { totalGrCount, dispoBreakdown } = arg.event.extendedProps;
+
+                // 1. "Total MRP Hari ini: X" -> Highlight hijau
+                let totalGrHighlight = document.createElement('div');
+                totalGrHighlight.classList.add('badge', 'bg-success', 'text-white', 'text-start', 'w-100', 'py-2', 'mb-1');
+                totalGrHighlight.style.whiteSpace = 'normal'; // Memungkinkan teks wrap
+                totalGrHighlight.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Total GR Hari ini: <strong>${formatNumber(totalGrCount || 0)}</strong>`;
+                container.appendChild(totalGrHighlight);
+
+                // 2. List Breakdown per DISPO
+                if (dispoBreakdown && dispoBreakdown.length > 0) {
+                    let dispoList = document.createElement('ul');
+                    dispoList.classList.add('list-unstyled', 'mb-1', 'small'); // Tanpa bullet, margin bawah kecil, font kecil
+
+                    dispoBreakdown.forEach(item => {
+                        let listItem = document.createElement('li');
+                        listItem.innerHTML = `<i class="bi bi-dot me-1 text-muted"></i> Kode MRP <strong>${item.dispo || '-'}</strong>: ${formatNumber(item.gr_count || 0)}`;
+                        dispoList.appendChild(listItem);
+                    });
+                    container.appendChild(dispoList);
+                }
+
+                // 3. Text "Click untuk menampilkan detail..."
+                let clickText = document.createElement('div');
+                clickText.classList.add('text-muted', 'text-end');
+                clickText.style.fontSize = '0.65em'; // Sangat kecil
+                clickText.textContent = 'Click untuk detail PRO >';
+                container.appendChild(clickText);
+
+
+                arrayOfDomNodes.push(container);
+                return { domNodes: arrayOfDomNodes };
+            },
+            // =========================================================================
+            // Gaya event agar latar belakangnya putih atau transparan
+            // =========================================================================
+            eventDidMount: function(info) {
+                // Menghilangkan warna latar belakang default FullCalendar untuk event
+                // Ini akan membuatnya terlihat 'putih' atau transparan menyesuaikan latar belakang kalender
+                info.el.style.backgroundColor = 'transparent';
+                info.el.style.borderColor = 'transparent'; // Menghilangkan border jika ada
+            },
+
+            dateClick: function(info) {
+                const clickedDateData = (window.processedCalendarData || []).find(event => event.start === info.dateStr);
+
+                if (clickedDateData && clickedDateData.details.length > 0) {
+                    const formattedDate = new Date(info.dateStr).toLocaleDateString('id-ID', {
+                        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                    });
+                    modalTitle.textContent = 'Detail Tanggal: ' + formattedDate;
+
+                    modalTableBody.innerHTML = ''; 
+
+                    clickedDateData.details.forEach(item => {
+                        const row = `
+                            <tr>
+                                <td class="text-center align-middle small fw-medium">${item.AUFNR || '-'}</td>
+                                <td class="align-middle small">${item.MAKTX || '-'}</td>
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">${item.KDAUF || '-'}</span>
+                                </td>
+                                 <td class="text-center align-middle">
+                                    <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">${item.KDPOS || '-'}</span>
+                                </td>
+                                <td class="text-center align-middle small">${formatNumber(item.PSMNG)}</td>
+                                <td class="text-center align-middle small fw-bold text-success">${formatNumber(item.MENGE)}</td>
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">${formatDate(item.BUDAT_MKPF)}</span>
+                                </td>
+                            </tr>
+                        `;
+                        modalTableBody.insertAdjacentHTML('beforeend', row);
+                    });
+
+                    detailModal.show();
+                }
+            }
+        });
+        calendar.render();
+    }
+}
+
+// Fungsi Bantuan
+function formatNumber(num) {
+    if (num === null || num === undefined) return '0';
+    return new Intl.NumberFormat('id-ID').format(num);
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric'
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initializeGoodReceiptCalendar);
+window.initializeGoodReceiptCalendar

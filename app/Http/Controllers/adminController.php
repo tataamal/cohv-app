@@ -53,6 +53,12 @@ class adminController extends Controller
         $datasetPro      = $statsPerWc->pluck('pro_count')->map(fn($v) => (int)$v)->values()->all();
         $datasetCapacity = $statsPerWc->pluck('total_capacity')->map(fn($v) => (float)$v)->values()->all();
 
+        $targetUrls = collect($labels)->map(function ($wcLabel) use ($kode) {
+            return route('wc.details', [
+                'kode' => $kode,
+                'wc' => $wcLabel]);
+        })->all();
+
         // 3) Definisikan kedua dataset untuk chart (Tidak ada perubahan di sini)
         $datasets = [
             [
@@ -105,6 +111,8 @@ class adminController extends Controller
                 'borderWidth' => 2,
             ]
         ];
+
+        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
         
         // =================================================================
         // DATA KARDINAL (JUMLAH TOTAL)
@@ -141,6 +149,7 @@ class adminController extends Controller
             'outstandingReservasi' => $outstandingReservasi, 
             'labels' => $labels, 
             'datasets' => $datasets,
+            'targetUrls' => $targetUrls,
             'doughnutChartLabels' => $doughnutChartLabels,
             'doughnutChartDatasets' => $doughnutChartDatasets,
             'kode' => $kode,

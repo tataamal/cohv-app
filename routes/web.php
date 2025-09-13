@@ -1,16 +1,13 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Data3Controller;
 use App\Http\Controllers\Data1Controller;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\LoginController;
-use App\Http\Controllers\KorlapController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Data4Controller;
 use App\Http\Controllers\ManufactController;
-use App\Http\Controllers\NoteController;
+use App\Http\Controllers\WcCompatibilityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -60,5 +57,13 @@ Route::middleware('auth')->group(function (){
 
     // route untuk kelola gr
     Route::get('gr/{kode}', [ManufactController::class, 'list_gr'])->name('list.gr');
+
+    // Route untuk kelola PRO
+    // Route untuk menampilkan halaman detail PRO berdasarkan workcenter
+    Route::get('gr/{kode}', [ManufactController::class, 'list_gr'])->name('list.gr');
+    Route::get('/wc-mapping', [WcCompatibilityController::class, 'index']);
+    Route::get('/wc-mapping/details/{kode}/{wc}', [WcCompatibilityController::class, 'showDetails'])->name('wc.details');
+    Route::post('/changeWC/{kode}/{wc}', [Data1Controller::class,'changeWC'])->name('change-wc-drag');
+    Route::post('/changePV/{kode}/{wc}', [Data1Controller::class,'changePV'])->name('change-pv-drag');
 
 });

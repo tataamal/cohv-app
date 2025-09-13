@@ -94,8 +94,8 @@ def connect_mysql():
         cnx = pymysql.connect(
             host=os.getenv('DB_HOST', '127.0.0.1'),
             user=os.getenv('DB_USERNAME', 'root'),
-            password=os.getenv('DB_PASSWORD', ''),
-            database=os.getenv('DB_DATABASE', 'cohv'),
+            password=os.getenv('DB_PASSWORD', 'root'),
+            database=os.getenv('DB_DATABASE', 'cohv_app'),
             charset='utf8mb4',
             autocommit=False
         )
@@ -169,7 +169,7 @@ def sync_data_for_date(target_date):
                         'AUFNR': row.get('AUFNR'), 
                         'WERKS': mapped_werks_from_data,
                         'CHARG': row.get('CHARG'), 'MATNR': row.get('MATNR'),
-                        'MAKTX': row.get('MAKTX'), 'MAT_KDAUF': row.get('MAT_KDAUF'), 'MAT_KDPOS': row.get('MAT_KDPOS'),
+                        'MAKTX': row.get('MAKTX'), 'KDAUF': row.get('DAUF'), 'KDPOS': row.get('KDPOS'),
                         'KUNNR': row.get('KUNNR'), 'NAME2': row.get('NAME2'),
                         'PSMNG': safe_convert(row.get('PSMNG'), float, 0.0),
                         'MENGE': safe_convert(row.get('MENGE'), float, 0.0),

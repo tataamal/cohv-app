@@ -1032,4 +1032,4 @@ def read_pp():
 
 if __name__ == '__main__':
     os.environ['PYTHONHASHSEED'] = '0'
-    app.run(host='127.0.0.1', port=8006, debug=True)
+    app.run(host='127.0.0.1', port=8050, debug=True)

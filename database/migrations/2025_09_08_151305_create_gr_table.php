@@ -25,8 +25,8 @@ return new class extends Migration
             $table->string('CHARG', 10)->nullable()->comment('Batch Number');
             $table->string('MATNR', 40)->nullable()->comment('Material Number');
             $table->string('MAKTX', 40)->nullable()->comment('Material description');
-            $table->string('MAT_KDAUF', 10)->nullable()->comment('Sales Order');
-            $table->string('MAT_KDPOS', 6)->nullable()->comment('Sales Order Item');
+            $table->string('KDAUF', 10)->nullable()->comment('Sales Order');
+            $table->string('KDPOS', 6)->nullable()->comment('Sales Order Item');
             $table->string('KUNNR', 10)->nullable()->comment('Customer Number');
             $table->string('NAME2', 30)->nullable()->comment('Name');
             $table->decimal('PSMNG', 13, 3)->nullable()->comment('Order Item Planned Total Quantity');

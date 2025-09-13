@@ -39,7 +39,7 @@ class Data4Controller extends Controller
             // =========================================================
 
             // ========== PANGGIL API UNTUK ADD COMPONENT ==========
-            $flaskEndpoint = 'http://127.0.0.1:8006/api/add_component';
+            $flaskEndpoint = 'http://127.0.0.1:8050/api/add_component';
             $response = Http::timeout(60)->withHeaders([
                     'X-SAP-Username' => session('username'),
                     'X-SAP-Password' => session('password'),
@@ -100,7 +100,7 @@ class Data4Controller extends Controller
         $errorMessages = [];
 
         try {
-            $flaskEndpoint = 'http://127.0.0.1:8006/api/delete_component'; // Ganti dengan URL Flask Anda
+            $flaskEndpoint = 'http://127.0.0.1:8050/api/delete_component'; // Ganti dengan URL Flask Anda
 
             // 2. Loop untuk setiap komponen yang dipilih
             foreach ($components as $component) {
@@ -149,7 +149,7 @@ class Data4Controller extends Controller
             }
 
             // 1. Panggil API Refresh
-            $flaskRefreshUrl = 'http://127.0.0.1:8006/api/refresh-pro'; // Sesuaikan URL
+            $flaskRefreshUrl = 'http://127.0.0.1:8050/api/refresh-pro'; // Sesuaikan URL
             $refreshResp = Http::timeout(120)
                 ->withHeaders([
                     'X-SAP-Username' => $username,

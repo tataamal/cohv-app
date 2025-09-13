@@ -155,7 +155,7 @@
                                 </thead>
                                 <tbody>
                                 @forelse($tdata as $item)
-                                    @php $key = ($item->KDAUF ?? '') . '-' . ($item->KDPOS ?? ''); @endphp
+                                    @php $key = ($item->KUNNR ?? '') . '-' . ($item->NAME1 ?? ''); @endphp
                                     <tr class="cursor-pointer" data-key="{{ $key }}" onclick="openSalesItem(this)">
                                     <td class="text-center text-muted">{{ $loop->iteration }}</td>
                                     <td>
@@ -480,78 +480,156 @@
         }
 
         function renderTData2Table(key) {
-        const box = document.getElementById('tdata2-section');
-        const rows = allTData2[key] || [];
-        
-        // [DESAIN BARU] Pembungkus sekarang menggunakan komponen Card
-        const cardWrapper = document.createElement('div');
-        cardWrapper.className = 'card shadow-sm border-0';
-        
-        if (!rows.length){
-            cardWrapper.innerHTML = `<div class="card-body text-center p-5 text-muted">Tidak ada data Outstanding Order untuk item ini.</div>`;
-        } else {
-            let tableHtml = `
-                <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 gap-3">
-                    <h3 class="h5 fw-semibold text-dark mb-0">Outstanding Order</h3>
-                    <div class="input-group" style="max-width: 320px;">
-                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                        <input type="text" id="tdata2-search" oninput="filterTData2Table()" placeholder="Cari di tabel ini..." class="form-control border-start-0">
-                    </div>
-                    </div>
+            const box = document.getElementById('tdata2-section');
+            const rows = allTData2[key] || []; // Menggunakan allT2Data sesuai variabel di kode sebelumnya
 
-                    <!-- SAMAKAN: pakai table-responsive + scroll (CSS di atas) -->
-                    <div class="table-responsive">
-                    <!-- SAMAKAN: kelas tabel seperti tdata -->
-                    <table class="table table-hover align-middle mb-0">
-                        <thead>
-                        <tr class="small">
-                            <th class="text-center">No.</th>
-                            <th>Order</th><th>Item</th><th>Material FG</th>
-                            <th>Description</th><th>PO Date</th><th>Total PLO</th>
-                            <th>PRO (CRTD)</th><th>PRO (Released)</th>
-                            <th style="width: 5%;"></th>
-                        </tr>
-                        </thead>
-                        <tbody id="tdata2-tbody">`;
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'card shadow-sm border-0';
             
-            rows.forEach((r, i) => {
-                const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
-                const t3 = allTData3[soKey] || allTData3[key] || [];
-                let ploCount = 0, proCrt = 0, proRel = 0;
-                t3.forEach(d3 => {
-                    if (d3.PLNUM && !d3.AUFNR) ploCount++;
-                    if (d3.AUFNR){
-                        if (d3.STATS === 'CRTD') proCrt++;
-                        else if (['PCNF','REL','CNF REL'].includes(d3.STATS)) proRel++;
-                    }
+            if (!rows.length){
+                cardWrapper.innerHTML = `<div class="card-body text-center p-5 text-muted">Tidak ada data Outstanding Order untuk item ini.</div>`;
+            } else {
+                let scrollStyle = '';
+                if (rows.length > 8) {
+                    scrollStyle = 'style="max-height: 300px; overflow-y: auto;"';
+                }
+
+                let tableHtml = `
+                    <style>
+                        .sticky-header th {
+                            position: -webkit-sticky;
+                            position: sticky;
+                            top: 0;
+                            z-index: 1;
+                            background-color: #fff; 
+                            box-shadow: inset 0 -2px 0 #dee2e6; 
+                        }
+                    </style>
+                    <div class="card-body">
+                        <div id="tdata2-header" class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 gap-3">
+                            <h3 id="tdata2-title" class="h5 fw-semibold text-dark mb-0">Outstanding Order</h3>
+                            <div id="tdata2-search-wrapper" class="input-group" style="max-width: 320px;">
+                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
+                                <input type="text" id="tdata2-search" oninput="filterTData2Table()" placeholder="Cari di tabel ini..." class="form-control border-start-0">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive" ${scrollStyle}>
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="sticky-header">
+                                    <tr class="small">
+                                        <th class="text-center">No.</th>
+                                        <th>Order</th><th>Item</th><th>Material FG</th>
+                                        <th>Description</th><th>PO Date</th><th>Total PLO</th>
+                                        <th>PRO (CRTD)</th><th>PRO (Released)</th>
+                                        <th style="width: 5%;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tdata2-tbody">`;
+                
+                rows.forEach((r, i) => {
+                    const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
+                    const t3 = allTData3[soKey] || allTData3[key] || [];
+                    let ploCount = 0, proCrt = 0, proRel = 0;
+                    t3.forEach(d3 => {
+                        if (d3.PLNUM && !d3.AUFNR) ploCount++;
+                        if (d3.AUFNR){
+                            if (d3.STATS === 'CRTD') proCrt++;
+                            else if (['PCNF','REL','CNF REL'].includes(d3.STATS)) proRel++;
+                        }
+                    });
+                    tableHtml += `
+                        <tr class="t2-row cursor-pointer" data-key="${soKey}" data-index="${i}">
+                            <td class="text-center text-muted small">${i + 1}</td>
+                            <td class="fw-semibold text-dark">${sanitize(r.KDAUF || '-')}</td>
+                            <td class="text-muted">${ltrim(r.KDPOS, '0')}</td>
+                            <td class="text-muted">${ltrim(r.MATFG, '0') || '-'}</td>
+                            <td>${sanitize(r.MAKFG || '-')}</td>
+                            <td>${formatSapYmd(r.EDATU)}</td>
+                            <td class="text-center fw-medium">${ploCount}</td>
+                            <td class="text-center fw-medium">${proCrt}</td>
+                            <td class="text-center fw-medium">${proRel}</td>
+                            <td class="text-center text-muted"><i class="fas fa-chevron-right"></i></td>
+                        </tr>`;
                 });
-                tableHtml += `
-                    <tr class="t2-row cursor-pointer" data-key="${soKey}" data-index="${i}">
-                        <td class="text-center text-muted small">${i + 1}</td>
-                        <td class="fw-semibold text-dark">${sanitize(r.KDAUF || '-')}</td>
-                        <td class="text-muted">${ltrim(r.KDPOS, '0')}</td>
-                        <td class="text-muted">${ltrim(r.MATFG, '0') || '-'}</td>
-                        <td>${sanitize(r.MAKFG || '-')}</td>
-                        <td>${formatSapYmd(r.EDATU)}</td>
-                        <td class="text-center fw-medium">${ploCount}</td>
-                        <td class="text-center fw-medium">${proCrt}</td>
-                        <td class="text-center fw-medium">${proRel}</td>
-                        <td class="text-center text-muted"><i class="fas fa-chevron-right"></i></td>
-                    </tr>`;
-            });
+                
+                tableHtml += `</tbody></table></div>
+                    <p class="mt-3 small text-muted">Klik salah satu baris untuk melihat ORDER OVERVIEW TABLE.</p>
+                    </div>`;
+                cardWrapper.innerHTML = tableHtml;
+            }
             
-            tableHtml += `</tbody></table></div>
-                <p class="mt-3 small text-muted">Klik salah satu baris untuk melihat ORDER OVERVIEW TABLE.</p>
-                </div>`;
-            cardWrapper.innerHTML = tableHtml;
+            box.innerHTML = '';
+            box.appendChild(cardWrapper);
+            box.classList.remove('d-none');
+            // Pastikan event listener memanggil fungsi yang benar
+            box.querySelectorAll('.t2-row').forEach(tr => {
+                tr.addEventListener('click', () => handleClickTData2Row(tr.dataset.key, tr));
+            });
         }
-        
-        box.innerHTML = ''; // Kosongkan box
-        box.appendChild(cardWrapper); // Masukkan card yang sudah jadi
-        box.classList.remove('d-none');
-        box.querySelectorAll('.t2-row').forEach(tr => tr.addEventListener('click', () => handleClickTData2Row(tr.dataset.key, tr)));
-    }
+
+        function handleClickTData2Row(key, clickedTrElement) {
+            // Ambil semua baris di tbody tdata2
+            const allT2Rows = document.querySelectorAll('#tdata2-tbody .t2-row');
+            
+            // Sembunyikan semua baris lain dan hapus status 'aktif'
+            allT2Rows.forEach(row => {
+                if (row !== clickedTrElement) {
+                    row.style.display = 'none'; // Sembunyikan baris
+                }
+                row.classList.remove('table-active'); // Hapus highlight dari baris manapun
+                row.classList.remove('cursor-pointer'); // Hapus cursor pointer karena interaksi dinonaktifkan sementara
+            });
+
+            // Pastikan baris yang diklik terlihat dan beri highlight
+            clickedTrElement.style.display = 'table-row';
+            clickedTrElement.classList.add('table-active');
+
+            // --- Ubah UI di header tdata2 (judul, search bar, dan tombol kembali) ---
+            const header = document.getElementById('tdata2-header');
+            const title = document.getElementById('tdata2-title');
+            const searchWrapper = document.getElementById('tdata2-search-wrapper');
+
+            if (header && title && searchWrapper) {
+                // Sembunyikan search bar karena tidak relevan untuk satu baris
+                searchWrapper.style.display = 'none';
+
+                // Hanya tambahkan tombol 'kembali' jika belum ada
+                if (!document.getElementById('tdata2-back-btn')) {
+                    const backButton = document.createElement('button');
+                    backButton.id = 'tdata2-back-btn';
+                    backButton.className = 'btn btn-sm btn-outline-secondary ms-auto';
+                    backButton.innerHTML = `<i class="fas fa-arrow-left me-2"></i> Tampilkan Semua Order`;
+                    
+                    // Logika untuk mengembalikan tampilan seperti semula
+                    backButton.onclick = () => {
+                        allT2Rows.forEach(row => {
+                            row.style.display = 'table-row'; // Tampilkan lagi semua baris
+                            row.classList.remove('table-active');
+                            row.classList.add('cursor-pointer'); // Kembalikan interaktivitas
+                        });
+
+                        // Sembunyikan section tdata3
+                        const tdata3Box = document.getElementById('tdata3-section'); // Asumsi ID tdata3
+                        if (tdata3Box) {
+                            tdata3Box.innerHTML = '';
+                            tdata3Box.classList.add('d-none');
+                        }
+
+                        // Kembalikan header seperti semula
+                        title.textContent = 'Outstanding Order';
+                        searchWrapper.style.display = 'flex';
+                        backButton.remove(); // Hapus tombol 'kembali'
+                    };
+
+                    title.textContent = 'Order Terpilih'; // Ganti judul
+                    header.appendChild(backButton);
+                }
+            }
+
+            // Panggil fungsi untuk merender tdata3 (saya asumsikan Anda sudah punya fungsi ini)
+            // contoh: renderTData3Table(key);
+        }
 
         function showTData1ByAufnr(aufnr) {
             const container = document.getElementById('additional-data-container');
@@ -887,7 +965,7 @@
                         <i class="fas fa-book-open"></i>
                     </button>` : ''}
 
-                    ${(d3.AUFNR && d3.STATS === 'REL') ? `
+                    ${d3.AUFNR ? `
                     <button type="button" title="TECO" class="btn btn-teco btn-sm"
                         onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
                         <i class="fas fa-circle-check"></i>

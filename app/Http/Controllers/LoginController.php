@@ -30,7 +30,7 @@ class LoginController extends Controller
 
         try {
             // --- INTEGRASI API FLASK DIMULAI ---
-            $response = Http::timeout(30)->post('http://127.0.0.1:8006/api/sap-login', [
+            $response = Http::timeout(30)->post('http://127.0.0.1:8050/api/sap-login', [
                 'username' => $validated['sap_id'],
                 'password' => $validated['password'],
             ]);

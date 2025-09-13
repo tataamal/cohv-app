@@ -11,7 +11,11 @@ class ProductionTData2 extends Model
            'KDAUF', 
            'KDPOS', 
            'MATFG', 
-           'MAKFG','EDATU','WERKSX'];
+           'MAKFG',
+           'EDATU',
+           'WERKSX',
+           'KUNNR',
+           'NAME1' ];
     public function tData3()
     {
         return $this->hasMany(ProductionTData3::class, 'KDAUF', 'KDAUF')

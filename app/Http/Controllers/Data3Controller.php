@@ -18,7 +18,7 @@ class Data3Controller extends Controller
         $response = Http::timeout(0)->withHeaders([
             'X-SAP-Username' => session('username'),
             'X-SAP-Password' => session('password'),
-        ])->post('http://127.0.0.1:8006/api/release_order', $payload);
+        ])->post('http://127.0.0.1:8050/api/release_order', $payload);
 
         if ($response->successful()) {
             $data = $response-> json();
@@ -80,7 +80,7 @@ class Data3Controller extends Controller
             $resp = Http::withHeaders([
                         'X-SAP-Username' => session('username'),
                         'X-SAP-Password' => session('password'),
-                    ])->timeout(30)->post('http://127.0.0.1:8006/api/schedule_order', $payload);
+                    ])->timeout(30)->post('http://127.0.0.1:8050/api/schedule_order', $payload);
 
             if ($resp->failed()) {
                 $msg = 'Gagal terhubung ke SAP Scheduler.';
@@ -163,7 +163,7 @@ class Data3Controller extends Controller
         }
 
         try {
-            $flaskBase = rtrim(config('services.flask.base_url', env('FLASK_BASE_URL', 'http://127.0.0.1:8006')), '/');
+            $flaskBase = rtrim(config('services.flask.base_url', env('FLASK_BASE_URL', 'http://127.0.0.1:8050')), '/');
 
             $response = Http::withHeaders([
                     'X-SAP-Username' => $sapUser,
@@ -243,7 +243,7 @@ class Data3Controller extends Controller
                     'X-SAP-Password' => session('password'),
                 ])
                 ->timeout(30)
-                ->post(env('FLASK_BASE_URL', 'http://127.0.0.1:8006').'/api/save_edit', $payload);
+                ->post(env('FLASK_BASE_URL', 'http://127.0.0.1:8050').'/api/save_edit', $payload);
 
             if (!$resp->successful()) {
                 return response()->json(['ok'=>false, 'error'=>$resp->json('error') ?? 'Flask error'], $resp->status());
@@ -263,7 +263,7 @@ class Data3Controller extends Controller
         ]);
 
         $aufnr = $validated['aufnr'];
-        $flaskApiUrl = 'http://127.0.0.1:8006/api/teco_order'; // URL API Flask Anda
+        $flaskApiUrl = 'http://127.0.0.1:8050/api/teco_order'; // URL API Flask Anda
 
         try {
             // 2. Hit ke endpoint API Flask
@@ -337,7 +337,7 @@ class Data3Controller extends Controller
 
         $aufnr = $validated['aufnr'];
         // URL API Flask untuk Read PP
-        $flaskApiUrl = 'http://127.0.0.1:8006/api/read-pp';
+        $flaskApiUrl = 'http://127.0.0.1:8050/api/read-pp';
 
         try {
             // 2. Hit ke endpoint API Flask

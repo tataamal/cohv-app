@@ -88,11 +88,10 @@
                     <h3 class="h5 fw-semibold text-dark">Data Kapasitas Workcenter</h3>
                     <p class="small text-muted mb-4">Perbandingan Display Jumlah PRO dan Kapasitas di setiap Workcenter</p>
                     <div style="height: 24rem;">
-                        <!-- KOMPONEN BLADE DIGANTI DENGAN CANVAS + DATA ATTRIBUTES -->
-                        <canvas class="chart-canvas" 
-                                data-type="bar"
+                        <canvas id="myBarChart" 
                                 data-labels="{{ json_encode($labels) }}"
-                                data-datasets="{{ json_encode($datasets) }}"></canvas>
+                                data-datasets="{{ json_encode($datasets) }}"
+                                data-urls="{{ json_encode($targetUrls) }}"></canvas>
                     </div>
                 </div>
             </div>
@@ -171,4 +170,56 @@
             </div>
         </div>
     </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const canvas = document.getElementById('myBarChart');
+            if (!canvas) return;
+
+            // Ambil data dari data-attributes
+            const labels = JSON.parse(canvas.dataset.labels);
+            const datasets = JSON.parse(canvas.dataset.datasets);
+            const urls = JSON.parse(canvas.dataset.urls); // Ambil data URL
+
+            const chart = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    // Fungsi saat bar di-hover
+                    onHover: (event, chartElement) => {
+                        // Ubah cursor menjadi 'pointer' jika mouse berada di atas bar
+                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                    },
+                    // Fungsi saat chart di-klik
+                    onClick: (event) => {
+                        const points = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+
+                        // Jika ada bar yang di-klik
+                        if (points.length) {
+                            const firstPoint = points[0];
+                            const index = firstPoint.index; // Dapatkan index dari bar yang di-klik
+                            
+                            // Ambil URL yang sesuai dari array `urls` menggunakan index
+                            const url = urls[index];
+                            
+                            // Arahkan pengguna ke URL tersebut
+                            window.location.href = url;
+                        }
+                    }
+                }
+            });
+        });
+    </script>
 </x-layouts.app>

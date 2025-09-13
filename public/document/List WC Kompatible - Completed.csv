@@ -1,0 +1,52 @@
+MAPPINGAN KOMPATIBEL BERDASARKAN WORK CENTER,,,,
+No,WC Asal,WC Tujuan,Status,Plant
+1,WC393,WC586,Compatible,3000
+2,WC259,WC260,Compatible,3000
+3,WC744,WC745,Compatible,3000
+4,WC744,WC746,Compatible,3000
+5,WC747,WC748,Compatible,3000
+6,WC747,WC749,Compatible,3000
+7,WC232,WC233,Compatible,3000
+8,WC232,WC234,Compatible,3000
+9,WC234,WC235,Compatible,3000
+10,WC236,WC233,Compatible With Condition,3000
+11,WC236,WC234,Compatible With Condition,3000
+12,WC236,WC235,Compatible With Condition,3000
+13,WC237,WC241,Compatible With Condition,3000
+14,WC237,WC242,Compatible With Condition,3000
+15,WC237,WC243,Compatible With Condition,3000
+16,WC238,,Tidak ada Keterangan,3000
+17,WC239,WC233,Compatible With Condition,3000
+18,WC239,WC234,Compatible With Condition,3000
+19,WC239,WC235,Compatible With Condition,3000
+20,WC240,WC241,Compatible With Condition,3000
+21,WC240,WC242,Compatible With Condition,3000
+22,WC240,WC243,Compatible With Condition,3000
+23,WC241,WC242,Compatible,3000
+24,WC241,WC243,Compatible,3000
+25,WC244,WC233,Compatible With Condition,3000
+26,WC244,WC234,Compatible With Condition,3000
+27,WC244,WC235,Compatible With Condition,3000
+28,WC244,WC247,Compatible With Condition,3000
+29,WC244,WC249,Compatible With Condition,3000
+30,WC245,WC247,Compatible With Condition,3000
+31,WC245,WC249,Compatible With Condition,3000
+32,WCC246,WC247,Compatible With Condition,3000
+33,WCC246,WC244,Compatible With Condition,3000
+34,WCC246,WC249,Compatible With Condition,3000
+35,WC248,WC233,Compatible With Condition,3000
+36,WC248,WC234,Compatible With Condition,3000
+37,WC248,WC235,Compatible With Condition,3000
+38,WC247,WC249,Compatible With Condition,3000
+39,WC247,WC244,Compatible With Condition,3000
+40,WC247,WC246,Compatible With Condition,3000
+41,WC247,WC245,Compatible With Condition,3000
+42,WC249,WC249,Compatible With Condition,3000
+43,WC249,WC244,Compatible With Condition,3000
+44,WC249,WC246,Compatible With Condition,3000
+45,WC249,WC245,Compatible With Condition,3000
+46,WC250,,Tidak ada Keterangan,3000
+47,WC251,,Tidak ada Keterangan,3000
+48,WC252,WC384,Compatible,3000
+49,WC252,WC253,Compatible With Condition,3000
+50,WC253,,Tidak ada Keterangan,3000

@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('MAKFG')->nullable();
             $table->date('EDATU')->nullable();
             $table->string('WERKSX')->nullable();
+            $table->string('KUNNR', 10)->nullable();
+            $table->string('NAME1', 35)->nullable();
             $table->timestamps();
         });
     }
