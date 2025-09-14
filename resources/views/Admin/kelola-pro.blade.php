@@ -14,7 +14,7 @@
             padding: 1rem 1.5rem;
         }
         
-        /* 2. CSS untuk Tabel dengan Sticky Header & Scroll */
+        /* CSS untuk Tabel dengan Sticky Header & Scroll */
         .table-container {
             max-height: 450px; /* Batas tinggi tabel sebelum scroll muncul */
             overflow-y: auto;
@@ -28,6 +28,8 @@
     </style>
     @endpush
     <div class="container-fluid my-4">
+        {{-- Memanggil komponen notifikasi --}}
+        <x-notification.notification />
         {{-- BARIS 1: CHART BAR (Tampilan Disesuaikan) --}}
         <div class="row mb-4">
             <div class="col-12">
@@ -92,26 +94,26 @@
                                         <th scope="col">No</th>
                                         <th scope="col">Kode PRO (AUFNR)</th>
                                         <th scope="col">Work Center (ARBPL)</th>
+                                        <th scope="col">Operation (VORNR)</th>
                                         <th scope="col">Opration Key (STEUS)</th>
-                                        <th scope="col">PV1</th>
-                                        <th scope="col">PV2</th>
-                                        <th scope="col">PV3</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proTableBody">
                                     @forelse ($pros as $pro)
-                                        <tr class="pro-row" draggable="true" data-pro-code="{{ $pro->AUFNR }}" data-wc-asal="{{ $pro->ARBPL }}">
+                                        <tr class="pro-row" draggable="true" 
+                                            data-pro-code="{{ $pro->AUFNR }}" 
+                                            data-wc-asal="{{ $pro->ARBPL }}"
+                                            data-oper="{{ $pro->VORNR }}">
                                             <td>{{ $loop->iteration }}</td>
                                             <td class="fw-bold">{{ $pro->AUFNR }}</td>
                                             <td>{{ $pro->ARBPL }}</td>
+                                            <td>{{ $pro->VORNR }}</td>
                                             <td>{{ $pro->STEUS }}</td>
-                                            {{-- Langsung panggil, karena sudah diolah di controller --}}
-                                            <td>{{ $pro->PV1 }}</td>
-                                            <td>{{ $pro->PV2 }}</td>
-                                            <td>{{ $pro->PV3 }}</td>
                                         </tr>
                                     @empty
-                                        {{-- Baris jika data kosong --}}
+                                        <tr>
+                                            <td colspan="5" class="text-center">Tidak ada data PRO di Work Center ini.</td>
+                                        </tr>
                                     @endforelse
                                 </tbody>
                             </table>
@@ -122,7 +124,6 @@
 
             {{-- KOLOM KANAN: KARTU INFORMASI (4-COL) --}}
             <div class="col-lg-4">
-                {{-- 4. KARTU INFO YANG DIRAPIKAN --}}
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-header">
                         <h5 class="mb-0 fw-bold">Petunjuk Penggunaan</h5>
@@ -160,15 +161,15 @@
         </div>
     </div>
 
-    {{-- ================================================= --}}
     {{-- MODAL UNTUK KONFIRMASI PEMINDAHAN --}}
-    {{-- ================================================= --}}
     <div class="modal fade" id="changeWcModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form id="changeWcForm" method="POST" action="">
-                    @csrf  <input type="hidden" name="pro_code" id="formProCodeWc">
-
+                    @csrf
+                    <input type="hidden" name="pro_code" id="formProCodeWc">
+                    <input type="hidden" name="oper_code" id="formOperCodeWc">
+                    <input type="hidden" name="wc_asal" id="formWcAsalWc">
                     <div class="modal-header">
                         <h5 class="modal-title">Konfirmasi Pindah Work Center</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -186,55 +187,30 @@
         </div>
     </div>
 
+    {{-- MODAL UNTUK PERUBAHAN PV (diasumsikan ada) --}}
     <div class="modal fade" id="changePvModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form id="changePvForm" method="POST" action="">
-                    @csrf
-                    <input type="hidden" name="pro_code" id="formProCodePv">
-
-                    <div class="modal-header">
-                        <h5 class="modal-title">Konfirmasi Pindah (Dengan Kondisi)</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>PRO <strong id="proCodePv"></strong> dari WC <strong id="wcAsalPv"></strong> akan dipindahkan ke WC <strong id="wcTujuanPv"></strong>.</p>
-                        <p class="text-warning">WC tujuan memerlukan penyesuaian Production Version (PV). Proses ini akan mengarahkan Anda ke halaman perubahan PV.</p>
-                        <p>Lanjutkan?</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-warning">Ya, Lanjutkan ke Perubahan PV</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        {{-- Konten Modal untuk Perubahan PV --}}
     </div>
 
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // =================================================
         // SETUP DATA DARI BLADE
-        // =================================================
         const ctx = document.getElementById('wcChart').getContext('2d');
         const chartLabels = @json($chartLabels ?? []);
         const chartData = @json($chartDensityData ?? []);
-        const compatibilities = @json($compatibilities ?? (object)[]); // Cast ke object agar menjadi {}
+        const compatibilities = @json($compatibilities ?? (object)[]);
         const plantKode = @json($kode ?? '');
 
         // Warna default untuk chart
-        const defaultColor = 'rgba(54, 162, 235, 0.6)';
-        const compatibleColor = 'rgba(25, 135, 84, 0.6)'; // Hijau
-        const conditionalColor = 'rgba(255, 193, 7, 0.6)'; // Kuning
-        const otherColor = 'rgba(108, 117, 125, 0.6)';   // Abu-abu
-
+        const defaultColor = 'rgba(13, 110, 253, 0.6)';
+        const compatibleColor = 'rgba(25, 135, 84, 0.6)';
+        const conditionalColor = 'rgba(255, 193, 7, 0.6)';
+        const otherColor = 'rgba(108, 117, 125, 0.6)';
         let chartColors = Array(chartLabels.length).fill(defaultColor);
 
-        // =================================================
         // INISIALISASI CHART
-        // =================================================
         const wcChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -258,59 +234,41 @@
             }
         });
 
-        // =================================================
         // LOGIKA KLIK PADA BARIS TABEL
-        // =================================================
         document.querySelectorAll('.pro-row').forEach(row => {
             row.addEventListener('click', function () {
                 const wcAsal = this.dataset.wcAsal;
                 const compatibilityRules = compatibilities[wcAsal] || [];
-                
-                // Buat map untuk pencarian cepat: {'WC Tujuan': 'Status'}
                 const rulesMap = Object.fromEntries(compatibilityRules.map(rule => [rule.wc_tujuan, rule.status]));
 
-                // Tentukan warna baru berdasarkan aturan
                 const newColors = chartLabels.map(targetWc => {
-                    if (targetWc === wcAsal) {
-                        return defaultColor; // Warna asli untuk WC asal
-                    }
+                    if (targetWc === wcAsal) return defaultColor;
                     const status = rulesMap[targetWc];
-                    if (status === 'Compatible') {
-                        return compatibleColor;
-                    } else if (status === 'Compatible With Condition') {
-                        return conditionalColor;
-                    } else {
-                        return otherColor;
-                    }
+                    if (status === 'Compatible') return compatibleColor;
+                    if (status === 'Compatible With Condition') return conditionalColor;
+                    return otherColor;
                 });
-
-                // Update warna chart dan render ulang
                 wcChart.data.datasets[0].backgroundColor = newColors;
                 wcChart.update();
             });
         });
 
-        // =================================================
         // LOGIKA DRAG AND DROP
-        // =================================================
         let draggedItem = null;
-
         document.querySelectorAll('.pro-row').forEach(row => {
             row.addEventListener('dragstart', function(e) {
                 draggedItem = this;
                 e.dataTransfer.effectAllowed = 'move';
-                // Simpan data yang akan digunakan saat drop
                 e.dataTransfer.setData('text/plain', JSON.stringify({
                     proCode: this.dataset.proCode,
-                    wcAsal: this.dataset.wcAsal
+                    wcAsal: this.dataset.wcAsal,
+                    oper: this.dataset.oper
                 }));
             });
         });
 
         const chartCanvas = document.getElementById('wcChart');
-        chartCanvas.addEventListener('dragover', function(e) {
-            e.preventDefault(); // Wajib untuk mengizinkan drop
-        });
+        chartCanvas.addEventListener('dragover', function(e) { e.preventDefault(); });
 
         chartCanvas.addEventListener('drop', function(e) {
             e.preventDefault();
@@ -323,98 +281,74 @@
                 const barIndex = elements[0].index;
                 const wcTujuan = chartLabels[barIndex];
                 
-                // Jangan lakukan apa-apa jika drop di WC yang sama
-                if (wcTujuan === droppedData.wcAsal) {
-                    console.log("Drop di WC yang sama, tidak ada aksi.");
-                    return;
-                }
+                if (wcTujuan === droppedData.wcAsal) return;
 
-                // Cek status kompatibilitas
                 const compatibilityRules = compatibilities[droppedData.wcAsal] || [];
                 const rule = compatibilityRules.find(r => r.wc_tujuan === wcTujuan);
-                const status = rule ? rule.status : 'Tidak ada Keterangan';
+                const status = rule ? rule.status : 'Tidak Ada Aturan';
                 
                 if (status === 'Compatible') {
-                // Siapkan dan tampilkan modal Change WC
-                document.getElementById('proCodeWc').textContent = droppedData.proCode;
-                document.getElementById('wcAsalWc').textContent = droppedData.wcAsal;
-                document.getElementById('wcTujuanWc').textContent = wcTujuan;
+                    document.getElementById('proCodeWc').textContent = droppedData.proCode;
+                    document.getElementById('wcAsalWc').textContent = droppedData.wcAsal;
+                    document.getElementById('wcTujuanWc').textContent = wcTujuan;
 
-                // Bangun URL action untuk form menggunakan route name
-                const changeWcUrl = `/changeWC/${plantKode}/${wcTujuan}`;
-                
-                // Set atribut form
-                const changeWcForm = document.getElementById('changeWcForm');
-                changeWcForm.setAttribute('action', changeWcUrl);
-                document.getElementById('formProCodeWc').value = droppedData.proCode;
-                
-                new bootstrap.Modal(document.getElementById('changeWcModal')).show();
+                    // Membangun URL secara langsung menggunakan variabel JavaScript
+                    const finalUrl = `/changeWC/${plantKode}/${wcTujuan}`;
+                    
+                    const changeWcForm = document.getElementById('changeWcForm');
+                    changeWcForm.setAttribute('action', finalUrl);
+                    
+                    document.getElementById('formProCodeWc').value = droppedData.proCode;
+                    document.getElementById('formOperCodeWc').value = droppedData.oper;
+                    document.getElementById('formWcAsalWc').value = droppedData.wcAsal;
+                    
+                    new bootstrap.Modal(document.getElementById('changeWcModal')).show();
 
-            } else if (status === 'Compatible With Condition') {
-                // Siapkan dan tampilkan modal Change PV
-                document.getElementById('proCodePv').textContent = droppedData.proCode;
-                document.getElementById('wcAsalPv').textContent = droppedData.wcAsal;
-                document.getElementById('wcTujuanPv').textContent = wcTujuan;
-
-                // Bangun URL action untuk form menggunakan route name
-                const changePvUrl = `/changePV/${plantKode}/${wcTujuan}`;
-
-                // Set atribut form
-                const changePvForm = document.getElementById('changePvForm');
-                changePvForm.setAttribute('action', changePvUrl);
-                document.getElementById('formProCodePv').value = droppedData.proCode;
-
-                new bootstrap.Modal(document.getElementById('changePvModal')).show();
-
-            } else {
-                alert(`Pemindahan ke ${wcTujuan} tidak diizinkan.`);
-            }
-        }
-        draggedItem = null;
-    });
-    });
-    // =================================================
-    // FITUR BARU 1: NAVIGASI WC CEPAT
-    // =================================================
-    const quickNavBtn = document.getElementById('wcQuickNavBtn');
-    const quickNavSelect = document.getElementById('wcQuickNavSelect');
-    const plantKode = @json($kode ?? '');
-
-    if (quickNavBtn) {
-        quickNavBtn.addEventListener('click', function() {
-            const selectedWc = quickNavSelect.value;
-            if (selectedWc) {
-                // Ganti '/wc-mapping/details/' dengan path route Anda yang sebenarnya
-                window.location.href = `/wc-mapping/details/${plantKode}/${selectedWc}`;
-            }
-        });
-    }
-
-    // =================================================
-    // FITUR BARU 2: PENCARIAN PRO DI TABEL
-    // =================================================
-    const proSearchInput = document.getElementById('proSearchInput');
-    const proTableBody = document.getElementById('proTableBody');
-    const tableRows = proTableBody.getElementsByTagName('tr');
-
-    if (proSearchInput) {
-        proSearchInput.addEventListener('keyup', function() {
-            const filterText = proSearchInput.value.toUpperCase();
-
-            for (let i = 0; i < tableRows.length; i++) {
-                // Cari di kolom kedua (indeks 1), yaitu Kode PRO (AUFNR)
-                let td = tableRows[i].getElementsByTagName('td')[1]; 
-                if (td) {
-                    let textValue = td.textContent || td.innerText;
-                    if (textValue.toUpperCase().indexOf(filterText) > -1) {
-                        tableRows[i].style.display = "";
-                    } else {
-                        tableRows[i].style.display = "none";
-                    }
+                } else if (status === 'Compatible With Condition') {
+                    // Logika untuk menampilkan modal perubahan PV bisa ditambahkan di sini
+                } else {
+                    alert(`Pemindahan PRO ${droppedData.proCode} ke Work Center ${wcTujuan} tidak diizinkan.`);
                 }
             }
+            draggedItem = null;
         });
-    }
+        
+        // FITUR NAVIGASI WC CEPAT
+        const quickNavBtn = document.getElementById('wcQuickNavBtn');
+        const quickNavSelect = document.getElementById('wcQuickNavSelect');
+        if (quickNavBtn) {
+            quickNavBtn.addEventListener('click', function() {
+                const selectedWc = quickNavSelect.value;
+                if (selectedWc) {
+                    // Ganti dengan route name Anda jika ada
+                    const baseUrl = `/wc-mapping/details/${plantKode}`; 
+                    window.location.href = `${baseUrl}/${selectedWc}`;
+                }
+            });
+        }
+
+        // FITUR PENCARIAN PRO DI TABEL
+        const proSearchInput = document.getElementById('proSearchInput');
+        const proTableBody = document.getElementById('proTableBody');
+        const tableRows = proTableBody.getElementsByTagName('tr');
+        if (proSearchInput) {
+            proSearchInput.addEventListener('keyup', function() {
+                const filterText = proSearchInput.value.toUpperCase();
+                for (let i = 0; i < tableRows.length; i++) {
+                    let td = tableRows[i].getElementsByTagName('td')[1]; 
+                    if (td) {
+                        let textValue = td.textContent || td.innerText;
+                        if (textValue.toUpperCase().indexOf(filterText) > -1) {
+                            tableRows[i].style.display = "";
+                        } else {
+                            tableRows[i].style.display = "none";
+                        }
+                    }
+                }
+            });
+        }
+    });
     </script>
     @endpush
 </x-layouts.app>
+

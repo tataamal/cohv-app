@@ -196,7 +196,7 @@ def refresh_single_pro():
     
     try:
         plant = (request.args.get('plant') or request.args.get('WERKS') or '').strip()
-        aufnr = (request.args.get('AUFNR') or request.args.get('order') or '').strip()
+        aufnr = (request.args.get('aufnr') or request.args.get('order') or '').strip()
 
         if not plant:
             return jsonify({'error': 'Missing plant parameter'}), 400

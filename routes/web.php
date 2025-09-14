@@ -63,7 +63,7 @@ Route::middleware('auth')->group(function (){
     Route::get('gr/{kode}', [ManufactController::class, 'list_gr'])->name('list.gr');
     Route::get('/wc-mapping', [WcCompatibilityController::class, 'index']);
     Route::get('/wc-mapping/details/{kode}/{wc}', [WcCompatibilityController::class, 'showDetails'])->name('wc.details');
-    Route::post('/changeWC/{kode}/{wc}', [Data1Controller::class,'changeWC'])->name('change-wc-drag');
-    Route::post('/changePV/{kode}/{wc}', [Data1Controller::class,'changePV'])->name('change-pv-drag');
+    Route::post('/changeWC/{kode}/{wcTujuan}', [WcCompatibilityController::class,'changeWorkcenter'])->name('change-wc-drag');
+    Route::post('/changePV/{kode}/{wc}', [WcCompatibilityController::class,'changePV'])->name('change-pv-drag');
 
 });
