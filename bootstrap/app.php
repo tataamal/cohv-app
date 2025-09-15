@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // alias middleware (bisa dipanggil di routes)
+        $middleware->alias([
+            'clear.cookies' => \App\Http\Middleware\ClearAuthCookies::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

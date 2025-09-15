@@ -144,6 +144,8 @@ def changewc():
                 'OPERATION': op.get('OPER', ''),
                 'WORK_CENTER': op.get('WORK_CEN', ''),
                 'WORK_CENTER_X': op.get('W', 'X'),
+                'SHORT_TEXT': op.get('SHORT_T', ''),
+                'SHORT_TEXT_X': op.get('S', 'X'),
             }
             it_operation_filtered.append(filtered)
 
@@ -1029,6 +1031,51 @@ def read_pp():
         if conn:
             conn.close()
             print("Koneksi SAP ditutup.")
+@app.route('/api/get_wc_desc', methods=['GET'])
+def get_wc_description():
+    """
+    API untuk memanggil RFC Z_FM_GET_WC_DESC dan mendapatkan deskripsi
+    dari sebuah Work Center (ARBPL) pada Plant tertentu (WERKS).
+    """
+    try:
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
+
+        # Ambil parameter dari URL query string (contoh: /api/get_wc_desc?wc=WC001&pwwrk=1000)
+        wc_tujuan = request.args.get('wc')
+        pwwrk = request.args.get('pwwrk')
+
+        print(f"Menerima parameter untuk get_wc_desc: wc={wc_tujuan}, pwwrk={pwwrk}")
+
+        # Validasi input
+        if not wc_tujuan:
+            return jsonify({'error': 'Missing required parameter: wc'}), 400
+        if not pwwrk:
+            return jsonify({'error': 'Missing required parameter: pwwrk'}), 400
+
+        print(f"Memanggil RFC Z_FM_GET_WC_DESC dengan IV_ARBPL={wc_tujuan} dan IV_WERKS={pwwrk}")
+        
+        # Panggil RFC dengan parameter yang sesuai
+        result = conn.call(
+            'Z_FM_GET_WC_DESC',
+            IV_ARBPL=wc_tujuan,
+            IV_WERKS=pwwrk
+        )
+
+        print("Hasil dari RFC:", result)
+        return jsonify(result)
+
+    except ValueError as ve:
+        # Error dari get_credentials()
+        return jsonify({'error': str(ve)}), 401
+    except (CommunicationError, ABAPApplicationError) as e:
+        # Error spesifik dari SAP
+        print(f"SAP Error: {e}")
+        return jsonify({'error': f"SAP Error: {e}"}), 500
+    except Exception as e:
+        # Error umum lainnya
+        print("Exception:", str(e))
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     os.environ['PYTHONHASHSEED'] = '0'

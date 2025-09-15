@@ -62,7 +62,7 @@ class Data1Controller extends Controller
                     'X-SAP-Password' => session('password'),
                 ])
                 ->timeout(60)
-                ->post(env('FLASK_BASE_URL', 'http://127.0.0.1:8050').'/api/save_edit', $changePayload);
+                ->post(env('FLASK_API_URL', 'http://127.0.0.1:8050').'/api/save_edit', $changePayload);
 
             if (!$changeResp->successful()) {
                 $errorMsg = $changeResp->json('error') ?? 'Gagal mengubah Work Center di SAP.';
@@ -76,7 +76,7 @@ class Data1Controller extends Controller
                     'X-SAP-Password' => session('password'),
                 ])
                 ->timeout(120)
-                ->get(env('FLASK_BASE_URL', 'http://127.0.0.1:8050').'/api/refresh-pro', [
+                ->get(env('FLASK_API_URL', 'http://127.0.0.1:8050').'/api/refresh-pro', [
                     'plant' => $data['plant'],
                     'AUFNR' => $data['aufnr'],
                 ]);

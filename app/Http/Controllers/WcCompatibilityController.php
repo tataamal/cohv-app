@@ -74,15 +74,45 @@ class WcCompatibilityController extends Controller
         $validated = $request->validate([
             'pro_code' => 'required|string',
             'oper_code' => 'required|string',
+            'pwwrk' => 'required|string',
         ]);
-
-        // dd($request->pro_code);
 
         $proCode = $validated['pro_code'];
         $operCode = $validated['oper_code'];
+        $pwwrk = $validated['pwwrk'];
 
         try {
-            // 2. Siapkan payload untuk API changeWC
+            // =================================================================
+            // LANGKAH 1: Panggil API Z_FM_GET_WC_DESC terlebih dahulu
+            // =================================================================
+            Log::info("Memulai proses pindah WC untuk PRO {$proCode}. Langkah 1: Get WC Description.");
+            $descApiUrl = env('FLASK_API_URL') . '/api/get_wc_desc';
+            $descApiResponse = Http::timeout(120)
+                ->withHeaders([
+                    'X-SAP-Username' => session('username'),
+                    'X-SAP-Password' => session('password'),
+                ])
+                ->get($descApiUrl, [
+                    'wc' => $wc_tujuan,
+                    'pwwrk' => $pwwrk,
+                ]);
+
+            if (!$descApiResponse->successful()) {
+                $errorData = $descApiResponse->json();
+                throw new Exception("API Get WC Description Gagal: " . ($errorData['error'] ?? 'Terjadi kesalahan tidak diketahui'));
+            }
+            
+            // Mengambil deskripsi dari hasil panggilan API pertama
+            $wcDescriptionData = $descApiResponse->json();
+            
+            // [PERBAIKAN] Menggunakan kunci 'E_DESC' sesuai dengan respons RFC yang Anda berikan
+            $shortText = $wcDescriptionData['E_DESC'] ?? '';
+            
+            Log::info(" -> Deskripsi untuk WC {$wc_tujuan} didapatkan: '{$shortText}'");
+
+            // =================================================================
+            // LANGKAH 2: Siapkan dan Panggil API untuk mengubah WC
+            // =================================================================
             $payload = [
                 "IV_AUFNR" => $proCode,
                 "IV_COMMIT" => "X",
@@ -91,12 +121,14 @@ class WcCompatibilityController extends Controller
                         "SEQUEN" => "0",
                         "OPER" => $operCode,
                         "WORK_CEN" => $wc_tujuan,
-                        "W" => "X"
+                        "W" => "X",
+                        "SHORT_T" => $shortText, // Data baru dari RFC pertama
+                        "S" => "X"               // Flag update untuk SHORT_TEXT
                     ]
                 ]
             ];
 
-            // 3. Panggil API untuk mengubah WC di SAP
+            Log::info("Langkah 2: Mengubah WC di SAP...");
             $changeApiUrl = env('FLASK_API_URL') . '/api/save_edit';
             $changeApiResponse = Http::timeout(120)
                 ->withHeaders([
@@ -109,8 +141,12 @@ class WcCompatibilityController extends Controller
                 $errorData = $changeApiResponse->json();
                 throw new Exception("API Change WC Gagal: " . ($errorData['error'] ?? 'Terjadi kesalahan tidak diketahui'));
             }
+            Log::info(" -> Perubahan WC di SAP berhasil.");
 
-            // 4. Panggil API untuk me-refresh data PRO dari SAP
+            // =================================================================
+            // LANGKAH 3: Panggil API untuk me-refresh dan simpan data
+            // =================================================================
+            Log::info("Langkah 3: Me-refresh data PRO dari SAP...");
             $refreshApiUrl = env('FLASK_API_URL') . '/api/refresh-pro';
             $refreshApiResponse = Http::timeout(120)
                 ->withHeaders([
@@ -126,8 +162,8 @@ class WcCompatibilityController extends Controller
                 $errorData = $refreshApiResponse->json();
                 throw new Exception("API Refresh PRO Gagal: " . ($errorData['error'] ?? 'Terjadi kesalahan tidak diketahui'));
             }
+            Log::info(" -> Data PRO berhasil di-refresh.");
 
-            // 5. Ekstrak semua data yang sudah di-refresh
             $refreshedData = $refreshApiResponse->json();
             $t_data  = $refreshedData['T_DATA'] ?? [];
             $t_data1 = $refreshedData['T_DATA1'] ?? [];
@@ -141,30 +177,24 @@ class WcCompatibilityController extends Controller
 
             // Memulai transaksi database untuk memastikan integritas data
             DB::transaction(function () use ($t_data, $t_data1, $t_data2, $t_data3, $t_data4, $plant, $proCode) {
-                Log::info("Memulai transaksi DB untuk sinkronisasi PRO {$proCode} di plant {$plant}.");
+                // ... (Logika transaksi database tetap sama) ...
+                Log::info("Memulai transaksi DB untuk sinkronisasi PRO {$proCode}.");
 
-                // --- Update atau Buat Record Induk ---
-                $t_data_row = $t_data[0];
                 ProductionTData::updateOrCreate(
-                    ['KUNNR' => $t_data_row['KUNNR'], 'NAME1' => $t_data_row['NAME1']],
-                    $t_data_row + ['WERKSX' => $plant]
+                    ['KUNNR' => $t_data[0]['KUNNR'], 'NAME1' => $t_data[0]['NAME1']],
+                    $t_data[0] + ['WERKSX' => $plant]
                 );
 
-                $t2_row = $t_data2[0];
                 ProductionTData2::updateOrCreate(
-                    ['KDAUF' => $t2_row['KDAUF'], 'KDPOS' => $t2_row['KDPOS']],
-                    $t2_row + ['WERKSX' => $plant]
+                    ['KDAUF' => $t_data2[0]['KDAUF'], 'KDPOS' => $t_data2[0]['KDPOS']],
+                    $t_data2[0] + ['WERKSX' => $plant]
                 );
                 
-                $t3_row = $t_data3[0];
                 ProductionTData3::updateOrCreate(
-                    ['AUFNR' => $t3_row['AUFNR']],
-                    $t3_row + ['WERKSX' => $plant]
+                    ['AUFNR' => $t_data3[0]['AUFNR']],
+                    $t_data3[0] + ['WERKSX' => $plant]
                 );
 
-                // --- Hapus dan Sisipkan Ulang Data Anak ---
-                
-                // Proses T_DATA1
                 ProductionTData1::where('AUFNR', $proCode)->delete();
                 if (!empty($t_data1)) {
                     $formatTanggal = function ($tgl) {
@@ -201,13 +231,10 @@ class WcCompatibilityController extends Controller
                     ProductionTData1::insert($mapped_t1);
                 }
 
-                // Proses T_DATA4
                 ProductionTData4::where('AUFNR', $proCode)->delete();
                 if (!empty($t_data4)) {
                     $mapped_t4 = array_map(function($row) use ($plant) {
-
                         unset($row['VORNR'], $row['WERKS']);
-
                         $row['WERKSX'] = $plant;
                         return $row;
                     }, $t_data4);
@@ -216,7 +243,7 @@ class WcCompatibilityController extends Controller
                 Log::info("Transaksi DB untuk PRO {$proCode} berhasil.");
             });
 
-            // 7. Redirect kembali dengan pesan sukses
+            // Redirect kembali dengan pesan sukses
             return redirect()->back()->with('success', "PRO {$proCode} berhasil dipindahkan ke WC {$wc_tujuan} dan data telah disinkronkan.");
 
         } catch (Exception $e) {

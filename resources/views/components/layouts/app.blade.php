@@ -42,11 +42,12 @@
     <!-- Loader global -->
     <div id="loading-overlay" class="loading-overlay d-none">
         <div class="loader mb-4"></div>
-        <h2 class="h4 fw-semibold text-secondary">Memuat Halaman...</h2>
+        <h2 class="h4 fw-semibold text-color-loading">Memuat Halaman...</h2>
     </div>
 
     @stack('scripts')
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.js'></script>
+    
 </body>
 </html>

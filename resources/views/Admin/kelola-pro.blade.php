@@ -25,11 +25,62 @@
             z-index: 1;
             background-color: #f8f9fa; /* Warna latar belakang header saat sticky */
         }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(229, 99, 255, 0.398);
+            z-index: 9999;
+            /* d-none akan mengatur display: none, saat kelas dihapus, flex akan aktif */
+            display: flex; 
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .loader {
+            position: relative;
+            width: 108px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .text-color-loading {
+            color: #000000;
+        }
+        .loader::after , .loader::before  {
+            content: '';
+            display: inline-block;
+            width: 48px;
+            height: 48px;
+            background-color: #FFF;
+            background-image:  radial-gradient(circle 14px, #0d161b 100%, transparent 0);
+            background-repeat: no-repeat;
+            border-radius: 50%;
+            animation: eyeMove 10s infinite , blink 10s infinite;
+        }
+        @keyframes eyeMove {
+            0%  , 10% {     background-position: 0px 0px}
+            13%  , 40% {     background-position: -15px 0px}
+            43%  , 70% {     background-position: 15px 0px}
+            73%  , 90% {     background-position: 0px 15px}
+            93%  , 100% {     background-position: 0px 0px}
+        }
+        @keyframes blink {
+            0%  , 10% , 12% , 20%, 22%, 40%, 42% , 60%, 62%,  70%, 72% , 90%, 92%, 98% , 100%
+            { height: 48px}
+            11% , 21% ,41% , 61% , 71% , 91% , 99%
+            { height: 18px}
+        }
     </style>
     @endpush
     <div class="container-fluid my-4">
         {{-- Memanggil komponen notifikasi --}}
         <x-notification.notification />
+        <div id="loading-overlay" class="loading-overlay d-none">
+            <div class="loader mb-4"></div>
+            <h2 class="h4 fw-semibold text-secondary text-color-loading">Memproses Pemindahan Workcenter...</h2>
+        </div>
         {{-- BARIS 1: CHART BAR (Tampilan Disesuaikan) --}}
         <div class="row mb-4">
             <div class="col-12">
@@ -96,19 +147,27 @@
                                         <th scope="col">Work Center (ARBPL)</th>
                                         <th scope="col">Operation (VORNR)</th>
                                         <th scope="col">Opration Key (STEUS)</th>
+                                        <th scope="col">Production Version 1 (PV1)</th>
+                                        <th scope="col">Production Version 2 (PV2)</th>
+                                        <th scope="col">Production Version 3 (PV3)</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proTableBody">
                                     @forelse ($pros as $pro)
+                                        {{-- PERUBAHAN 1: Tambahkan data-pwwrk di sini. Pastikan nama field $pro->PWWRK sudah benar. --}}
                                         <tr class="pro-row" draggable="true" 
                                             data-pro-code="{{ $pro->AUFNR }}" 
                                             data-wc-asal="{{ $pro->ARBPL }}"
-                                            data-oper="{{ $pro->VORNR }}">
+                                            data-oper="{{ $pro->VORNR }}"
+                                            data-pwwrk="{{ $pro->PWWRK }}">
                                             <td>{{ $loop->iteration }}</td>
                                             <td class="fw-bold">{{ $pro->AUFNR }}</td>
                                             <td>{{ $pro->ARBPL }}</td>
                                             <td>{{ $pro->VORNR }}</td>
                                             <td>{{ $pro->STEUS }}</td>
+                                            <td>{{ $pro->PV1 }}</td>
+                                            <td>{{ $pro->PV2 }}</td>
+                                            <td>{{ $pro->PV3 }}</td>
                                         </tr>
                                     @empty
                                         <tr>
@@ -170,6 +229,7 @@
                     <input type="hidden" name="pro_code" id="formProCodeWc">
                     <input type="hidden" name="oper_code" id="formOperCodeWc">
                     <input type="hidden" name="wc_asal" id="formWcAsalWc">
+                    <input type="hidden" name="pwwrk" id="formPwwrkWc">
                     <div class="modal-header">
                         <h5 class="modal-title">Konfirmasi Pindah Work Center</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -262,7 +322,8 @@
                 e.dataTransfer.setData('text/plain', JSON.stringify({
                     proCode: this.dataset.proCode,
                     wcAsal: this.dataset.wcAsal,
-                    oper: this.dataset.oper
+                    oper: this.dataset.oper,
+                    pwwrk: this.dataset.pwwrk
                 }));
             });
         });
@@ -301,6 +362,7 @@
                     document.getElementById('formProCodeWc').value = droppedData.proCode;
                     document.getElementById('formOperCodeWc').value = droppedData.oper;
                     document.getElementById('formWcAsalWc').value = droppedData.wcAsal;
+                    document.getElementById('formPwwrkWc').value = droppedData.pwwrk;
                     
                     new bootstrap.Modal(document.getElementById('changeWcModal')).show();
 
@@ -345,6 +407,22 @@
                         }
                     }
                 }
+            });
+        }
+
+        const loaderOverlay = document.getElementById('loading-overlay');
+        const changeWcForm = document.getElementById('changeWcForm');
+        const changePvForm = document.getElementById('changePvForm');
+
+        if (changeWcForm) {
+            changeWcForm.addEventListener('submit', function() {
+                loaderOverlay.classList.remove('d-none');
+            });
+        }
+
+        if (changePvForm) {
+            changePvForm.addEventListener('submit', function() {
+                loaderOverlay.classList.remove('d-none');
             });
         }
     });

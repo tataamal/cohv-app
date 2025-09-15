@@ -14,17 +14,11 @@ use App\Http\Controllers\WcCompatibilityController;
 | Web Routes
 |--------------------------------------------------------------------------
 */
-
+Route::get('/', [LoginController::class, 'checkAuth']);
 // Routing untuk user yang belum melakukan register
 Route::middleware('guest')->group(function (){
-
-    Route::get('/', [LoginController::class, 'showLoginForm'])->name('login');
-    // Routing untuk login masing-masing role
-    Route::post('/login/korlap', [LoginController::class, 'loginKorlap'])->name('login.korlap');
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->middleware('clear.cookies')->name('login');
     Route::post('/login/admin', [LoginController::class, 'loginAdmin'])->name('login.admin');
-    // routing untuk mendapatkan sap_id otomatis ketika korlap login
-    Route::post('api/get-sap-user-id', [LoginController::class, 'getSapUserByKode'])->name('get_sap_user_id');
-    
 });
 
 Route::middleware('auth')->group(function (){
