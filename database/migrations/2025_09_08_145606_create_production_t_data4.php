@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('MANDT')->nullable();
             $table->string('RSNUM')->nullable();
             $table->string('RSPOS')->nullable();
+            $table->string('VORNR')->nullable();
             $table->string('KDAUF')->nullable();
             $table->string('KDPOS')->nullable();
             $table->string('AUFNR')->nullable();
@@ -32,6 +33,7 @@ return new class extends Migration
             $table->string('SOBSL')->nullable();
             $table->string('BESKZ')->nullable();
             $table->string('LTEXT')->nullable();
+            $table->string('LGORT')->nullable();
             $table->timestamps();
         });
     }

@@ -22,60 +22,56 @@ class adminController extends Controller
         // =================================================================
 
         // 1a) Buat query untuk mendapatkan daftar induk semua ARBPL unik untuk plant ini
-        $allWcQuery = DB::table('production_t_data1')
-            ->select('ARBPL')
-            ->distinct()
-            ->where('WERKSX', $kode);
+        $allWcQuery = DB::table('workcenters')
+            ->select('kode_wc', 'description') // Ambil juga kolom 'description' untuk tooltip
+            ->where('werksx', $kode);
 
-        // 1b) Query utama: Mulai dari daftar induk, lalu LEFT JOIN ke data transaksi
+        // 2. Gabungkan (LEFT JOIN) daftar WC utama dengan data transaksi
         $statsPerWc = DB::table(DB::raw("({$allWcQuery->toSql()}) as master_wc"))
-            ->mergeBindings($allWcQuery) // Penting untuk binding parameter
-            ->leftJoin('production_t_data1 as trans_data', function ($join) use ($kode) {
-                $join->on('master_wc.ARBPL', '=', 'trans_data.ARBPL')
-                    ->where('trans_data.WERKSX', '=', $kode) // Pastikan join juga difilter berdasarkan plant
-                    ->whereRaw("NULLIF(TRIM(trans_data.AUFNR), '') IS NOT NULL");
-            })
+            ->mergeBindings($allWcQuery)
+            ->leftJoin('production_t_data1 as trans_data', 'master_wc.kode_wc', '=', 'trans_data.ARBPL')
             ->selectRaw("
-                CASE
-                    WHEN NULLIF(TRIM(master_wc.ARBPL), '') IS NULL
-                    THEN 'Eksternal Workcenter'
-                    ELSE master_wc.ARBPL
-                END AS ARBPL_LABEL,
+                master_wc.kode_wc AS wc_label,
+                master_wc.description AS wc_description,
                 COUNT(DISTINCT trans_data.AUFNR) AS pro_count,
                 COALESCE(SUM(trans_data.CPCTYX), 0) AS total_capacity
             ")
-            ->groupBy('ARBPL_LABEL')
-            ->orderBy('ARBPL_LABEL', 'asc')
+            ->groupBy('master_wc.kode_wc', 'master_wc.description') // Group berdasarkan keduanya
+            ->orderBy('master_wc.kode_wc', 'asc')
             ->get();
 
-        // 2) Siapkan labels dan data untuk kedua dataset (Tidak ada perubahan di sini)
-        $labels          = $statsPerWc->pluck('ARBPL_LABEL')->values()->all();
-        $datasetPro      = $statsPerWc->pluck('pro_count')->map(fn($v) => (int)$v)->values()->all();
-        $datasetCapacity = $statsPerWc->pluck('total_capacity')->map(fn($v) => (float)$v)->values()->all();
+        // 3. Siapkan data untuk Chart.js
+        $labels          = $statsPerWc->pluck('wc_label')->all();
+        $descriptions    = $statsPerWc->pluck('wc_description')->all(); // Data deskripsi untuk tooltip
+        $datasetPro      = $statsPerWc->pluck('pro_count')->all();
+        $datasetCapacity = $statsPerWc->pluck('total_capacity')->all();
 
+        // Membuat URL untuk setiap bar chart agar bisa diklik
         $targetUrls = collect($labels)->map(function ($wcLabel) use ($kode) {
-            return route('wc.details', [
-                'kode' => $kode,
-                'wc' => $wcLabel]);
+            return route('wc.details', ['kode' => $kode, 'wc' => $wcLabel]);
         })->all();
 
-        // 3) Definisikan kedua dataset untuk chart (Tidak ada perubahan di sini)
+        // 4. Definisikan dataset untuk chart, tambahkan 'descriptions' ke meta-data
         $datasets = [
             [
                 'label'           => 'Jumlah PRO',
                 'data'            => $datasetPro,
+                'descriptions'    => $descriptions, // Kirim deskripsi ke view
                 'backgroundColor' => 'rgba(59, 130, 246, 0.6)',
                 'borderColor'     => 'rgba(37, 99, 235, 1)',
                 'borderWidth'     => 1,
                 'borderRadius'    => 4,
+                'satuan'          => 'PRO' // Menambahkan satuan
             ],
             [
                 'label'           => 'Jumlah Kapasitas',
                 'data'            => $datasetCapacity,
+                'descriptions'    => $descriptions, // Kirim deskripsi ke view
                 'backgroundColor' => 'rgba(249, 115, 22, 0.6)',
                 'borderColor'     => 'rgba(234, 88, 12, 1)',
                 'borderWidth'     => 1,
                 'borderRadius'    => 4,
+                'satuan'          => 'Jam' // Asumsi satuan kapasitas adalah jam
             ],
         ];
 
@@ -134,7 +130,13 @@ class adminController extends Controller
                   ->orWhere('MATNR', 'like', "%{$term}%")
                   ->orWhere('MAKTX', 'like', "%{$term}%");
             });
-        })->get();
+        })->get()
+        // TAMBAHKAN BLOK INI untuk membersihkan data sebelum dikirim
+        ->map(function ($item) {
+            // Hapus baris baru, tabs, dan spasi berlebih dari deskripsi
+            $item->wc_description = trim(preg_replace('/\s+/', ' ', $item->wc_description ?? ''));
+            return $item;
+        });
 
         $outstandingReservasi = ProductionTData4::where('WERKSX', $kode)
                                     ->whereColumn('KALAB', '<', 'BDMNG')
@@ -142,13 +144,14 @@ class adminController extends Controller
         $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
 
         return view('Admin.dashboard', [
+            // ... data kardinal dan doughnut chart ...
             'TData1' => $TData1, 
             'TData2' => $TData2, 
             'TData3' => $TData3, 
             'TData4' => $TData4,
             'outstandingReservasi' => $outstandingReservasi, 
             'labels' => $labels, 
-            'datasets' => $datasets,
+            'datasets' => $datasets, // 'datasets' sekarang berisi deskripsi dan satuan
             'targetUrls' => $targetUrls,
             'doughnutChartLabels' => $doughnutChartLabels,
             'doughnutChartDatasets' => $doughnutChartDatasets,

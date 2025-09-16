@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('KDPOS', 6)->nullable();         // Sales Order Item (NUMC6)
             $table->string('MATNR', 40)->nullable();        // Material Number
             $table->string('MAKTX', 40)->nullable();        // Material Description
-            $table->string('EDATU', 8)->nullable();         // Schedule Line Date (format SAP YYYYMMDD)
+            $table->string('EDATU', 16)->nullable();         // Schedule Line Date (format SAP YYYYMMDD)
             $table->string('WERKSX', 4)->nullable();        // Plant
             $table->string('KUNNR', 10)->nullable();        // Customer Number
             $table->string('NAME1', 35)->nullable();        // Name 1

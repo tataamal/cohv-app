@@ -132,6 +132,7 @@ def changewc():
         it_operation = data.get('IT_OPERATION', [])
 
         if not aufnr or not it_operation:
+            print("IT Operation belum ada")
             return jsonify({'error': 'Missing required fields'}), 400
 
         if isinstance(it_operation, dict):
@@ -490,6 +491,26 @@ def change_prod_version():
             ORDERDATA={'PROD_VERSION': verid},
             ORDERDATAX={'PROD_VERSION': 'X'}
         )
+
+        # Ambil tabel RETURN
+        sap_return = result_change.get('RETURN', [])
+
+        # Cari pesan dengan tipe 'E' (Error) atau 'A' (Abort)
+        has_error = any(
+            msg.get('TYPE') in ['E', 'A']
+            for msg in (sap_return if isinstance(sap_return, list) else [sap_return])
+        )
+
+        if has_error:
+            # Jika ada error, kumpulkan pesannya dan kembalikan sebagai error server
+            error_messages = [
+                f"[{msg.get('TYPE')}] {msg.get('MESSAGE')}"
+                for msg in (sap_return if isinstance(sap_return, list) else [sap_return])
+            ]
+            error_string = "\n".join(error_messages)
+            print("❌ BAPI Error:", error_string)
+            # Jangan lanjutkan ke COMMIT jika BAPI gagal
+            return jsonify({'error': f'SAP BAPI Error:\n{error_string}'}), 500
 
         # Commit perubahan
         print("BAPI_TRANSACTION_COMMIT...")

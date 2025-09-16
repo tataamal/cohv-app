@@ -7,7 +7,8 @@
     
     @vite(['resources/js/app.js', 'resources/scss/app.scss'])
     
-    <title>{{ $title ?? 'KMI System' }}</title>
+    <title>{{ $title ?? 'COHV-PT.Kayu Mebel Indonesia' }}</title>
+    <link rel="icon" href="{{ asset('images/KMI.png') }}">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.css' rel='stylesheet' />

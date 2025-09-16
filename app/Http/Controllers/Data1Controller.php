@@ -19,415 +19,245 @@ class Data1Controller extends Controller
 {
     public function changeWc(Request $request)
     {
-        // 1. Validasi: Menambahkan 'plant' karena dibutuhkan untuk API refresh
-        $data = $request->validate([
-            'aufnr'       => 'required|string',
-            'vornr'       => 'required|string',
-            'work_center' => 'required|string',
-            'plant'       => 'required|string',
-            'sequ'        => 'nullable|string',
+        // 1. Validasi input dari form AJAX
+        $validated = $request->validate([
+            'aufnr' => 'required|string',
+            'vornr' => 'required|string',
+            'plant' => 'required|string',
+            'pwwrk' => 'required|string',
+            'work_center_tujuan' => 'required|string',
         ]);
-
-        // Helpers untuk normalisasi dan sinkronisasi data (sama seperti di changePv)
-        $isAssoc = function ($arr) {
-            if (!is_array($arr) || [] === $arr) return false;
-            return array_keys($arr) !== range(0, count($arr) - 1);
-        };
-        $fmtYmdToDMY = function ($tgl) {
-            if (empty($tgl)) return null;
-            try { return Carbon::createFromFormat('Ymd', $tgl)->format('d-m-Y'); }
-            catch (\Throwable $e) { return $tgl; }
-        };
-        $ensureWerksX = function (array $row) use ($data) {
-            $row['WERKSX'] = $row['WERKSX'] ?? $row['WERK'] ?? $data['plant'];
-            unset($row['WERK'], $row['WERKS']);
-            return $row;
-        };
+        
+        // Cek Session
+        $sapUser = session('username');
+        $sapPass = session('password');
+        if (!$sapUser || !$sapPass) {
+            return response()->json(['success' => false, 'message' => 'Otentikasi SAP tidak valid.'], 401);
+        }
+        
+        $proCode = $validated['aufnr'];
+        $wc_tujuan = $validated['work_center_tujuan'];
+        $flaskBase = rtrim(env('FLASK_API_URL'), '/');
 
         try {
-            // ========== 1) CHANGE WORK CENTER VIA API /api/save_edit ==========
-            $changePayload = [
-                'IV_AUFNR'     => $data['aufnr'],
-                'IV_COMMIT'    => 'X',
-                'IT_OPERATION' => [[
-                    'SEQUEN'   => $data['sequ'] ?: '0',
-                    'OPER'     => $data['vornr'],
-                    'WORK_CEN' => $data['work_center'],
-                    'W'        => 'X',
-                ]],
-            ];
-
-            $changeResp = Http::withHeaders([
-                    'X-SAP-Username' => session('username'),
-                    'X-SAP-Password' => session('password'),
-                ])
-                ->timeout(60)
-                ->post(env('FLASK_API_URL', 'http://127.0.0.1:8050').'/api/save_edit', $changePayload);
-
-            if (!$changeResp->successful()) {
-                $errorMsg = $changeResp->json('error') ?? 'Gagal mengubah Work Center di SAP.';
-                return back()->with('error', $errorMsg);
+            // ==========================================================
+            // LANGKAH 1: Dapatkan Deskripsi Work Center Tujuan
+            // ==========================================================
+            Log::info("Memulai pindah WC untuk PRO {$proCode}. Langkah 1: Get WC Desc.");
+            $descResponse = Http::timeout(30)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
+                ->get($flaskBase . '/api/get_wc_desc', [
+                    'wc' => $wc_tujuan,
+                    'pwwrk' => $validated['pwwrk'], // Menggunakan plant dari hidden input
+                ]);
+            
+            if ($descResponse->failed()) {
+                throw new \Exception("API Get WC Description Gagal: " . $descResponse->body());
             }
-            $changeData = $changeResp->json();
+            $shortText = $descResponse->json()['E_DESC'] ?? '';
+            Log::info(" -> Deskripsi untuk WC {$wc_tujuan} didapatkan: '{$shortText}'");
 
-            // ========== 2) REFRESH DATA PRO VIA API /api/refresh-pro ==========
-            $refreshResp = Http::withHeaders([
-                    'X-SAP-Username' => session('username'),
-                    'X-SAP-Password' => session('password'),
-                ])
-                ->timeout(120)
-                ->get(env('FLASK_API_URL', 'http://127.0.0.1:8050').'/api/refresh-pro', [
-                    'plant' => $data['plant'],
-                    'AUFNR' => $data['aufnr'],
+            // ==========================================================
+            // LANGKAH 2: Kirim Perubahan Work Center ke SAP
+            // ==========================================================
+            $payload = [
+                "IV_AUFNR" => $proCode, "IV_COMMIT" => "X",
+                "IT_OPERATION" => [[
+                    "SEQUEN" => "0", "OPER" => $validated['vornr'], "WORK_CEN" => $wc_tujuan,
+                    "W" => "X", "SHORT_T" => $shortText, "S" => "X"
+                ]]
+            ];
+            
+            Log::info("Langkah 2: Mengubah WC di SAP...");
+            $changeResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
+                ->post($flaskBase . '/api/save_edit', $payload);
+
+            if ($changeResponse->failed()) {
+                throw new \Exception("API Change WC Gagal: " . $changeResponse->body());
+            }
+            Log::info(" -> Perubahan WC di SAP berhasil.");
+
+            // ==========================================================
+            // LANGKAH 3: Refresh Data PRO yang Baru Diubah
+            // ==========================================================
+            Log::info("Langkah 3: Me-refresh data PRO {$proCode} dari SAP...");
+            $refreshResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
+                ->get($flaskBase . '/api/refresh-pro', [
+                    'plant' => $validated['plant'],
+                    'aufnr' => $proCode,
                 ]);
 
-            if (!$refreshResp->successful()) {
-                $errorMsg = $refreshResp->json('error') ?? 'Gagal me-refresh data PRO dari SAP.';
-                // Menggunakan 'warning' karena aksi utama berhasil, hanya refresh yang gagal.
-                return back()->with('warning', 'Work Center berhasil diubah, tetapi sinkronisasi data gagal: ' . $errorMsg);
+            if ($refreshResponse->failed()) {
+                throw new \Exception("API Refresh PRO Gagal: " . $refreshResponse->body());
             }
-            $payload = $refreshResp->json();
+            $refreshedData = $refreshResponse->json();
+            Log::info(" -> Data PRO berhasil di-refresh.");
 
-            // ========== 3) NORMALISASI PAYLOAD (Sama seperti di changePv) ==========
-            $T_DATA = $T1 = $T2 = $T3 = $T4 = [];
-            // (Logika ini dicopy-paste langsung dari changePv karena tujuannya sama)
-            if (isset($payload['results']) && is_array($payload['results'])) {
-                foreach ($payload['results'] as $res) {
-                    foreach (($res['T_DATA']  ?? []) as $r) $T_DATA[] = $ensureWerksX($r);
-                    foreach (($res['T_DATA1'] ?? []) as $r) $T1[] = $ensureWerksX($r);
-                    foreach (($res['T_DATA2'] ?? []) as $r) $T2[] = $ensureWerksX($r);
-                    foreach (($res['T_DATA3'] ?? []) as $r) $T3[] = $ensureWerksX($r);
-                    foreach (($res['T_DATA4'] ?? []) as $r) $T4[] = $ensureWerksX($r);
-                }
-            } else {
-                $t0 = $payload['T_DATA']  ?? []; $t1 = $payload['T_DATA1'] ?? []; $t2 = $payload['T_DATA2'] ?? []; $t3 = $payload['T_DATA3'] ?? []; $t4 = $payload['T_DATA4'] ?? [];
-                if (!empty($t0) && $isAssoc($t0)) $t0 = [$t0]; if (!empty($t1) && $isAssoc($t1)) $t1 = [$t1]; if (!empty($t2) && $isAssoc($t2)) $t2 = [$t2]; if (!empty($t3) && $isAssoc($t3)) $t3 = [$t3]; if (!empty($t4) && $isAssoc($t4)) $t4 = [$t4];
-                $T_DATA = array_map($ensureWerksX, $t0); $T1 = array_map($ensureWerksX, $t1); $T2 = array_map($ensureWerksX, $t2); $T3 = array_map($ensureWerksX, $t3); $T4 = array_map($ensureWerksX, $t4);
-            }
-
-            // ========== 4) UPSERT & PRUNE DATABASE (Sama seperti di changePv) ==========
-            DB::transaction(function () use ($data, $T_DATA, $T1, $T2, $T3, $T4, $fmtYmdToDMY) {
-                $plant = $data['plant'];
-                $aufnr = $data['aufnr'];
-
-                // Logika Upsert & Prune untuk T_DATA, T_DATA1, T_DATA2, T_DATA3, T_DATA4
-                // (Blok kode ini dicopy-paste langsung dari fungsi changePv Anda karena logikanya identik)
-                
-                // ---- T_DATA ----
-                $keep0 = [];
-                foreach ($T_DATA as $row) {
-                    $row = $row + ['WERKSX' => $plant]; if (empty($row['EDATU'])) $row['EDATU'] = null;
-                    $kunnr = trim((string)($row['KUNNR'] ?? '')); $name1 = trim((string)($row['NAME1'] ?? ''));
-                    if ($kunnr === '' && $name1 === '') continue;
-                    $row['KUNNR'] = $kunnr !== '' ? $kunnr : null; $row['NAME1'] = $name1 !== '' ? $name1 : null;
-                    ProductionTData::updateOrCreate(['WERKSX' => $row['WERKSX'], 'KUNNR' => $row['KUNNR'], 'NAME1' => $row['NAME1']], $row);
-                    $keep0[] = [$row['WERKSX'], $row['KUNNR'], $row['NAME1']];
-                }
-
-                // ---- T_DATA1 ----
-                $keep1 = [];
-                foreach ($T1 as $row) {
-                    $row = $row + ['WERKSX' => $plant]; $orderx = str_pad((string)($row['ORDERX'] ?? ''), 12, '0', STR_PAD_LEFT); $vornr = $row['VORNR'] ?? null;
-                    if ($orderx !== $aufnr) continue;
-                    $sssl1 = $fmtYmdToDMY($row['SSSLDPV1'] ?? ''); $sssl2 = $fmtYmdToDMY($row['SSSLDPV2'] ?? ''); $sssl3 = $fmtYmdToDMY($row['SSSLDPV3'] ?? '');
-                    $pv1 = (!empty($row['ARBPL1']) && !empty($sssl1)) ? strtoupper($row['ARBPL1'].' - '.$sssl1) : null;
-                    $pv2 = (!empty($row['ARBPL2']) && !empty($sssl2)) ? strtoupper($row['ARBPL2'].' - '.$sssl2) : null;
-                    $pv3 = (!empty($row['ARBPL3']) && !empty($sssl3)) ? strtoupper($row['ARBPL3'].' - '.$sssl3) : null;
-                    ProductionTData1::updateOrCreate(['ORDERX' => $orderx, 'VORNR' => $vornr], array_merge($row, ['PV1' => $pv1, 'PV2' => $pv2, 'PV3' => $pv3]));
-                    $keep1[] = [$orderx, $vornr];
-                }
-                if (!empty($keep1)) {
-                    $validPairs = collect($keep1);
-                    ProductionTData1::where('WERKSX', $plant)->where('ORDERX', $aufnr)->get()->each(function ($item) use ($validPairs) {
-                        if (!$validPairs->contains(fn($v) => $v[0] === $item->ORDERX && $v[1] === $item->VORNR)) { $item->delete(); }
-                    });
-                }
-
-                // ... (Lanjutkan copy-paste blok untuk T_DATA2, T_DATA3, T_DATA4 dari changePv) ...
-
+            // ==========================================================
+            // LANGKAH 4: Jalankan Sinkronisasi ke Database
+            // ==========================================================
+            DB::transaction(function () use ($refreshedData, $validated) {
+                $this->_syncSingleProData($refreshedData, $validated['plant']);
             });
 
-            return back()->with('success', 'Work Center berhasil diubah dan data telah disinkronkan.');
+            return response()->json(['success' => true, 'message' => "PRO {$proCode} berhasil dipindahkan ke WC {$wc_tujuan} dan data telah disinkronkan."], 200);
 
         } catch (\Throwable $e) {
-            Log::error('changeWc exception', ['error' => $e]);
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            Log::error("Gagal memindahkan PRO {$proCode}: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => "Gagal! " . $e->getMessage()], 500);
         }
     }
 
     public function changePv(Request $request)
     {
+        // 1. Validasi & Normalisasi Input
         $data = $request->validate([
             'AUFNR'        => ['required', 'string'],
             'PROD_VERSION' => ['required', 'string'],
             'plant'        => ['required', 'string'],
         ]);
 
-        // normalisasi param
-        $aufnrRaw = trim($data['AUFNR']);
-        $aufnr    = str_pad(preg_replace('/\D/', '', $aufnrRaw), 12, '0', STR_PAD_LEFT);
-        // pastikan PV 4 digit
-        $veridRaw = strtoupper(trim($data['PROD_VERSION']));
-        $verid    = str_pad(preg_replace('/\D/', '', $veridRaw), 4, '0', STR_PAD_LEFT);
-        $plant    = trim($data['plant']);
-
-        // helpers
-        $isAssoc = function ($arr) {
-            if (!is_array($arr) || [] === $arr) return false;
-            return array_keys($arr) !== range(0, count($arr) - 1);
-        };
-        $fmtYmdToDMY = function ($tgl) {
-            if (empty($tgl)) return null;
-            try { return Carbon::createFromFormat('Ymd', $tgl)->format('d-m-Y'); }
-            catch (\Throwable $e) { return $tgl; }
-        };
-        // pastikan setiap row punya WERKSX sesuai plant
-        $ensureWerksX = function (array $row) use ($plant) {
-            $row['WERKSX'] = $row['WERKSX'] ?? $row['WERK'] ?? $plant;
-            unset($row['WERK'], $row['WERKS']); // jangan simpan field lama
-            return $row;
-        };
+        $aufnr = str_pad(preg_replace('/\\D/', '', $data['AUFNR']), 12, '0', STR_PAD_LEFT);
+        $verid = str_pad(preg_replace('/\\D/', '', $data['PROD_VERSION']), 4, '0', STR_PAD_LEFT);
+        $plant = trim($data['plant']);
 
         try {
+            // 2. Cek Kredensial SAP di Session
             $username = session('username') ?? session('sap_username');
             $password = session('password') ?? session('sap_password');
             if (!$username || !$password) {
                 return response()->json(['error' => 'Kredensial SAP tidak ditemukan di session.'], 401);
             }
 
-            // ========== 1) CHANGE PV ==========
-            $flaskChangeUrl = 'http://127.0.0.1:8050/api/change_prod_version';
+            $flaskBase = rtrim(env('FLASK_API_URL'), '/');
+
+            // ========== LANGKAH 1: UBAH PV DI SAP VIA FLASK ==========
             $changeResp = Http::timeout(60)
                 ->withHeaders([
                     'X-SAP-Username' => $username,
                     'X-SAP-Password' => $password,
                 ])
-                ->post($flaskChangeUrl, [
+                ->post($flaskBase . '/api/change_prod_version', [
                     'AUFNR'        => $aufnr,
                     'PROD_VERSION' => $verid,
                 ]);
 
             if (!$changeResp->successful()) {
                 $msg = optional($changeResp->json())['error'] ?? $changeResp->body();
-                return response()->json(['error' => 'Flask change_pv error: '.$msg], $changeResp->status());
+                return response()->json(['error' => 'Flask change_pv error: ' . $msg], $changeResp->status());
             }
             $changeData = $changeResp->json();
 
-            // ========== 2) REFRESH DATA PRO ==========
-            $flaskRefreshUrl = 'http://127.0.0.1:8050/api/refresh-pro';
+            // ========== LANGKAH 2: REFRESH DATA PRO DARI SAP VIA FLASK ==========
             $refreshResp = Http::timeout(120)
                 ->withHeaders([
                     'X-SAP-Username' => $username,
                     'X-SAP-Password' => $password,
                 ])
-                ->get($flaskRefreshUrl, [
+                ->get($flaskBase . '/api/refresh-pro', [
                     'plant' => $plant,
                     'AUFNR' => $aufnr,
                 ]);
 
             if (!$refreshResp->successful()) {
                 $msg = optional($refreshResp->json())['error'] ?? $refreshResp->body();
-                return response()->json([
-                    'change_result' => $changeData,
-                    'error'         => 'Flask refresh-pro error: '.$msg
-                ], $refreshResp->status());
+                return response()->json(['error' => 'Flask refresh-pro error: ' . $msg], $refreshResp->status());
             }
             $payload = $refreshResp->json();
 
-            // ========== 3) NORMALISASI PAYLOAD ==========
-            $T_DATA = $T1 = $T2 = $T3 = $T4 = [];
-
-            if (isset($payload['results']) && is_array($payload['results'])) {
-                foreach ($payload['results'] as $res) {
-                    foreach (($res['T_DATA']  ?? []) as $r) $T_DATA[] = $ensureWerksX($r);
-                    foreach (($res['T_DATA1'] ?? []) as $r) $T1[]     = $ensureWerksX($r);
-                    foreach (($res['T_DATA2'] ?? []) as $r) $T2[]     = $ensureWerksX($r);
-                    foreach (($res['T_DATA3'] ?? []) as $r) $T3[]     = $ensureWerksX($r);
-                    foreach (($res['T_DATA4'] ?? []) as $r) $T4[]     = $ensureWerksX($r);
-                }
-            } else {
-                $t0 = $payload['T_DATA']  ?? [];
-                $t1 = $payload['T_DATA1'] ?? [];
-                $t2 = $payload['T_DATA2'] ?? [];
-                $t3 = $payload['T_DATA3'] ?? [];
-                $t4 = $payload['T_DATA4'] ?? [];
-
-                if (!empty($t0) && $isAssoc($t0)) $t0 = [$t0];
-                if (!empty($t1) && $isAssoc($t1)) $t1 = [$t1];
-                if (!empty($t2) && $isAssoc($t2)) $t2 = [$t2];
-                if (!empty($t3) && $isAssoc($t3)) $t3 = [$t3];
-                if (!empty($t4) && $isAssoc($t4)) $t4 = [$t4];
-
-                $T_DATA = array_map($ensureWerksX, $t0);
-                $T1     = array_map($ensureWerksX, $t1);
-                $T2     = array_map($ensureWerksX, $t2);
-                $T3     = array_map($ensureWerksX, $t3);
-                $T4     = array_map($ensureWerksX, $t4);
-            }
-
-            // ========== 4) UPSERT ==========
-            DB::transaction(function () use (
-                $plant, $aufnr, $T_DATA, $T1, $T2, $T3, $T4, $fmtYmdToDMY
-            ) {
-                // ---- T_DATA ----
-                $keep0 = [];
-                foreach ($T_DATA as $row) {
-                    $row = $row + ['WERKSX' => $plant];
-                    if (empty($row['EDATU'])) $row['EDATU'] = null;
-
-                    $kunnr = trim((string)($row['KUNNR'] ?? ''));
-                    $name1 = trim((string)($row['NAME1'] ?? ''));
-                    if ($kunnr === '' && $name1 === '') continue;
-
-                    $row['KUNNR'] = $kunnr !== '' ? $kunnr : null;
-                    $row['NAME1'] = $name1 !== '' ? $name1 : null;
-
-                    ProductionTData::updateOrCreate(
-                        ['WERKSX' => $row['WERKSX'], 'KUNNR' => $row['KUNNR'], 'NAME1' => $row['NAME1']],
-                        $row
-                    );
-                    $keep0[] = [$row['WERKSX'], $row['KUNNR'], $row['NAME1']];
-                }
-
-                // ---- T_DATA1 ----
-                $keep1 = [];
-                foreach ($T1 as $row) {
-                    $row    = $row + ['WERKSX' => $plant];
-                    $orderx = str_pad((string)($row['ORDERX'] ?? ''), 12, '0', STR_PAD_LEFT);
-                    $vornr  = $row['VORNR'] ?? null;
-                    if ($orderx !== $aufnr) continue;
-
-                    $sssl1 = $fmtYmdToDMY($row['SSSLDPV1'] ?? '');
-                    $sssl2 = $fmtYmdToDMY($row['SSSLDPV2'] ?? '');
-                    $sssl3 = $fmtYmdToDMY($row['SSSLDPV3'] ?? '');
-                    $pv1 = (!empty($row['ARBPL1']) && !empty($sssl1)) ? strtoupper($row['ARBPL1'].' - '.$sssl1) : null;
-                    $pv2 = (!empty($row['ARBPL2']) && !empty($sssl2)) ? strtoupper($row['ARBPL2'].' - '.$sssl2) : null;
-                    $pv3 = (!empty($row['ARBPL3']) && !empty($sssl3)) ? strtoupper($row['ARBPL3'].' - '.$sssl3) : null;
-
-                    ProductionTData1::updateOrCreate(
-                        ['ORDERX' => $orderx, 'VORNR' => $vornr],
-                        array_merge($row, ['PV1'=>$pv1, 'PV2'=>$pv2, 'PV3'=>$pv3])
-                    );
-                    $keep1[] = [$orderx, $vornr];
-                }
-                if (!empty($keep1)) {
-                    $validPairs = collect($keep1);
-                    ProductionTData1::where('WERKSX', $plant)
-                        ->where('ORDERX', $aufnr)
-                        ->get()
-                        ->each(function ($item) use ($validPairs) {
-                            if (!$validPairs->contains(fn($v) => $v[0]===$item->ORDERX && $v[1]===$item->VORNR)) {
-                                $item->delete();
-                            }
-                        });
-                }
-
-                // ---- T_DATA2 ----
-                $keep2KeyTuples = [];
-                $seenSoKeys     = [];
-                foreach ($T2 as $row) {
-                    $row = $row + ['WERKSX' => $plant];
-                    if (empty($row['EDATU'])) $row['EDATU'] = null;
-
-                    $kauf = $row['KDAUF'] ?? null;
-                    $kpos = $row['KDPOS'] ?? null;
-
-                    try {
-                        if (!empty($kauf) && !empty($kpos)) {
-                            ProductionTData2::updateOrCreate(
-                                ['WERKSX'=>$plant, 'KDAUF'=>$kauf, 'KDPOS'=>$kpos],
-                                $row
-                            );
-                            $keep2KeyTuples[] = [$plant, $kauf, $kpos];
-                            $seenSoKeys["{$kauf}-{$kpos}"] = true;
-                        } else {
-                            ProductionTData2::create($row);
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning('Gagal simpan T_DATA2', ['row'=>$row, 'error'=>$e->getMessage()]);
-                    }
-                }
-                if (!empty($seenSoKeys)) {
-                    $valid = collect($keep2KeyTuples);
-                    foreach (array_keys($seenSoKeys) as $soKey) {
-                        [$kauf, $kpos] = explode('-', $soKey);
-                        ProductionTData2::where('WERKSX', $plant)
-                            ->where('KDAUF', $kauf)
-                            ->where('KDPOS', $kpos)
-                            ->get()
-                            ->each(function ($item) use ($valid, $plant, $kauf, $kpos) {
-                                if (!$valid->contains(fn($v)=>$v[0]===$plant && $v[1]===$kauf && $v[2]===$kpos)) {
-                                    $item->delete();
-                                }
-                            });
-                    }
-                }
-
-                // ---- T_DATA3 ----
-                $keep3 = [];
-                foreach ($T3 as $row) {
-                    $row    = $row + ['WERKSX' => $plant];
-                    $orderx = str_pad((string)($row['ORDERX'] ?? ''), 12, '0', STR_PAD_LEFT);
-                    if ($orderx !== $aufnr) continue;
-
-                    ProductionTData3::updateOrCreate(
-                        ['ORDERX'=>$orderx, 'VORNR'=>$row['VORNR'] ?? null],
-                        $row
-                    );
-                    $keep3[] = [$orderx, $row['VORNR'] ?? null];
-                }
-                if (!empty($keep3)) {
-                    $validPairs = collect($keep3);
-                    ProductionTData3::where('WERKSX', $plant)
-                        ->where('ORDERX', $aufnr)
-                        ->get()
-                        ->each(function ($item) use ($validPairs) {
-                            if (!$validPairs->contains(fn($v)=>$v[0]===$item->ORDERX && $v[1]===$item->VORNR)) {
-                                $item->delete();
-                            }
-                        });
-                }
-
-                // ---- T_DATA4 ----
-                $keep4 = [];
-                $rsnumScope = [];
-                foreach ($T4 as $row) {
-                    $row = $row + ['WERKSX' => $plant];
-                    if (!empty($row['ORDERX']) && str_pad((string)$row['ORDERX'],12,'0',STR_PAD_LEFT) !== $aufnr) {
-                        continue;
-                    }
-                    if (!isset($row['RSNUM']) || !isset($row['RSPOS'])) continue;
-
-                    ProductionTData4::updateOrCreate(
-                        ['RSNUM'=>$row['RSNUM'], 'RSPOS'=>$row['RSPOS']],
-                        $row
-                    );
-                    $keep4[] = [$row['RSNUM'], $row['RSPOS']];
-                    $rsnumScope[] = $row['RSNUM'];
-                }
-                if (!empty($keep4) && !empty($rsnumScope)) {
-                    $valid4 = collect($keep4);
-                    ProductionTData4::whereIn('RSNUM', array_unique($rsnumScope))
-                        ->get()
-                        ->each(function ($item) use ($valid4) {
-                            if (!$valid4->contains(fn($v)=>$v[0]===$item->RSNUM && $v[1]===$item->RSPOS)) {
-                                $item->delete();
-                            }
-                        });
-                }
+            // ========== LANGKAH 3: SINKRONKAN DATA KE DATABASE LOKAL ==========
+            DB::transaction(function () use ($payload, $plant) {
+                // Panggil private function untuk menjalankan logika sinkronisasi
+                $this->_syncSingleProData($payload, $plant);
             });
 
             return response()->json([
-                'message'        => 'PV berhasil diubah, data PRO berhasil di-refresh & disinkronkan.',
-                'change_result'  => $changeData,
-                'synced_orders'  => [$aufnr],
-                'plant'          => $plant,
+                'message'       => 'PV berhasil diubah, data PRO berhasil di-refresh & disinkronkan.',
+                'change_result' => $changeData,
             ], 200);
 
         } catch (\Throwable $e) {
-            Log::error('changePv exception', ['e'=>$e]);
-            return response()->json(['error' => 'Exception: '.$e->getMessage()], 500);
+            Log::error('changePv exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json(['error' => 'Exception: ' . $e->getMessage()], 500);
         }
+    }
+
+    private function _syncSingleProData(array $refreshedData, string $plant): void
+    {
+        $t_data  = $refreshedData['T_DATA'] ?? [];
+        $t_data1 = $refreshedData['T_DATA1'] ?? [];
+        $t_data2 = $refreshedData['T_DATA2'] ?? [];
+        $t_data3 = $refreshedData['T_DATA3'] ?? [];
+        $t_data4 = $refreshedData['T_DATA4'] ?? [];
+
+        // Validasi data inti yang wajib ada
+        if (empty($t_data[0]) || empty($t_data2[0]) || empty($t_data3[0])) {
+            throw new \Exception("Data inti (T_DATA, T_DATA2, T_DATA3) tidak lengkap setelah refresh.");
+        }
+
+        $proCode = $t_data3[0]['AUFNR'];
+        Log::info("Memulai transaksi DB untuk sinkronisasi PRO {$proCode}.");
+
+        // Menggunakan updateOrCreate untuk data utama agar idempotent
+        ProductionTData::updateOrCreate(
+            ['KUNNR' => $t_data[0]['KUNNR'], 'NAME1' => $t_data[0]['NAME1']],
+            $t_data[0] + ['WERKSX' => $plant]
+        );
+
+        ProductionTData2::updateOrCreate(
+            ['KDAUF' => $t_data2[0]['KDAUF'], 'KDPOS' => $t_data2[0]['KDPOS']],
+            $t_data2[0] + ['WERKSX' => $plant]
+        );
+        
+        ProductionTData3::updateOrCreate(
+            ['AUFNR' => $proCode],
+            $t_data3[0] + ['WERKSX' => $plant]
+        );
+
+        ProductionTData1::where('AUFNR', $proCode)->delete();
+        if (!empty($t_data1)) {
+            $mapped_t1 = array_map(function($row) use ($plant) {
+                $formatTanggal = function ($tgl) {
+                    if (empty($tgl) || trim($tgl) === '00000000') return null;
+                    try { return Carbon::createFromFormat('Ymd', $tgl)->format('d-m-Y'); } catch (\Exception $e) { return null; }
+                };
+
+                $sssl1 = $formatTanggal($row['SSSLDPV1'] ?? '');
+                $sssl2 = $formatTanggal($row['SSSLDPV2'] ?? '');
+                $sssl3 = $formatTanggal($row['SSSLDPV3'] ?? '');
+
+                $partsPv1 = !empty($row['ARBPL1']) ? [strtoupper($row['ARBPL1'])] : [];
+                if (!empty($sssl1)) $partsPv1[] = $sssl1;
+                $row['PV1'] = !empty($partsPv1) ? implode(' - ', $partsPv1) : null;
+
+                $partsPv2 = !empty($row['ARBPL2']) ? [strtoupper($row['ARBPL2'])] : [];
+                if (!empty($sssl2)) $partsPv2[] = $sssl2;
+                $row['PV2'] = !empty($partsPv2) ? implode(' - ', $partsPv2) : null;
+
+                $partsPv3 = !empty($row['ARBPL3']) ? [strtoupper($row['ARBPL3'])] : [];
+                if (!empty($sssl3)) $partsPv3[] = $sssl3;
+                $row['PV3'] = !empty($partsPv3) ? implode(' - ', $partsPv3) : null;
+
+                // [KOREKSI DITERAPKAN] Hapus field asli yang sudah tidak diperlukan lagi
+                unset($row['ARBPL1'], $row['ARBPL2'], $row['ARBPL3']);
+                unset($row['SSSLDPV1'], $row['SSSLDPV2'], $row['SSSLDPV3'], $row['WERKS']);
+                
+                $row['WERKSX'] = $plant;
+                return $row;
+            }, $t_data1);
+            ProductionTData1::insert($mapped_t1);
+        }
+
+        ProductionTData4::where('AUFNR', $proCode)->delete();
+        if (!empty($t_data4)) {
+            $mapped_t4 = array_map(function($row) use ($plant) {
+                unset($row['VORNR'], $row['WERKS']);
+                $row['WERKSX'] = $plant;
+                return $row;
+            }, $t_data4);
+            ProductionTData4::insert($mapped_t4);
+        }
+        
+        Log::info("Transaksi DB untuk PRO {$proCode} berhasil.");
     }
 }
 

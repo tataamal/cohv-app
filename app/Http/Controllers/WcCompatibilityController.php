@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Models\WcCompatibility;
 use Illuminate\Support\Facades\Http;
 use Exception;
 use App\Models\ProductionTData;
@@ -12,6 +11,7 @@ use App\Models\ProductionTData1;
 use App\Models\ProductionTData2;
 use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
+use App\Models\wc_relations;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
@@ -19,16 +19,17 @@ class WcCompatibilityController extends Controller
 {
     public function index()
     {
-        $compatibilities = WcCompatibility::orderBy('wc_asal')->get();
-        return view('Admin.kelola-pro', compact('compatibilities'));
+        $wc_relations = wc_relations::with(['asal', 'tujuan'])->orderBy('wc_asal_id')->get();
+        return view('Admin.kelola-pro', compact('wc_relations'));
     }
+
 
     public function showDetails($kode, $wc)
     {
-        $allWcQuery = DB::table('production_t_data1')
-            ->select('ARBPL')
+        $allWcQuery = DB::table('workcenters')
+            ->select('kode_wc as ARBPL','description')
             ->distinct()
-            ->where('WERKSX', $kode)->get();
+            ->where('werksx', $kode)->get();
         // Ganti 'Pro' dan 'work_center_column' dengan nama model dan kolom yang sesuai di proyek Anda
         // Ini adalah contoh query untuk mengambil semua PRO yang terkait dengan WC yang di-klik
         $pros = DB::table('production_t_data1')
@@ -44,14 +45,30 @@ class WcCompatibilityController extends Controller
                     ->groupBy('ARBPL')
                     ->get()
                     ->keyBy('ARBPL');
+
         $chartDensityData = $allWcQuery->map(function ($wc_item) use ($proDensity) {
             return $proDensity[$wc_item->ARBPL]->pro_count ?? 0;
         });
 
-        $compatibilities = DB::table('wc_compatibilities')
-                        ->select('wc_asal', 'wc_tujuan', 'status')
-                        ->get()
-                        ->groupBy('wc_asal'); // Kelompokkan berdasarkan 'wc_asal' agar mudah diakses di JavaScript
+        $wcDescriptionMap = $allWcQuery->keyBy('ARBPL')->map(function ($item) {
+            return $item->description;
+        });
+
+        $compatibilities = DB::table('wc_relations as rel')
+            // Join ke tabel workcenters untuk mendapatkan detail WC ASAL
+            ->join('workcenters as asal', 'rel.wc_asal_id', '=', 'asal.id')
+            // Join lagi ke tabel workcenters untuk mendapatkan detail WC TUJUAN
+            ->join('workcenters as tujuan', 'rel.wc_tujuan_id', '=', 'tujuan.id')
+            ->select(
+                'asal.kode_wc as wc_asal_code', // Kode WC Asal, misal: 'WC031'
+                'tujuan.id as wc_tujuan_id',
+                'tujuan.kode_wc as wc_tujuan_code', // Kode WC Tujuan, misal: 'WC032'
+                'tujuan.description as wc_tujuan_description', // Deskripsi WC Tujuan
+                'rel.status' // Ambil status dari tabel relasi
+            )
+            ->where('asal.werksx', $kode) // Filter berdasarkan plant jika perlu
+            ->get()
+            ->groupBy('wc_asal_code');
 
         // Kirim data yang ditemukan ke view 'wc-details'
         return view('Admin.kelola-pro', [
@@ -61,6 +78,7 @@ class WcCompatibilityController extends Controller
             'chartLabels'       => $allWcQuery->pluck('ARBPL'),
             'chartDensityData'  => $chartDensityData,
             'compatibilities'   => $compatibilities,
+            'wcDescriptionMap'  => $wcDescriptionMap,
             'kode'              => $kode,
         ]);
     }

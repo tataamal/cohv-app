@@ -46,13 +46,14 @@ Route::middleware('auth')->group(function (){
     Route::post('/read-pp-order', [Data3Controller::class, 'readPpOrder'])->name('order.readpp');
 
     // route untuk kelola T-DATA1
-    Route::post('/changeWC', [Data1Controller::class,'changeWC'])->name('change-wc');
+    Route::post('/change-wc-pro', [Data1Controller::class,'changeWC'])->name('change-wc-pro');
     Route::post('/changePV', [Data1Controller::class,'changePV'])->name('change-pv');
 
     // route untuk kelola gr
     Route::get('gr/{kode}', [ManufactController::class, 'list_gr'])->name('list.gr');
 
     // Route untuk kelola PRO
+    Route::post('/refresh-pro', [ManufactController::class, 'refreshPro'])->name('refresh.pro');
     // Route untuk menampilkan halaman detail PRO berdasarkan workcenter
     Route::get('gr/{kode}', [ManufactController::class, 'list_gr'])->name('list.gr');
     Route::get('/wc-mapping', [WcCompatibilityController::class, 'index']);

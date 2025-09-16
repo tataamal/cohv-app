@@ -79,11 +79,7 @@
         </div>
     </div>
 
-    <!-- Chart Section -->
-    <div class="row g-4">
-        <!-- Bar Chart Container -->
-        <div class="col-lg-8">
-            <div class="card shadow-sm border-0 h-100">
+    <div class="row g-4 mb-4"> <div class="col-12"> <div class="card shadow-sm border-0 h-100">
                 <div class="card-body p-4">
                     <h3 class="h5 fw-semibold text-dark">Data Kapasitas Workcenter</h3>
                     <p class="small text-muted mb-4">Perbandingan Display Jumlah PRO dan Kapasitas di setiap Workcenter</p>
@@ -92,18 +88,39 @@
                                 data-labels="{{ json_encode($labels) }}"
                                 data-datasets="{{ json_encode($datasets) }}"
                                 data-urls="{{ json_encode($targetUrls) }}"></canvas>
+                            </div>
+                            <div class="mt-3 text-center">
+                                <p class="small text-muted mb-2">Atau klik link Workcenter di bawah ini:</p>
+                                @foreach($labels as $index => $label)
+                                    <a href="{{ $targetUrls[$index] ?? '#' }}" class="btn btn-sm btn-outline-primary m-1">
+                                        {{ $label }}
+                                    </a>
+                                @endforeach
+                            </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6 mx-auto"> <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-4">
+                    <h3 class="h5 fw-semibold text-dark">Status PRO</h3>
+                    <p class="small text-muted mb-4">Perbandingan status pada field PRO.</p>
+                      <div style="height: 24rem;" class="d-flex align-items-center justify-content-center">
+                        <canvas class="chart-canvas" 
+                                data-type="pie"
+                                data-labels="{{ json_encode($doughnutChartLabels) }}"
+                                data-datasets="{{ json_encode($doughnutChartDatasets) }}"></canvas>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Doughnut Chart Container -->
-        <div class="col-lg-4">
-            <div class="card shadow-sm border-0 h-100">
+        <div class="col-lg-6 mx-auto"> <div class="card shadow-sm border-0 h-100">
                 <div class="card-body p-4">
                     <h3 class="h5 fw-semibold text-dark">Status PRO</h3>
                     <p class="small text-muted mb-4">Perbandingan status pada field PRO.</p>
-                     <div style="height: 24rem;" class="d-flex align-items-center justify-content-center">
+                      <div style="height: 24rem;" class="d-flex align-items-center justify-content-center">
                         <canvas class="chart-canvas" 
                                 data-type="pie"
                                 data-labels="{{ json_encode($doughnutChartLabels) }}"
@@ -149,8 +166,10 @@
                                 <tr>
                                     <td class="text-center small">{{ $loop->iteration }}</td>
                                     <td class="text-center small">{{ $item->RSNUM ?? '-' }}</td>
-                                    <td class="text-center small">{{ $item->MATNR ?? '-' }}</td>
-                                    <td class="small">{{ $item->MAKTX ?? '-' }}</td>
+                                    <td class="text-center small">
+                                        {{ $item->MATNR ? ( ($t = ltrim((string)$item->MATNR, '0')) === '' ? '0' : $t ) : '-' }}
+                                    </td>
+                                    <td class="text-center small">{{ $item->MAKTX ?? '-' }}</td>
                                     <td class="text-center small fw-medium">{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}</td>
                                     <td class="text-end small fw-medium text-primary">
                                         {{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}
@@ -175,19 +194,17 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const canvas = document.getElementById('myBarChart');
-            if (!canvas) return;
+            const chartLabels = @json($labels);
+            const chartDatasets = @json($datasets);
+            const targetUrls = JSON.parse(myBarChart.dataset.urls);
 
-            // Ambil data dari data-attributes
-            const labels = JSON.parse(canvas.dataset.labels);
-            const datasets = JSON.parse(canvas.dataset.datasets);
-            const urls = JSON.parse(canvas.dataset.urls); // Ambil data URL
-
-            const chart = new Chart(canvas, {
+            // 2. Inisialisasi Bar Chart menggunakan variabel tersebut
+            const barChartCtx = document.getElementById('myBarChart').getContext('2d');
+            new Chart(barChartCtx, {
                 type: 'bar',
                 data: {
-                    labels: labels,
-                    datasets: datasets
+                    labels: chartLabels,   // <-- Gunakan variabel
+                    datasets: chartDatasets // <-- Gunakan variabel
                 },
                 options: {
                     responsive: true,
@@ -197,26 +214,44 @@
                             beginAtZero: true
                         }
                     },
-                    // Fungsi saat bar di-hover
-                    onHover: (event, chartElement) => {
-                        // Ubah cursor menjadi 'pointer' jika mouse berada di atas bar
-                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    const dataIndex = context[0].dataIndex;
+                                    const description = context[0].dataset.descriptions[dataIndex];
+                                    return description || '';
+                                },
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    const value = context.parsed.y;
+                                    label += new Intl.NumberFormat('id-ID').format(value);
+                                    const satuan = context.dataset.satuan || '';
+                                    if (satuan) {
+                                    label += ' ' + satuan;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
                     },
-                    // Fungsi saat chart di-klik
-                    onClick: (event) => {
-                        const points = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
-
-                        // Jika ada bar yang di-klik
-                        if (points.length) {
-                            const firstPoint = points[0];
-                            const index = firstPoint.index; // Dapatkan index dari bar yang di-klik
-                            
-                            // Ambil URL yang sesuai dari array `urls` menggunakan index
-                            const url = urls[index];
+                    onClick: (event, elements, chart) => {
+                        // Cek apakah ada elemen (bar) yang diklik
+                        if (elements.length > 0) {
+                            const dataIndex = elements[0].index; // Dapatkan index dari bar yang diklik
+                            const url = targetUrls[dataIndex]; // Ambil URL yang sesuai dari array URL
                             
                             // Arahkan pengguna ke URL tersebut
-                            window.location.href = url;
+                            if (url) {
+                                window.location.href = url;
+                            }
                         }
+                    },
+                    onHover: (event, chartElement) => {
+                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
                     }
                 }
             });

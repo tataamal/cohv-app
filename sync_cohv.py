@@ -32,18 +32,18 @@ def load_config():
 
         'db_host': '127.0.0.1',
         'db_user': 'root',
-        'db_passwd': 'root', 
-        'db_name': 'cohv_app',
+        'db_passwd': '', 
+        'db_name': 'cohv',
 
         'plants': [
-            '1001', '1002', '1003', '1004', '1005', '1006', '1007', '1008',
+            '1004', '3014', '3012', '3013', '3015', '3016', '3021',
+            '1001', '1002', '1003', '1005', '1006', '1007', '1008',
             '1009', '1010', '1011', '1012', '1201', '2001', '2002', '2003',
             '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011',
             '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019',
             '2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027',
             '3001', '3002', '3003', '3004', '3007', '3008', '3009', '3010',
-            '3011', '3012', '3013', '3014', '3015', '3016', '3017', '3018',
-            '3019', '3020', '3021', '3022'
+            '3011', '3017', '3018', '3019', '3020', '3022'
         ]
     }
     
@@ -258,8 +258,19 @@ def process_plant_data(plant_code, config):
                         cursor.execute(sql, vals)
 
                     for t4_row in children_t4:
-                        sql = "INSERT INTO production_t_data4 (MANDT, RSNUM, RSPOS, KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MAKTX, MEINS, BAUGR, WERKSX, BDMNG, KALAB, SOBSL, BESKZ, LTEXT) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-                        vals = (safe_get_value(t4_row, 'MANDT'), safe_get_value(t4_row, 'RSNUM'), safe_get_value(t4_row, 'RSPOS'), safe_get_value(t4_row, 'KDAUF'), safe_get_value(t4_row, 'KDPOS'), aufnr_t3, safe_get_value(t4_row, 'PLNUM'), safe_get_value(t4_row, 'STATS'), safe_get_value(t4_row, 'DISPO'), safe_get_value(t4_row, 'MATNR'), safe_get_value(t4_row, 'MAKTX'), safe_get_value(t4_row, 'MEINS'), safe_get_value(t4_row, 'BAUGR'), plant_code, t4_row.get('BDMNG'), t4_row.get('KALAB'), safe_get_value(t4_row, 'SOBSL'), safe_get_value(t4_row, 'BESKZ'), safe_get_value(t4_row, 'LTEXT'))
+                        sql = "INSERT INTO production_t_data4 (MANDT, RSNUM, RSPOS, VORNR,  KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MAKTX, MEINS, BAUGR, WERKSX, BDMNG, KALAB, SOBSL, BESKZ, LTEXT, LGORT) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+                        vals = (
+                            safe_get_value(t4_row, 'MANDT'), safe_get_value(t4_row, 'RSNUM'), 
+                            safe_get_value(t4_row, 'RSPOS'), safe_get_value(t4_row, 'VORNR'), 
+                            safe_get_value(t4_row, 'KDAUF'), 
+                            safe_get_value(t4_row, 'KDPOS'), aufnr_t3, safe_get_value(t4_row, 'PLNUM'), 
+                            safe_get_value(t4_row, 'STATS'), safe_get_value(t4_row, 'DISPO'), 
+                            safe_get_value(t4_row, 'MATNR'), safe_get_value(t4_row, 'MAKTX'), 
+                            safe_get_value(t4_row, 'MEINS'), safe_get_value(t4_row, 'BAUGR'), 
+                            plant_code, t4_row.get('BDMNG'), t4_row.get('KALAB'), 
+                            safe_get_value(t4_row, 'SOBSL'), safe_get_value(t4_row, 'BESKZ'), 
+                            safe_get_value(t4_row, 'LTEXT'), safe_get_value(t4_row, 'LGORT') # <-- Kurung tutup dipindahkan ke sini
+                        )
                         cursor.execute(sql, vals)
         
         logging.info("[Langkah 5/5] Melakukan commit transaksi...")

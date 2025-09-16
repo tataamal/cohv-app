@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(UserandKodeSeeder::class);
-        $this->call(WcCompatibiltySeeder::class);
+        $this->call(WorkcenterSeeder::class);
+        $this->call(WcRelationSeeder::class);
     }
 }

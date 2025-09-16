@@ -10,6 +10,7 @@ class ProductionTData4 extends Model
     protected $fillable = ['MANDT',
             'RSNUM',
             'RSPOS',
+            'VORNR',
             'KDAUF', 
             'KDPOS', 
             'AUFNR',
@@ -25,7 +26,8 @@ class ProductionTData4 extends Model
             'KALAB',
             'SOBSL',
             'BESKZ',
-            'LTEXT'];
+            'LTEXT',
+            'LGORT'];
     public function tData3()
     {
         return $this->belongsTo(ProductionTData3::class, 'AUFNR', 'AUFNR');

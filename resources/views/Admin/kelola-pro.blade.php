@@ -33,11 +33,6 @@
             height: 100%;
             background-color: rgba(229, 99, 255, 0.398);
             z-index: 9999;
-            /* d-none akan mengatur display: none, saat kelas dihapus, flex akan aktif */
-            display: flex; 
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
         }
         .loader {
             position: relative;
@@ -46,7 +41,7 @@
             justify-content: space-between;
         }
         .text-color-loading {
-            color: #000000;
+            color: #ffffff;
         }
         .loader::after , .loader::before  {
             content: '';
@@ -77,7 +72,7 @@
     <div class="container-fluid my-4">
         {{-- Memanggil komponen notifikasi --}}
         <x-notification.notification />
-        <div id="loading-overlay" class="loading-overlay d-none">
+        <div id="loading-overlay" class="loading-overlay d-none d-flex justify-content-center align-items-center flex-column">
             <div class="loader mb-4"></div>
             <h2 class="h4 fw-semibold text-secondary text-color-loading">Memproses Pemindahan Workcenter...</h2>
         </div>
@@ -262,6 +257,7 @@
         const chartData = @json($chartDensityData ?? []);
         const compatibilities = @json($compatibilities ?? (object)[]);
         const plantKode = @json($kode ?? '');
+        const wcDescriptionMap = @json($wcDescriptionMap);
 
         // Warna default untuk chart
         const defaultColor = 'rgba(13, 110, 253, 0.6)';
@@ -278,18 +274,48 @@
                 datasets: [{
                     label: 'Jumlah PRO',
                     data: chartData,
-                    backgroundColor: chartColors,
+                    backgroundColor: defaultColor, // Asumsi Anda punya variabel warna
+                    borderColor: 'rgba(54, 162, 235, 1)',
                     borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true }
-                },
+                maintainAspectRatio: true,
+                aspectRatio: 4,
                 plugins: {
-                    legend: { display: false }
+                    tooltip: {
+                        // Di sinilah kita memodifikasi tooltip
+                        callbacks: {
+                            /**
+                             * Fungsi ini akan mengubah TULISAN JUDUL tooltip.
+                             */
+                            title: function(tooltipItems) {
+                                // Ambil item pertama yang di-hover
+                                const item = tooltipItems[0];
+                                // Dapatkan label aslinya (misal: 'WC031')
+                                const wcCode = item.label;
+                                // Cari deskripsinya di map yang sudah kita buat
+                                const description = wcDescriptionMap[wcCode] || wcCode; // Fallback ke kode jika deskripsi tidak ada
+                                
+                                // Kembalikan deskripsi sebagai judul
+                                return description;
+                            },
+
+                            /**
+                             * Fungsi ini akan mengubah TULISAN ISI tooltip.
+                             */
+                            label: function(context) {
+                                // Dapatkan nilai numeriknya (jumlah PRO)
+                                const value = context.parsed.y;
+                                
+                                // Buat label baru dengan satuan yang jelas
+                                let label = `Jumlah PRO: ${value}`;
+                                
+                                return label;
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -299,13 +325,13 @@
             row.addEventListener('click', function () {
                 const wcAsal = this.dataset.wcAsal;
                 const compatibilityRules = compatibilities[wcAsal] || [];
-                const rulesMap = Object.fromEntries(compatibilityRules.map(rule => [rule.wc_tujuan, rule.status]));
+                const rulesMap = Object.fromEntries(compatibilityRules.map(rule => [rule.wc_tujuan_code, rule.status]));
 
                 const newColors = chartLabels.map(targetWc => {
                     if (targetWc === wcAsal) return defaultColor;
                     const status = rulesMap[targetWc];
-                    if (status === 'Compatible') return compatibleColor;
-                    if (status === 'Compatible With Condition') return conditionalColor;
+                    if (status === 'compatible') return compatibleColor;
+                    if (status === 'compatible with condition') return conditionalColor;
                     return otherColor;
                 });
                 wcChart.data.datasets[0].backgroundColor = newColors;
@@ -345,10 +371,10 @@
                 if (wcTujuan === droppedData.wcAsal) return;
 
                 const compatibilityRules = compatibilities[droppedData.wcAsal] || [];
-                const rule = compatibilityRules.find(r => r.wc_tujuan === wcTujuan);
+                const rule = compatibilityRules.find(r => r.wc_tujuan_code === wcTujuan);
                 const status = rule ? rule.status : 'Tidak Ada Aturan';
                 
-                if (status === 'Compatible') {
+                if (status === 'compatible') {
                     document.getElementById('proCodeWc').textContent = droppedData.proCode;
                     document.getElementById('wcAsalWc').textContent = droppedData.wcAsal;
                     document.getElementById('wcTujuanWc').textContent = wcTujuan;
@@ -366,7 +392,7 @@
                     
                     new bootstrap.Modal(document.getElementById('changeWcModal')).show();
 
-                } else if (status === 'Compatible With Condition') {
+                } else if (status === 'compatible with condition') {
                     // Logika untuk menampilkan modal perubahan PV bisa ditambahkan di sini
                 } else {
                     alert(`Pemindahan PRO ${droppedData.proCode} ke Work Center ${wcTujuan} tidak diizinkan.`);

@@ -104,6 +104,7 @@
     @endpush
     <div class="container-fluid">
         {{-- Header Halaman --}}
+        <x-notification.notification />
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-body p-3">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
@@ -267,7 +268,7 @@
     <div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel aria-hidden="true"">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <form action="{{ route(name: 'reschedule.store') }}" method="POST" id="scheduleForm">
+                <form action="#" method="POST" id="scheduleForm">
                     @csrf
                     <input type="hidden" name="aufnr" id="scheduleAufnr">
                     <div class="modal-header">
@@ -287,36 +288,79 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-success">Simpan</button>
+                        <button type="button" class="btn btn-success" id="confirmScheduleBtn">Simpan</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <div class="modal fade" id="changeWcModal" tabindex="-1" aria-labelledby="changeWcModalLabel" aria-hidden="true">
+    <div class="modal fade" id="changeWcModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <form action="{{ route('change-wc') }}" method="POST" >
+                {{-- Kita akan handle submit dengan JS, beri ID pada form --}}
+                <form id="changeWcForm"> 
                     @csrf
+                    {{-- Hidden input untuk data dinamis --}}
                     <input type="hidden" id="changeWcAufnr" name="aufnr">
                     <input type="hidden" id="changeWcVornr" name="vornr">
-                    <input type="hidden" id="changeWcSequ" name="sequ" value="0">
+                    <input type="hidden" id="changeWcPwwrk" name="pwwrk">
                     <input type="hidden" id="changeWcPlant" name="plant" value="{{ $plant }}">
+
                     <div class="modal-header">
-                        <h5 class="modal-title" id="changeWcModalLabel">Change Work Center</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <h5 class="modal-title">Change Work Center</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
+
                     <div class="modal-body">
-                        <label for="changeWcInput" class="form-label">Work Center</label>
-                        <input type="text" id="changeWcInput" name="work_center" placeholder="Masukkan Work Center baru" class="form-control" required>
-                        <div id="changeWcCurrent" class="form-text"></div>
+                        {{-- Field 1: Work Center Asal (Read-only) --}}
+                        <div class="mb-3">
+                            <label for="changeWcAsal" class="form-label">Work Center Asal</label>
+                            <input type="text" id="changeWcAsal" class="form-control" readonly style="background-color: #e9ecef;">
+                        </div>
+
+                        {{-- Field 2: Work Center Tujuan (Dropdown) --}}
+                        <div class="mb-3">
+                            <label for="changeWcTujuan" class="form-label">Work Center Tujuan</label>
+                            <select id="changeWcTujuan" name="work_center_tujuan" class="form-select" required>
+                                <option value="" selected disabled>-- Pilih Work Center --</option>
+                                {{-- Loop data dari controller --}}
+                                @foreach ($workCenters as $wc)
+                                    <option value="{{ $wc->kode_wc }}">{{ $wc->kode_wc }} - {{ $wc->description }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
+                        {{-- Ganti type="submit" menjadi type="button" dan beri ID --}}
+                        <button type="button" id="confirmChangeWcBtn" class="btn btn-primary">Save</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="refreshProModal" tabindex="-1" aria-labelledby="refreshProModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="refreshProModalLabel">Konfirmasi Refresh</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Anda akan melakukan refresh untuk data berikut:</p>
+                    <ul>
+                        <li><strong>Nomor PRO:</strong> <span id="modalProNumber"></span></li>
+                        <li><strong>Plant:</strong> <span id="modalWerksInfo"></span></li>
+                    </ul>
+                    <p class="mt-3">Apakah Anda yakin ingin melanjutkan?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" id="confirmRefreshBtn">Lanjutkan</button>
+                </div>
             </div>
         </div>
     </div>
@@ -348,12 +392,13 @@
 
                 <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                <button type="submit" id="changePvSubmitBtn" class="btn btn-primary">Simpan</button>
+                <button type="button" id="changePvSubmitBtn" class="btn btn-primary">Simpan</button>
                 </div>
             </form>
             </div>
         </div>
-        </div>
+    </div>
+    @include('Admin.add-component-modal')
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
@@ -626,9 +671,6 @@
                     header.appendChild(backButton);
                 }
             }
-
-            // Panggil fungsi untuk merender tdata3 (saya asumsikan Anda sudah punya fungsi ini)
-            // contoh: renderTData3Table(key);
         }
 
         function showTData1ByAufnr(aufnr) {
@@ -663,7 +705,15 @@
                     <td class="text-center">${t1.PV3 || '-'}</td>
                     <td class="text-center">
                         <div class="d-flex gap-2 justify-content-center">
-                            <button class="btn btn-danger btn-sm" onclick="openChangeWcModal('${t1.AUFNR}', '${t1.VORNR}', '${t1.ARBPL || ''}')">Edit WC</button>
+                            <button class="btn btn-danger btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#changeWcModal"
+                                data-aufnr="${t1.AUFNR}"
+                                data-vornr="${t1.VORNR}"
+                                data-pwwrk="${t1.PWWRK}"
+                                data-arbpl="${t1.ARBPL || ''}">
+                                Edit WC
+                            </button>
                             <button class="btn btn-warning btn-sm" onclick="openChangePvModal('${t1.AUFNR}', '${t1.VERID || ''}', '${t1.WERKS || ''}')">Change PV</button>
                         </div>
                     </td>
@@ -725,7 +775,11 @@
                     <td class="px-4 py-3 text-center">${sanitize(c.MAKTX)}</td>
                     <td class="px-4 py-3 text-center">${c.BDMNG ?? c.MENGE ?? '-'}</td>
                     <td class="px-4 py-3 text-center">${c.ENMNG ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${sanitize(c.MEINS || '-')}</td>
+                    <td class="px-4 py-3 text-center">${c.LGHORT ?? '-'}</td>
+                    <td class="px-4 py-3 text-center">${sanitize(c.MEINS === 'ST' ? 'PC' : (c.MEINS || '-'))}</td>
+                    <td class="px-4 py-3 text-center">${c.LTEXT ?? '-'}</td>
+
+
                 </tr>
             `).join('');
             const block = document.createElement('div');
@@ -737,7 +791,14 @@
                         <button type="button" id="bulk-delete-btn-${aufnr}" class="btn btn-danger btn-sm" onclick="bulkDeleteComponents('${aufnr}')">Delete Selected (0)</button>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="clearComponentSelections('${aufnr}')">Clear All</button>
                     </div>
-                    <button type="button" class="btn btn-success btn-sm ms-2" onclick="openModalAddComponent('${aufnr}', '${vornr}', '${plant}')">Add Component</button>
+                    <button type="button" class="btn btn-success btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#addComponentModal"
+                        data-aufnr="${aufnr}"
+                        data-vornr="${c.VORNR}"
+                        data-plant="${c.WERKS}">
+                        Add Component
+                    </button>
                 </div>
                 <div class="table-responsive border rounded-lg">
                     <table class="table table-striped table-hover table-sm">
@@ -751,6 +812,8 @@
                                 <th scope="col" class="text-center">Description</th>
                                 <th scope="col" class="text-center">Req. Qty</th>
                                 <th scope="col" class="text-center">Stock</th>
+                                <th scope="col" class="text-center">S.Log</th>
+                                <th scope="col" class="text-center">UOM</th>
                                 <th scope="col" class="text-center">Spec. Procurement</th>
                             </tr>
                         </thead>
@@ -764,6 +827,100 @@
             if (bulkDeleteControls) {
                 bulkDeleteControls.style.display = 'none';
             }
+        }
+
+        // ---------------------------------------------------------------
+        // PENGELOLA MODAL ADD COMPONENT (BUKA & TUTUP)
+        // ---------------------------------------------------------------
+        const addComponentModal = document.getElementById('addComponentModal');
+
+        // Fungsi untuk membuka modal dan mengisi datanya
+        function openModalAddComponent(aufnr, vornr, plant) {
+            if (addComponentModal) {
+            addComponentModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const aufnr = button.dataset.aufnr;
+                const vornr = button.dataset.vornr;
+                const plant = button.dataset.plant;
+                
+                // Isi input di dalam modal
+                addComponentModal.querySelector('#addComponentAufnr').value = aufnr;
+                addComponentModal.querySelector('#addComponentVornr').value = vornr;
+                addComponentModal.querySelector('#addComponentPlant').value = plant;
+                addComponentModal.querySelector('#displayAufnr').value = aufnr;
+            });
+        }
+            
+            // Tampilkan modal dengan menghapus class 'hidden'
+            addComponentModal.classList.remove('hidden');
+        }
+
+        // Fungsi untuk menutup modal
+        function closeModalAddComponent() {
+            if (!addComponentModal) return;
+            addComponentModal.classList.add('hidden');
+        }
+
+        // Tambahkan listener ke tombol pemicu di tabel Anda
+        // Ganti '.add-component-btn' dengan class yang Anda gunakan di tombol pemicu
+        document.querySelectorAll('.add-component-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const aufnr = this.dataset.aufnr;
+                const vornr = this.dataset.vornr;
+                const plant = this.dataset.plant;
+                openModalAddComponent(aufnr, vornr, plant);
+            });
+        });
+
+
+        // ---------------------------------------------------------------
+        // PENGELOLA SUBMIT FORM VIA AJAX
+        // ---------------------------------------------------------------
+        const submitBtn = document.getElementById('add-component-submit-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function() {
+                const button = this;
+                const originalText = button.innerHTML;
+                const form = document.getElementById('add-component-form');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+
+                // Validasi sederhana
+                if (!data.iv_matnr || !data.iv_bdmng || !data.iv_meins || !data.iv_lgort) {
+                    // Ganti 'showSwal' dengan fungsi notifikasi Anda
+                    return showSwal('Harap isi semua field yang wajib diisi (*).', 'error');
+                }
+
+                button.disabled = true;
+                button.innerHTML = 'Menyimpan...'; // Tampilan loading sederhana
+
+                fetch("{{ route('component.add') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json().then(resData => ({ status: response.status, body: resData })))
+                .then(({ status, body }) => {
+                    if (status >= 400) { throw new Error(body.message || 'Gagal menambahkan komponen.'); }
+
+                    closeModalAddComponent(); // Tutup modal setelah sukses
+                    showSwal(body.message, 'success'); // Tampilkan notifikasi
+                    
+                    // Lakukan refresh halaman atau tabel setelah notifikasi
+                    setTimeout(() => location.reload(), 1500);
+                })
+                .catch(error => {
+                    showSwal(error.message, 'error');
+                })
+                .finally(() => {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                });
+            });
         }
         
         function handleClickTData2Row(key, tr) {
@@ -881,35 +1038,7 @@
             if (pg) pg.innerHTML = '';
             clearAllSelections();
         }
-
-        function renderT3PaginationControls(totalItems) {
-            const paginationContainer = document.getElementById('tdata3-pagination');
-            if (totalItems <= t3ItemsPerPage) {
-                paginationContainer.innerHTML = totalItems > 0 ? `<span class="small text-muted">Showing 1 to ${totalItems} of ${totalItems} results</span>` : ''; return;
-            }
-            const totalPages = Math.ceil(totalItems / t3ItemsPerPage);
-            const startItem = (t3CurrentPage - 1) * t3ItemsPerPage + 1;
-            const endItem = Math.min(startItem + t3ItemsPerPage - 1, totalItems);
-            let infoHtml = `<span class="small text-muted">Showing ${startItem} to ${endItem} of ${totalItems} results</span>`;
-            let buttonsHtml = '';
-            let pagesToShow = new Set([1, totalPages, t3CurrentPage, t3CurrentPage - 1, t3CurrentPage + 1]);
-            const sortedPages = Array.from(pagesToShow).filter(p => p > 0 && p <= totalPages).sort((a,b) => a - b);
-            let lastPage = 0;
-            sortedPages.forEach(page => {
-                if (lastPage > 0 && page - lastPage > 1) { buttonsHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`; }
-                const isActive = page === t3CurrentPage;
-                buttonsHtml += `<li class="page-item ${isActive ? 'active' : ''}"><button type="button" class="page-link" onclick="changeT3Page(${page})">${page}</button></li>`;
-                lastPage = page;
-            });
-            paginationContainer.innerHTML = `
-                <div>${infoHtml}</div>
-                <ul class="pagination pagination-sm mb-0">
-                    <li class="page-item ${t3CurrentPage === 1 ? 'disabled' : ''}"><button type="button" class="page-link" onclick="changeT3Page(${t3CurrentPage - 1})">Prev</button></li>
-                    ${buttonsHtml}
-                    <li class="page-item ${t3CurrentPage === totalPages ? 'disabled' : ''}"><button type="button" class="page-link" onclick="changeT3Page(${t3CurrentPage + 1})">Next</button></li>
-                </ul>`;
-        }
-
+        
         function createTableRow(d3, index) {
             const row = document.createElement('tr');
 
@@ -955,7 +1084,10 @@
                 <div class="d-flex justify-content-center align-items-center gap-2">
                     ${d3.AUFNR ? `
                     <button type="button" title="Reschedule" class="btn btn-schedule btn-sm"
-                        onclick="openSchedule('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
+                        onclick="openSchedule(
+                        '${encodeURIComponent(padAufnr(d3.AUFNR))}',
+                        '${formatDate(d3.SSAVD)}'
+                        )">
                         <i class="fas fa-clock-rotate-left"></i>
                     </button>` : ''}
 
@@ -969,6 +1101,11 @@
                     <button type="button" title="TECO" class="btn btn-teco btn-sm"
                         onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
                         <i class="fas fa-circle-check"></i>
+                    </button>` : ''}
+                    ${d3.AUFNR ? `
+                    <button type="button" title="Refresh PRO" class="btn btn-primary btn-sm"
+                        onclick="openRefresh('${d3.AUFNR}', '${d3.WERKSX}')">
+                        <i class="fa-solid fa-arrows-rotate"></i>
                     </button>` : ''}
                 </div>
                 </td>
@@ -996,23 +1133,141 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Menyimpan...';
             return true; // lanjut submit normal
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const confirmBtn = document.getElementById('confirmScheduleBtn');
+            const form = document.getElementById('scheduleForm');
+
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', function() {
+                    // Ambil referensi tombol dan simpan teks aslinya
+                    const button = this;
+                    const originalButtonText = button.innerHTML;
+                    const cancelButton = button.previousElementSibling; // Tombol "Batal"
+
+                    // Tampilkan loading & sembunyikan tombol Batal
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+                    cancelButton.style.display = 'none';
+
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
+
+                    fetch("{{ route('reschedule.store') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json().then(resData => ({ status: response.status, body: resData })))
+                    .then(({ status, body }) => {
+                        if (status >= 400) { throw new Error(body.message); }
+                        
+                        // Tutup modal dan tampilkan notifikasi sukses
+                        const modalElement = document.getElementById('scheduleModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        if (modalInstance) { modalInstance.hide(); }
+
+                        showSwal(body.message, 'success');
+                        // Lakukan reload tabel jika perlu
+                        // if (typeof dataTable !== 'undefined') dataTable.ajax.reload();
+                    })
+                    .catch(error => {
+                        showSwal(error.message, 'error');
+                    })
+                    .finally(() => {
+                        // Kembalikan tombol ke keadaan semula
+                        button.disabled = false;
+                        button.innerHTML = originalButtonText;
+                        cancelButton.style.display = 'inline-block';
+                    });
+                });
+            }
+        });
         
-        function openSchedule(aufnrEnc) {
+        function openSchedule(aufnrEnc, scheduleDate) {
+            console.log(aufnrEnc, scheduleDate);
             const aufnr = decodeURIComponent(aufnrEnc);
             document.getElementById('scheduleAufnr').value = aufnr;
-            document.getElementById('scheduleDate').value = new Date().toISOString().slice(0,10);
+            document.getElementById('scheduleDate').value = scheduleDate;
             document.getElementById('scheduleTime').value = '00.00.00';
             scheduleModal.show();
         }
-        function openChangeWcModal(aufnr, vornr, currentWC = '') {
-            document.getElementById('changeWcAufnr').value = aufnr || '';
-            document.getElementById('changeWcVornr').value = vornr || '';
-            document.getElementById('changeWcInput').value = '';
-            document.getElementById('changeWcPlant').value = "{{ $plant }}";
-            document.getElementById('changeWcInput').placeholder = `${currentWC}`;
-            document.getElementById('changeWcCurrent').textContent = currentWC ? `Current WC: ${currentWC}` : '';
-            changeWcModal.show();
-        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const changeWcModal = document.getElementById('changeWcModal');
+            
+            // 1. Mengisi data saat modal akan dibuka
+            changeWcModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const aufnr = button.dataset.aufnr;
+                const vornr = button.dataset.vornr;
+                const pwwrk = button.dataset.pwwrk;
+                const arbplAsal = button.dataset.arbpl; // Work Center Asal
+
+                // Isi field di dalam modal
+                document.getElementById('changeWcAufnr').value = aufnr;
+                document.getElementById('changeWcVornr').value = vornr;
+                document.getElementById('changeWcPwwrk').value = pwwrk;
+                document.getElementById('changeWcAsal').value = arbplAsal;
+                document.getElementById('changeWcTujuan').value = ''; // Reset dropdown
+            });
+
+            // 2. Menangani klik tombol "Save" via AJAX
+            const confirmBtn = document.getElementById('confirmChangeWcBtn');
+            confirmBtn.addEventListener('click', function() {
+                const button = this;
+                const originalText = button.innerHTML;
+                const form = document.getElementById('changeWcForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+
+                // console.log("Data yang akan dikirim ke Flask:", data); 
+
+                fetch("{{ route('change-wc-pro') }}", { 
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json().then(resData => ({ status: response.status, body: resData })))
+                .then(({ status, body }) => {
+                    if (status >= 400) { throw new Error(body.message); }
+                    
+                    // 1. Tutup modal terlebih dahulu
+                    const modalElement = document.getElementById('changeWcModal');
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+
+                    // 2. Tampilkan notifikasi sukses
+                    showSwal(body.message, 'success');
+
+                    // 3. Tunggu 1.5 detik, LALU reload halaman
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500); // 1500 milidetik = 1.5 detik
+                })
+                .catch(error => {
+                    showSwal(error.message, 'error');
+                })
+                .finally(() => {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                });
+            });
+        });
+
         function openChangePvModal(aufnr, currentPV = '', plantVal = null) {
             const defaultPlant = @json($plant);
 
@@ -1028,14 +1283,6 @@
 
             // tampilkan modal
             (bootstrap.Modal.getOrCreateInstance(document.getElementById('changePvModal'))).show();
-        }
-        function openModalAddComponent(aufnr, vornr) {
-            document.getElementById('add-component-aufnr').value = aufnr;
-            document.getElementById('add-component-vornr').value = vornr;
-            document.getElementById('display-aufnr').value = aufnr;
-            document.getElementById('display-vornr').value = vornr;
-            document.getElementById('add-component-form').reset();
-            if(addComponentModal) addComponentModal.show();
         }
 
         function handleBulkSelect(checkbox) { 
@@ -1061,15 +1308,9 @@
         }
         function updateBulkControls() { 
             const bulkControls = document.getElementById('bulk-controls');
-            const convertBtn = document.getElementById('bulk-convert-btn');
-            const releaseBtn = document.getElementById('bulk-release-btn');
             const hasPLO = selectedPLO.size > 0;
             const hasPRO = selectedPRO.size > 0;
             bulkControls.classList.toggle('d-none', !hasPLO && !hasPRO);
-            convertBtn.classList.toggle('d-none', !hasPLO);
-            releaseBtn.classList.toggle('d-none', !hasPRO);
-            if(hasPLO) convertBtn.textContent = `Convert Selected PLO (${selectedPLO.size})`;
-            if(hasPRO) releaseBtn.textContent = `Release Selected PRO (${selectedPRO.size})`;
         }
         function toggleSelectAll() { 
             const selectAll = document.getElementById('select-all').checked;
@@ -1108,219 +1349,83 @@
             document.querySelectorAll(`.component-select-${aufnr}`).forEach(cb => cb.checked = false);
             handleComponentSelect(aufnr);
         }
-        async function convertPlannedOrderFixed(d3) {
-            console.log('Convert button clicked', d3);
-            const plnum = d3.PLNUM; 
-            const auart = d3.AUART;
-            const plant = @json($plant);
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Pastikan tombol "Simpan" di modal Change PV Anda memiliki id="changePvSubmitBtn"
+            const confirmChangePvBtn = document.getElementById('changePvSubmitBtn');
 
-            if (!plnum || !auart) {
-            console.error('Missing data:', { plnum, auart });
-            return toast('error', 'Data tidak lengkap', 'PLNUM atau AUART tidak ditemukan.');
-            }
+            if (confirmChangePvBtn) {
+                confirmChangePvBtn.addEventListener('click', function() {
+                    const button = this;
+                    const originalText = button.innerHTML;
+                    
+                    // Pastikan form di modal Anda memiliki id="changePvForm"
+                    const form = document.getElementById('changePvForm');
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
 
-            const { isConfirmed } = await confirmSwal({
-            title: 'Konversi Planned Order?',
-            text: `Konversi ${plnum} (Tipe: ${auart})`
-            });
-            if (!isConfirmed) return;
+                    // 1. Validasi Sederhana
+                    if (!data.AUFNR) {
+                        return showSwal('AUFNR tidak ditemukan di form.', 'error');
+                    }
+                    if (!data.PROD_VERSION) {
+                        return showSwal('Isi Production Version (PV) dahulu.', 'error');
+                    }
+                    if (!data.plant) {
+                        return showSwal('Plant (WERKS) tidak ditemukan di form.', 'error');
+                    }
 
-            const loader = document.getElementById('global-loading');
-            if (loader) loader.style.display = 'flex';
+                    // Tampilkan status loading
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+                    
+                    // Kirim request ke endpoint Laravel
+                    fetch("{{ route('change-pv') }}", { 
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => {
+                        // Menggunakan pola yang sama untuk menangani respons
+                        return response.json().then(resData => ({ status: response.status, body: resData }));
+                    })
+                    .then(({ status, body }) => {
+                        if (status >= 400) { 
+                            // Jika ada error dari server, lempar pesan errornya
+                            throw new Error(body.error || body.message || 'Terjadi kesalahan di server.'); 
+                        }
+                        
+                        // Logika sukses dibuat sama persis dengan change WC
+                        const modalElement = document.getElementById('changePvModal'); // Pastikan ID modal Anda benar
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
 
-            const url = '/create_prod_order';
-            const requestData = { PLANNED_ORDER: plnum, AUART: auart, PLANT: plant };
+                        showSwal(body.message, 'success');
 
-            try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            });
-
-            const ct = response.headers.get('content-type') || '';
-            const raw = await response.text();
-            if (!ct.includes('application/json')) {
-                throw new Error(`Non-JSON response (status ${response.status}): ${raw.slice(0,120)}...`);
-            }
-            const data = JSON.parse(raw);
-            if (!response.ok) {
-                const msg = data?.error || data?.message || response.statusText;
-                throw new Error(msg);
-            }
-
-            // Batch
-            if (Array.isArray(data.results)) {
-                showResultModal({
-                results: data.results.map(r => ({
-                    planned_order: r.planned_order || r.PLANNED_ORDER || plnum,
-                    plant:         r.plant || r.PLANT || plant,
-                    production_orders: (r.production_orders || []).map(padAufnr)
-                }))
+                        // Tunggu sejenak, lalu reload halaman
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    })
+                    .catch(error => {
+                        // Menampilkan error menggunakan SweetAlert
+                        showSwal(error.message, 'error');
+                    })
+                    .finally(() => {
+                        // Mengembalikan tombol ke keadaan semula
+                        button.disabled = false;
+                        button.innerHTML = originalText;
+                    });
                 });
-                return;
             }
+        });
 
-            // Single
-            const orders = (data.production_orders && data.production_orders.length)
-                ? data.production_orders.map(padAufnr)
-                : (data.order_number ? [padAufnr(data.order_number)] : []);
-            const modalData = {
-                planned_order: data.planned_order || plnum,
-                plant: data.plant || plant,
-                production_orders: orders
-            };
-            showResultModal(modalData);
-
-            } catch (error) {
-            console.error('Convert error:', error);
-            await resultSwal({ success: false, title: 'Konversi gagal', text: error.message || String(error) });
-            } finally {
-            if (loader) loader.style.display = 'none';
-            }
-        }
-        async function bulkConvertPlannedOrders() {
-            if (selectedPLO.size === 0) return toast('info','Tidak ada PLO terpilih');
-
-            const { isConfirmed } = await confirmSwal({
-                title: 'Konversi massal?',
-                text: `Akan mengkonversi ${selectedPLO.size} Planned Order`
-            });
-            if (!isConfirmed) return;
-
-            const loader = document.getElementById('global-loading');
-            if (loader) loader.style.display = 'flex';
-
-            const ploArray = Array.from(selectedPLO).map(itemStr => JSON.parse(itemStr));
-
-            try {
-                const results = await Promise.all(ploArray.map(async item => {
-                  const url = '/create_prod_order';
-                  const requestData = { PLANNED_ORDER: item.plnum, AUART: item.auart };
-
-                  const res = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                      'Accept': 'application/json',
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestData)
-                  });
-
-                  const json = await res.json().catch(() => ({}));
-                  if (!res.ok) throw new Error(json?.error || json?.message || res.statusText);
-                  return json;
-                }));
-
-                const successCount = results.filter(r => r.success).length;
-                await resultSwal({
-                  success: true,
-                  title: 'Konversi massal selesai',
-                  text: `${successCount} dari ${ploArray.length} Planned Order berhasil.`
-                });
-                location.reload();
-            } catch (error) {
-                await resultSwal({
-                  success: false,
-                  title: 'Konversi massal gagal',
-                  text: 'Terjadi kesalahan. Beberapa/semua order mungkin gagal.'
-                });
-            } finally {
-                if (loader) loader.style.display = 'none';
-            }
-        }
-        function bulkReleaseOrders() { alert('Fungsi bulk release belum diimplementasikan.'); }
-        async function bulkDeleteComponents(aufnr) {
-            const selected = [...document.querySelectorAll(`.component-select-${aufnr}`)].filter(cb => cb.checked);
-            if (selected.length === 0) return;
-            const payload = selected.map(cb => ({
-                rspos: cb.dataset.rspos,
-                material: cb.dataset.material,
-            }));
-            console.log('Bulk delete ->', aufnr, payload);
-            // TODO: panggil API delete Anda di sini
-        }
-        async function submitChangePv() {
-            const btn    = document.getElementById('changePvSubmitBtn');
-            const aufnr  = (document.getElementById('changePvAufnr').value || '').trim();
-            let   pv     = (document.getElementById('changePvInput').value || '').trim();
-            const werks  = (document.getElementById('changePvWerks').value || '').trim();
-
-            if (!aufnr) return (window.notify?.('AUFNR tidak ditemukan.', 'error') || alert('AUFNR tidak ditemukan.'));
-            if (!pv)    return (window.notify?.('Isi Production Version (PV) dahulu.', 'error') || alert('Isi PV dahulu.'));
-            if (!werks) return (window.notify?.('Plant (WERKS) tidak ditemukan.', 'error') || alert('Plant (WERKS) tidak ditemukan.'));
-
-            const verid = pv.replace(/\s+/g, '').padStart(4, '0');
-
-            const oldLabel = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = 'Menyimpan...';
-            startGlobalLoading();
-
-            try {
-                const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
-                const url  = "{{ route('change-pv') }}";
-
-                const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrf
-                },
-                body: JSON.stringify({ AUFNR: aufnr, PROD_VERSION: verid, plant: werks })
-                });
-
-                const raw = await res.text();
-                let data = {};
-                try { data = raw ? JSON.parse(raw) : {}; }
-                catch { throw new Error(`Non-JSON response: ${raw.slice(0, 200)}...`); }
-
-                if (!res.ok) {
-                const msg = data?.error || data?.message || `HTTP ${res.status}`;
-                throw new Error(msg);
-                }
-
-                // ✅ Matikan loader begitu respon sukses diterima
-                stopGlobalLoading();
-
-                if (window.refreshOrderDetail) await window.refreshOrderDetail(aufnr);
-                closeChangePvModal?.();
-
-                await resultSwal({
-                success: true,
-                title: 'Production Version diperbarui',
-                html: `
-                    <div style="text-align:left">
-                    <div><b>Order</b>: ${aufnr}</div>
-                    <div><b>Plant</b>: ${werks}</div>
-                    <div><b>PV Baru</b>: ${verid}</div>
-                    </div>
-                `
-                });
-
-                // boleh tampilkan loader lagi saat reload (beforeunload handler akan show), itu normal
-                location.reload();
-
-            } catch (err) {
-                // ✅ Pastikan loader juga mati saat error
-                stopGlobalLoading();
-
-                await resultSwal({
-                success: false,
-                title: 'Gagal mengubah PV',
-                text: err?.message || String(err)
-                });
-            } finally {
-                btn.disabled = false;
-                btn.textContent = oldLabel;
-            }
-        }
         function openTeco(aufnr) {
             Swal.fire({
                 title: 'Konfirmasi TECO',
@@ -1478,43 +1583,216 @@
             clearComponentSelections(aufnr);
         }
         
-        async function handleAddComponentSubmit(e) {
-            e.preventDefault();
-            const form = e.target;
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menambahkan...`;
-            
-            const formData = new FormData(form);
-            const aufnr = formData.get('iv_aufnr');
-            
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        'Accept': 'application/json',
-                    },
-                    body: formData
-                });
-                const data = await response.json();
-                if (!response.ok || !data.success) throw new Error(data.message || 'Gagal menambahkan komponen.');
-                
-                toast('success', data.message || 'Komponen berhasil ditambahkan!');
-                if (addComponentModal) addComponentModal.hide();
-                if (data.components) {
-                    updateComponentTable(aufnr, data.components);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                resultSwal({ success: false, title: 'Operasi Gagal', text: error.message });
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
+        let refreshModal;
+        document.addEventListener('DOMContentLoaded', function () {
+            const modalElement = document.getElementById('refreshProModal');
+            if (modalElement) {
+                refreshModal = new bootstrap.Modal(modalElement);
+            }
+        });
+
+        function openRefresh(proNumber, werksInfo) {
+            // Mengisi data ke dalam elemen span di modal
+            document.getElementById('modalProNumber').textContent = proNumber;
+            document.getElementById('modalWerksInfo').textContent = werksInfo;
+
+            // Menyimpan nomor PRO di tombol "Lanjutkan" menggunakan atribut data-*
+            // Ini cara yang aman untuk passing data ke event listener
+            const confirmBtn = document.getElementById('confirmRefreshBtn');
+            confirmBtn.dataset.pro = proNumber;
+            confirmBtn.dataset.werks = werksInfo;
+
+            // Menampilkan modal
+            if (refreshModal) {
+                refreshModal.show();
             }
         }
+
+        function showSwal(message, type = 'success') {
+            let config = {
+                confirmButtonText: 'OK'
+            };
+
+            if (type === 'success') {
+                config.icon = 'success';
+                config.title = 'Berhasil';
+                config.text = message;
+            } else { // 'error'
+                config.icon = 'error';
+                config.title = 'Gagal';
+                // Menggunakan 'html' agar bisa menampilkan baris baru jika ada
+                config.html = message.replace(/\n/g, '<br>');
+            }
+
+            // Memanggil library SweetAlert untuk menampilkan notifikasi
+            Swal.fire(config);
+        }
+
+        document.getElementById('confirmRefreshBtn').addEventListener('click', function() {
+            // Ambil nomor PRO & Werks dari atribut data-*
+            const proToRefresh = this.dataset.pro;
+            const werksToRefresh = this.dataset.werks;
+
+            // Tampilkan status loading
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Loading...';
+            
+            // Tentukan URL endpoint statis di Controller PHP Anda.
+            // Data akan dikirim melalui body, bukan URL.
+            const phpEndpoint = '/refresh-pro'; 
+
+            // Kirim request ke endpoint PHP menggunakan Fetch API
+            fetch(phpEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    pro_number: proToRefresh,
+                    werks: werksToRefresh
+                })
+            })
+            .then(response => {
+                // Logika untuk memeriksa respons OK atau tidak
+                return response.json().then(data => ({ status: response.status, body: data }));
+            })
+            .then(({ status, body }) => {
+                if (status >= 400) {
+                    // Jika server mengembalikan status error (4xx atau 5xx)
+                    throw new Error(body.message || 'Terjadi kesalahan di server.');
+                }
+                showSwal(body.message, 'success'); // Tampilkan notifikasi sukses
+
+                const modalElement = document.getElementById('refreshProModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+               setTimeout(() => {
+                    location.reload();
+                }, 1500); // 1500 milidetik = 1.5 detik
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showSwal(error.message, 'error'); // Tampilkan notifikasi error
+            })
+            .finally(() => {
+                this.disabled = false;
+                this.innerHTML = 'Lanjutkan';
+            });
+        });
+
+        function showNotification(message, type = 'success') {
+            const container = document.getElementById('notification-container');
+            if (!container) return;
+
+            // Tentukan kelas dan judul berdasarkan tipe notifikasi
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+            const title = type === 'success' ? 'Berhasil!' : 'Gagal!';
+
+            // Buat elemen HTML untuk alert menggunakan template literal
+            const alertHTML = `
+                <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                    <strong>${title}</strong> ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+
+            // Masukkan HTML ke dalam container
+            container.innerHTML = alertHTML;
+
+            // Opsional: Hapus notifikasi secara otomatis setelah 5 detik
+            setTimeout(() => {
+                const alertElement = container.querySelector('.alert');
+                if (alertElement) {
+                    // Gunakan instance Bootstrap untuk menutup dengan animasi fade
+                    const bsAlert = new bootstrap.Alert(alertElement);
+                    bsAlert.close();
+                }
+            }, 5000); // 5000 milidetik = 5 detik
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+        const addComponentModal = document.getElementById('addComponentModal');
         
+        // 1. Logika untuk mengisi data ke modal saat akan dibuka
+        if (addComponentModal) {
+            addComponentModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const aufnr = button.dataset.aufnr;
+                const vornr = button.dataset.vornr;
+                const plant = button.dataset.plant;
+                
+                // Isi input di dalam modal
+                addComponentModal.querySelector('#addComponentAufnr').value = aufnr;
+                addComponentModal.querySelector('#addComponentVornr').value = vornr;
+                addComponentModal.querySelector('#addComponentPlant').value = plant;
+                addComponentModal.querySelector('#displayAufnr').value = aufnr; // Mengisi input display juga
+            });
+        }
+
+        // 2. Logika untuk menangani klik tombol "Simpan" via AJAX
+        const confirmBtn = document.getElementById('confirmAddComponentBtn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function() {
+                const button = this;
+                const originalText = button.innerHTML;
+                const form = document.getElementById('addComponentForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+
+                // Validasi sederhana di sisi klien
+                if (!data.material || !data.quantity) {
+                    return showSwal('Material dan Quantity wajib diisi.', 'error');
+                }
+
+                // Tampilkan status loading
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+
+                // Kirim request ke endpoint Laravel
+                fetch("{{ route('component.add') }}", { // Pastikan route ini ada
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json().then(resData => ({ status: response.status, body: resData })))
+                .then(({ status, body }) => {
+                    if (status >= 400) {
+                        throw new Error(body.message || 'Gagal menambahkan komponen.');
+                    }
+                    
+                    const modalInstance = bootstrap.Modal.getInstance(addComponentModal);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                    
+                    showSwal(body.message, 'success');
+
+                    // Tunggu notifikasi, lalu reload halaman/tabel
+                    setTimeout(() => {
+                        // Ganti dengan dataTable.ajax.reload() jika Anda ingin refresh tabel saja
+                        location.reload(); 
+                    }, 1500);
+                })
+                .catch(error => {
+                    showSwal(error.message, 'error');
+                })
+                .finally(() => {
+                    // Kembalikan tombol ke keadaan semula
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                });
+            });
+        }
+    });
     </script>
 @endpush
 </x-layouts.app>

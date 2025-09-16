@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductionTData3;
+use App\Models\ProductionTData1;
+use App\Models\ProductionTData4;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -73,11 +75,14 @@ class Data3Controller extends Controller
         $sapPass = Session::get('password');
 
         if (!$sapUser || !$sapPass) {
-            return back()->withErrors(['msg' => 'SAP credential tidak tersedia di sesi. Silakan login SAP kembali.']);
+            return response()->json([
+                'success' => false,
+                'message' => 'SAP credential tidak tersedia di sesi. Silakan login kembali.'
+            ], 401);
         }
 
         try {
-            $flaskBase = rtrim(config('services.flask.base_url', env('FLASK_API_URL', 'http://127.0.0.1:8050')), '/');
+            $flaskBase = rtrim(env('FLASK_API_URL', 'http://127.0.0.1:8050'), '/');
 
             $response = Http::withHeaders([
                     'X-SAP-Username' => $sapUser,
@@ -119,53 +124,22 @@ class Data3Controller extends Controller
                         })
                         ->implode("\n");
 
-                return back()->withErrors(['msg' => "SAP menolak penjadwalan:\n".$msg])->withInput();
+                return response()->json([
+                    'success' => false,
+                    'message' => "SAP menolak penjadwalan:\n".$msg
+                ], 422);
             }
 
-            // Jika tidak ada error, tampilkan success (bisa ditangkap oleh SweetAlert)
-            return back()->with('success', 'Production Order berhasil dijadwalkan/di-reschedule.')
-                         ->with('sap_raw', $payload); // opsional: untuk debug di halaman
+            return response()->json([
+                'success' => true,
+                'message' => 'Production Order berhasil dijadwalkan/di-reschedule.'
+            ], 200);
                          
         } catch (\Throwable $e) {
-            return back()->withErrors(['msg' => 'Exception: '.$e->getMessage()]);
-        }
-    }
-
-    public function changeWc(Request $request)
-    {
-        $request->validate([
-            'aufnr'       => 'required|string',
-            'vornr'       => 'required|string',
-            'work_center' => 'required|string',
-            'sequ'        => 'nullable|string',
-        ]);
-
-        $payload = [
-            'IV_AUFNR'    => $request->aufnr,
-            'IV_COMMIT'   => 'X',
-            'IT_OPERATION'=> [[
-                'SEQUEN'   => $request->sequ ?: '0',
-                'OPER'     => $request->vornr,
-                'WORK_CEN' => $request->work_center,
-                'W'        => 'X',
-            ]],
-        ];
-
-        try {
-            $resp = Http::withHeaders([
-                    'X-SAP-Username' => session('username'),
-                    'X-SAP-Password' => session('password'),
-                ])
-                ->timeout(30)
-                ->post(env('FLASK_BASE_URL', 'http://127.0.0.1:8050').'/api/save_edit', $payload);
-
-            if (!$resp->successful()) {
-                return response()->json(['ok'=>false, 'error'=>$resp->json('error') ?? 'Flask error'], $resp->status());
-            }
-
-            return response()->json(['ok'=>true, 'result'=>$resp->json()]);
-        } catch (\Throwable $e) {
-            return response()->json(['ok'=>false, 'error'=>$e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan internal di server: '.$e->getMessage()
+            ], 500);
         }
     }
 
