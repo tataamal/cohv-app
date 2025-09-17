@@ -155,7 +155,7 @@ class Data1Controller extends Controller
                 ])
                 ->get($flaskBase . '/api/refresh-pro', [
                     'plant' => $plant,
-                    'AUFNR' => $aufnr,
+                    'aufnr' => $aufnr,
                 ]);
 
             if (!$refreshResp->successful()) {

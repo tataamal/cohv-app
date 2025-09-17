@@ -27,7 +27,8 @@ class ProductionTData4 extends Model
             'SOBSL',
             'BESKZ',
             'LTEXT',
-            'LGORT'];
+            'LGORT',
+            'OUTSREQ'];
     public function tData3()
     {
         return $this->belongsTo(ProductionTData3::class, 'AUFNR', 'AUFNR');

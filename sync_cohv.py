@@ -258,7 +258,7 @@ def process_plant_data(plant_code, config):
                         cursor.execute(sql, vals)
 
                     for t4_row in children_t4:
-                        sql = "INSERT INTO production_t_data4 (MANDT, RSNUM, RSPOS, VORNR,  KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MAKTX, MEINS, BAUGR, WERKSX, BDMNG, KALAB, SOBSL, BESKZ, LTEXT, LGORT) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" # <-- FIX: Tambahkan satu %s, total menjadi 21
+                        sql = "INSERT INTO production_t_data4 (MANDT, RSNUM, RSPOS, VORNR,  KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MAKTX, MEINS, BAUGR, WERKSX, BDMNG, KALAB, SOBSL, BESKZ, LTEXT, LGORT, OUTSREQ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" # <-- FIX: Tambahkan satu %s, total menjadi 21
                         vals = (
                             safe_get_value(t4_row, 'MANDT'), safe_get_value(t4_row, 'RSNUM'), 
                             safe_get_value(t4_row, 'RSPOS'), safe_get_value(t4_row, 'VORNR'), 
@@ -269,7 +269,8 @@ def process_plant_data(plant_code, config):
                             safe_get_value(t4_row, 'MEINS'), safe_get_value(t4_row, 'BAUGR'), 
                             plant_code, t4_row.get('BDMNG'), t4_row.get('KALAB'), 
                             safe_get_value(t4_row, 'SOBSL'), safe_get_value(t4_row, 'BESKZ'), 
-                            safe_get_value(t4_row, 'LTEXT'), safe_get_value(t4_row, 'LGORT')
+                            safe_get_value(t4_row, 'LTEXT'), safe_get_value(t4_row, 'LGORT'),
+                             safe_get_value(t4_row, 'OUTSREQ')
                         )
                         cursor.execute(sql, vals)
         

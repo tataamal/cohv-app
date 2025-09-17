@@ -100,6 +100,49 @@
     .pro-cell-actions .btn {
         padding: .2rem .4rem;           /* tombol kecil rapi */
     }
+
+    /* Kontainer utama untuk styling dan scoping */
+    .component-table-wrapper {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        overflow: hidden; /* Penting untuk rounded corner di table */
+    }
+
+    /* Kontainer untuk scroll vertikal */
+    .component-table-wrapper .table-responsive {
+        max-height: 450px; /* Atur tinggi maksimal tabel sebelum scroll muncul */
+        overflow-y: auto;
+    }
+
+    /* Membuat header tabel menempel (sticky) saat di-scroll */
+    .component-table-wrapper thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        /* Ganti warna background agar tidak transparan saat scroll */
+        background-color: #f8fafc; 
+        box-shadow: inset 0 -2px 0 #e5e7eb; /* Garis bawah halus */
+    }
+
+    /* Styling tambahan untuk header agar lebih jelas */
+    .component-table-wrapper thead th {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        color: #374151;
+    }
+
+    /* Padding untuk sel agar tidak terlalu rapat */
+    .component-table-wrapper td, .component-table-wrapper th {
+        padding: 0.75rem 1rem;
+        vertical-align: middle;
+    }
+
+    /* Efek hover pada baris tabel */
+    .component-table-wrapper tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
     </style>
     @endpush
     <div class="container-fluid">
@@ -189,15 +232,12 @@
                         <h3 class="h5 fw-semibold text-dark">Order Overview</h3>
                         <div class="btn-group btn-group-sm" role="group" id="status-filter">
                             <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus(this, 'all')">All</button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'plo')">PLO</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'crtd')">PRO (CRTD)</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'released')">PRO (Released)</button>
                         </div>
                     </div>
                     
                     <div id="bulk-controls" class="d-flex align-items-center gap-2 mb-3 d-none">
-                        <button id="bulk-convert-btn" class="btn btn-warning btn-sm d-none" onclick="bulkConvertPlannedOrders()">Convert Selected PLO</button>
-                        <button id="bulk-release-btn" class="btn btn-success btn-sm d-none" onclick="bulkReleaseOrders()">Release Selected PRO</button>
                         <button class="btn btn-secondary btn-sm" onclick="clearAllSelections()">Clear All</button>
                     </div>
                     
@@ -404,6 +444,7 @@
     <script>
         // --- [BARU] Inisialisasi semua Modal Bootstrap ---
         let resultModal, scheduleModal, changeWcModal, changePvModal;
+        const addComponentModal = document.getElementById('addComponentModal');
         document.addEventListener('DOMContentLoaded', () => {
             // Sukses dari controller
             @if (session('success'))
@@ -446,8 +487,6 @@
 
         // --- Fungsi Helper Notifikasi (SweetAlert - Tidak Berubah) ---
         window.toast = (icon, title, text='') => Swal.fire({ icon, title, text, timer: 2500, timerProgressBar: true, showConfirmButton: false, position: 'top-end', toast: true });
-        window.confirmSwal = (opts={}) => Swal.fire({ icon: opts.icon || 'question', title: opts.title || 'Konfirmasi', text: opts.text || '', showCancelButton: true, confirmButtonText: opts.confirmText || 'Ya', cancelButtonText: opts.cancelText || 'Batal' });
-        window.resultSwal = async ({success=true, title, html, text}) => { await Swal.fire({ icon: success ? 'success' : 'error', title: title || (success ? 'Berhasil' : 'Gagal'), html, text, confirmButtonText: 'OK' }); };
         window.SAP = {user: @json(session('sap_id')),pass: @json(session('password'))};
 
         // --- Variabel State & Data (Tidak Berubah) ---
@@ -745,6 +784,7 @@
             container.innerHTML = '';
             container.appendChild(block);
         }
+        
         function showTData4ByAufnr(aufnr) {
             const container = document.getElementById('additional-data-container');
             const blockId = `tdata4-${aufnr}`;
@@ -761,116 +801,148 @@
                 if (!row.textContent.includes(aufnr)) row.classList.add('d-none');
                 else row.classList.remove('d-none');
             });
-            const ltrim0 = (s) => String(s ?? '').replace(/^0+/, '');
+            
+            // 1. Ambil data routing dan objek pertamanya dengan aman
             const routingData = (tdata1ByAufnr && tdata1ByAufnr[aufnr]) ? tdata1ByAufnr[aufnr] : [];
-            const vornr = (routingData.length > 0 && routingData[0].VORNR) ? routingData[0].VORNR : '0010';
-            const plant = '{{ $plant }}';
+            const firstRouting = routingData.length > 0 ? routingData[0] : {};
+
+            // 2. Siapkan variabel dari objek firstRouting
+            const vornr = firstRouting.VORNR || '0010';
+            const arbpl = firstRouting.ARBPL || ''; // Ambil ARBPL dari objek
+            const pwwrk = firstRouting.PWWRK || '{{ $plant }}'; // Ambil WERKS dari objek, fallback ke plant
+
+            const ltrim0 = (s) => String(s ?? '').replace(/^0+/, '');
+        
             const rowsHtml = data.map((c, i) => `
                 <tr class="bg-white">
                     <td class="px-4 py-3 text-center">
                         <input type="checkbox" class="component-select-${aufnr} form-check-input" data-aufnr="${aufnr}" data-rspos="${c.RSPOS || i}" data-material="${ltrim0(c.MATNR)}" onchange="handleComponentSelect('${aufnr}')">
                     </td>
                     <td class="px-4 py-3 text-center">${i + 1}</td>
+                    <td class="px-4 py-3 text-center">${c.RSNUM ?? '-'}</td>
+                    <td class="px-4 py-3 text-center">${c.RSPOS ?? '-'}</td>
                     <td class="px-4 py-3 text-center">${ltrim0(c.MATNR)}</td>
                     <td class="px-4 py-3 text-center">${sanitize(c.MAKTX)}</td>
                     <td class="px-4 py-3 text-center">${c.BDMNG ?? c.MENGE ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${c.ENMNG ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${c.LGHORT ?? '-'}</td>
+                    <td class="px-4 py-3 text-center">${c.KALAB ?? '-'}</td>
+                    <td class="px-4 py-3 text-center">${c.OUTSREQ ?? '-'}</td>
+                    <td class="px-4 py-3 text-center">${c.LGORT ?? '-'}</td>
                     <td class="px-4 py-3 text-center">${sanitize(c.MEINS === 'ST' ? 'PC' : (c.MEINS || '-'))}</td>
                     <td class="px-4 py-3 text-center">${c.LTEXT ?? '-'}</td>
-
-
                 </tr>
             `).join('');
+
             const block = document.createElement('div');
+
             block.id = blockId;
             block.className = 'mt-4';
-            block.innerHTML = `
-                <div class="d-flex justify-content-end align-items-center mb-2">
+            block.innerHTML = block.innerHTML = `
+            <div class="component-table-wrapper">
+            
+                <div class="d-flex justify-content-between align-items-center p-3 bg-light">
                     <div class="d-flex gap-2" id="bulk-delete-controls-${aufnr}" style="display: none;">
-                        <button type="button" id="bulk-delete-btn-${aufnr}" class="btn btn-danger btn-sm" onclick="bulkDeleteComponents('${aufnr}')">Delete Selected (0)</button>
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="clearComponentSelections('${aufnr}')">Clear All</button>
+                        <button type="button" id="bulk-delete-btn-${aufnr}" class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash-alt me-1"></i> Delete Selected (0)
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="clearComponentSelections('${aufnr}')">
+                            <i class="fas fa-times me-1"></i> Clear All
+                        </button>
                     </div>
-                    <button type="button" class="btn btn-success btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#addComponentModal"
-                        data-aufnr="${aufnr}"
-                        data-vornr="${c.VORNR}"
-                        data-plant="${c.WERKS}">
-                        Add Component
+
+                    <button class="btn btn-primary btn-sm btn-add-component ms-auto" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#addComponentModal"
+                            data-aufnr="${aufnr}"
+                            data-vornr="${vornr}"
+                            data-arbpl="${arbpl}"
+                            data-pwwrk="${pwwrk}">
+                        <i class="fas fa-plus me-1"></i> Add Component
                     </button>
                 </div>
-                <div class="table-responsive border rounded-lg">
-                    <table class="table table-striped table-hover table-sm">
-                        <thead class="bg-purple-light text-purple-dark">
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead>
                             <tr>
-                                <th scope="col" class="text-center">
+                                <th class="text-center" style="width: 5%;">
                                     <input type="checkbox" id="select-all-components-${aufnr}" class="form-check-input" onchange="toggleSelectAllComponents('${aufnr}')">
                                 </th>
-                                <th scope="col" class="text-center">No.</th>
-                                <th scope="col" class="text-center">Material</th>
-                                <th scope="col" class="text-center">Description</th>
-                                <th scope="col" class="text-center">Req. Qty</th>
-                                <th scope="col" class="text-center">Stock</th>
-                                <th scope="col" class="text-center">S.Log</th>
-                                <th scope="col" class="text-center">UOM</th>
-                                <th scope="col" class="text-center">Spec. Procurement</th>
+                                <th class="text-center" style="width: 5%;">No.</th>
+                                <th>Number Reservasi</th>
+                                <th>Item Reservasi</th>
+                                <th>Material</th>
+                                <th>Description</th>
+                                <th class="text-center">Req. Qty</th>
+                                <th class="text-center">Stock</th>
+                                <th class="text-center">Outs. Req</th>
+                                <th>S.Log</th>
+                                <th class="text-center">UOM</th>
+                                <th>Spec. Procurement</th>
                             </tr>
                         </thead>
-                        <tbody>${rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="7" class="text-center p-5 text-muted">Belum ada komponen. Klik 'Add Component' untuk menambahkan.</td></tr>`}</tbody>
+                        <tbody>
+                            ${rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="12" class="text-center p-5 text-muted">Belum ada komponen. Klik 'Add Component' untuk menambahkan.</td></tr>`}
+                        </tbody>
                     </table>
-                </div>`;
+                </div>
+            </div>`;
             container.innerHTML = '';
             container.appendChild(block);
-
-            const bulkDeleteControls = document.getElementById(`bulk-delete-controls-${aufnr}`);
-            if (bulkDeleteControls) {
-                bulkDeleteControls.style.display = 'none';
-            }
         }
 
         // ---------------------------------------------------------------
         // PENGELOLA MODAL ADD COMPONENT (BUKA & TUTUP)
         // ---------------------------------------------------------------
-        const addComponentModal = document.getElementById('addComponentModal');
 
-        // Fungsi untuk membuka modal dan mengisi datanya
-        function openModalAddComponent(aufnr, vornr, plant) {
-            if (addComponentModal) {
+        if (addComponentModal) {
+            // Listener ini akan berjalan SETIAP KALI modal akan ditampilkan
             addComponentModal.addEventListener('show.bs.modal', function (event) {
+                // event.relatedTarget adalah tombol yang memicu modal
                 const button = event.relatedTarget;
+
+                // Ambil semua data dari atribut data-* tombol
                 const aufnr = button.dataset.aufnr;
                 const vornr = button.dataset.vornr;
-                const plant = button.dataset.plant;
+                const arbpl = button.dataset.arbpl;
+                const pwwrk = button.dataset.pwwrk;
+
+                // Temukan input di dalam modal dan isi nilainya
+                // Pastikan ID input di modal Anda sudah benar
+                addComponentModal.querySelector('#addComponentAufnr').value = aufnr || '';
+                addComponentModal.querySelector('#addComponentVornr').value = vornr || '';
+                addComponentModal.querySelector('#addComponentPlant').value = pwwrk || ''; // 'plant' di modal diisi oleh 'pwwrk'
                 
-                // Isi input di dalam modal
-                addComponentModal.querySelector('#addComponentAufnr').value = aufnr;
-                addComponentModal.querySelector('#addComponentVornr').value = vornr;
-                addComponentModal.querySelector('#addComponentPlant').value = plant;
-                addComponentModal.querySelector('#displayAufnr').value = aufnr;
+                // Jika Anda punya display field (bukan input)
+                const displayField = addComponentModal.querySelector('#displayAufnr');
+                if (displayField) {
+                    displayField.textContent = aufnr || ''; // Gunakan textContent untuk elemen non-input
+                }
             });
         }
-            
-            // Tampilkan modal dengan menghapus class 'hidden'
-            addComponentModal.classList.remove('hidden');
-        }
 
-        // Fungsi untuk menutup modal
-        function closeModalAddComponent() {
-            if (!addComponentModal) return;
-            addComponentModal.classList.add('hidden');
-        }
+        const materialInput = document.getElementById('materialInput');
+        // Pastikan elemennya ada untuk menghindari error
+        if (materialInput) {
+            // 2. Tambahkan event listener 'blur'. 
+            //    Kode ini akan berjalan saat pengguna mengklik di luar input field.
+            materialInput.addEventListener('blur', function() {
+                
+                // Ambil nilai input saat ini dan hapus spasi di awal/akhir
+                const currentValue = this.value.trim();
 
-        // Tambahkan listener ke tombol pemicu di tabel Anda
-        // Ganti '.add-component-btn' dengan class yang Anda gunakan di tombol pemicu
-        document.querySelectorAll('.add-component-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const aufnr = this.dataset.aufnr;
-                const vornr = this.dataset.vornr;
-                const plant = this.dataset.plant;
-                openModalAddComponent(aufnr, vornr, plant);
+                // 3. Buat regular expression untuk mengecek apakah SEMUA karakter adalah angka
+                const isOnlyNumbers = /^\d+$/.test(currentValue);
+
+                // 4. Jika semua karakter adalah angka dan input tidak kosong
+                if (isOnlyNumbers && currentValue.length > 0) {
+                    
+                    // Tambahkan angka '0' di depan hingga total panjangnya 18 karakter
+                    this.value = currentValue.padStart(18, '0');
+                }
+                
+                // Jika input berisi huruf atau karakter lain, tidak ada yang terjadi.
             });
-        });
+        }
 
 
         // ---------------------------------------------------------------
@@ -907,7 +979,7 @@
                 .then(({ status, body }) => {
                     if (status >= 400) { throw new Error(body.message || 'Gagal menambahkan komponen.'); }
 
-                    closeModalAddComponent(); // Tutup modal setelah sukses
+
                     showSwal(body.message, 'success'); // Tampilkan notifikasi
                     
                     // Lakukan refresh halaman atau tabel setelah notifikasi
@@ -1125,14 +1197,6 @@
         // =================================================================
         // 3. SEMUA FUNGSI AKSI (MODALS, BULK, API)
         // =================================================================
-
-        function scheduleBtnLoading(form){
-            const btn = form.querySelector('#scheduleSubmitBtn');
-            if(!btn) return true;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Menyimpan...';
-            return true; // lanjut submit normal
-        }
 
         document.addEventListener('DOMContentLoaded', () => {
             const confirmBtn = document.getElementById('confirmScheduleBtn');
@@ -1549,39 +1613,7 @@
                     });
                 }
             });
-        }
-        function updateComponentTable(aufnr, newComponentsData) {
-            const container = document.getElementById(`tdata4-${aufnr}`);
-            if (!container) return; // Jika tabel T_DATA4 tidak sedang ditampilkan, tidak melakukan apa-apa
-            const tbody = container.querySelector('tbody');
-            if (!tbody) return;
-            // Simpan data baru ke variabel global agar konsisten
-            allTData4ByAufnr[aufnr] = newComponentsData;
-            const esc = (v) => { /* ... fungsi esc Anda ... */ };
-            const ltrim0 = (s) => String(s ?? '').replace(/^0+/, '');
-            const rowsHtml = newComponentsData.map((c, i) => `
-                <tr>
-                    <td class="border px-2 py-1 text-center">
-                        <input type="checkbox"
-                            class="component-select-${aufnr}"
-                            data-aufnr="${aufnr}"
-                            data-rspos="${c.RSPOS || i}"
-                            data-material="${ltrim0(c.MATNR)}"
-                            onchange="handleComponentSelect('${aufnr}')">
-                    </td>
-                    <td class="border px-2 py-1 text-center">${i + 1}</td>
-                    <td class="border px-2 py-1">${ltrim0(c.MATNR)}</td>
-                    <td class="border px-2 py-1">${esc(c.MAKTX)}</td>
-                    <td class="border px-2 py-1 text-center">${c.BDMNG ?? c.MENGE ?? '-'}</td>
-                    <td class="border px-2 py-1 text-center">${c.ENMNG ?? '-'}</td>
-                    <td class="border px-2 py-1 text-center">${esc(c.MEINS || '-')}</td>
-                </tr>
-            `).join('');
-            tbody.innerHTML = rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="7" class="text-center p-4 text-gray-500">Belum ada komponen.</td></tr>`;
-            
-            // Reset seleksi checkbox
-            clearComponentSelections(aufnr);
-        }
+        }s
         
         let refreshModal;
         document.addEventListener('DOMContentLoaded', function () {
@@ -1685,36 +1717,6 @@
             });
         });
 
-        function showNotification(message, type = 'success') {
-            const container = document.getElementById('notification-container');
-            if (!container) return;
-
-            // Tentukan kelas dan judul berdasarkan tipe notifikasi
-            const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-            const title = type === 'success' ? 'Berhasil!' : 'Gagal!';
-
-            // Buat elemen HTML untuk alert menggunakan template literal
-            const alertHTML = `
-                <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                    <strong>${title}</strong> ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            `;
-
-            // Masukkan HTML ke dalam container
-            container.innerHTML = alertHTML;
-
-            // Opsional: Hapus notifikasi secara otomatis setelah 5 detik
-            setTimeout(() => {
-                const alertElement = container.querySelector('.alert');
-                if (alertElement) {
-                    // Gunakan instance Bootstrap untuk menutup dengan animasi fade
-                    const bsAlert = new bootstrap.Alert(alertElement);
-                    bsAlert.close();
-                }
-            }, 5000); // 5000 milidetik = 5 detik
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
         const addComponentModal = document.getElementById('addComponentModal');
         
@@ -1724,12 +1726,12 @@
                 const button = event.relatedTarget;
                 const aufnr = button.dataset.aufnr;
                 const vornr = button.dataset.vornr;
-                const plant = button.dataset.plant;
+                const pwwrk = button.dataset.pwwrk;
                 
                 // Isi input di dalam modal
                 addComponentModal.querySelector('#addComponentAufnr').value = aufnr;
                 addComponentModal.querySelector('#addComponentVornr').value = vornr;
-                addComponentModal.querySelector('#addComponentPlant').value = plant;
+                addComponentModal.querySelector('#addComponentPlant').value = pwwrk;
                 addComponentModal.querySelector('#displayAufnr').value = aufnr; // Mengisi input display juga
             });
         }
@@ -1745,8 +1747,8 @@
                 const data = Object.fromEntries(formData.entries());
 
                 // Validasi sederhana di sisi klien
-                if (!data.material || !data.quantity) {
-                    return showSwal('Material dan Quantity wajib diisi.', 'error');
+                if (!data.iv_matnr || !data.iv_bdmng || !data.iv_meins || !data.iv_lgort || !data.iv_bdmng) {
+                    return showSwal('Form belum diisi dengan lengkap', 'error');
                 }
 
                 // Tampilkan status loading
@@ -1793,6 +1795,57 @@
             });
         }
     });
+
+    function updateComponentActionButtons(aufnr) {
+        // 1. Dapatkan semua elemen yang dibutuhkan
+        const checkedBoxes = document.querySelectorAll(`.component-select-${aufnr}:checked`);
+        const controlsDiv = document.getElementById(`bulk-delete-controls-${aufnr}`);
+        const deleteBtn = document.getElementById(`bulk-delete-btn-${aufnr}`);
+        const addBtn = controlsDiv.nextElementSibling; // Tombol Add Component
+
+        if (!controlsDiv || !deleteBtn || !addBtn) return;
+
+        // 2. Cek jumlah checkbox yang tercentang
+        if (checkedBoxes.length > 0) {
+            controlsDiv.style.display = 'flex'; // Tampilkan tombol delete/clear
+            deleteBtn.innerHTML = `<i class="fas fa-trash-alt me-1"></i> Delete Selected (${checkedBoxes.length})`;
+            addBtn.classList.remove('ms-auto'); // Hapus margin auto agar tombol add tidak aneh posisinya
+        } else {
+            controlsDiv.style.display = 'none'; // Sembunyikan tombol delete/clear
+            addBtn.classList.add('ms-auto'); // Kembalikan margin auto agar tombol add tetap di kanan
+        }
+    }
+
+    function bulkDeleteComponents(aufnr) {
+    const selected = document.querySelectorAll(`.component-select-${aufnr}:checked`);
+    
+    // Kumpulkan data dari checkbox yang dipilih
+    const componentsToDelete = Array.from(selected).map(cb => {
+        return {
+            aufnr: cb.dataset.aufnr,
+            rspos: cb.dataset.rspos,
+            material: cb.dataset.material
+        };
+    });
+
+    console.log('Data yang akan dihapus:', componentsToDelete);
+    
+    // Tampilkan konfirmasi kepada user
+    Swal.fire({
+        title: 'Konfirmasi Hapus',
+        text: `Anda yakin ingin menghapus ${componentsToDelete.length} komponen yang dipilih?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // TODO: Kirim data 'componentsToDelete' ke backend via fetch() untuk dihapus
+            Swal.fire('Placeholder', 'Logika untuk menghapus data akan diimplementasikan di sini.', 'info');
+        }
+    });
+}
     </script>
 @endpush
 </x-layouts.app>

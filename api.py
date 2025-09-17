@@ -874,48 +874,60 @@ def schedule_order():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
-# ADD COMPONENT
+    
 @app.route('/api/add_component', methods=['POST'])
 def add_component():
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
-
         data = request.get_json()
-        print("Data diterima untuk add component:", data)
 
-        # Validasi input wajib
+        # Validasi (asumsi frontend mengirim kunci IV_AUFNR, dll.)
         required_fields = ['IV_AUFNR', 'IV_MATNR', 'IV_BDMNG', 'IV_MEINS', 'IV_WERKS', 'IV_LGORT', 'IV_VORNR']
         for field in required_fields:
             if not data.get(field):
                 return jsonify({'error': f'{field} is required'}), 400
 
-        # Parameter untuk RFC call
+        # Mapping parameter ke RFC Z_RFC_PRODORD_COMPONENT_ADD2
         params = {
-            'IV_AUFNR': data.get('IV_AUFNR'),        # Production order number (otomatis dari sebelumnya)
-            'IV_MATNR': data.get('IV_MATNR'),        # Material number (input form)
-            'IV_BDMNG': str(data.get('IV_BDMNG')),   # Quantity (input form, convert to string)
-            'IV_MEINS': data.get('IV_MEINS'),        # Unit of measure (input form)
-            'IV_POSTP': 'L',                         # Item category (default 'L')
-            'IV_WERKS': data.get('IV_WERKS'),        # Plant (input form)
-            'IV_LGORT': data.get('IV_LGORT'),        # Storage location (input form)
-            'IV_VORNR': data.get('IV_VORNR')         # Operation number (otomatis dari sebelumnya)
+            'IV_ORDER_NUMBER': data.get('IV_AUFNR'),
+            'IV_MATERIAL': data.get('IV_MATNR'),
+            'IV_QUANTITY': str(data.get('IV_BDMNG')),
+            'IV_UOM': data.get('IV_MEINS'),
+            'IV_LGORT': data.get('IV_LGORT'),
+            'IV_PLANT': data.get('IV_WERKS'),
+            'IV_POSITIONNO': data.get('IV_VORNR'),
+            'IV_BATCH': '', # Mengirim string kosong jika tidak ada
         }
 
-        print("Calling RFC Z_RFC_PRODORD_COMPONENT_ADD...")
-        result = conn.call('Z_RFC_PRODORD_COMPONENT_ADD', **params)
+        print("Calling RFC with params:", params)
+        result = conn.call('Z_RFC_PRODORD_COMPONENT_ADD2', **params)
+        print("Respons LENGKAP dari SAP:", result)
 
-        # Commit jika berhasil
-        if result.get('EV_SUBRC') == 0:
+        # Ambil struktur return dan pesannya dengan aman
+        sap_return_structure = result.get('ES_RETURN', {})
+        sap_message_type = sap_return_structure.get('TYPE')
+        sap_message_text = sap_return_structure.get('MESSAGE')
+
+        # Cek tipe pesan untuk menentukan sukses atau gagal
+        if sap_message_type not in ['E', 'A']:
+            # SUKSES: Jika tipe pesan BUKAN Error atau Abort
+            print("Operasi SAP berhasil, melakukan COMMIT...")
             conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
-
-        return jsonify({
-            'success': result.get('EV_SUBRC') == 0,
-            'return_message': result.get('EV_RETURN_MSG', ''),
-            'status_code': result.get('EV_SUBRC', ''),
-            'return_details': result.get('IT_RETURN', [])
-        })
+            return jsonify({
+                'success': True,
+                'message': sap_message_text or 'Komponen berhasil ditambahkan.',
+                'sap_response': result
+            }), 200
+        else:
+            # GAGAL: Jika tipe pesan adalah Error atau Abort
+            print("Operasi SAP gagal, melakukan ROLLBACK...")
+            conn.call('BAPI_TRANSACTION_ROLLBACK')
+            return jsonify({
+                'success': False,
+                'message': sap_message_text or 'Data yang dikirim tidak valid menurut SAP.',
+                'sap_response': result
+            }), 400
 
     except ValueError as ve:
         return jsonify({'error': str(ve)}), 401
@@ -923,40 +935,113 @@ def add_component():
         print("Exception saat add component:", str(e))
         return jsonify({'error': str(e)}), 500
 
+# # ADD COMPONENT
+# @app.route('/api/add_component', methods=['POST'])
+# def add_component():
+#     try:
+#         username, password = get_credentials()
+#         conn = connect_sap(username, password)
+
+#         data = request.get_json()
+#         print("Data diterima untuk add component:", data)
+
+#         # Validasi input wajib
+#         required_fields = ['IV_AUFNR', 'IV_MATNR', 'IV_BDMNG', 'IV_MEINS', 'IV_WERKS', 'IV_LGORT', 'IV_VORNR']
+#         for field in required_fields:
+#             if not data.get(field):
+#                 return jsonify({'error': f'{field} is required'}), 400
+
+#         # Parameter untuk RFC call
+#         params = {
+#             'IV_ORDER_NUMBER': data.get('IV_AUFNR'),
+#             'IV_MATERIAL': data.get('IV_MATNR'),
+#             'IV_QUANTITY': str(data.get('IV_BDMNG')),
+#             'IV_UOM': data.get('IV_MEINS'),
+#             'IV_LGORT': data.get('IV_LGORT'),
+#             'IV_PLANT': data.get('IV_WERKS'),
+#             'IV_POSITIONNO': data.get('IV_VORNR'),
+#             'IV_BATCH': '',
+#         }
+
+#         print("Calling RFC with params:", params)
+#         result = conn.call('Z_RFC_PRODORD_COMPONENT_ADD2', **params)
+#         print("Respons LENGKAP dari SAP:", result)
+
+#         # Cek hasil dari SAP untuk menentukan respons
+#         if result.get('EV_SUBRC') == 0:
+#             # SUKSES: Lakukan COMMIT dan kirim respons 200 OK
+#             print("Operasi SAP berhasil, melakukan COMMIT...")
+#             conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
+            
+#             return jsonify({
+#                 'success': True,
+#                 'message': result.get('EV_RETURN_MSG') or 'Komponen berhasil ditambahkan.',
+#                 'sap_response': result
+#             }), 200
+#         else:
+#             # GAGAL: Lakukan ROLLBACK dan kirim respons 400 Bad Request
+#             print("Operasi SAP gagal, melakukan ROLLBACK...")
+#             conn.call('BAPI_TRANSACTION_ROLLBACK')
+            
+#             return jsonify({
+#                 'success': False,
+#                 'message': result.get('EV_RETURN_MSG') or 'Data yang dikirim tidak valid menurut SAP.',
+#                 'sap_response': result
+#             }), 400
+
+#     except ValueError as ve:
+#         return jsonify({'error': str(ve)}), 401
+#     except Exception as e:
+#         print("Exception saat add component:", str(e))
+#         return jsonify({'error': str(e)}), 500
+
 # DELETE COMPONENT
 @app.route('/api/delete_component', methods=['POST'])
 def delete_component():
     try:
-        username, password = get_credentials()
-        conn = connect_sap(username, password)
-
         data = request.get_json()
         print("Data diterima untuk delete component:", data)
 
-        aufnr = data.get('IV_AUFNR')
-        rspos = data.get('IV_RSPOS')
+        # 1. Validasi input dari frontend (menggunakan huruf kecil)
+        aufnr = data.get('aufnr')
+        rspos = data.get('rspos')
 
         if not aufnr or not rspos:
-            return jsonify({'error': 'IV_AUFNR and IV_RSPOS are required'}), 400
+            return jsonify({'error': 'aufnr dan rspos wajib diisi.'}), 400
+
+        # Jika lolos validasi, hubungkan ke SAP
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
 
         print(f"Calling RFC Z_RFC_PRODORD_COMPONENT_DEL with AUFNR={aufnr}, RSPOS={rspos}")
 
+        # 2. Panggil RFC dengan parameter langsung (sesuai gambar)
         result = conn.call(
             'Z_RFC_PRODORD_COMPONENT_DEL',
-            IV_AUFNR=aufnr,
-            IV_RSPOS=rspos
+            IV_AUFNR=str(aufnr),
+            IV_RSPOS=str(rspos)
         )
+        print("Respons LENGKAP dari SAP:", result)
 
-        # Commit jika berhasil
+        # 3. Pengecekan sukses KEMBALI menggunakan EV_SUBRC (sesuai gambar)
         if result.get('EV_SUBRC') == 0:
+            print("Operasi SAP berhasil, melakukan COMMIT...")
             conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
-
-        return jsonify({
-            'success': result.get('EV_SUBRC') == 0,
-            'return_message': result.get('EV_RETURN_MSG', ''),
-            'status_code': result.get('EV_SUBRC', ''),
-            'return_details': result.get('IT_RETURN', [])
-        })
+            
+            return jsonify({
+                'success': True,
+                'message': result.get('EV_RETURN_MSG') or 'Komponen berhasil dihapus.',
+                'sap_response': result
+            }), 200
+        else:
+            print("Operasi SAP gagal, melakukan ROLLBACK...")
+            conn.call('BAPI_TRANSACTION_ROLLBACK')
+            
+            return jsonify({
+                'success': False,
+                'message': result.get('EV_RETURN_MSG') or 'Gagal menghapus komponen.',
+                'sap_response': result
+            }), 400
 
     except ValueError as ve:
         return jsonify({'error': str(ve)}), 401

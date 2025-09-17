@@ -18,7 +18,7 @@ class Data4Controller extends Controller
         $validator = Validator::make($request->all(), [
             'iv_aufnr' => 'required|string',
             'iv_matnr' => 'required|string',
-            'iv_bdmng' => 'required|numeric|min:0.001',
+            'iv_bdmng' => 'required|string',
             'iv_meins' => 'required|string',
             'iv_werks' => 'required|string',
             'iv_lgort' => 'required|string',
@@ -54,16 +54,14 @@ class Data4Controller extends Controller
 
             // ... (logika refresh dan response Anda) ...
             $aufnr = str_pad($request->input('iv_aufnr'), 12, '0', STR_PAD_LEFT);
-            $authoritativePlant = ProductionTData4::where('AUFNR', $aufnr)
-                                ->orWhere('ORDERX', $aufnr)
-                                ->value('WERKSX'); // Ambil nilai kolom WERKSX saja
+            $authoritativePlant = ProductionTData4::where('AUFNR', $aufnr)->value('WERKSX'); // Ambil nilai kolom WERKSX saja
             
             $refreshResult = $this->refreshAndSyncOrderByAufnr($aufnr, $authoritativePlant);
 
             if (!$refreshResult['success']) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Komponen berhasil ditambahkan di SAP, tetapi gagal me-refresh data lokal.',
+                    'message' => 'Komponen berhasil ditambahkan di SAP, silahkan refres',
                     'warning' => $refreshResult['error']
                 ]);
             }
@@ -155,7 +153,7 @@ class Data4Controller extends Controller
                     'X-SAP-Username' => $username,
                     'X-SAP-Password' => $password,
                 ])
-                ->get($flaskRefreshUrl, ['plant' => $plant, 'AUFNR' => $aufnr]);
+                ->get($flaskRefreshUrl, ['aufnr' => $aufnr, 'plant' => $plant]);
 
             if (!$refreshResp->successful()) {
                 $msg = optional($refreshResp->json())['error'] ?? $refreshResp->body();

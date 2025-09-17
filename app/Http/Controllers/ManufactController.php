@@ -259,13 +259,9 @@ class ManufactController extends Controller
         $allTData4ByAufnr = ProductionTData4::whereIn('AUFNR', $aufnrValues->values())->get()->groupBy('AUFNR');
         $allTData4ByPlnum = ProductionTData4::whereIn('PLNUM', $plnumValues->values())->get()->groupBy('PLNUM');
 
-        // 1. Ambil semua ID unik dari work center tujuan di tabel relasi
-        $destinationWcIds = wc_relations::select('wc_tujuan_id')->distinct()->pluck('wc_tujuan_id');
-
-        // 2. Ambil detail work center dari tabel 'workcenters' berdasarkan daftar ID tersebut
-        $workCenters = workcenter::whereIn('id', $destinationWcIds)
-                                ->orderBy('kode_wc')
-                                ->get();
+        $workCenters = workcenter::where('WERKSX', $kode)
+                         ->orderBy('kode_wc')
+                         ->get();
 
         // 5. Kirim semua data yang sudah benar ke view
         return view('Admin.detail-data2', [

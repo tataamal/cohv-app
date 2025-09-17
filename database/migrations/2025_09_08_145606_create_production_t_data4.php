@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('DISPO')->nullable();
             $table->string('MATNR')->nullable();
             $table->string('MAKTX')->nullable();
-            $table->string('MEINS')->nullable();
+        $table->string('MEINS')->nullable();
             $table->string('BAUGR')->nullable();
             $table->string('WERKSX')->nullable();
             $table->double('BDMNG', 15, 3)->nullable();
@@ -34,6 +34,7 @@ return new class extends Migration
             $table->string('BESKZ')->nullable();
             $table->string('LTEXT')->nullable();
             $table->string('LGORT')->nullable();
+            $table->string('OUTSREQ')->nullable();
             $table->timestamps();
         });
     }
