@@ -1003,8 +1003,8 @@ def delete_component():
         print("Data diterima untuk delete component:", data)
 
         # 1. Validasi input dari frontend (menggunakan huruf kecil)
-        aufnr = data.get('aufnr')
-        rspos = data.get('rspos')
+        aufnr = data.get('IV_AUFNR')
+        rspos = data.get('IV_RSPOS')
 
         if not aufnr or not rspos:
             return jsonify({'error': 'aufnr dan rspos wajib diisi.'}), 400
@@ -1030,7 +1030,7 @@ def delete_component():
             
             return jsonify({
                 'success': True,
-                'message': result.get('EV_RETURN_MSG') or 'Komponen berhasil dihapus.',
+                'return_message': result.get('EV_RETURN_MSG') or 'Komponen berhasil dihapus.',
                 'sap_response': result
             }), 200
         else:
@@ -1039,7 +1039,7 @@ def delete_component():
             
             return jsonify({
                 'success': False,
-                'message': result.get('EV_RETURN_MSG') or 'Gagal menghapus komponen.',
+                'return_message': result.get('EV_RETURN_MSG') or 'Gagal menghapus komponen.',
                 'sap_response': result
             }), 400
 

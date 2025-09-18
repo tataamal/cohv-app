@@ -33,7 +33,7 @@ class sync_gr extends Command
             return;
         }
 
-        $pythonScriptPath = base_path('scripts/sync_gr.py');
+        $pythonScriptPath = base_path('sync_gr.py');
         if (!File::exists($pythonScriptPath)) {
             $this->error("File python 'sync_gr.py' tidak ditemukan.");
             return 1;
@@ -42,7 +42,7 @@ class sync_gr extends Command
         $this->info("Memulai sinkronisasi GR historis...");
         $this->line('----------------------------------------------------');
 
-        $pythonExecutablePath = 'C:\Users\NamaAnda\AppData\Local\Programs\Python\Python311\python.exe'; // GANTI INI
+        $pythonExecutablePath = 'C:\Users\Niltal Amal\AppData\Local\Programs\Python\Python39\python.exe'; // GANTI INI
         
         // Memanggil skrip Python dengan argumen 'run_historical'
         $command = "\"{$pythonExecutablePath}\" -u \"{$pythonScriptPath}\" run_historical";

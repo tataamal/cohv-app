@@ -42,7 +42,7 @@ class sync_cohv extends Command
         $this->line('----------------------------------------------------');
 
         // Ganti dengan path Python Anda
-        $pythonExecutablePath = 'C:\Users\it01k\AppData\Local\Programs\Python\Python39\python.exe';
+        $pythonExecutablePath = 'C:\Users\Niltal Amal\AppData\Local\Programs\Python\Python39\python.exe';
         
         // TAMBAHKAN FLAG "-u" PADA PERINTAH PYTHON
         // Ini SANGAT PENTING untuk menonaktifkan output buffering di Python

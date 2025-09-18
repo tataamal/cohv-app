@@ -797,6 +797,7 @@
             }
             togglePaginationDisabled(true);
             const data = (allTData4ByAufnr && allTData4ByAufnr[aufnr]) ? allTData4ByAufnr[aufnr] : [];
+            const plantCode = data.length > 0 && data[0].WERKSX ? data[0].WERKSX : '{{ $kode ?? $plant }}';
             document.querySelectorAll('#tdata3-body tr').forEach(row => {
                 if (!row.textContent.includes(aufnr)) row.classList.add('d-none');
                 else row.classList.remove('d-none');
@@ -841,9 +842,10 @@
             
                 <div class="d-flex justify-content-between align-items-center p-3 bg-light">
                     <div class="d-flex gap-2" id="bulk-delete-controls-${aufnr}" style="display: none;">
-                        <button type="button" id="bulk-delete-btn-${aufnr}" class="btn btn-danger btn-sm">
+                        <button type="button" id="bulk-delete-btn-${aufnr}" class="btn btn-danger btn-sm" onclick="bulkDeleteComponents('${aufnr}','${plantCode}')">
                             <i class="fas fa-trash-alt me-1"></i> Delete Selected (0)
                         </button>
+                        
                         <button type="button" class="btn btn-secondary btn-sm" onclick="clearComponentSelections('${aufnr}')">
                             <i class="fas fa-times me-1"></i> Clear All
                         </button>
@@ -1188,8 +1190,8 @@
                 <td class="text-center">${d3.PSMNG || '-'}</td>
                 <td class="text-center">${d3.WEMNG || '-'}</td>
                 <td class="text-center">${d3.MENG2 || '-'}</td>
-                <td class="text-center">${formatDate(d3.SSAVD)}</td>
-                <td class="text-center">${formatDate(d3.SSSLD)}</td>
+                <td class="text-center">${formatDate(d3.GSTRP)}</td>
+                <td class="text-center">${formatDate(d3.GLTRP)}</td>
             `;
             row.dataset.rowData = JSON.stringify(d3);
             return row;
@@ -1613,7 +1615,7 @@
                     });
                 }
             });
-        }s
+        }
         
         let refreshModal;
         document.addEventListener('DOMContentLoaded', function () {
@@ -1696,7 +1698,7 @@
                     // Jika server mengembalikan status error (4xx atau 5xx)
                     throw new Error(body.message || 'Terjadi kesalahan di server.');
                 }
-                showSwal(body.message, 'success'); // Tampilkan notifikasi sukses
+                showSwal(body.message, 'Add Component Success, Silahkan refresh per PRO untuk melihat data terbaru'); // Tampilkan notifikasi sukses
 
                 const modalElement = document.getElementById('refreshProModal');
                 const modalInstance = bootstrap.Modal.getInstance(modalElement);
@@ -1816,36 +1818,91 @@
         }
     }
 
-    function bulkDeleteComponents(aufnr) {
-    const selected = document.querySelectorAll(`.component-select-${aufnr}:checked`);
-    
-    // Kumpulkan data dari checkbox yang dipilih
-    const componentsToDelete = Array.from(selected).map(cb => {
-        return {
-            aufnr: cb.dataset.aufnr,
-            rspos: cb.dataset.rspos,
-            material: cb.dataset.material
-        };
-    });
+    async function bulkDeleteComponents(aufnr, kode) {
+        const selectedCheckboxes = document.querySelectorAll(`.component-select-${aufnr}:checked`);
 
-    console.log('Data yang akan dihapus:', componentsToDelete);
-    
-    // Tampilkan konfirmasi kepada user
-    Swal.fire({
-        title: 'Konfirmasi Hapus',
-        text: `Anda yakin ingin menghapus ${componentsToDelete.length} komponen yang dipilih?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        confirmButtonText: 'Ya, Hapus!',
-        cancelButtonText: 'Batal'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // TODO: Kirim data 'componentsToDelete' ke backend via fetch() untuk dihapus
-            Swal.fire('Placeholder', 'Logika untuk menghapus data akan diimplementasikan di sini.', 'info');
+        const payload = {
+            aufnr: aufnr,
+            components: Array.from(selectedCheckboxes).map(cb => {
+                return { rspos: cb.dataset.rspos };
+            }),
+            plant: kode
+        };
+
+        if (payload.components.length === 0) {
+            Swal.fire('Tidak Ada yang Dipilih', 'Silakan pilih komponen yang ingin dihapus terlebih dahulu.', 'info');
+            return;
         }
-    });
-}
+
+        // Membuat daftar RSPOS di dalam sebuah kotak yang bisa di-scroll
+        const rsposListHtml =
+            `<div style="max-height: 150px; overflow-y: auto; background: #f9f9f9; border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                <ul style="text-align: left; margin: 0; padding: 0; list-style-position: inside;">` +
+                payload.components.map(comp => `<li>RSPOS: <strong>${comp.rspos}</strong></li>`).join('') +
+                `</ul>
+            </div>`;
+
+        const result = await Swal.fire({
+            title: 'Konfirmasi Hapus',
+            icon: 'warning',
+            html:
+                `Anda yakin ingin menghapus <strong>${payload.components.length} komponen</strong> berikut?` +
+                rsposListHtml,
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Ya, Hapus!',
+            cancelButtonText: 'Batal'
+        });
+
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Menghapus...',
+                text: 'Harap tunggu, sedang memproses permintaan.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            try {
+                const response = await fetch('/component/delete-bulk', { // Pastikan URL ini benar
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseData = await response.json();
+
+                if (response.ok) {
+                    await Swal.fire({
+                        title: 'Berhasil, Refresh PRO Agar Data yang tampil Update',
+                        text: responseData.message,
+                        icon: 'success'
+                    });
+                    location.reload();
+                } else {
+                    let errorText = responseData.message;
+                    if (responseData.errors && responseData.errors.length > 0) {
+                        errorText += '<br><br><strong>Detail:</strong><br>' + responseData.errors.join('<br>');
+                    }
+                    Swal.fire({
+                        title: 'Gagal!',
+                        html: errorText,
+                        icon: 'error'
+                    });
+                }
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                Swal.fire('Error Jaringan', 'Tidak dapat terhubung ke server. Silakan coba lagi.', 'error');
+            }
+        }
+    }
     </script>
 @endpush
 </x-layouts.app>

@@ -48,6 +48,8 @@ return new class extends Migration
             $table->string('DDAY')->nullable();
             $table->date('SSSLD')->nullable();
             $table->date('SSAVD')->nullable();
+            $table->date('GLTRP')->nullable();
+            $table->date('GSTRP')->nullable();
             $table->string('MATFG')->nullable();
             $table->string('MAKFG')->nullable();
             $table->string('CATEGORY')->nullable();

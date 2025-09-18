@@ -82,6 +82,7 @@ class Data4Controller extends Controller
         // 1. Validasi input dari frontend
         $validator = Validator::make($request->all(), [
             'aufnr' => 'required|string',
+            'plant' => 'required|string',
             'components' => 'required|array|min:1',
             'components.*.rspos' => 'required|string', // Pastikan setiap komponen punya rspos
         ]);
@@ -98,6 +99,9 @@ class Data4Controller extends Controller
         $errorMessages = [];
 
         try {
+            $aufnr = $request->input('aufnr');
+            $plant = $request->input('plant');
+
             $flaskEndpoint = 'http://127.0.0.1:8050/api/delete_component'; // Ganti dengan URL Flask Anda
 
             // 2. Loop untuk setiap komponen yang dipilih
@@ -168,25 +172,23 @@ class Data4Controller extends Controller
                 $T4 = $payload['results'][0]['T_DATA4'] ?? [];
             }
             
-            DB::transaction(function () use ($aufnr, $T4) {
-                $keep4 = [];
-                $rsnumScope = [];
-                
-                // Hapus dulu data lama untuk AUFNR ini
-                // Cari RSNUM (Reservation Number) yang terkait dengan AUFNR ini
-                $oldRsnums = ProductionTData4::where('ORDERX', $aufnr)->orWhere('AUFNR', $aufnr)->pluck('RSNUM')->unique()->toArray();
-                if(!empty($oldRsnums)) {
-                    ProductionTData4::whereIn('RSNUM', $oldRsnums)->delete();
-                }
+            DB::transaction(function () use ($aufnr, $plant, $T4) { // Tambahkan $plant jika diperlukan
+                // Hapus semua data T_DATA4 yang terkait LANGSUNG dengan AUFNR ini. Ini jauh lebih aman.
+                ProductionTData4::where('AUFNR', $aufnr)->delete();
 
-                // Masukkan data baru
-                foreach ($T4 as $row) {
-                    if (!isset($row['RSNUM']) || !isset($row['RSPOS'])) continue;
+                // Masukkan data baru yang didapat dari API refresh
+                if (!empty($T4)) {
+                    // Kita bisa menggunakan 'insert' untuk performa yang lebih baik jika datanya banyak
+                    // Pastikan setiap row memiliki 'created_at' dan 'updated_at' jika tabel Anda menggunakannya
+                    $insertData = array_map(function($row) use ($plant) {
+                        $row['created_at'] = now();
+                        $row['updated_at'] = now();
+                        // Pastikan field WERKS ada, ambil dari plant jika tidak ada di response SAP
+                        $row['WERKS'] = $row['WERKS'] ?? $plant; 
+                        return $row;
+                    }, $T4);
                     
-                    ProductionTData4::updateOrCreate(
-                        ['RSNUM' => $row['RSNUM'], 'RSPOS' => $row['RSPOS']],
-                        $row
-                    );
+                    ProductionTData4::insert($insertData);
                 }
             });
 

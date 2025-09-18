@@ -40,7 +40,9 @@ class ProductionTData3 extends Model
             'DTIME',   
             'DDAY',    
             'SSSLD',   
-            'SSAVD',     
+            'SSAVD',
+            'GSTRP',
+            'GLTRP',     
             'MATFG', 
             'MAKFG',
             'CATEGORY', 
@@ -51,6 +53,7 @@ class ProductionTData3 extends Model
     {
         return $this->hasMany(ProductionTData1::class, 'AUFNR', 'AUFNR');
     }
+
 
     public function tData4()
     {
