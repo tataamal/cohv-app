@@ -230,12 +230,15 @@ class ManufactController extends Controller
 
         // 3. Ambil T_DATA3 (Anak dari T_DATA2)
         // PERBAIKAN SUMBER: Ambil kunci dari $allTData2_flat, bukan dari $tdata
-        $kdaufValues = $allTData2_flat->pluck('KDAUF')->filter()->unique();
-        $kdposValues = $allTData2_flat->pluck('KDPOS')->filter()->unique();
-        
+        $t2Keys = $allTData2_flat->map(function ($item) {
+            return trim($item->KDAUF ?? '') . '-' . trim($item->KDPOS ?? '');
+        })->filter()->unique();
+
         $allTData3_flat = ProductionTData3::where('WERKSX', $kode)
-            ->when($kdaufValues->isNotEmpty(), fn($q) => $q->whereIn('KDAUF', $kdaufValues))
-            ->when($kdposValues->isNotEmpty(), fn($q) => $q->whereIn('KDPOS', $kdposValues))
+            // Gunakan CONCAT untuk mencocokkan pasangan kunci di database
+            ->when($t2Keys->isNotEmpty(), function ($query) use ($t2Keys) {
+                $query->whereIn(DB::raw("CONCAT(KDAUF, '-', KDPOS)"), $t2Keys);
+            })
             ->get();
 
         // Kelompokkan T_DATA3 berdasarkan KDAUF dan KDPOS (ini sudah benar)
@@ -247,14 +250,10 @@ class ManufactController extends Controller
         // Logika ini sekarang akan menerima data yang benar karena sumbernya (allTData3_flat) sudah benar
         $aufnrValues = $allTData3_flat->pluck('AUFNR')->filter()->unique();
         $plnumValues = $allTData3_flat->pluck('PLNUM')->filter()->unique();
-        $orderxVornrKeys = $allTData3_flat
-            ->map(fn($it) => ($it->ORDERX ?? '').'-'.($it->VORNR ?? ''))
-            ->filter()->unique();
 
-        $allTData1 = ProductionTData1::query()
-            ->whereIn(DB::raw("CONCAT(ORDERX, '-', VORNR)"), $orderxVornrKeys->values())
+        $allTData1ByAufnr = ProductionTData1::whereIn('AUFNR', $aufnrValues->values())
             ->get()
-            ->groupBy(fn($it) => ($it->ORDERX ?? '').'-'.($it->VORNR ?? ''));
+            ->groupBy('AUFNR');
 
         $allTData4ByAufnr = ProductionTData4::whereIn('AUFNR', $aufnrValues->values())->get()->groupBy('AUFNR');
         $allTData4ByPlnum = ProductionTData4::whereIn('PLNUM', $plnumValues->values())->get()->groupBy('PLNUM');
@@ -271,7 +270,7 @@ class ManufactController extends Controller
             'tdata'            => $tdata,
             'allTData2'        => $allTData2,
             'allTData3'        => $allTData3Grouped,
-            'allTData1'        => $allTData1,
+            'allTData1'        => $allTData1ByAufnr,
             'allTData4ByAufnr' => $allTData4ByAufnr,
             'allTData4ByPlnum' => $allTData4ByPlnum,
             'search'           => $search,
