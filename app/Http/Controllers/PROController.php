@@ -83,16 +83,22 @@ class PROController extends Controller
             return $pro;
         });
 
-        // 4. Siapkan data untuk chart
-        $proCounts = DB::table('production_t_data3')
-                            ->where('WERKSX', $kode)
-                            ->select('ARBPL', DB::raw('count(*) as total'))
-                            ->groupBy('ARBPL')
-                            ->get();
+        $chartData = DB::table('production_t_data3')
+                    ->where('WERKSX', $kode)
+                    ->select(
+                        'ARBPL',
+                        DB::raw('COUNT(*) as total_pro'),
+                        DB::raw('SUM(CPCTYX) as total_cpctyx')
+                    )
+                    ->groupBy('ARBPL')
+                    ->orderBy('ARBPL') // Opsional, tapi baik untuk konsistensi urutan
+                    ->get();
 
-        $pieChartLabels = $proCounts->pluck('ARBPL');
-        $pieChartData = $proCounts->pluck('total');
-
+        // Pisahkan data dari satu collection yang sudah sinkron
+        $BarChartLabels = $chartData->pluck('ARBPL');
+        $BarChartDataPro = $chartData->pluck('total_pro');
+        $BarChartDataCpctyx = $chartData->pluck('total_cpctyx');
+        
         // 5. Kirim semua data yang sudah matang ke view
         return view('Admin.kelola-pro', [
             'workcenter' => $workcenter,
@@ -100,8 +106,9 @@ class PROController extends Controller
             'listPro' => $listPro, // Data ini sudah matang!
             'compatibleWc' => $compatibleWc,
             'conditionalWc' => $conditionalWc,
-            'pieChartLabels' => $pieChartLabels,
-            'pieChartData' => $pieChartData,
+            'BarChartLabels' => $BarChartLabels,
+            'BarChartDataPro' => $BarChartDataPro,
+            'BarChartDataCapacity' => $BarChartDataCpctyx
         ]);
     }
 }

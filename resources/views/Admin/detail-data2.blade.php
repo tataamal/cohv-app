@@ -1,150 +1,5 @@
 
 <x-layouts.app>
-    @push('styles')
-    <style>
-    /* Scroll vertikal bila tinggi konten melebihi batas */
-    #outstanding-order-container .table-responsive {
-        max-height: 420px;   /* atur sesuai kebutuhan */
-        overflow-y: auto;
-    }
-
-    /* Bantu sticky header */
-    #outstanding-order-container .table-responsive table {
-        border-collapse: separate;
-        border-spacing: 0;
-    }
-
-    /* Header nempel saat discroll */
-    #outstanding-order-container thead th {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: var(--bs-body-bg, #fff);
-        box-shadow: inset 0 -1px 0 rgba(0,0,0,.075);
-    }
-
-    /* Jika card pakai efek glass */
-    .card-glass #outstanding-order-container thead th {
-        background: rgba(255, 255, 255, 0.75);
-        -webkit-backdrop-filter: blur(10px);
-        backdrop-filter: blur(10px);
-    }
-    /* Scroll dan sticky header untuk tdata3 */
-    #tdata3-container .table-responsive {
-        max-height: 420px;      /* biar kalau data banyak, scroll vertikal */
-        overflow-y: auto;
-    }
-    #tdata3-container table {
-        border-collapse: separate;
-        border-spacing: 0;
-    }
-    #tdata3-container thead th {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: #f8fafc; /* soft background header */
-        color: #374151;      /* teks gelap */
-        font-weight: 600;
-    }
-
-    /* Hover row lebih soft */
-    #tdata3-container tbody tr:hover {
-        background-color: rgba(0,0,0,.03);
-    }
-
-    /* Soft border */
-    #tdata3-container table td,
-    #tdata3-container table th {
-        border-color: #e5e7eb !important;
-    }
-
-    /* Modern badge warna status */
-    .badge-status-crtd {
-        background: #facc15; /* kuning lembut */
-        color: #000;
-    }
-    .badge-status-rel {
-        background: #4ade80; /* hijau lembut */
-        color: #064e3b;
-    }
-    .badge-status-other {
-        background: #9ca3af; /* abu lembut */
-        color: #111827;
-    }
-
-    /* Button warna custom */
-    .btn-schedule {
-        background-color: #facc15; /* kuning */
-        color: #111827;
-        border: none;
-    }
-    .btn-schedule:hover { background-color: #eab308; color:#fff; }
-
-    .btn-readpp {
-        background-color: #4ade80; /* hijau */
-        color: #064e3b;
-        border: none;
-    }
-    .btn-readpp:hover { background-color: #22c55e; color:#fff; }
-
-    .btn-teco {
-        background-color: #f87171; /* merah soft */
-        color: #fff;
-        border: none;
-    }
-    .btn-teco:hover { background-color: #dc2626; }
-    .pro-cell-inner {
-        width: min(360px, 100%);
-        margin: 0 auto;                 /* center di dalam cell */
-    }
-    .pro-cell-actions .btn {
-        padding: .2rem .4rem;           /* tombol kecil rapi */
-    }
-
-    /* Kontainer utama untuk styling dan scoping */
-    .component-table-wrapper {
-        border: 1px solid #e5e7eb;
-        border-radius: 0.5rem;
-        overflow: hidden; /* Penting untuk rounded corner di table */
-    }
-
-    /* Kontainer untuk scroll vertikal */
-    .component-table-wrapper .table-responsive {
-        max-height: 450px; /* Atur tinggi maksimal tabel sebelum scroll muncul */
-        overflow-y: auto;
-    }
-
-    /* Membuat header tabel menempel (sticky) saat di-scroll */
-    .component-table-wrapper thead th {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        /* Ganti warna background agar tidak transparan saat scroll */
-        background-color: #f8fafc; 
-        box-shadow: inset 0 -2px 0 #e5e7eb; /* Garis bawah halus */
-    }
-
-    /* Styling tambahan untuk header agar lebih jelas */
-    .component-table-wrapper thead th {
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.05em;
-        color: #374151;
-    }
-
-    /* Padding untuk sel agar tidak terlalu rapat */
-    .component-table-wrapper td, .component-table-wrapper th {
-        padding: 0.75rem 1rem;
-        vertical-align: middle;
-    }
-
-    /* Efek hover pada baris tabel */
-    .component-table-wrapper tbody tr:hover {
-        background-color: rgba(0, 0, 0, 0.03);
-    }
-    </style>
-    @endpush
     <div class="container-fluid">
         {{-- Header Halaman --}}
         <x-notification.notification />
@@ -237,8 +92,26 @@
                         </div>
                     </div>
                     
-                    <div id="bulk-controls" class="d-flex align-items-center gap-2 mb-3 d-none">
-                        <button class="btn btn-secondary btn-sm" onclick="clearAllSelections()">Clear All</button>
+                    <div id="bulk-actions-wrapper" data-refresh-url="{{ route('bulk-refresh.store') }}" class="d-flex align-items-center gap-3 mt-4 mb-3 d-none">
+                        <div id="selection-counter">
+                            <span>PRO Terpilih:</span>
+                            <span class="count-badge" id="selection-count-badge">0</span>
+                        </div>
+                        <div id="bulk-controls" class="d-flex align-items-center gap-2">
+                            <button class="btn btn-success btn-sm" id="bulk-schedule-btn" style="display: none;" onclick="openBulkScheduleModal()">
+                                <i class="fas fa-calendar-alt me-1"></i> Selected Schedule
+                            </button>
+                            <button class="btn btn-primary btn-sm" id="bulk-readpp-btn" style="display: none;" onclick="openBulkReadPpModal()">
+                                <i class="fas fa-book-open me-1"></i> Selected Read PP
+                            </button>
+                            <button class="btn btn-danger btn-sm" id="bulk-teco-btn" style="display: none;" onclick="openBulkTecoModal()">
+                                <i class="fas fa-circle-check me-1"></i> Selected TECO
+                            </button>
+                            <button class="btn btn-info btn-sm" id="bulk-refresh-btn" style="display: none;" onclick="openBulkRefreshModal()">
+                                <i class="fas fa-sync-alt me-1"></i> Selected Refresh
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="clearAllSelections()">Clear All</button>
+                        </div>
                     </div>
                     
                     <div class="table-responsive border rounded-3">
@@ -270,180 +143,30 @@
             </div>
         </div>
     </div>
-    <div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="resultModalLabel">Production Order</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="singleView">
-                        <div class="mb-3">
-                            <small class="text-muted">Plant</small>
-                            <p id="plantValue" class="fw-medium text-dark">-</p>
-                        </div>
-                        <div>
-                            <small class="text-muted">Production Order</small>
-                            <div id="poList" class="mt-1 d-flex flex-wrap gap-2"></div>
-                        </div>
-                    </div>
-                    <div id="batchView" class="d-none">
-                        <p class="small text-muted mb-2">Converted Orders</p>
-                        <div class="table-responsive border rounded-3" style="max-height: 400px;">
-                            <table class="table table-sm">
-                                <thead class="table-light"><tr><th>#</th><th>Planned Order</th><th>Plant</th><th>Production Order</th></tr></thead>
-                                <tbody id="batchTbody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" id="resultOk" class="btn btn-primary">OK</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    @include('components.modals.schedule-modal')
+    @include('components.modals.resultModal')
+    @include('components.modals.refreshModal')
+    @include('components.modals.changeWCmodal')
+    @include('components.modals.changePVmodal')
+    @include('components.modals.add-component-modal')
+    @include('components.modals.bulk-schedule-modal')
+    @include('components.modals.bulk-readpp-modal')
+    @include('components.modals.bulk-refresh-modal')
+    @include('components.modals.bulk-teco-modal')
 
-    <div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel aria-hidden="true"">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <form action="#" method="POST" id="scheduleForm">
-                    @csrf
-                    <input type="hidden" name="aufnr" id="scheduleAufnr">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="scheduleModalLabel">Schedule Production Order</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="scheduleDate" class="form-label">Tanggal</label>
-                            <input type="date" name="date" id="scheduleDate" required class="form-control">
-                        </div>
-                        <div>
-                            <label for="scheduleTime" class="form-label">Jam (HH.MM.SS)</label>
-                            <input type="text" name="time" id="scheduleTime" placeholder="00.00.00" required pattern="^\d{2}[\.:]\d{2}[\.:]\d{2}$" class="form-control">
-                            <div class="form-text">Format 24 jam, contoh: 13.30.00</div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="button" class="btn btn-success" id="confirmScheduleBtn">Simpan</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="changeWcModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                {{-- Kita akan handle submit dengan JS, beri ID pada form --}}
-                <form id="changeWcForm"> 
-                    @csrf
-                    {{-- Hidden input untuk data dinamis --}}
-                    <input type="hidden" id="changeWcAufnr" name="aufnr">
-                    <input type="hidden" id="changeWcVornr" name="vornr">
-                    <input type="hidden" id="changeWcPwwrk" name="pwwrk">
-                    <input type="hidden" id="changeWcPlant" name="plant" value="{{ $plant }}">
-
-                    <div class="modal-header">
-                        <h5 class="modal-title">Change Work Center</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-
-                    <div class="modal-body">
-                        {{-- Field 1: Work Center Asal (Read-only) --}}
-                        <div class="mb-3">
-                            <label for="changeWcAsal" class="form-label">Work Center Asal</label>
-                            <input type="text" id="changeWcAsal" class="form-control" readonly style="background-color: #e9ecef;">
-                        </div>
-
-                        {{-- Field 2: Work Center Tujuan (Dropdown) --}}
-                        <div class="mb-3">
-                            <label for="changeWcTujuan" class="form-label">Work Center Tujuan</label>
-                            <select id="changeWcTujuan" name="work_center_tujuan" class="form-select" required>
-                                <option value="" selected disabled>-- Pilih Work Center --</option>
-                                {{-- Loop data dari controller --}}
-                                @foreach ($workCenters as $wc)
-                                    <option value="{{ $wc->kode_wc }}">{{ $wc->kode_wc }} - {{ $wc->description }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                        {{-- Ganti type="submit" menjadi type="button" dan beri ID --}}
-                        <button type="button" id="confirmChangeWcBtn" class="btn btn-primary">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="refreshProModal" tabindex="-1" aria-labelledby="refreshProModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="refreshProModalLabel">Konfirmasi Refresh</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Anda akan melakukan refresh untuk data berikut:</p>
-                    <ul>
-                        <li><strong>Nomor PRO:</strong> <span id="modalProNumber"></span></li>
-                        <li><strong>Plant:</strong> <span id="modalWerksInfo"></span></li>
-                    </ul>
-                    <p class="mt-3">Apakah Anda yakin ingin melanjutkan?</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary" id="confirmRefreshBtn">Lanjutkan</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="changePvModal" tabindex="-1" aria-labelledby="changePvModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-            <form action="{{ route('change-pv') }}" method="POST" id="changePvForm">
-                @csrf
-                <div class="modal-header">
-                <h5 class="modal-title" id="changePvModalLabel">Change Production Version (PV)</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-
-                <div class="modal-body">
-                {{-- Hidden yang akan diisi saat modal dibuka --}}
-                <input type="hidden" id="changePvAufnr" name="AUFNR">
-                <input type="hidden" id="changePvWerks" name="plant">
-
-                <label for="changePvInput" class="form-label">Production Version (PV)</label>
-                <select id="changePvInput" name="PROD_VERSION" class="form-select" required>
-                    <option value="">-- Pilih Production Version --</option>
-                    <option value="0001">PV 0001</option>
-                    <option value="0002">PV 0002</option>
-                    <option value="0003">PV 0003</option>
-                </select>
-                <div id="changePvCurrent" class="form-text"></div>
-                </div>
-
-                <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                <button type="button" id="changePvSubmitBtn" class="btn btn-primary">Simpan</button>
-                </div>
-            </form>
-            </div>
-        </div>
-    </div>
-    @include('Admin.add-component-modal')
+    @include('components.modals.add-component-modal')
     @push('scripts')
+    <script src="{{ asset('js/bulk-modal-handle.js') }}"></script>
+    <script src="{{ asset('js/readpp.js') }}"></script>
+    <script src="{{ asset('js/refresh.js') }}"></script>
+    <script src="{{ asset('js/schedule.js') }}"></script>
+    <script src="{{ asset('js/teco.js') }}"></script>
+    <script src="{{ asset('js/component.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // --- [BARU] Inisialisasi semua Modal Bootstrap ---
-        let resultModal, scheduleModal, changeWcModal, changePvModal;
+        let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal;
+        let bulkActionPlantCode = null;
         const addComponentModal = document.getElementById('addComponentModal');
         document.addEventListener('DOMContentLoaded', () => {
             // Sukses dari controller
@@ -483,6 +206,10 @@
             scheduleModal = new bootstrap.Modal(document.getElementById('scheduleModal'));
             changeWcModal = new bootstrap.Modal(document.getElementById('changeWcModal'));
             changePvModal = new bootstrap.Modal(document.getElementById('changePvModal'));
+            bulkScheduleModal = new bootstrap.Modal(document.getElementById('bulkScheduleModal'));
+            bulkReadPpModal = new bootstrap.Modal(document.getElementById('bulkReadPpModal'));
+            bulkTecoModal = new bootstrap.Modal(document.getElementById('bulkTecoModal'));
+            bulkRefreshModal = new bootstrap.Modal(document.getElementById('bulkRefreshModal'));
         });
 
         // --- Fungsi Helper Notifikasi (SweetAlert - Tidak Berubah) ---
@@ -980,11 +707,7 @@
                 .then(response => response.json().then(resData => ({ status: response.status, body: resData })))
                 .then(({ status, body }) => {
                     if (status >= 400) { throw new Error(body.message || 'Gagal menambahkan komponen.'); }
-
-
                     showSwal(body.message, 'success'); // Tampilkan notifikasi
-                    
-                    // Lakukan refresh halaman atau tabel setelah notifikasi
                     setTimeout(() => location.reload(), 1500);
                 })
                 .catch(error => {
@@ -1351,32 +1074,54 @@
             (bootstrap.Modal.getOrCreateInstance(document.getElementById('changePvModal'))).show();
         }
 
-        function handleBulkSelect(checkbox) { 
+        function handleBulkSelect(checkbox) {
+            const row = checkbox.closest('tr');
+            if (!row || !row.dataset.rowData) return;
+
+            // Ambil semua data dari baris yang dipilih
+            const rowData = JSON.parse(row.dataset.rowData);
+            const plantCode = rowData.WERKSX; // Ambil kode plant dari data baris
+
+            // <-- TAMBAHKAN DEBUG DI SINI
+            console.log('Kode Plant (WERKSX) dari baris yang dipilih:', plantCode);
+            // ------------------------------------
+
             const type = checkbox.dataset.type;
             const id = checkbox.dataset.id;
             const auart = checkbox.dataset.auart;
 
-            if (type === 'PLO') {
-                const ploDataString = JSON.stringify({ plnum: id, auart: auart });
-                if (checkbox.checked) {
+            if (checkbox.checked) {
+                // Jika ini adalah item PERTAMA yang dipilih, simpan kode plant-nya
+                if (selectedPLO.size === 0 && selectedPRO.size === 0) {
+                    bulkActionPlantCode = plantCode;
+                    // Anda bisa tambahkan log di sini juga untuk memastikan kapan kode disimpan
+                    console.log(` -> Kode Plant '${plantCode}' disimpan untuk aksi bulk.`);
+                }
+                
+                if (type === 'PLO') {
+                    const ploDataString = JSON.stringify({ plnum: id, auart: auart });
                     selectedPLO.add(ploDataString);
                 } else {
-                    selectedPLO.delete(ploDataString);
+                    selectedPRO.add(id);
                 }
             } else {
-                if (checkbox.checked) {
-                    selectedPRO.add(id);
+                // Logika untuk uncheck
+                if (type === 'PLO') {
+                    const ploDataString = JSON.stringify({ plnum: id, auart: auart });
+                    selectedPLO.delete(ploDataString);
                 } else {
                     selectedPRO.delete(id);
                 }
+
+                // Jika SEMUA item sudah tidak dipilih, reset kode plant
+                if (selectedPLO.size === 0 && selectedPRO.size === 0) {
+                    bulkActionPlantCode = null;
+                    // Log untuk memastikan kode di-reset
+                    console.log(' -> Semua pilihan dibatalkan, kode plant di-reset.');
+                }
             }
+
             updateBulkControls();
-        }
-        function updateBulkControls() { 
-            const bulkControls = document.getElementById('bulk-controls');
-            const hasPLO = selectedPLO.size > 0;
-            const hasPRO = selectedPRO.size > 0;
-            bulkControls.classList.toggle('d-none', !hasPLO && !hasPRO);
         }
         function toggleSelectAll() { 
             const selectAll = document.getElementById('select-all').checked;
@@ -1389,6 +1134,9 @@
             selectedPLO.clear();
             selectedPRO.clear();
             document.querySelectorAll('.bulk-select, #select-all').forEach(cb => cb.checked = false);
+            
+            bulkActionPlantCode = null; // <-- TAMBAHKAN BARIS INI
+            
             updateBulkControls();
         }
         function handleComponentSelect(aufnr){
@@ -1491,70 +1239,6 @@
                 });
             }
         });
-
-        function openTeco(aufnr) {
-            Swal.fire({
-                title: 'Konfirmasi TECO',
-                text: `Anda yakin ingin melakukan TECO untuk order ${aufnr}?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Ya, Lanjutkan!',
-                cancelButtonText: 'Batal'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Tampilkan loading spinner
-                    Swal.fire({
-                        title: 'Memproses TECO...',
-                        text: 'Mohon tunggu, sedang menghubungi SAP.',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-
-                    // Kirim request ke Controller Laravel
-                    fetch("{{ route('order.teco') }}", { // Gunakan route name agar lebih aman
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        },
-                        body: JSON.stringify({ aufnr: aufnr })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Berhasil!',
-                                text: data.message,
-                            }).then(() => { // <-- TAMBAHKAN .then() DI SINI
-                                // Periksa apakah backend mengirim sinyal 'refresh'
-                                if (data.action === 'refresh') {
-                                    location.reload(); // Muat ulang halaman
-                                }
-                            });;
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Gagal!',
-                                text: data.message,
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Terjadi kesalahan saat mengirim permintaan!',
-                        });
-                    });
-                }
-            });
-        }
         function openReadPP(aufnr) {
             Swal.fire({
                 title: 'Konfirmasi Read PP',
@@ -1616,109 +1300,6 @@
                 }
             });
         }
-        
-        let refreshModal;
-        document.addEventListener('DOMContentLoaded', function () {
-            const modalElement = document.getElementById('refreshProModal');
-            if (modalElement) {
-                refreshModal = new bootstrap.Modal(modalElement);
-            }
-        });
-
-        function openRefresh(proNumber, werksInfo) {
-            // Mengisi data ke dalam elemen span di modal
-            document.getElementById('modalProNumber').textContent = proNumber;
-            document.getElementById('modalWerksInfo').textContent = werksInfo;
-
-            // Menyimpan nomor PRO di tombol "Lanjutkan" menggunakan atribut data-*
-            // Ini cara yang aman untuk passing data ke event listener
-            const confirmBtn = document.getElementById('confirmRefreshBtn');
-            confirmBtn.dataset.pro = proNumber;
-            confirmBtn.dataset.werks = werksInfo;
-
-            // Menampilkan modal
-            if (refreshModal) {
-                refreshModal.show();
-            }
-        }
-
-        function showSwal(message, type = 'success') {
-            let config = {
-                confirmButtonText: 'OK'
-            };
-
-            if (type === 'success') {
-                config.icon = 'success';
-                config.title = 'Berhasil';
-                config.text = message;
-            } else { // 'error'
-                config.icon = 'error';
-                config.title = 'Gagal';
-                // Menggunakan 'html' agar bisa menampilkan baris baru jika ada
-                config.html = message.replace(/\n/g, '<br>');
-            }
-
-            // Memanggil library SweetAlert untuk menampilkan notifikasi
-            Swal.fire(config);
-        }
-
-        document.getElementById('confirmRefreshBtn').addEventListener('click', function() {
-            // Ambil nomor PRO & Werks dari atribut data-*
-            const proToRefresh = this.dataset.pro;
-            const werksToRefresh = this.dataset.werks;
-
-            // Tampilkan status loading
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Loading...';
-            
-            // Tentukan URL endpoint statis di Controller PHP Anda.
-            // Data akan dikirim melalui body, bukan URL.
-            const phpEndpoint = '/refresh-pro'; 
-
-            // Kirim request ke endpoint PHP menggunakan Fetch API
-            fetch(phpEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({
-                    pro_number: proToRefresh,
-                    werks: werksToRefresh
-                })
-            })
-            .then(response => {
-                // Logika untuk memeriksa respons OK atau tidak
-                return response.json().then(data => ({ status: response.status, body: data }));
-            })
-            .then(({ status, body }) => {
-                if (status >= 400) {
-                    // Jika server mengembalikan status error (4xx atau 5xx)
-                    throw new Error(body.message || 'Terjadi kesalahan di server.');
-                }
-                showSwal(body.message, 'Add Component Success, Silahkan refresh per PRO untuk melihat data terbaru'); // Tampilkan notifikasi sukses
-
-                const modalElement = document.getElementById('refreshProModal');
-                const modalInstance = bootstrap.Modal.getInstance(modalElement);
-                if (modalInstance) {
-                    modalInstance.hide();
-                }
-               setTimeout(() => {
-                    location.reload();
-                }, 1500); // 1500 milidetik = 1.5 detik
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showSwal(error.message, 'error'); // Tampilkan notifikasi error
-            })
-            .finally(() => {
-                this.disabled = false;
-                this.innerHTML = 'Lanjutkan';
-            });
-        });
-
         document.addEventListener('DOMContentLoaded', () => {
         const addComponentModal = document.getElementById('addComponentModal');
         

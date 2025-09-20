@@ -367,4 +367,168 @@ body {
     background-attachment: fixed; // Membuat gradien tetap diam saat di-scroll
 }
 
+/* Scroll vertikal bila tinggi konten melebihi batas */
+#outstanding-order-container .table-responsive {
+    max-height: 420px;   /* atur sesuai kebutuhan */
+    overflow-y: auto;
+}
+
+/* Bantu sticky header */
+#outstanding-order-container .table-responsive table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* Header nempel saat discroll */
+#outstanding-order-container thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bs-body-bg, #fff);
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.075);
+}
+
+/* Jika card pakai efek glass */
+.card-glass #outstanding-order-container thead th {
+    background: rgba(255, 255, 255, 0.75);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+/* Scroll dan sticky header untuk tdata3 */
+#tdata3-container .table-responsive {
+    max-height: 420px;      /* biar kalau data banyak, scroll vertikal */
+    overflow-y: auto;
+}
+#tdata3-container table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+#tdata3-container thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc; /* soft background header */
+    color: #374151;      /* teks gelap */
+    font-weight: 600;
+}
+
+/* Hover row lebih soft */
+#tdata3-container tbody tr:hover {
+    background-color: rgba(0,0,0,.03);
+}
+
+/* Soft border */
+#tdata3-container table td,
+#tdata3-container table th {
+    border-color: #e5e7eb !important;
+}
+
+/* Modern badge warna status */
+.badge-status-crtd {
+    background: #facc15; /* kuning lembut */
+    color: #000;
+}
+.badge-status-rel {
+    background: #4ade80; /* hijau lembut */
+    color: #064e3b;
+}
+.badge-status-other {
+    background: #9ca3af; /* abu lembut */
+    color: #111827;
+}
+
+/* Button warna custom */
+.btn-schedule {
+    background-color: #facc15; /* kuning */
+    color: #111827;
+    border: none;
+}
+.btn-schedule:hover { background-color: #eab308; color:#fff; }
+
+.btn-readpp {
+    background-color: #4ade80; /* hijau */
+    color: #064e3b;
+    border: none;
+}
+.btn-readpp:hover { background-color: #22c55e; color:#fff; }
+
+.btn-teco {
+    background-color: #f87171; /* merah soft */
+    color: #fff;
+    border: none;
+}
+.btn-teco:hover { background-color: #dc2626; }
+.pro-cell-inner {
+    width: min(360px, 100%);
+    margin: 0 auto;                 /* center di dalam cell */
+}
+.pro-cell-actions .btn {
+    padding: .2rem .4rem;           /* tombol kecil rapi */
+}
+
+/* Kontainer utama untuk styling dan scoping */
+.component-table-wrapper {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden; /* Penting untuk rounded corner di table */
+}
+
+/* Kontainer untuk scroll vertikal */
+.component-table-wrapper .table-responsive {
+    max-height: 450px; /* Atur tinggi maksimal tabel sebelum scroll muncul */
+    overflow-y: auto;
+}
+
+/* Membuat header tabel menempel (sticky) saat di-scroll */
+.component-table-wrapper thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    /* Ganti warna background agar tidak transparan saat scroll */
+    background-color: #f8fafc; 
+    box-shadow: inset 0 -2px 0 #e5e7eb; /* Garis bawah halus */
+}
+
+/* Styling tambahan untuk header agar lebih jelas */
+.component-table-wrapper thead th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: #374151;
+}
+
+/* Padding untuk sel agar tidak terlalu rapat */
+.component-table-wrapper td, .component-table-wrapper th {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+}
+
+/* Efek hover pada baris tabel */
+.component-table-wrapper tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+#selection-counter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #eef2ff; /* Warna ungu muda yang lembut */
+    color: #4338ca; /* Warna teks ungu tua */
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+#selection-counter .count-badge {
+    background-color: #4338ca;
+    color: #fff;
+    font-weight: bold;
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px; /* Membuatnya bulat */
+    min-width: 28px;
+    text-align: center;
+}
+
 @import 'sidebar';

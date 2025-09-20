@@ -49,7 +49,7 @@ class sync_cohv extends Command
         $command = "\"{$pythonExecutablePath}\" -u \"{$pythonScriptPath}\"";
 
         // Jalankan proses dan berikan callback untuk menangani output live
-        $result = Process::timeout(3600)->run($command, function (string $type, string $output) {
+        $result = Process::timeout(14400)->run($command, function (string $type, string $output) {
             // $output berisi baris yang baru saja dicetak oleh skrip Python
             // Kita cetak langsung ke konsol Laravel
             $this->line($output);

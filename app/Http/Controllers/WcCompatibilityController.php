@@ -50,6 +50,18 @@ class WcCompatibilityController extends Controller
             return $proDensity[$wc_item->ARBPL]->pro_count ?? 0;
         });
 
+        $capacityDensity = DB::table('production_t_data3') // Ambil dari tabel yang ada CPCTYX
+            ->select('ARBPL', DB::raw('SUM(CPCTYX) as capacity_sum'))
+            ->where('WERKSX', $kode)
+            ->groupBy('ARBPL')
+            ->get()
+            ->keyBy('ARBPL');
+
+        $chartCapacityData = $allWcQuery->map(function ($wc_item) use ($capacityDensity) {
+            // Jika tidak ada data capacity, beri nilai 0
+            return $capacityDensity[$wc_item->ARBPL]->capacity_sum ?? 0;
+        });
+
         $wcDescriptionMap = $allWcQuery->keyBy('ARBPL')->map(function ($item) {
             return $item->description;
         });
@@ -76,7 +88,8 @@ class WcCompatibilityController extends Controller
             'pros' => $pros,
             'allWcs' => $allWcQuery,
             'chartLabels'       => $allWcQuery->pluck('ARBPL'),
-            'chartDensityData'  => $chartDensityData,
+            'chartProData'  => $chartDensityData,
+            'chartCapacityData'   => $chartCapacityData,
             'compatibilities'   => $compatibilities,
             'wcDescriptionMap'  => $wcDescriptionMap,
             'kode'              => $kode,

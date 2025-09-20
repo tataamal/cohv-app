@@ -16,16 +16,14 @@ use Illuminate\Http\Client\ConnectionException;
 
 class LoginController extends Controller
 {
-    public function checkAuth()
+    public function checkAuth(Request $request)
     {
-        // Menggunakan Auth::check() untuk memeriksa apakah user sudah login.
         if (Auth::check()) {
-            // Jika SUDAH login, arahkan ke halaman dashboard-landing.
-            return redirect('/dashboard-landing');
-        }
-
-        // Jika BELUM login, arahkan ke halaman login.
-        return redirect('/login');
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+    }
+    return redirect('/login');
     }
     public function showLoginForm()
     {

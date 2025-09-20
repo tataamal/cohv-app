@@ -5,6 +5,7 @@ use App\Http\Controllers\Data1Controller;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\bulkController;
 use App\Http\Controllers\Data4Controller;
 use App\Http\Controllers\ManufactController;
 use App\Http\Controllers\WcCompatibilityController;
@@ -60,5 +61,9 @@ Route::middleware('auth')->group(function (){
     Route::get('/wc-mapping/details/{kode}/{wc}', [WcCompatibilityController::class, 'showDetails'])->name('wc.details');
     Route::post('/changeWC/{kode}/{wcTujuan}', [WcCompatibilityController::class,'changeWorkcenter'])->name('change-wc-drag');
     Route::post('/changePV/{kode}/{wc}', [WcCompatibilityController::class,'changePV'])->name('change-pv-drag');
+
+    // Routing untuk Bulk Function
+    Route::post('/bulk-refresh-pro', [bulkController::class, 'handleBulkRefresh'])->name('bulk-refresh.store');
+    Route::post('/bulk-teco-process', [bulkController::class, 'processBulkTeco'])->name('bulk.teco.process');
 
 });

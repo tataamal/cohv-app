@@ -1,14 +1,35 @@
 # main.py
 from flask import Flask, request, jsonify
-from pyrfc import Connection, ABAPApplicationError, ABAPRuntimeError, LogonError, CommunicationError
+from pyrfc import Connection, ABAPApplicationError, ABAPRuntimeError, LogonError, CommunicationError, RFCError
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import os
+import json
 from flask_cors import CORS
 from datetime import time
+from decimal import Decimal
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "*"}})
+
+def as_list(x):
+    if not x:
+        return []
+    return x if isinstance(x, list) else [x]
+
+def map_werks(lst, fallback_plant):
+    out = []
+    for row in as_list(lst):
+        if isinstance(row, dict):
+            row = dict(row)
+            row['WERKS'] = row.get('WERKS') or row.get('WERK') or fallback_plant
+            row.pop('WERK', None)
+        out.append(row)
+    return out
+
+def pad12(v: str) -> str:
+    v = str(v or '')
+    return v if len(v) >= 12 else v.zfill(12)
 
 def connect_sap(username=None, password=None):
     username = username or os.environ.get('SAP_USERNAME')
@@ -934,67 +955,7 @@ def add_component():
     except Exception as e:
         print("Exception saat add component:", str(e))
         return jsonify({'error': str(e)}), 500
-
-# # ADD COMPONENT
-# @app.route('/api/add_component', methods=['POST'])
-# def add_component():
-#     try:
-#         username, password = get_credentials()
-#         conn = connect_sap(username, password)
-
-#         data = request.get_json()
-#         print("Data diterima untuk add component:", data)
-
-#         # Validasi input wajib
-#         required_fields = ['IV_AUFNR', 'IV_MATNR', 'IV_BDMNG', 'IV_MEINS', 'IV_WERKS', 'IV_LGORT', 'IV_VORNR']
-#         for field in required_fields:
-#             if not data.get(field):
-#                 return jsonify({'error': f'{field} is required'}), 400
-
-#         # Parameter untuk RFC call
-#         params = {
-#             'IV_ORDER_NUMBER': data.get('IV_AUFNR'),
-#             'IV_MATERIAL': data.get('IV_MATNR'),
-#             'IV_QUANTITY': str(data.get('IV_BDMNG')),
-#             'IV_UOM': data.get('IV_MEINS'),
-#             'IV_LGORT': data.get('IV_LGORT'),
-#             'IV_PLANT': data.get('IV_WERKS'),
-#             'IV_POSITIONNO': data.get('IV_VORNR'),
-#             'IV_BATCH': '',
-#         }
-
-#         print("Calling RFC with params:", params)
-#         result = conn.call('Z_RFC_PRODORD_COMPONENT_ADD2', **params)
-#         print("Respons LENGKAP dari SAP:", result)
-
-#         # Cek hasil dari SAP untuk menentukan respons
-#         if result.get('EV_SUBRC') == 0:
-#             # SUKSES: Lakukan COMMIT dan kirim respons 200 OK
-#             print("Operasi SAP berhasil, melakukan COMMIT...")
-#             conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
-            
-#             return jsonify({
-#                 'success': True,
-#                 'message': result.get('EV_RETURN_MSG') or 'Komponen berhasil ditambahkan.',
-#                 'sap_response': result
-#             }), 200
-#         else:
-#             # GAGAL: Lakukan ROLLBACK dan kirim respons 400 Bad Request
-#             print("Operasi SAP gagal, melakukan ROLLBACK...")
-#             conn.call('BAPI_TRANSACTION_ROLLBACK')
-            
-#             return jsonify({
-#                 'success': False,
-#                 'message': result.get('EV_RETURN_MSG') or 'Data yang dikirim tidak valid menurut SAP.',
-#                 'sap_response': result
-#             }), 400
-
-#     except ValueError as ve:
-#         return jsonify({'error': str(ve)}), 401
-#     except Exception as e:
-#         print("Exception saat add component:", str(e))
-#         return jsonify({'error': str(e)}), 500
-
+    
 # DELETE COMPONENT
 @app.route('/api/delete_component', methods=['POST'])
 def delete_component():
@@ -1182,6 +1143,222 @@ def get_wc_description():
         # Error umum lainnya
         print("Exception:", str(e))
         return jsonify({'error': str(e)}), 500
+    
+def json_decimal_converter(o):
+    if isinstance(o, Decimal):
+        return str(o)
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+@app.route('/api/bulk-refresh-pro', methods=['POST'])
+def refresh_bulk_pro():
+    """
+    Endpoint untuk me-refresh beberapa Production Order (PRO/AUFNR)
+    dengan memprosesnya satu per satu.
+    """
+    try:
+        # 1. Autentikasi ke SAP
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
+    except ValueError as ve:
+        # Gagal karena header tidak ada
+        return jsonify({"error": str(ve)}), 401
+    except Exception as auth_error:
+        # Gagal saat proses koneksi/autentikasi SAP
+        return jsonify({"error": f"Kesalahan autentikasi ke SAP: {str(auth_error)}"}), 500
+
+    # 2. Validasi Input JSON
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body harus dalam format JSON yang valid.'}), 400
+
+    plant = data.get('plant', '').strip()
+    aufnr_list = data.get('pros', [])
+
+    if not plant:
+        return jsonify({'error': 'Parameter "plant" tidak ditemukan di body JSON'}), 400
+    if not aufnr_list or not isinstance(aufnr_list, list):
+        return jsonify({'error': 'Parameter "pros" harus berupa array/list yang tidak kosong.'}), 400
+
+    print(f"\n--- Memulai Proses Refresh untuk Plant: {plant} ---")
+    
+    all_responses = []
+    any_failures = False # <-- TAMBAHAN: Flag untuk melacak kegagalan
+
+    # 3. Loop untuk setiap PRO dan panggil RFC
+    for aufnr in aufnr_list:
+        if not aufnr:
+            continue
+        
+        # Pad PRO menjadi 12 digit jika perlu (praktik umum di SAP)
+        padded_aufnr = str(aufnr).zfill(12)
+        print(f"  -> Memproses PRO: {aufnr} ({padded_aufnr})")
+
+        try:
+            # Panggil RFC untuk satu PRO
+            res = conn.call('Z_FM_YPPR074Z', P_WERKS=plant, P_AUFNR=padded_aufnr)
+            
+            # <-- MODIFIKASI: Tambahkan log ini untuk melihat respons mentah dari SAP
+            print(f"     [DEBUG] Raw SAP Response: {res}")
+
+            # --- PERBAIKAN LOGIKA ---
+            # 1. Dapatkan list dari key 'RETURN', bukan 'E_RETURN'
+            # 2. Ambil dictionary pertama dari list tersebut
+            sap_return_list = res.get('RETURN', [])
+            sap_return = sap_return_list[0] if sap_return_list else {}
+            # --- AKHIR PERBAIKAN ---
+
+            # Tipe 'S' (Success) atau 'W' (Warning) dianggap berhasil
+            if sap_return.get('TYPE') in ['S', 'W', '']:
+                # Proses Berhasil
+                t_data  = res.get('T_DATA', [])
+                t_data1 = res.get('T_DATA1', [])
+                t_data2 = res.get('T_DATA2', [])
+                t_data3 = res.get('T_DATA3', [])
+                t_data4 = res.get('T_DATA4', [])
+                
+                response_sukses = {
+                    "status": "sukses",
+                    "aufnr": aufnr,
+                    "message": f"Berhasil mendapatkan data untuk PRO: {aufnr}",
+                    "details": {
+                        "T_DATA": t_data,
+                        "T_DATA1": t_data1,
+                        "T_DATA2": t_data2,
+                        "T_DATA3": t_data3,
+                        "T_DATA4": t_data4
+                    }
+                }
+                all_responses.append(response_sukses)
+                print(f"     ... SUKSES")
+
+            else:
+                # Proses Gagal (dikembalikan oleh SAP)
+                any_failures = True # <-- TAMBAHAN: Tandai bahwa ada kegagalan
+                error_message = sap_return.get('MESSAGE', 'Error tidak diketahui dari SAP')
+                response_gagal = {
+                    "status": "gagal",
+                    "aufnr": aufnr,
+                    "message": f"Gagal mengambil data dari SAP, Error: {error_message}"
+                }
+                all_responses.append(response_gagal)
+                print(f"     ... GAGAL: {error_message}")
+
+        except Exception as rfc_error:
+            # Gagal saat pemanggilan RFC (misal: koneksi terputus)
+            any_failures = True # <-- TAMBAHAN: Tandai bahwa ada kegagalan
+            response_gagal_sistem = {
+                "status": "gagal",
+                "aufnr": aufnr,
+                "message": f"Gagal mengambil data dari SAP, Error: {str(rfc_error)}"
+            }
+            all_responses.append(response_gagal_sistem)
+            print(f"     ... GAGAL (Sistem): {str(rfc_error)}")
+            continue
+    
+    print("--- Proses Selesai ---")
+
+    # 4. Kembalikan semua hasil dengan status code yang sesuai
+    final_status_code = 207 if any_failures else 200
+    
+    return jsonify({
+        "plant": plant,
+        "results": all_responses
+    }), final_status_code
+
+@app.route('/api/bulk-teco-pro', methods=['POST'])
+def process_teco():
+
+    username, password = get_credentials()
+
+    if not username or not password:
+        return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
+
+    # Ambil data dari body JSON
+    data = request.get_json()
+    if not data or 'pro_list' not in data or not isinstance(data['pro_list'], list):
+        return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list' dalam bentuk array."}), 400
+
+    pro_list = data['pro_list']
+    if not pro_list:
+        return jsonify({"error": "'pro_list' tidak boleh kosong."}), 400
+
+    # =======================================================
+    # LANGKAH 2: PROSES LOOPING DAN HIT BAPI
+    # =======================================================
+    results = {
+        "success_details": [],
+        "error_details": []
+    }
+
+    try:
+        conn = connect_sap(username, password)
+
+        for pro_number in pro_list:
+            print(f"PRO {pro_number} Sedang di proses...") # Log ke konsol Flask
+
+            try:
+                bapi_result = conn.call(
+                    'BAPI_PRODORD_COMPLETE_TECH',
+                    SCOPE_COMPL_TECH='1',
+                    WORK_PROCESS_GROUP='COWORK_BAPI',
+                    WORK_PROCESS_MAX=99,
+                    ORDERS=[{'ORDER_NUMBER': pro_number}]
+                )
+                
+                # 1. Cetak respons mentah untuk debugging
+                print(f"RAW BAPI Result for {pro_number}: {bapi_result}")
+
+                # 2. Logika pengecekan yang lebih aman
+                has_error = False
+                return_messages = []
+
+                # Pastikan bapi_result adalah dictionary sebelum memproses
+                if isinstance(bapi_result, dict):
+                    return_messages = bapi_result.get('RETURN', [])
+                
+                # Loop dengan aman melalui pesan balasan
+                for msg in return_messages:
+                    # Pastikan setiap pesan adalah dictionary dan punya key 'TYPE'
+                    if isinstance(msg, dict) and msg.get('TYPE') in ['E', 'A']:
+                        has_error = True
+                        break # Jika sudah ketemu satu error, cuku
+
+                if not has_error:
+                    results["success_details"].append({
+                        "pro_number": pro_number,
+                        "sap_response": bapi_result  # Kirim semua respons SAP untuk development
+                    })
+                else:
+                    # Jika ada pesan error, anggap gagal
+                    results["error_details"].append({
+                        "pro_number": pro_number,
+                        "message": f"Gagal melakukan teco pada PRO {pro_number}",
+                        "sap_response": bapi_result # Kirim semua respons SAP untuk debugging
+                    })
+
+            except ABAPApplicationError as bapi_err:
+                print(f"Error BAPI pada PRO {pro_number}: {bapi_err}")
+                results["error_details"].append({
+                    "pro_number": pro_number,
+                    "message": f"Gagal melakukan teco pada PRO {pro_number}",
+                    "sap_response": str(bapi_err)
+                })
+
+        conn.close()
+
+    except CommunicationError as conn_err:
+        print(f"Connection Error: {conn_err}")
+        return jsonify({"error": f"Gagal terhubung ke SAP: {conn_err}"}), 503
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return jsonify({"error": "Terjadi error tak terduga di server Flask."}), 500
+    
+    if results["error_details"]:
+        return jsonify(results), 400
+    else:
+        return jsonify(results), 200
+
 
 if __name__ == '__main__':
     os.environ['PYTHONHASHSEED'] = '0'

@@ -357,10 +357,10 @@ class ManufactController extends Controller
         // 1. Validasi input dari frontend
         $validated = $request->validate([
             'pro_number' => 'required|string|max:20',
-            'werks' => 'required|string|max:10',
+            'plant' => 'required|string|max:10',
         ]);
         $proNumber = $validated['pro_number'];
-        $werks = $validated['werks'];
+        $werks = $validated['plant'];
 
         // 2. Validasi session
         $username = session('username');

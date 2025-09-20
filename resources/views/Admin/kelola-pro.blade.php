@@ -247,6 +247,12 @@
         {{-- Konten Modal untuk Perubahan PV --}}
     </div>
 
+    {{-- <pre>
+    Labels: {{ json_encode($BarChartLabels ?? []) }}
+    Data PRO: {{ json_encode($BarChartDataPro ?? []) }}
+    Data Capacity: {{ json_encode($BarChartDataCapacity ?? []) }}
+    </pre> --}}
+
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -254,7 +260,8 @@
         // SETUP DATA DARI BLADE
         const ctx = document.getElementById('wcChart').getContext('2d');
         const chartLabels = @json($chartLabels ?? []);
-        const chartData = @json($chartDensityData ?? []);
+        const chartDataPro = @json($chartProData ?? []);
+        const chartDataCapacity = @json($chartCapacityData ?? []);
         const compatibilities = @json($compatibilities ?? (object)[]);
         const plantKode = @json($kode ?? '');
         const wcDescriptionMap = @json($wcDescriptionMap);
@@ -263,7 +270,9 @@
         const defaultColor = 'rgba(13, 110, 253, 0.6)';
         const compatibleColor = 'rgba(25, 135, 84, 0.6)';
         const conditionalColor = 'rgba(255, 193, 7, 0.6)';
-        const otherColor = 'rgba(108, 117, 125, 0.6)';
+        const proColor = 'rgba(102, 16, 242, 0.6)';
+        const CapacityColor = 'rgba(253, 126, 20, 0.6)';
+        const otherColor = 'rgba(253, 126, 20, 0.6)';
         let chartColors = Array(chartLabels.length).fill(defaultColor);
 
         // INISIALISASI CHART
@@ -271,13 +280,20 @@
             type: 'bar',
             data: {
                 labels: chartLabels,
-                datasets: [{
-                    label: 'Jumlah PRO',
-                    data: chartData,
-                    backgroundColor: defaultColor, // Asumsi Anda punya variabel warna
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
+                datasets: [
+                    {
+                        label: 'Jumlah PRO',
+                        data: chartDataPro, // Gunakan variabel data PRO
+                        backgroundColor: proColor,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Jumlah Capacity',
+                        data: chartDataCapacity, // Gunakan variabel data Capacity
+                        backgroundColor: CapacityColor,
+                        borderWidth: 1
+                    }
+                ]
             },
             options: {
                 responsive: true,
@@ -285,34 +301,32 @@
                 aspectRatio: 4,
                 plugins: {
                     tooltip: {
-                        // Di sinilah kita memodifikasi tooltip
                         callbacks: {
-                            /**
-                             * Fungsi ini akan mengubah TULISAN JUDUL tooltip.
-                             */
+                            // Title callback Anda sudah bagus, tidak perlu diubah
                             title: function(tooltipItems) {
-                                // Ambil item pertama yang di-hover
                                 const item = tooltipItems[0];
-                                // Dapatkan label aslinya (misal: 'WC031')
                                 const wcCode = item.label;
-                                // Cari deskripsinya di map yang sudah kita buat
-                                const description = wcDescriptionMap[wcCode] || wcCode; // Fallback ke kode jika deskripsi tidak ada
-                                
-                                // Kembalikan deskripsi sebagai judul
+                                const description = wcDescriptionMap[wcCode] || wcCode;
                                 return description;
                             },
 
-                            /**
-                             * Fungsi ini akan mengubah TULISAN ISI tooltip.
-                             */
+                            // Label callback kita buat dinamis lagi
                             label: function(context) {
-                                // Dapatkan nilai numeriknya (jumlah PRO)
+                                const datasetLabel = context.dataset.label || '';
                                 const value = context.parsed.y;
+                                const formattedValue = value.toLocaleString('id-ID');
                                 
-                                // Buat label baru dengan satuan yang jelas
-                                let label = `Jumlah PRO: ${value}`;
+                                let unit = ''; // Variabel untuk menyimpan satuan
                                 
-                                return label;
+                                // Tentukan satuan berdasarkan label dataset
+                                if (datasetLabel === 'Jumlah PRO') {
+                                    unit = ' PRO'; // Satuan untuk PRO
+                                } else if (datasetLabel === 'Jumlah Capacity') {
+                                    unit = ' Jam'; // GANTI SATUAN ini sesuai data Anda (misal: ' Jam', 'Ton')
+                                }
+                                
+                                // Gabungkan semuanya
+                                return `${datasetLabel}: ${formattedValue}${unit}`;
                             }
                         }
                     }
@@ -321,20 +335,48 @@
         });
 
         // LOGIKA KLIK PADA BARIS TABEL
+        let activeWcAsal = null; // Variabel untuk melacak baris aktif
+
         document.querySelectorAll('.pro-row').forEach(row => {
             row.addEventListener('click', function () {
                 const wcAsal = this.dataset.wcAsal;
-                const compatibilityRules = compatibilities[wcAsal] || [];
-                const rulesMap = Object.fromEntries(compatibilityRules.map(rule => [rule.wc_tujuan_code, rule.status]));
+                const allRows = document.querySelectorAll('.pro-row');
 
-                const newColors = chartLabels.map(targetWc => {
-                    if (targetWc === wcAsal) return defaultColor;
-                    const status = rulesMap[targetWc];
-                    if (status === 'compatible') return compatibleColor;
-                    if (status === 'compatible with condition') return conditionalColor;
-                    return otherColor;
-                });
-                wcChart.data.datasets[0].backgroundColor = newColors;
+                // Jika mengklik baris yang sama lagi, reset semuanya
+                if (wcAsal === activeWcAsal) {
+                    const defaultColors = Array(chartLabels.length).fill(defaultColor);
+                    wcChart.data.datasets[0].backgroundColor = defaultColors;
+                    wcChart.data.datasets[1].backgroundColor = defaultColors;
+                    
+                    activeWcAsal = null; // Kosongkan state aktif
+                    this.classList.remove('table-active'); // Hapus highlight dari baris
+                } 
+                // Jika mengklik baris baru
+                else {
+                    activeWcAsal = wcAsal; // Set baris ini sebagai yang aktif
+
+                    // Hapus highlight dari semua baris lain, lalu tambahkan ke baris ini
+                    allRows.forEach(r => r.classList.remove('table-active'));
+                    this.classList.add('table-active');
+
+                    // Logika perhitungan warna kompatibilitas (tetap sama)
+                    const compatibilityRules = compatibilities[wcAsal] || [];
+                    const rulesMap = Object.fromEntries(compatibilityRules.map(rule => [rule.wc_tujuan_code, rule.status]));
+
+                    const newColors = chartLabels.map(targetWc => {
+                        if (targetWc === wcAsal) return defaultColor;
+                        const status = rulesMap[targetWc];
+                        if (status === 'compatible') return compatibleColor;
+                        if (status === 'compatible with condition') return conditionalColor;
+                        return otherColor;
+                    });
+
+                    // Terapkan warna baru ke KEDUA dataset
+                    wcChart.data.datasets[0].backgroundColor = newColors;
+                    wcChart.data.datasets[1].backgroundColor = newColors;
+                }
+                
+                // Selalu update chart setelah ada perubahan
                 wcChart.update();
             });
         });
