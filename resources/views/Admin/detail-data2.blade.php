@@ -840,7 +840,7 @@
             const row = document.createElement('tr');
 
             const canSelectForPLO = d3.PLNUM && !d3.AUFNR;
-            const canSelectForPRO = d3.AUFNR && d3.STATS === 'CRTD';
+            const canSelectForPRO = !!d3.AUFNR;
             const canSelect = canSelectForPLO || canSelectForPRO;
 
             let statusBadgeClass = 'badge-status-other';
