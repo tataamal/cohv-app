@@ -167,8 +167,8 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .finally(() => {
                 // 5. Kembalikan tombol ke keadaan semula
-                button.disabled = false;
-                button.innerHTML = originalText;
+                button.disabled = true;
+                button.innerHTML = 'Reload Halaman ...';
             });
         });
     }

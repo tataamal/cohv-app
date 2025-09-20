@@ -26,12 +26,8 @@ function updateBulkControls() {
     if (bulkRefreshBtn) bulkRefreshBtn.style.display = hasPRO ? 'inline-block' : 'none';
 }
 
-function openBulkScheduleModal() {
-    if (selectedPRO.size === 0) {
-        Swal.fire('Info', 'Tidak ada Production Order (PRO) yang dipilih.', 'info');
-        return;
-    }
-}
+// const scheduleForm = document.getElementById('bulkScheduleForm');
+// const bulkScheduleModal = new bootstrap.Modal(document.getElementById('bulkScheduleModal')); // Inisialisasi modal
 
 function openBulkScheduleModal() {
     if (selectedPRO.size === 0) {
@@ -39,8 +35,20 @@ function openBulkScheduleModal() {
         return;
     }
 
+    // Ambil elemen-elemen di dalam modal
     const proListElement = document.getElementById('bulkScheduleProList');
-    proListElement.innerHTML = ''; // Kosongkan daftar sebelumnya
+    const plantDisplayElement = document.getElementById('bulkSchedulePlant');
+
+    // Kosongkan daftar dan plant sebelumnya
+    proListElement.innerHTML = ''; 
+
+    // --- PERUBAHAN UTAMA ---
+    // 1. Ambil nilai plant dari atribut data-plant di form
+    const plant = bulkActionPlantCode;
+
+    // 2. Tampilkan nilai plant di elemen <p> yang sudah kita siapkan
+    plantDisplayElement.textContent = plant || 'Plant tidak ditemukan!';
+    // ----------------------
 
     // Isi daftar PRO
     selectedPRO.forEach(pro => {
@@ -52,6 +60,7 @@ function openBulkScheduleModal() {
     // Set tanggal hari ini sebagai default
     document.getElementById('bulkScheduleDate').valueAsDate = new Date();
 
+    // Tampilkan modal
     bulkScheduleModal.show();
 }
 

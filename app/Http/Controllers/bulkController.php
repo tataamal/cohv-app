@@ -261,4 +261,168 @@ class bulkController extends Controller
             return response()->json(['message' => 'Gagal menghubungi SAP, Silahkan hubungi TIM IT'], 503); // 503 Service Unavailable
         }
     }
+
+    public function processBulkReadPp(Request $request)
+    {
+        // =======================================================
+        // LANGKAH 1: VALIDASI INPUT
+        // =======================================================
+        $validator = Validator::make($request->all(), [
+            'pro_list'   => 'required|array|min:1',
+            'pro_list.*' => 'string|distinct',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Data yang dikirim tidak valid.', 'errors' => $validator->errors()], 422);
+        }
+
+        $listOfPro = $validator->validated()['pro_list'];
+
+        // =======================================================
+        // LANGKAH 2: AMBIL KREDENSIAL DARI SESSION
+        // =======================================================
+        $username = $request->session()->get('username');
+        $password = $request->session()->get('password');
+
+        if (!$username || !$password) {
+            return response()->json(['message' => 'Autentikasi SAP tidak ditemukan. Silakan login ulang.'], 401);
+        }
+
+        // =======================================================
+        // LANGKAH 3: PROSES HIT API FLASK DENGAN TRY-CATCH
+        // =======================================================
+        try {
+            // Ambil URL dari file config
+            $flaskApiUrl = env('FLASK_API_URL') . "/api/bulk-readpp-pro";
+
+            $response = Http::withHeaders([
+                'X-SAP-Username' => $username,
+                'X-SAP-Password' => $password,
+            ])->timeout(0)
+              ->post($flaskApiUrl, [
+                'pro_list' => $listOfPro,
+            ]);
+
+            // --- JIKA FLASK MEMBERIKAN RESPONS ---
+            if ($response->successful()) { // Status code 2xx (Berhasil)
+                
+                $responseData = $response->json();
+                Log::info('Bulk Read PP success from SAP/Flask API.', [
+                    'response' => $responseData,
+                    'processed_pro' => $listOfPro
+                ]);
+
+                return response()->json(['message' => 'Proses Read PP berhasil dijalankan.']);
+
+            } else { // Status code 4xx atau 5xx (Gagal dari sisi Flask)
+                
+                $errorData = $response->json();
+                $errorMessage = $errorData['error'] ?? 'Terjadi error tidak diketahui dari SAP.';
+
+                Log::error('Bulk Read PP failed from SAP/Flask API.', [
+                    'status' => $response->status(),
+                    'response' => $errorData,
+                    'sent_pro' => $listOfPro
+                ]);
+
+                return response()->json(['message' => 'Gagal memproses Read PP dengan keterangan error: ' . $errorMessage], 500);
+            }
+
+        } catch (ConnectionException $e) {
+            // --- JIKA GAGAL TERHUBUNG KE SERVER FLASK ---
+            Log::error('Gagal terhubung ke Flask API untuk Bulk Read PP.', [
+                'error_message' => $e->getMessage()
+            ]);
+
+            return response()->json(['message' => 'Gagal menghubungi SAP, Silahkan hubungi TIM IT'], 503);
+        }
+    }
+
+    public function processBulkSchedule(Request $request)
+    {
+        // =======================================================
+        // LANGKAH 1: VALIDASI SEMUA INPUT DARI AJAX
+        // =======================================================
+        $validator = Validator::make($request->all(), [
+            'pro_list'      => 'required|array|min:1',
+            'pro_list.*'    => 'string|distinct',
+            'plant'         => 'required|string|size:4',
+            'schedule_date' => 'required|date',
+            'schedule_time' => ['required', 'string', 'regex:/^\d{2}[\.:]\d{2}[\.:]\d{2}$/'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Data yang dikirim tidak valid.', 'errors' => $validator->errors()], 422);
+        }
+
+        $validatedData = $validator->validated();
+        $listOfPro = $validatedData['pro_list'];
+        $plant = $validatedData['plant'];
+
+        // =======================================================
+        // LANGKAH 2: EKSEKUSI SCHEDULE KE API FLASK
+        // =======================================================
+        try {
+            $scheduleApiUrl = env('FLASK_API_URL') . "/api/bulk-schedule-pro";
+            $credentials = [
+                'X-SAP-Username' => $request->session()->get('username'),
+                'X-SAP-Password' => $request->session()->get('password'),
+            ];
+
+            $scheduleResponse = Http::withHeaders($credentials)
+                ->timeout(0)
+                ->post($scheduleApiUrl, [
+                    // Sesuaikan body request dengan kebutuhan API schedule Anda
+                    'pro_list'      => $listOfPro,
+                    'schedule_date' => $validatedData['schedule_date'],
+                    'schedule_time' => $validatedData['schedule_time'],
+                ]);
+
+            if (!$scheduleResponse->successful()) {
+                $errorData = $scheduleResponse->json();
+                $errorMessage = $errorData['error'] ?? 'Gagal saat proses scheduling di API.';
+                Log::error('Bulk Schedule API call failed.', ['response' => $errorData]);
+                return response()->json(['message' => 'Gagal memproses schedule: ' . $errorMessage], 500);
+            }
+
+        } catch (ConnectionException $e) {
+            Log::error('Gagal terhubung ke Flask API untuk Bulk Schedule.', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Gagal menghubungi service scheduler, Silahkan hubungi TIM IT'], 503);
+        }
+
+        // =======================================================
+        // LANGKAH 3: JALANKAN FUNGSI REFRESH PRO SETELAH SCHEDULE SUKSES
+        // =======================================================
+        Log::info('Scheduling berhasil, melanjutkan ke proses refresh data untuk PROs:', $listOfPro);
+
+        $refreshResult = $this->_callBulkFlaskService(  "/api/bulk-refresh-pro", $listOfPro, $plant);
+
+        $successCount = 0;
+        $failedPros = [];
+
+        // Proses data yang berhasil di-refresh
+        if (!empty($refreshResult['success_details'])) {
+            foreach ($refreshResult['success_details'] as $detail) {
+                try {
+                    $this->_processAndMapSinglePro($detail['pro_number'], $plant, $detail['sap_response']);
+                    $successCount++;
+                } catch (\Exception $e) {
+                    Log::error('Gagal memproses/menyimpan data refresh untuk PRO: ' . $detail['pro_number'], ['error' => $e->getMessage()]);
+                    $failedPros[] = $detail['pro_number'];
+                }
+            }
+        }
+
+        // Kumpulkan data yang gagal di-refresh
+        if (!empty($refreshResult['error_details'])) {
+            foreach ($refreshResult['error_details'] as $errorDetail) {
+                $failedPros[] = $errorDetail['pro_number'];
+            }
+        }
+        
+        // Buat pesan respons akhir menggunakan private function
+        $finalMessage = $this->_buildResponseMessage($successCount, $failedPros);
+        
+        return response()->json(['message' => "Proses schedule berhasil. " . $finalMessage]);
+    }
 }

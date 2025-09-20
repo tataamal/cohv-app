@@ -1,7 +1,7 @@
 <div class="modal fade" id="bulkScheduleModal" tabindex="-1" aria-labelledby="bulkScheduleModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form id="bulkScheduleForm">
+            <form id="bulkScheduleForm ">
                 <div class="modal-header">
                     <h5 class="modal-title" id="bulkScheduleModalLabel">Selected Schedule Production Order</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -17,6 +17,10 @@
                         </div>
                     </div>
                     <hr>
+                    <div class="mt-3">
+                        <label class="form-label fw-semibold">Plant (WERKSX):</label>
+                        <p class="form-control-plaintext bg-light border rounded px-2" id="bulkSchedulePlant"></p>
+                    </div>
                     <div class="mb-3">
                         <label for="bulkScheduleDate" class="form-label">Set Tanggal Tujuan</label>
                         <input type="date" name="date" id="bulkScheduleDate" required class="form-control">

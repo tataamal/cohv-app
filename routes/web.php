@@ -65,5 +65,7 @@ Route::middleware('auth')->group(function (){
     // Routing untuk Bulk Function
     Route::post('/bulk-refresh-pro', [bulkController::class, 'handleBulkRefresh'])->name('bulk-refresh.store');
     Route::post('/bulk-teco-process', [bulkController::class, 'processBulkTeco'])->name('bulk.teco.process');
+    Route::post('/bulk-read-pp-process', [bulkController::class, 'processBulkReadPp'])->name('bulk.readpp.process');
+    Route::post('/bulk-schedule-process', [bulkController::class, 'processBulkSchedule'])->name('bulk.schedule.process');
 
 });

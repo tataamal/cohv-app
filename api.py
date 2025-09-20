@@ -8,6 +8,7 @@ import json
 from flask_cors import CORS
 from datetime import time
 from decimal import Decimal
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "*"}})
@@ -1304,7 +1305,7 @@ def process_teco():
                     WORK_PROCESS_MAX=99,
                     ORDERS=[{'ORDER_NUMBER': pro_number}]
                 )
-                
+
                 # 1. Cetak respons mentah untuk debugging
                 print(f"RAW BAPI Result for {pro_number}: {bapi_result}")
 
@@ -1358,6 +1359,189 @@ def process_teco():
         return jsonify(results), 400
     else:
         return jsonify(results), 200
+    
+@app.route('/api/bulk-readpp-pro', methods=['POST'])
+def process_read_pp():
+
+    username, password = get_credentials()
+
+    if not username or not password:
+        return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
+
+    data = request.get_json()
+    if not data or 'pro_list' not in data or not isinstance(data['pro_list'], list):
+        return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list' dalam bentuk array."}), 400
+
+    pro_list = data['pro_list']
+    if not pro_list:
+        return jsonify({"error": "'pro_list' tidak boleh kosong."}), 400
+
+    # =======================================================
+    # LANGKAH 2: PROSES LOOPING DAN HIT BAPI BARU
+    # =======================================================
+    results = {
+        "success_details": [],
+        "error_details": []
+    }
+    
+    # Definisikan parameter statis untuk BAPI
+    order_data_input = {'EXPLODE_NEW': 'X'}
+
+    try:
+        conn = connect_sap(username, password)
+
+        for pro_number in pro_list:
+            print(f"Processing Read PP for PRO {pro_number}...") # Log ke konsol Flask
+
+            try:
+                # Panggil BAPI BAPI_PRODORD_CHANGE
+                bapi_result = conn.call(
+                    'BAPI_PRODORD_CHANGE',
+                    NUMBER=pro_number,
+                    ORDERDATA=order_data_input
+                )
+                
+                print(f"RAW BAPI Result for {pro_number}: {bapi_result}") # Debugging
+
+                # Analisis respons BAPI (pola yang sama seperti TECO)
+                has_error = False
+                return_messages = []
+                if isinstance(bapi_result, dict):
+                    return_messages = bapi_result.get('RETURN', [])
+                
+                for msg in return_messages:
+                    if isinstance(msg, dict) and msg.get('TYPE') in ['E', 'A']:
+                        has_error = True
+                        break
+
+                if not has_error:
+                    results["success_details"].append({
+                        "pro_number": pro_number,
+                        "sap_response": bapi_result
+                    })
+                else:
+                    results["error_details"].append({
+                        "pro_number": pro_number,
+                        "message": f"Gagal Read PP pada PRO {pro_number}",
+                        "sap_response": bapi_result
+                    })
+
+            except ABAPApplicationError as bapi_err:
+                print(f"BAPI Error on PRO {pro_number}: {bapi_err}")
+                results["error_details"].append({
+                    "pro_number": pro_number,
+                    "message": f"Gagal Read PP pada PRO {pro_number}",
+                    "sap_response": str(bapi_err)
+                })
+
+        conn.close()
+
+    except CommunicationError as conn_err:
+        print(f"Connection Error: {conn_err}")
+        return jsonify({"error": f"Gagal terhubung ke SAP: {conn_err}"}), 503
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return jsonify({"error": f"Terjadi error tak terduga di server Flask: {str(e)}"}), 500
+
+    # =======================================================
+    # LANGKAH 3: KIRIM RESPONS KEMBALI KE LARAVEL (Sama seperti TECO)
+    # =======================================================
+    if results["error_details"]:
+        return jsonify(results), 400
+    else:
+        return jsonify(results), 200
+
+@app.route('/api/bulk-schedule-pro', methods=['POST'])
+def process_schedule():
+
+    username, password = get_credentials()
+
+    if not username or not password:
+        return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
+
+    data = request.get_json()
+    # Validasi input yang lebih lengkap
+    required_keys = ['pro_list', 'schedule_date', 'schedule_time']
+    if not data or not all(key in data for key in required_keys):
+        return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list', 'schedule_date', dan 'schedule_time'."}), 400
+
+    pro_list = data['pro_list']
+    schedule_date = data['schedule_date']
+    schedule_time = data['schedule_time']
+
+    # =======================================================
+    # LANGKAH 2: PERSIAPAN DATA & PEMANGGILAN BAPI
+    # =======================================================
+    results = {
+        "success_details": [],
+        "error_details": []
+    }
+
+    try:
+        # --- Persiapan Format Tanggal & Waktu untuk SAP ---
+        # Ubah 'YYYY-MM-DD' menjadi 'YYYYMMDD'
+        sap_date = datetime.strptime(schedule_date, '%Y-%m-%d').strftime('%Y%m%d')
+        # Ubah 'HH.MM.SS' atau 'HH:MM:SS' menjadi 'HHMMSS'
+        sap_time = schedule_time.replace('.', '').replace(':', '')
+
+        conn = connect_sap(username, password)
+
+        for pro_number in pro_list:
+            print(f"Scheduling PRO {pro_number} for {sap_date} at {sap_time}...")
+
+            try:
+                # Panggil BAPI BAPI_PRODORD_SCHEDULE
+                bapi_result = conn.call(
+                    'BAPI_PRODORD_SCHEDULE',
+                    SCHED_TYPE='1',
+                    FWD_BEG_ORIGIN='1',
+                    FWD_BEG_DATE=sap_date,
+                    FWD_BEG_TIME=sap_time,
+                    WORK_PROCESS_GROUP='COWORK_BAPI',
+                    WORK_PROCESS_MAX=99,
+                    ORDERS=[{'ORDER_NUMBER': pro_number}]
+                )
+                
+                print(f"RAW BAPI Result for {pro_number}: {bapi_result}")
+
+                # Analisis respons BAPI (pola yang sama)
+                has_error = False
+                return_messages = []
+                if isinstance(bapi_result, dict):
+                    return_messages = bapi_result.get('RETURN', [])
+                
+                for msg in return_messages:
+                    if isinstance(msg, dict) and msg.get('TYPE') in ['E', 'A']:
+                        has_error = True
+                        break
+
+                if not has_error:
+                    results["success_details"].append({ "pro_number": pro_number, "sap_response": bapi_result })
+                else:
+                    results["error_details"].append({ "pro_number": pro_number, "message": f"Gagal schedule pada PRO {pro_number}", "sap_response": bapi_result })
+
+            except ABAPApplicationError as bapi_err:
+                print(f"BAPI Error on PRO {pro_number}: {bapi_err}")
+                results["error_details"].append({ "pro_number": pro_number, "message": f"Gagal schedule pada PRO {pro_number}", "sap_response": str(bapi_err) })
+
+        conn.close()
+
+    except (CommunicationError, ABAPApplicationError) as sap_err:
+        print(f"SAP RFC Error: {sap_err}")
+        return jsonify({"error": f"Gagal terhubung atau mengeksekusi BAPI di SAP: {sap_err}"}), 503
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return jsonify({"error": f"Terjadi error tak terduga di server Flask: {str(e)}"}), 500
+
+    # =======================================================
+    # LANGKAH 3: KIRIM RESPONS KEMBALI KE LARAVEL
+    # =======================================================
+    if results["error_details"]:
+        return jsonify(results), 400
+    else:
+        return jsonify(results), 200
+    
+
 
 
 if __name__ == '__main__':
