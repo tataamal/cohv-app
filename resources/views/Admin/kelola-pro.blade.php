@@ -55,11 +55,11 @@
             animation: eyeMove 10s infinite , blink 10s infinite;
         }
         @keyframes eyeMove {
-            0%  , 10% {     background-position: 0px 0px}
-            13%  , 40% {     background-position: -15px 0px}
-            43%  , 70% {     background-position: 15px 0px}
-            73%  , 90% {     background-position: 0px 15px}
-            93%  , 100% {     background-position: 0px 0px}
+            0%  , 10% {   background-position: 0px 0px}
+            13%  , 40% {   background-position: -15px 0px}
+            43%  , 70% {   background-position: 15px 0px}
+            73%  , 90% {   background-position: 0px 15px}
+            93%  , 100% {   background-position: 0px 0px}
         }
         @keyframes blink {
             0%  , 10% , 12% , 20%, 22%, 40%, 42% , 60%, 62%,  70%, 72% , 90%, 92%, 98% , 100%
@@ -149,7 +149,6 @@
                                 </thead>
                                 <tbody id="proTableBody">
                                     @forelse ($pros as $pro)
-                                        {{-- PERUBAHAN 1: Tambahkan data-pwwrk di sini. Pastikan nama field $pro->PWWRK sudah benar. --}}
                                         <tr class="pro-row" draggable="true" 
                                             data-pro-code="{{ $pro->AUFNR }}" 
                                             data-wc-asal="{{ $pro->ARBPL }}"
@@ -248,12 +247,6 @@
         {{-- Konten Modal untuk Perubahan PV --}}
     </div>
 
-    {{-- <pre>
-    Labels: {{ json_encode($BarChartLabels ?? []) }}
-    Data PRO: {{ json_encode($BarChartDataPro ?? []) }}
-    Data Capacity: {{ json_encode($BarChartDataCapacity ?? []) }}
-    </pre> --}}
-
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -267,16 +260,17 @@
         const plantKode = @json($kode ?? '');
         const wcDescriptionMap = @json($wcDescriptionMap);
 
-        // Warna default untuk chart
+        // Warna-warna yang digunakan
         const defaultColor = 'rgba(13, 110, 253, 0.6)';
         const compatibleColor = 'rgba(25, 135, 84, 0.6)';
         const conditionalColor = 'rgba(255, 193, 7, 0.6)';
         const proColor = 'rgba(102, 16, 242, 0.6)';
         const CapacityColor = 'rgba(253, 126, 20, 0.6)';
-        const otherColor = 'rgba(253, 126, 20, 0.6)';
-        let chartColors = Array(chartLabels.length).fill(defaultColor);
+        const notCompatibleColor = 'rgba(108, 117, 125, 0.6)'; // Warna abu-abu untuk Not Compatible
 
-        // INISIALISASI CHART
+        // =========================================================================
+        // KONDISI 1: TAMPILAN AWAL SAAT HALAMAN DIBUKA
+        // =========================================================================
         const wcChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -284,49 +278,40 @@
                 datasets: [
                     {
                         label: 'Jumlah PRO',
-                        data: chartDataPro, // Gunakan variabel data PRO
-                        backgroundColor: proColor,
+                        data: chartDataPro,
+                        backgroundColor: proColor, // Warna solid untuk semua bar PRO
                         borderWidth: 1
                     },
                     {
                         label: 'Jumlah Capacity',
-                        data: chartDataCapacity, // Gunakan variabel data Capacity
-                        backgroundColor: CapacityColor,
+                        data: chartDataCapacity,
+                        backgroundColor: CapacityColor, // Warna solid untuk semua bar Capacity
                         borderWidth: 1
                     }
                 ]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
-                aspectRatio: 4,
+                maintainAspectRatio: false,
                 plugins: {
                     tooltip: {
                         callbacks: {
-                            // Title callback Anda sudah bagus, tidak perlu diubah
                             title: function(tooltipItems) {
                                 const item = tooltipItems[0];
                                 const wcCode = item.label;
                                 const description = wcDescriptionMap[wcCode] || wcCode;
                                 return description;
                             },
-
-                            // Label callback kita buat dinamis lagi
                             label: function(context) {
                                 const datasetLabel = context.dataset.label || '';
                                 const value = context.parsed.y;
                                 const formattedValue = value.toLocaleString('id-ID');
-                                
-                                let unit = ''; // Variabel untuk menyimpan satuan
-                                
-                                // Tentukan satuan berdasarkan label dataset
+                                let unit = '';
                                 if (datasetLabel === 'Jumlah PRO') {
-                                    unit = ' PRO'; // Satuan untuk PRO
+                                    unit = ' PRO';
                                 } else if (datasetLabel === 'Jumlah Capacity') {
-                                    unit = ' Jam'; // GANTI SATUAN ini sesuai data Anda (misal: ' Jam', 'Ton')
+                                    unit = ' Jam';
                                 }
-                                
-                                // Gabungkan semuanya
                                 return `${datasetLabel}: ${formattedValue}${unit}`;
                             }
                         }
@@ -335,46 +320,52 @@
             }
         });
 
-        // LOGIKA KLIK PADA BARIS TABEL
-        let activeWcAsal = null; // Variabel untuk melacak baris aktif
+        // =========================================================================
+        // LOGIKA KLIK UNTUK MELIHAT KOMPATIBILITAS (SESUAI 3 KONDISI ANDA)
+        // =========================================================================
+        let activeWcAsal = null;
 
         document.querySelectorAll('.pro-row').forEach(row => {
             row.addEventListener('click', function () {
                 const wcAsal = this.dataset.wcAsal;
                 const allRows = document.querySelectorAll('.pro-row');
 
-                // Jika mengklik baris yang sama lagi, reset semuanya
+                // -----------------------------------------------------------------
+                // KONDISI 3: Ketika user klik lagi, kembalikan warna ke kondisi awal
+                // -----------------------------------------------------------------
                 if (wcAsal === activeWcAsal) {
-                    const defaultColors = Array(chartLabels.length).fill(defaultColor);
-                    wcChart.data.datasets[0].backgroundColor = defaultColors;
-                    wcChart.data.datasets[1].backgroundColor = defaultColors;
-                    
-                    activeWcAsal = null; // Kosongkan state aktif
-                    this.classList.remove('table-active'); // Hapus highlight dari baris
-                } 
-                // Jika mengklik baris baru
-                else {
-                    activeWcAsal = wcAsal; // Set baris ini sebagai yang aktif
+                    // *** PERBAIKAN: Buat array warna lagi untuk memastikan re-render penuh ***
+                    const proColorsArray = Array(chartLabels.length).fill(proColor);
+                    const capacityColorsArray = Array(chartLabels.length).fill(CapacityColor);
 
-                    // Hapus highlight dari semua baris lain, lalu tambahkan ke baris ini
+                    wcChart.data.datasets[0].backgroundColor = proColorsArray;
+                    wcChart.data.datasets[1].backgroundColor = capacityColorsArray;
+                    
+                    activeWcAsal = null;
+                    this.classList.remove('table-active');
+                } 
+                // -----------------------------------------------------------------
+                // KONDISI 2: Ketika user klik row, tampilkan status kompatibilitas
+                // -----------------------------------------------------------------
+                else {
+                    activeWcAsal = wcAsal;
+
                     allRows.forEach(r => r.classList.remove('table-active'));
                     this.classList.add('table-active');
 
-                    // Logika perhitungan warna kompatibilitas (tetap sama)
                     const compatibilityRules = compatibilities[wcAsal] || [];
                     const rulesMap = Object.fromEntries(compatibilityRules.map(rule => [rule.wc_tujuan_code, rule.status]));
 
-                    const newColors = chartLabels.map(targetWc => {
+                    const newCompatibilityColors = chartLabels.map(targetWc => {
                         if (targetWc === wcAsal) return defaultColor;
                         const status = rulesMap[targetWc];
                         if (status === 'compatible') return compatibleColor;
                         if (status === 'compatible with condition') return conditionalColor;
-                        return otherColor;
+                        return notCompatibleColor;
                     });
 
-                    // Terapkan warna baru ke KEDUA dataset
-                    wcChart.data.datasets[0].backgroundColor = newColors;
-                    wcChart.data.datasets[1].backgroundColor = newColors;
+                    wcChart.data.datasets[0].backgroundColor = newCompatibilityColors;
+                    wcChart.data.datasets[1].backgroundColor = newCompatibilityColors;
                 }
                 
                 // Selalu update chart setelah ada perubahan
@@ -382,7 +373,9 @@
             });
         });
 
-        // LOGIKA DRAG AND DROP
+        // =========================================================================
+        // LOGIKA DRAG AND DROP & FITUR LAINNYA (TIDAK ADA PERUBAHAN)
+        // =========================================================================
         let draggedItem = null;
         document.querySelectorAll('.pro-row').forEach(row => {
             row.addEventListener('dragstart', function(e) {
@@ -403,40 +396,29 @@
         chartCanvas.addEventListener('drop', function(e) {
             e.preventDefault();
             if (!draggedItem) return;
-
             const droppedData = JSON.parse(e.dataTransfer.getData('text/plain'));
             const elements = wcChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-
             if (elements.length) {
                 const barIndex = elements[0].index;
                 const wcTujuan = chartLabels[barIndex];
-                
                 if (wcTujuan === droppedData.wcAsal) return;
-
                 const compatibilityRules = compatibilities[droppedData.wcAsal] || [];
                 const rule = compatibilityRules.find(r => r.wc_tujuan_code === wcTujuan);
                 const status = rule ? rule.status : 'Tidak Ada Aturan';
-                
                 if (status === 'compatible') {
                     document.getElementById('proCodeWc').textContent = droppedData.proCode;
                     document.getElementById('wcAsalWc').textContent = droppedData.wcAsal;
                     document.getElementById('wcTujuanWc').textContent = wcTujuan;
-
-                    // Membangun URL secara langsung menggunakan variabel JavaScript
                     const finalUrl = `/changeWC/${plantKode}/${wcTujuan}`;
-                    
                     const changeWcForm = document.getElementById('changeWcForm');
                     changeWcForm.setAttribute('action', finalUrl);
-                    
                     document.getElementById('formProCodeWc').value = droppedData.proCode;
                     document.getElementById('formOperCodeWc').value = droppedData.oper;
                     document.getElementById('formWcAsalWc').value = droppedData.wcAsal;
                     document.getElementById('formPwwrkWc').value = droppedData.pwwrk;
-                    
                     new bootstrap.Modal(document.getElementById('changeWcModal')).show();
-
                 } else if (status === 'compatible with condition') {
-                    // Logika untuk menampilkan modal perubahan PV bisa ditambahkan di sini
+                    // Logika untuk menampilkan modal perubahan PV
                 } else {
                     alert(`Pemindahan PRO ${droppedData.proCode} ke Work Center ${wcTujuan} tidak diizinkan.`);
                 }
@@ -444,21 +426,18 @@
             draggedItem = null;
         });
         
-        // FITUR NAVIGASI WC CEPAT
         const quickNavBtn = document.getElementById('wcQuickNavBtn');
         const quickNavSelect = document.getElementById('wcQuickNavSelect');
         if (quickNavBtn) {
             quickNavBtn.addEventListener('click', function() {
                 const selectedWc = quickNavSelect.value;
                 if (selectedWc) {
-                    // Ganti dengan route name Anda jika ada
                     const baseUrl = `/wc-mapping/details/${plantKode}`; 
                     window.location.href = `${baseUrl}/${selectedWc}`;
                 }
             });
         }
 
-        // FITUR PENCARIAN PRO DI TABEL
         const proSearchInput = document.getElementById('proSearchInput');
         const proTableBody = document.getElementById('proTableBody');
         const tableRows = proTableBody.getElementsByTagName('tr');
@@ -482,13 +461,11 @@
         const loaderOverlay = document.getElementById('loading-overlay');
         const changeWcForm = document.getElementById('changeWcForm');
         const changePvForm = document.getElementById('changePvForm');
-
         if (changeWcForm) {
             changeWcForm.addEventListener('submit', function() {
                 loaderOverlay.classList.remove('d-none');
             });
         }
-
         if (changePvForm) {
             changePvForm.addEventListener('submit', function() {
                 loaderOverlay.classList.remove('d-none');
