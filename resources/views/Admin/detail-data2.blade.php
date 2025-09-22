@@ -98,17 +98,20 @@
                             <span class="count-badge" id="selection-count-badge">0</span>
                         </div>
                         <div id="bulk-controls" class="d-flex align-items-center gap-2">
-                            <button class="btn btn-success btn-sm" id="bulk-schedule-btn" style="display: none;" onclick="openBulkScheduleModal()">
-                                <i class="fas fa-calendar-alt me-1"></i> Selected Schedule
+                            <button class="btn btn-warning btn-sm" id="bulk-schedule-btn" style="display: none;" onclick="openBulkScheduleModal()">
+                                <i class="fas fa-calendar-alt me-1"></i> Bulk Schedule
                             </button>
-                            <button class="btn btn-primary btn-sm" id="bulk-readpp-btn" style="display: none;" onclick="openBulkReadPpModal()">
-                                <i class="fas fa-book-open me-1"></i> Selected Read PP
+                            <button class="btn btn-readpp btn-sm" id="bulk-readpp-btn" style="display: none;" onclick="openBulkReadPpModal()">
+                                <i class="fas fa-book-open me-1"></i> Buklk Read PP
                             </button>
-                            <button class="btn btn-danger btn-sm" id="bulk-teco-btn" style="display: none;" onclick="openBulkTecoModal()">
-                                <i class="fas fa-circle-check me-1"></i> Selected TECO
+                            <button class="btn btn-teco btn-sm" id="bulk-teco-btn" style="display: none;" onclick="openBulkTecoModal()">
+                                <i class="fas fa-circle-check me-1"></i> Bulk TECO
                             </button>
-                            <button class="btn btn-info btn-sm" id="bulk-refresh-btn" style="display: none;" onclick="openBulkRefreshModal()">
-                                <i class="fas fa-sync-alt me-1"></i> Selected Refresh
+                            <button class="btn btn-primary btn-sm" id="bulk-refresh-btn" style="display: none;" onclick="openBulkRefreshModal()">
+                                <i class="fas fa-sync-alt me-1"></i> Bulk Refresh
+                            </button>
+                            <button class="btn btn-warning btn-sm" id="bulk-changePv-btn" style="display: none;" onclick="openBulkChangePvModal()">
+                                <i class="fa-solid fa-code-compare"></i> Bulk Change PV
                             </button>
                             <button class="btn btn-secondary btn-sm" onclick="clearAllSelections()">Clear All</button>
                         </div>
@@ -153,6 +156,7 @@
     @include('components.modals.bulk-readpp-modal')
     @include('components.modals.bulk-refresh-modal')
     @include('components.modals.bulk-teco-modal')
+    @include('components.modals.bulk-changepv-modal')
 
     @include('components.modals.add-component-modal')
     @push('scripts')
@@ -162,11 +166,13 @@
     <script src="{{ asset('js/schedule.js') }}"></script>
     <script src="{{ asset('js/teco.js') }}"></script>
     <script src="{{ asset('js/component.js') }}"></script>
+    <script src="{{ asset('js/changePv.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // --- [BARU] Inisialisasi semua Modal Bootstrap ---
-        let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal;
+        let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal, bulkChangePvModal;
         let bulkActionPlantCode = null;
+        let bulkActionVerid = null;
         const addComponentModal = document.getElementById('addComponentModal');
         document.addEventListener('DOMContentLoaded', () => {
             // Sukses dari controller
@@ -210,6 +216,7 @@
             bulkReadPpModal = new bootstrap.Modal(document.getElementById('bulkReadPpModal'));
             bulkTecoModal = new bootstrap.Modal(document.getElementById('bulkTecoModal'));
             bulkRefreshModal = new bootstrap.Modal(document.getElementById('bulkRefreshModal'));
+            bulkChangePvModal = new bootstrap.Modal(document.getElementById('bulkChangePvModal'));
         });
 
         // --- Fungsi Helper Notifikasi (SweetAlert - Tidak Berubah) ---
@@ -218,7 +225,7 @@
 
         // --- Variabel State & Data (Tidak Berubah) ---
         let t2CurrentSelectedRow = null, t2CurrentKey = null;
-        let currentSelectedRow = null, selectedPLO = new Set(), selectedPRO = new Set();
+        let currentSelectedRow = null, selectedPLO = new Set(), selectedPRO = new Set(), mappedPRO = new Map();
         let allRowsData = [], currentFilterName = 'all';
         const allTData2 = @json($allTData2, JSON_HEX_TAG), allTData3 = @json($allTData3, JSON_HEX_TAG);
         const allTData1 = @json($allTData1, JSON_HEX_TAG), allTData4ByAufnr = @json($allTData4ByAufnr, JSON_HEX_TAG);
@@ -469,20 +476,6 @@
                     <td class="text-center">${t1.PV1 || '-'}</td>
                     <td class="text-center">${t1.PV2 || '-'}</td>
                     <td class="text-center">${t1.PV3 || '-'}</td>
-                    <td class="text-center">
-                        <div class="d-flex gap-2 justify-content-center">
-                            <button class="btn btn-danger btn-sm" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#changeWcModal"
-                                data-aufnr="${t1.AUFNR}"
-                                data-vornr="${t1.VORNR}"
-                                data-pwwrk="${t1.PWWRK}"
-                                data-arbpl="${t1.ARBPL || ''}">
-                                Edit WC
-                            </button>
-                            <button class="btn btn-warning btn-sm" onclick="openChangePvModal('${t1.AUFNR}', '${t1.VERID || ''}', '${t1.WERKS || ''}')">Change PV</button>
-                        </div>
-                    </td>
                 </tr>
             `).join('');
             const block = document.createElement('div');
@@ -502,7 +495,6 @@
                                 <th scope="col" class="text-center">PV 1</th>
                                 <th scope="col" class="text-center">PV 2</th>
                                 <th scope="col" class="text-center">PV 3</th>
-                                <th scope="col" class="text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody>${rowsHtml}</tbody>
@@ -904,6 +896,11 @@
                         onclick="openRefresh('${d3.AUFNR}', '${d3.WERKSX}')">
                         <i class="fa-solid fa-arrows-rotate"></i>
                     </button>` : ''}
+                    ${d3.AUFNR ? `
+                    <button type="button" title="Change PV" class="btn btn-warning btn-sm"
+                        onclick="openChangePvModal('${d3.AUFNR}', '${d3.VERID}', '${d3.WERKSX}')">
+                        <i class="fa-solid fa-code-compare"></i>
+                    </button>` : ''}
                 </div>
                 </td>
 
@@ -1078,49 +1075,35 @@
             const row = checkbox.closest('tr');
             if (!row || !row.dataset.rowData) return;
 
-            // Ambil semua data dari baris yang dipilih
             const rowData = JSON.parse(row.dataset.rowData);
-            const plantCode = rowData.WERKSX; // Ambil kode plant dari data baris
-
-            // <-- TAMBAHKAN DEBUG DI SINI
-            console.log('Kode Plant (WERKSX) dari baris yang dipilih:', plantCode);
-            // ------------------------------------
-
-            const type = checkbox.dataset.type;
-            const id = checkbox.dataset.id;
-            const auart = checkbox.dataset.auart;
+            const id = rowData.AUFNR; 
+            if (!id) return; 
 
             if (checkbox.checked) {
-                // Jika ini adalah item PERTAMA yang dipilih, simpan kode plant-nya
-                if (selectedPLO.size === 0 && selectedPRO.size === 0) {
-                    bulkActionPlantCode = plantCode;
-                    // Anda bisa tambahkan log di sini juga untuk memastikan kapan kode disimpan
-                    console.log(` -> Kode Plant '${plantCode}' disimpan untuk aksi bulk.`);
-                }
+                // 1. Isi Set untuk fitur lama
+                selectedPRO.add(id);
                 
-                if (type === 'PLO') {
-                    const ploDataString = JSON.stringify({ plnum: id, auart: auart });
-                    selectedPLO.add(ploDataString);
-                } else {
-                    selectedPRO.add(id);
-                }
-            } else {
-                // Logika untuk uncheck
-                if (type === 'PLO') {
-                    const ploDataString = JSON.stringify({ plnum: id, auart: auart });
-                    selectedPLO.delete(ploDataString);
-                } else {
-                    selectedPRO.delete(id);
+                // 2. Isi Map (mappedPRO) untuk fitur baru
+                mappedPRO.set(id, rowData);
+
+                // Logika untuk plant code
+                if (mappedPRO.size === 1) { 
+                    bulkActionPlantCode = rowData.WERKSX;
                 }
 
-                // Jika SEMUA item sudah tidak dipilih, reset kode plant
-                if (selectedPLO.size === 0 && selectedPRO.size === 0) {
+            } else { // Jika tidak dicentang
+                // 1. Hapus dari Set untuk fitur lama
+                selectedPRO.delete(id);
+                
+                // 2. Hapus dari Map (mappedPRO) untuk fitur baru
+                mappedPRO.delete(id);
+
+                // Logika untuk reset plant code
+                if (mappedPRO.size === 0) {
                     bulkActionPlantCode = null;
-                    // Log untuk memastikan kode di-reset
-                    console.log(' -> Semua pilihan dibatalkan, kode plant di-reset.');
                 }
             }
-
+            
             updateBulkControls();
         }
         function toggleSelectAll() { 

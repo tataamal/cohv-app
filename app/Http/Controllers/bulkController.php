@@ -425,4 +425,112 @@ class bulkController extends Controller
         
         return response()->json(['message' => "Proses schedule berhasil. " . $finalMessage]);
     }
+
+    public function handleBulkChangeAndRefresh(Request $request): JsonResponse
+    {
+        // 1. Validasi input awal dari frontend (Tidak ada perubahan)
+        $validated = $request->validate([
+            'plant'      => 'required|string|max:10',
+            'data'       => 'required|array|min:1',
+            'data.*.pro' => 'required|string|max:20',
+            'data.*.verid' => 'required|string|max:10',
+        ]);
+
+        $plant = $validated['plant'];
+        $changeData = $validated['data'];
+
+        try {
+            // Ambil kredensial dari session (Tidak ada perubahan)
+            $sapUsername = $request->session()->get('username'); // Pastikan key session 'username' benar
+            $sapPassword = $request->session()->get('password'); // Pastikan key session 'password' benar
+
+            if (!$sapUsername || !$sapPassword) {
+                throw new \Exception("Kredensial SAP tidak ditemukan di sesi pengguna.");
+            }
+            
+            // =================================================================
+            // LANGKAH 1: Panggil Flask untuk melakukan Change PV
+            // =================================================================
+            Log::info("Memulai proses Bulk Change PV untuk plant: {$plant}");
+            
+            $changeResponse = Http::withHeaders([
+                'X-SAP-Username' => $sapUsername,
+                'X-SAP-Password' => $sapPassword,
+            ])->post('http://127.0.0.1:8050/api/bulk-change-pv', [ // Ganti URL Flask jika perlu
+                'plant' => $plant,
+                'data'  => $changeData,
+            ]);
+
+            if (!$changeResponse->successful()) {
+                throw new \Exception("Gagal berkomunikasi dengan layanan Flask. Status: " . $changeResponse->status());
+            }
+
+            $changeResult = $changeResponse->json();
+            
+            // =================================================================
+            // LANGKAH 2: Proses Respons dari Flask & Lanjutkan ke Refresh
+            // =================================================================
+
+            $successfulPros = [];
+            if (isset($changeResult['status']) && in_array($changeResult['status'], ['sukses', 'sukses_parsial'])) {
+                if (!empty($changeResult['berhasil'])) {
+                    $successfulPros = array_column($changeResult['berhasil'], 'pro');
+                }
+            }
+
+            if (empty($successfulPros)) {
+                Log::warning("Tidak ada PRO yang berhasil diubah di SAP. Proses refresh dilewati.", $changeResult);
+                return response()->json($changeResult); 
+            }
+
+            Log::info("Memulai proses Bulk Refresh untuk PROs yang berhasil: " . implode(', ', $successfulPros));
+            
+            $refreshRequest = new Request([
+                'pros'  => $successfulPros,
+                'plant' => $plant
+            ]);
+            
+            // Memanggil fungsi refresh
+            $refreshResponse = $this->handleBulkRefresh($refreshRequest);
+
+            // =================================================================
+            // --- PERBAIKAN UTAMA ADA DI SINI ---
+            // LANGKAH 3: Gabungkan Hasil & Kirim Respons Final
+            // =================================================================
+
+            // Ambil data dari hasil refresh. Jika tidak 200 OK, lemparkan error.
+            if ($refreshResponse->getStatusCode() !== 200) {
+                 throw new \Exception("Proses refresh gagal setelah perubahan berhasil.");
+            }
+            $refreshResult = json_decode($refreshResponse->getContent(), true);
+
+            // Sekarang, kita buat respons akhir yang informatif.
+            // Kita gunakan kembali detail 'gagal' dari hasil proses 'change' pertama.
+            $failedChanges = $changeResult['gagal'] ?? [];
+            
+            $finalMessage = "Perubahan dan refresh data berhasil.";
+            if (!empty($failedChanges)) {
+                $finalMessage = "Sebagian data berhasil diubah dan di-refresh. Namun, beberapa PRO gagal diubah di SAP.";
+            } elseif (isset($refreshResult['details']['failed_count']) && $refreshResult['details']['failed_count'] > 0) {
+                // Tambahkan pengecekan jika proses refresh sendiri ada yang gagal
+                $finalMessage = "Perubahan di SAP berhasil, namun sebagian data gagal di-refresh.";
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $finalMessage,
+                'details' => [
+                    'change_failures' => $failedChanges, // Laporan kegagalan dari proses change
+                    'refresh_details' => $refreshResult['details'] ?? null // Laporan dari proses refresh
+                ]
+            ]);
+
+        } catch (Throwable $e) {
+            Log::error("Gagal total pada proses orkestrasi Change & Refresh: " . $e->getMessage());
+            return response()->json([
+                'success' => false, 
+                'message' => 'Terjadi kesalahan internal: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

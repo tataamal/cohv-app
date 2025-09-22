@@ -1,10 +1,9 @@
 # main.py
 from flask import Flask, request, jsonify
-from pyrfc import Connection, ABAPApplicationError, ABAPRuntimeError, LogonError, CommunicationError, RFCError
+from pyrfc import Connection, ABAPApplicationError, ABAPRuntimeError, LogonError, CommunicationError, RFCError, RFCLibError
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import os
-import json
 from flask_cors import CORS
 from datetime import time
 from decimal import Decimal
@@ -1541,7 +1540,121 @@ def process_schedule():
     else:
         return jsonify(results), 200
     
+@app.route('/api/bulk-change-pv', methods=['POST'])
+def bulk_change_pv():
+    """
+    Endpoint untuk melakukan perubahan Production Version (PV) secara bulk.
+    Logika baru: Tetap commit data yang berhasil meskipun ada beberapa yang gagal.
+    """
+    # 1 & 2. Dapatkan kredensial dan payload (tidak ada perubahan)
+    username, password = get_credentials()
+    if not all([username, password]):
+        return jsonify({"status": "error", "message": "Kredensial SAP tidak ditemukan di header."}), 401
+    
+    payload = request.get_json()
+    if not payload or 'data' not in payload:
+        return jsonify({"status": "error", "message": "Payload JSON tidak valid atau key 'data' tidak ada."}), 400
 
+    pro_verid_list = payload.get('data', [])
+    
+    conn = None
+    successful_changes = []
+    failed_changes = []
+
+    try:
+        # 3. Buat koneksi ke SAP (tidak ada perubahan)
+        conn = connect_sap(username, password)
+
+        # 4. Looping untuk setiap pasangan PRO dan VERID (tidak ada perubahan)
+        for item in pro_verid_list:
+            pro_number = item.get('pro')
+            new_verid = item.get('verid')
+            
+            if not all([pro_number, new_verid]):
+                failed_changes.append({"pro": pro_number, "message": "Data PRO atau VERID tidak lengkap."})
+                continue
+
+            print(f"\n--- Memproses PRO: {pro_number}, VERID Baru: {new_verid} ---")
+            
+            try:
+                # 5. Panggil BAPI dan cek hasilnya (tidak ada perubahan)
+                result = conn.call(
+                    'BAPI_PRODORD_CHANGE',
+                    NUMBER=pro_number,
+                    ORDERDATA={'PROD_VERSION': new_verid},
+                    ORDERDATAX={'PROD_VERSION': 'X'}
+                )
+                print("Respon asli dari BAPI_PRODORD_CHANGE:", result)
+
+                has_error = False
+                if 'RETURN' in result and result['RETURN']:
+                    return_messages = result['RETURN'] if isinstance(result['RETURN'], list) else [result['RETURN']]
+                    for message in return_messages:
+                        if message['TYPE'] in ['E', 'A']:
+                            print(f"ERROR BAPI untuk PRO {pro_number}: {message['MESSAGE']}")
+                            failed_changes.append({"pro": pro_number, "message": message['MESSAGE']})
+                            has_error = True
+                            break
+                
+                if not has_error:
+                    print(f"Proses PRO {pro_number} dan Verid {new_verid} berhasil")
+                    successful_changes.append({"pro": pro_number, "verid": new_verid})
+
+            except (ABAPApplicationError, RFCLibError) as bapi_error:
+                error_message = f"Exception saat memanggil BAPI untuk PRO {pro_number}: {bapi_error}"
+                print(f"ERROR: {error_message}")
+                failed_changes.append({"pro": pro_number, "message": str(bapi_error)})
+
+        # ======================================================================
+        # --- PERUBAHAN LOGIKA UTAMA ADA DI SINI ---
+        # ======================================================================
+
+        # 6. Lakukan COMMIT jika ada MINIMAL SATU perubahan yang berhasil.
+        if successful_changes:
+            print("\n--- Ditemukan data yang sukses, melakukan BAPI Transaction Commit ---")
+            conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
+            print("Commit berhasil. Perubahan untuk data yang sukses telah disimpan.")
+        else:
+            print("\n--- Tidak ada data yang sukses, BAPI Transaction Commit DILEWATI ---")
+
+        # 7. Buat respons berdasarkan hasil akhir
+        if not failed_changes and successful_changes:
+            # Semua berhasil
+            return jsonify({
+                "status": "sukses",
+                "message": "Semua data berhasil diubah dan disimpan.",
+                "berhasil": successful_changes,
+                "gagal": []
+            })
+        elif successful_changes and failed_changes:
+            # Sebagian berhasil, sebagian gagal
+            return jsonify({
+                "status": "sukses_parsial",
+                "message": f"{len(successful_changes)} data berhasil disimpan, namun {len(failed_changes)} data gagal diproses.",
+                "berhasil": successful_changes,
+                "gagal": failed_changes
+            })
+        elif not successful_changes and failed_changes:
+            # Semua gagal
+            return jsonify({
+                "status": "gagal_total",
+                "message": "Semua data gagal diproses. Tidak ada perubahan yang disimpan.",
+                "berhasil": [],
+                "gagal": failed_changes
+            })
+        else:
+            # Tidak ada data sama sekali
+            return jsonify({"status": "info", "message": "Tidak ada data untuk diproses."})
+
+    except ConnectionError as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception as e:
+        print(f"ERROR: Terjadi kesalahan tidak terduga: {e}")
+        return jsonify({"status": "error", "message": "Terjadi kesalahan internal server."}), 500
+    finally:
+        if conn:
+            conn.close()
+            print("\nDEBUG: Koneksi SAP ditutup.")
 
 
 if __name__ == '__main__':

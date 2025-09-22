@@ -18,12 +18,14 @@ function updateBulkControls() {
     const bulkReadppBtn = document.getElementById('bulk-readpp-btn');
     const bulkTecoBtn = document.getElementById('bulk-teco-btn');
     const bulkRefreshBtn = document.getElementById('bulk-refresh-btn');
+    const bulkChangePvBtn = document.getElementById('bulk-changePv-btn');
 
     // Tampilkan tombol-tombol ini HANYA jika ada PRO yang dipilih
     if (bulkScheduleBtn) bulkScheduleBtn.style.display = hasPRO ? 'inline-block' : 'none';
     if (bulkReadppBtn) bulkReadppBtn.style.display = hasPRO ? 'inline-block' : 'none';
     if (bulkTecoBtn) bulkTecoBtn.style.display = hasPRO ? 'inline-block' : 'none';
     if (bulkRefreshBtn) bulkRefreshBtn.style.display = hasPRO ? 'inline-block' : 'none';
+    if (bulkChangePvBtn) bulkChangePvBtn.style.display = hasPRO ? 'inline-block' : 'none';
 }
 
 // const scheduleForm = document.getElementById('bulkScheduleForm');
@@ -123,4 +125,56 @@ function openBulkRefreshModal() {
     // =======================
     
     bulkRefreshModal.show();
+}
+
+function openBulkChangePvModal() {
+    if (mappedPRO.size === 0) {
+        Swal.fire('Info', 'Tidak ada Production Order (PRO) yang dipilih.', 'info');
+        return;
+    }
+
+    const dataWorkcenter = document.getElementById('dataWorkcenter');
+    const pairedDataBody = document.getElementById('pairedDataBody');
+    pairedDataBody.innerHTML = '';
+
+    const veridOptions = ['0001', '0002', '0003']; // Definisikan pilihan untuk dropdown
+    let index = 1;
+
+    mappedPRO.forEach((rowData, proNumber) => {
+        const currentVerid = rowData.VERID || veridOptions[0]; // Ambil VERID saat ini atau default ke pilihan pertama
+
+        // --- PERUBAHAN UTAMA DI SINI ---
+        // Buat HTML untuk elemen <select>
+        // Kita akan membuat setiap <option> dan menandai 'selected' jika cocok dengan currentVerid
+        const optionsHTML = veridOptions.map(optionValue => 
+            `<option value="${optionValue}" ${optionValue === currentVerid ? 'selected' : ''}>
+                ${optionValue}
+            </option>`
+        ).join('');
+
+        const row = document.createElement('tr');
+        
+        // Isi baris dengan nomor, PRO, dan elemen <select> yang baru kita buat
+        // Tambahkan class dan data-pro untuk identifikasi saat mengambil data nanti
+        row.innerHTML = `
+            <td>${index}</td>
+            <td>${proNumber}</td>
+            <td>
+                <select class="form-select form-select-sm verid-select" data-pro="${proNumber}">
+                    ${optionsHTML}
+                </select>
+            </td>
+        `;
+        
+        pairedDataBody.appendChild(row);
+        index++;
+    });
+
+    const plant = bulkActionPlantCode;
+    dataWorkcenter.textContent = plant || 'Plant tidak ditemukan!';
+
+    // Kita tidak lagi menyimpan data di sini, karena data final akan diambil nanti
+    // jadi baris console.log dan dataset.sapData bisa dihapus dari sini.
+
+    bulkChangePvModal.show();
 }

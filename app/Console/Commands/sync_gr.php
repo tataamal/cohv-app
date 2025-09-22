@@ -48,7 +48,7 @@ class sync_gr extends Command
         $command = "\"{$pythonExecutablePath}\" -u \"{$pythonScriptPath}\" run_historical";
         
         // Beri timeout yang sangat panjang, misal 24 jam (86400 detik)
-        $result = Process::timeout(86400)->run($command, function (string $type, string $output) {
+        $result = Process::timeout(0)->run($command, function (string $type, string $output) {
             $this->line(rtrim($output));
         });
 
