@@ -138,13 +138,13 @@
                                 <thead>
                                     <tr>
                                         <th scope="col">No</th>
-                                        <th scope="col">Kode PRO (AUFNR)</th>
-                                        <th scope="col">Work Center (ARBPL)</th>
-                                        <th scope="col">Operation (VORNR)</th>
-                                        <th scope="col">Opration Key (STEUS)</th>
-                                        <th scope="col">Production Version 1 (PV1)</th>
-                                        <th scope="col">Production Version 2 (PV2)</th>
-                                        <th scope="col">Production Version 3 (PV3)</th>
+                                        <th scope="col">Kode PRO</th>
+                                        <th scope="col">KD. Workcenter</th>
+                                        <th scope="col">Material Description</th>
+                                        <th scope="col">Opration Key</th>
+                                        <th scope="col">PV1</th>
+                                        <th scope="col">PV2</th>
+                                        <th scope="col">PV3</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proTableBody">
@@ -158,6 +158,7 @@
                                             <td>{{ $loop->iteration }}</td>
                                             <td class="fw-bold">{{ $pro->AUFNR }}</td>
                                             <td>{{ $pro->ARBPL }}</td>
+                                            <td>{{ $pro->MAKTX }}</td>
                                             <td>{{ $pro->VORNR }}</td>
                                             <td>{{ $pro->STEUS }}</td>
                                             <td>{{ $pro->PV1 }}</td>
