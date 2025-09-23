@@ -207,6 +207,22 @@ function initializeCalendar() {
     renderCalendar();
 }
 
+const sidebarTogglers = document.querySelectorAll('#sidebar-toggle-button, .sidebar-collapse-toggle');
+
+function resizeCalendar() {
+    // Gunakan setTimeout untuk memberi waktu pada animasi sidebar selesai
+    setTimeout(() => {
+        // Panggil kembali fungsi render kalender Anda untuk menggambarnya ulang
+        // sesuai ukuran kontainer yang baru.
+        renderCalendar(); 
+    }, 350); // Sesuaikan durasi jika perlu
+}
+
+// Tambahkan event listener ke setiap tombol toggle
+sidebarTogglers.forEach(toggler => {
+    toggler.addEventListener('click', resizeCalendar);
+});
+
 
 // --- FUNGSI UNTUK HALAMAN DASHBOARD ---
 

@@ -216,11 +216,11 @@ class ManufactController extends Controller
         $tdata = $query->orderBy('KDAUF')->orderBy('KDPOS')->get();
 
         // 2. Ambil T_DATA2 (Anak dari T_DATA)
-        $kunnrValues = $tdata->pluck('KUNNR')->filter()->unique();
+        $name1Values = $tdata->pluck('NAME1')->filter()->unique();
         
         // Ambil semua T_DATA2 yang berpotensi terkait dengan halaman ini
         $allTData2_flat = ProductionTData2::where('WERKSX', $kode)
-            ->whereIn('KUNNR', $kunnrValues)
+            ->whereIn('NAME1', $name1Values)
             ->get();
 
         // PERBAIKAN KUNCI: Kelompokkan T_DATA2 berdasarkan KUNNR dan NAME1 agar cocok dengan T_DATA

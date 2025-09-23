@@ -927,71 +927,63 @@
             if (d3.STATS === 'CRTD') statusBadgeClass = 'badge-status-crtd';
             if (['PCNF','REL','CNF REL'].includes(d3.STATS)) statusBadgeClass = 'badge-status-rel';
 
+            // Tombol Route dan Comp di samping AUFNR sudah ada di sini dan dipertahankan.
             row.innerHTML = `
                 <td class="text-center">
-                <input type="checkbox" class="form-check-input bulk-select"
-                    ${canSelect ? '' : 'disabled'}
-                    data-type="${canSelectForPLO ? 'PLO' : 'PRO'}"
-                    data-id="${canSelectForPLO ? d3.PLNUM : d3.AUFNR}"
-                    data-auart="${d3.AUART || ''}"
-                    onchange="handleBulkSelect(this)">
+                    <input type="checkbox" class="form-check-input bulk-select"
+                        ${canSelect ? '' : 'disabled'}
+                        data-type="${canSelectForPLO ? 'PLO' : 'PRO'}"
+                        data-id="${canSelectForPLO ? d3.PLNUM : d3.AUFNR}"
+                        data-auart="${d3.AUART || ''}"
+                        onchange="handleBulkSelect(this)">
                 </td>
-
                 <td class="text-center">${index}</td>
-
-                <!-- PRO: satu baris horizontal; nomor kiri, tombol kanan; bloknya terpusat -->
                 <td class="text-center">
-                <div class="pro-cell-inner d-flex align-items-center justify-content-between">
-                    <span class="fw-medium">${d3.AUFNR || '-'}</span>
-                    ${d3.AUFNR ? `
-                    <div class="pro-cell-actions d-flex align-items-center gap-2">
-                        <button class="btn btn-info btn-sm py-0 px-1" route-button onclick="showTData1ByAufnr('${d3.AUFNR}')">Route</button>
-                        <button class="btn btn-primary btn-sm py-0 px-1" onclick="showTData4ByAufnr('${d3.AUFNR}')">Comp</button>
+                    <div class="pro-cell-inner d-flex align-items-center justify-content-between">
+                        <span class="fw-medium">${d3.AUFNR || '-'}</span>
+                        ${d3.AUFNR ? `
+                        <div class="pro-cell-actions d-flex align-items-center gap-2">
+                            <button class="btn btn-info btn-sm py-0 px-1" route-button onclick="showTData1ByAufnr('${d3.AUFNR}')">Route</button>
+                            <button class="btn btn-primary btn-sm py-0 px-1" onclick="showTData4ByAufnr('${d3.AUFNR}')">Comp</button>
+                        </div>
+                        ` : ''}
                     </div>
-                    ` : ''}
-                </div>
                 </td>
-
                 <td class="text-center">
-                <span class="badge ${statusBadgeClass}">${d3.STATS || '-'}</span>
+                    <span class="badge ${statusBadgeClass}">${d3.STATS || '-'}</span>
                 </td>
-
-                <!-- Action: beri jarak antar tombol -->
                 <td class="text-center">
-                <div class="d-flex justify-content-center align-items-center gap-2">
-                    ${d3.AUFNR ? `
-                    <button type="button" title="Reschedule" class="btn btn-schedule btn-sm"
-                        onclick="openSchedule(
-                        '${encodeURIComponent(padAufnr(d3.AUFNR))}',
-                        '${formatDate(d3.SSAVD)}'
-                        )">
-                        <i class="fas fa-clock-rotate-left"></i>
-                    </button>` : ''}
-
-                    ${d3.AUFNR ? `
-                    <button type="button" title="Read PP" class="btn btn-readpp btn-sm"
-                        onclick="openReadPP('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
-                        <i class="fas fa-book-open"></i>
-                    </button>` : ''}
-
-                    ${d3.AUFNR ? `
-                    <button type="button" title="TECO" class="btn btn-teco btn-sm"
-                        onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
-                        <i class="fas fa-circle-check"></i>
-                    </button>` : ''}
-                    ${d3.AUFNR ? `
-                    <button type="button" title="Refresh PRO" class="btn btn-primary btn-sm"
-                        onclick="openRefresh('${d3.AUFNR}', '${d3.WERKSX}')">
-                        <i class="fa-solid fa-arrows-rotate"></i>
-                    </button>` : ''}
-                    ${d3.AUFNR ? `
-                    <button type="button" title="Change PV" class="btn btn-warning btn-sm"
-                        onclick="openChangePvModal('${d3.AUFNR}', '${d3.VERID}', '${d3.WERKSX}')">
-                        <i class="fa-solid fa-code-compare"></i>
-                    </button>` : ''}
-                </div>
+                    <div class="d-flex justify-content-center align-items-center gap-2">
+                        ${d3.AUFNR ? `
+                        <button type="button" title="Reschedule" class="btn btn-schedule btn-sm"
+                            onclick="openSchedule(
+                                '${encodeURIComponent(padAufnr(d3.AUFNR))}',
+                                '${formatDate(d3.SSAVD)}'
+                            )">
+                            <i class="fas fa-clock-rotate-left"></i>
+                        </button>` : ''}
+                        ${d3.AUFNR ? `
+                        <button type="button" title="Read PP" class="btn btn-readpp btn-sm"
+                            onclick="openReadPP('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
+                            <i class="fas fa-book-open"></i>
+                        </button>` : ''}
+                        ${d3.AUFNR ? `
+                        <button type="button" title="TECO" class="btn btn-teco btn-sm"
+                            onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
+                            <i class="fas fa-circle-check"></i>
+                        </button>` : ''}
+                        ${d3.AUFNR ? `
+                        <button type="button" title="Refresh PRO" class="btn btn-primary btn-sm"
+                            onclick="openRefresh('${d3.AUFNR}', '${d3.WERKSX}')">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                        </button>` : ''}
+                        ${d3.AUFNR ? `
+                        <button type="button" title="Change PV" class="btn btn-warning btn-sm"
+                            onclick="openChangePvModal('${d3.AUFNR}', '${d3.VERID}', '${d3.WERKSX}')">
+                            <i class="fa-solid fa-code-compare"></i>
+                        </button>` : ''}
+                    </div>
                 </td>
-
                 <td class="text-center">${d3.DISPO || '-'}</td>
                 <td class="text-center">${d3.MATNR ? ltrim(d3.MATNR, '0') : '-'}</td>
                 <td class="text-center">${sanitize(d3.MAKTX) || '-'}</td>
@@ -1002,35 +994,6 @@
                 <td class="text-center">${formatDate(d3.GLTRP)}</td>
             `;
 
-            const actionCell = document.createElement('td');
-            const buttonWrapper = document.createElement('div');
-            buttonWrapper.className = 'd-flex gap-2 justify-content-center';
-
-            // Buat Tombol Route
-            const routeButton = document.createElement('button');
-            // ==========================================================
-            // 5. TAMBAHKAN CLASS 'route-button' DI SINI (PERBAIKAN KUNCI #2)
-            routeButton.className = 'btn btn-outline-primary btn-sm route-button';
-            // ==========================================================
-            routeButton.textContent = 'Route';
-            routeButton.onclick = () => showTData1ByAufnr(d3.AUFNR);
-            
-            // Buat Tombol Component
-            const componentButton = document.createElement('button');
-            // ==========================================================
-            // 6. TAMBAHKAN CLASS 'component-button' DI SINI (PERBAIKAN KUNCI #3)
-            componentButton.className = 'btn btn-outline-secondary btn-sm component-button';
-            // ==========================================================
-            componentButton.textContent = 'Component';
-            componentButton.onclick = () => showTData4ByAufnr(d3.AUFNR);
-
-            // Masukkan tombol ke dalam wrapper, lalu ke dalam <td>
-            buttonWrapper.appendChild(routeButton);
-            buttonWrapper.appendChild(componentButton);
-            actionCell.appendChild(buttonWrapper);
-
-            // Masukkan <td> terakhir ke dalam <tr>
-            row.appendChild(actionCell);
             row.dataset.rowData = JSON.stringify(d3);
             return row;
         }
