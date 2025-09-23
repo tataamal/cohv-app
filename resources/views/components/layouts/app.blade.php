@@ -13,42 +13,39 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.css' rel='stylesheet' />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    {{-- PASTIKAN PATH INI BENAR --}}
+    <link rel="stylesheet" href="{{ asset('css/sidenav.css') }}"> 
+    
     @stack('styles')
 </head>
 <body class="h-100 bg-light">
 
-    <div class="d-flex h-100">
-        <!-- Komponen Sidebar -->
-        <x-navigation.sidebar />
-        
-        <!-- Overlay untuk mobile, dikontrol oleh JS -->
-        <div id="sidebar-overlay" class="sidebar-overlay d-lg-none"></div>
-
-        <!-- ======================================================= -->
-        <!-- PASTIKAN ID "content-wrapper" ADA DI DIV BERIKUT INI: -->
-        <!-- ======================================================= -->
-        <div id="content-wrapper" class="d-flex flex-column flex-grow-1">
-            <!-- Komponen Topbar -->
-            <x-navigation.topbar />
-
-            <!-- Konten Utama Halaman -->
-            <main class="flex-grow-1" style="overflow-y: auto;">
-                <div class="container-fluid p-4">
-                    {{ $slot }}
-                </div>
-            </main>
-        </div>
+    {{-- Sidebar dipanggil langsung di dalam body --}}
+    <x-navigation.sidebar />
+    
+    {{-- Wrapper konten juga langsung di dalam body --}}
+    <div id="content-wrapper" class="d-flex flex-column flex-grow-1">
+        <x-navigation.topbar />
+        <main class="flex-grow-1" style="overflow-y: auto;">
+            <div class="container-fluid p-4">
+                {{ $slot }}
+            </div>
+        </main>
     </div>
     
-    <!-- Loader global -->
+    {{-- Overlay dipindah ke sini agar berada di atas segalanya --}}
+    <div id="sidebar-overlay" class="sidebar-overlay d-lg-none"></div>
+
     <div id="loading-overlay" class="loading-overlay d-none">
         <div class="loader mb-4"></div>
         <h2 class="h4 fw-semibold text-color-loading">Memuat Halaman...</h2>
     </div>
 
     @stack('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.js'></script>
+    {{-- PASTIKAN PATH INI BENAR --}}
+    <script src="{{ asset('js/sidenav.js') }}"></script>
     
 </body>
 </html>

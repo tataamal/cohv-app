@@ -73,7 +73,7 @@
                         @endphp
                         
                         <div class="col-md-6 {{ $columnClass }}">
-                            <a href="{{ route('dashboard.show', [$plant->kode]) }}"
+                            <a href="{{ route('manufaktur.dashboard.show', [$plant->kode]) }}"
                                onclick="event.preventDefault(); appLoader.show(); setTimeout(() => { window.location.href = this.href }, 150)"
                                class="card h-100 text-decoration-none text-center p-4 rounded-4 shadow-sm plant-card-lift border-2 border-transparent"
                                style="transition: all 0.3s ease;">

@@ -185,7 +185,7 @@ class ManufactController extends Controller
             });
 
             Log::info("================ SINKRONISASI BERHASIL ================");
-            return redirect()->route('dashboard.show', $kode)->with('success', 'Data berhasil disinkronkan dengan relasi yang benar.');
+            return redirect()->route('manufaktur.dashboard.show', $kode)->with('success', 'Data berhasil disinkronkan dengan relasi yang benar.');
 
         } catch (\Exception $e) {
             Log::error('Gagal sinkronisasi data: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);

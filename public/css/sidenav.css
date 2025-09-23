@@ -1,0 +1,99 @@
+:root {
+    --sidebar-width: 280px;
+    --sidebar-width-collapsed: 90px;
+    --primary-color: #6a11cb;
+    --primary-color-light: #f0eaff;
+    --text-color: #6c757d;
+    --text-color-dark: #343a40;
+    --border-color: #dee2e6;
+    --transition-speed: 0.3s;
+}
+
+/* --- STRATEGI LAYOUT UTAMA --- */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    z-index: 1000;
+    width: var(--sidebar-width);
+    background-color: #FFFFFF;
+    border-right: 1px solid var(--border-color);
+    transition: width var(--transition-speed) ease;
+}
+
+#content-wrapper {
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    transition: margin-left var(--transition-speed) ease, width var(--transition-speed) ease;
+}
+
+/* --- KONDISI COLLAPSED (DESKTOP) --- */
+body.sidebar-collapsed .sidebar {
+    width: var(--sidebar-width-collapsed);
+}
+body.sidebar-collapsed #content-wrapper {
+    margin-left: var(--sidebar-width-collapsed);
+    width: calc(100% - var(--sidebar-width-collapsed));
+}
+
+/* --- STYLE KOMPONEN INTERNAL SIDEBAR --- */
+.sidebar-brand { display: flex; align-items: center; padding: 1.15rem 1.5rem; border-bottom: 1px solid var(--border-color); gap: 0.75rem; text-decoration: none; }
+.sidebar-brand-logo { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; }
+.sidebar-brand-text { font-size: 1.25rem; font-weight: 700; color: var(--text-color-dark); white-space: nowrap; opacity: 1; transition: opacity 0.2s ease; }
+.sidebar-nav { padding: 1rem 0; overflow-y: auto; }
+.nav-section-title { padding: 0.5rem 1.5rem; font-size: 0.7rem; font-weight: 700; color: var(--text-color); letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; opacity: 1; transition: opacity 0.2s ease; }
+.nav-item { margin: 0 1rem; }
+.nav-link { display: flex; align-items: center; padding: 0.8rem; border-radius: 0.5rem; color: var(--text-color); margin-bottom: 0.25rem; transition: all var(--transition-speed) ease; overflow: hidden; }
+.nav-link:hover, .nav-link[aria-expanded="true"], .nav-link.active-parent, .nav-link.active { background-color: var(--primary-color-light); color: var(--primary-color); }
+.nav-icon { font-size: 1.1rem; width: 24px; text-align: center; margin-right: 1rem; flex-shrink: 0; }
+.nav-link-text { white-space: nowrap; opacity: 1; transition: opacity 0.2s ease; }
+.collapse-arrow { transition: transform var(--transition-speed) ease; }
+.nav-link[aria-expanded="true"] .collapse-arrow { transform: rotate(180deg); }
+.submenu { padding-left: 2.75rem; margin-top: 0.25rem; }
+.submenu-link { display: block; padding: 0.6rem 0.5rem; color: var(--text-color); border-radius: 0.3rem; white-space: normal; line-height: 1.4; font-size: 0.9rem; position: relative; }
+.submenu-link:hover { color: var(--primary-color); }
+.submenu-link.active { color: var(--primary-color); font-weight: 600; }
+.submenu-link.active::before { content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; background-color: var(--primary-color); border-radius: 50%; }
+.sidebar-footer { padding: 1rem; margin-top: auto; border-top: 1px solid var(--border-color); }
+.user-profile { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 0.5rem; }
+.user-avatar { font-size: 2.5rem; color: var(--text-color); }
+.user-details { overflow: hidden; white-space: nowrap; opacity: 1; transition: opacity 0.2s ease; }
+.user-name { font-weight: 600; color: var(--text-color-dark); }
+.user-role { font-size: 0.8rem; color: var(--text-color); text-transform: capitalize; }
+.btn-logout { display: flex; align-items: center; width: 100%; margin-top: 0.5rem; padding: 0.8rem; border: none; background-color: transparent; border-radius: 0.5rem; color: var(--text-color); text-align: left; gap: 1rem; }
+.btn-logout:hover { background-color: #f8d7da; color: #721c24; }
+.btn-logout-icon { font-size: 1.1rem; }
+.btn-logout-text { white-space: nowrap; opacity: 1; transition: opacity 0.2s ease; }
+.sidebar-collapse-toggle { position: absolute; top: 50%; right: -15px; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; background-color: var(--primary-color); color: white; border: 2px solid white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform var(--transition-speed) ease; z-index: 10; }
+
+body.sidebar-collapsed .sidebar-brand-text,
+body.sidebar-collapsed .nav-section-text,
+body.sidebar-collapsed .nav-link-text,
+body.sidebar-collapsed .collapse-arrow,
+body.sidebar-collapsed .user-details,
+body.sidebar-collapsed .btn-logout-text { opacity: 0; width: 0; visibility: hidden; }
+
+body.sidebar-collapsed .nav-link,
+body.sidebar-collapsed .btn-logout,
+body.sidebar-collapsed .user-profile { justify-content: center; }
+
+body.sidebar-collapsed .nav-icon,
+body.sidebar-collapsed .btn-logout-icon { margin-right: 0; }
+
+body.sidebar-collapsed .submenu { display: none !important; }
+body.sidebar-collapsed .sidebar-collapse-toggle { transform: translateY(-50%) rotate(180deg); }
+
+/* --- TAMPILAN MOBILE (< 992px) --- */
+.sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 998; opacity: 0; visibility: hidden; transition: opacity 0.2s ease; }
+.sidebar-overlay.is-active { opacity: 1; visibility: visible; }
+
+@media (max-width: 991.98px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.is-mobile-open { transform: translateX(0); }
+    #content-wrapper { margin-left: 0; width: 100%; }
+    
+    /* Abaikan state collapsed di mobile, paksa sidebar tetap lebar penuh */
+    body.sidebar-collapsed .sidebar { width: var(--sidebar-width); }
+    body.sidebar-collapsed #content-wrapper { margin-left: 0; width: 100%; }
+}

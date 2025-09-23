@@ -14,13 +14,13 @@
                         </p>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                        <a href="{{ route('detail.data2', $plant) }}" class="btn btn-primary btn-sm nav-loader-link">
+                        <a href="{{ route('manufaktur.detail.data2', $plant) }}" class="btn btn-primary btn-sm nav-loader-link">
                             <i class="fas fa-sync-alt me-1"></i> Sync
                         </a>
                         <button onclick="deleteAllStorage()" class="btn btn-warning btn-sm">
                             Hide All
                         </button>
-                        <a href="{{ route('dashboard.show', $plant) }}" class="btn btn-secondary btn-sm nav-loader-link">
+                        <a href="{{ route('manufaktur.dashboard.show', $plant) }}" class="btn btn-secondary btn-sm nav-loader-link">
                             &larr; Back To Dashboard
                         </a>
                     </div>

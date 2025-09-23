@@ -24,15 +24,15 @@ Route::middleware('guest')->group(function (){
 
 Route::middleware('auth')->group(function (){
 
+    Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
+        Route::get('/dashboard/{kode}', [AdminController::class, 'index'])->name('dashboard.show');
+        Route::get('data2/{kode}', [ManufactController::class, 'DetailData2'])->name('detail.data2');
+        Route::get('data2/detail/{kode}', [ManufactController::class, 'showDetail'])->name('show.detail.data2');
+    });
+
     // Routing Admin
     Route::get('/dashboard-landing', [AdminController::class, 'AdminDashboard'])->name('dashboard-landing');
-    Route::get('/dashboard/{kode}', [AdminController::class, 'index'])->name('dashboard.show');
-    Route::get('data2/{kode}', [ManufactController::class, 'DetailData2'])->name('detail.data2');
-    Route::get('data2/detail/{kode}', [ManufactController::class, 'showDetail'])->name('show.detail.data2');
 
-    // Routing Korlap
-
-    // Routing Manufact
     Route::post('/create_prod_order', [ManufactController::class, 'convertPlannedOrder'])->name('convert-button');
     Route::post('/component/add', [Data4Controller::class, 'addComponent'])->name('component.add');
     Route::post('/component/delete-bulk', [Data4Controller::class, 'deleteBulkComponents'])->name('component.delete.bulk');

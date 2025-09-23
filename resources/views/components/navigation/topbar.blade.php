@@ -1,7 +1,7 @@
 @props([
     'navigation' => [
-        ['name' => 'Dashboard', 'route_name' => 'dashboard.show'],
-        ['name' => 'List Data', 'route_name' => 'show.detail.data2'],
+        ['name' => 'Dashboard', 'route_name' => 'manufaktur.dashboard.show'],
+        ['name' => 'List Data', 'route_name' => 'manufaktur.show.detail.data2'],
         ['name' => 'List GR', 'route_name' => 'list.gr'],
     ],
 ])
