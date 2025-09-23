@@ -118,13 +118,13 @@
         </div>
         <div class="col-lg-6 mx-auto"> <div class="card shadow-sm border-0 h-100">
                 <div class="card-body p-4">
-                    <h3 class="h5 fw-semibold text-dark">Status PRO</h3>
-                    <p class="small text-muted mb-4">Perbandingan status pada field PRO.</p>
+                    <h3 class="h5 fw-semibold text-dark">Most Capacity Workcenters</h3>
+                    <p class="small text-muted mb-4">TOP 5 Workcenter dengan kapasitas tertinggi</p>
                       <div style="height: 24rem;" class="d-flex align-items-center justify-content-center">
                         <canvas class="chart-canvas" 
                                 data-type="pie"
-                                data-labels="{{ json_encode($doughnutChartLabels) }}"
-                                data-datasets="{{ json_encode($doughnutChartDatasets) }}"></canvas>
+                                data-labels="{{ json_encode($pieChartLabels) }}"
+                                data-datasets="{{ json_encode($pieChartDatasets) }}"></canvas>
                     </div>
                 </div>
             </div>

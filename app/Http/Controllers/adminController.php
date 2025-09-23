@@ -108,15 +108,46 @@ class adminController extends Controller
             ]
         ];
 
+        $topWcByCapacity = DB::table('production_t_data1 as t1')
+            ->join('workcenters as wc', 't1.ARBPL', '=', 'wc.kode_wc') // JOIN dengan tabel workcenters
+            ->select(
+                't1.ARBPL',
+                'wc.description', // Ambil kolom deskripsi
+                DB::raw('SUM(t1.CPCTYX) as total_capacity')
+            )
+            ->where('t1.WERKSX', $kode)
+            ->whereNotNull('t1.ARBPL')
+            ->groupBy('t1.ARBPL', 'wc.description') // Group by deskripsi juga
+            ->orderByDesc('total_capacity')
+            ->limit(5)
+            ->get();
+
+        // 2. Siapkan data untuk Chart.js dari hasil query
+        $pieChartLabels       = $topWcByCapacity->pluck('ARBPL')->all();
+        $pieChartData         = $topWcByCapacity->pluck('total_capacity')->all();
+        $pieChartDescriptions = $topWcByCapacity->pluck('description')->all(); // Data deskripsi untuk tooltip
+
+        // 3. Siapkan dataset untuk dikirim ke view, kini dengan deskripsi dan satuan
+        $pieChartDatasets = [
+            [
+                'label'           => 'Distribusi Kapasitas',
+                'data'            => $pieChartData,
+                'descriptions'    => $pieChartDescriptions, // Kirim deskripsi untuk tooltip
+                'satuan'          => 'Jam',                  // Kirim satuan
+                'backgroundColor' => [
+                    'rgba(255, 166, 158, 0.8)', // Soft Coral (alpha diperbaiki)
+                    'rgba(174, 217, 224, 0.8)', // Soft Blue
+                    'rgba(204, 204, 255, 0.8)', // Soft Lavender (menggantikan merah gelap)
+                    'rgba(255, 225, 179, 0.8)', // Soft Yellow (alpha diperbaiki)
+                    'rgba(181, 234, 215, 0.8)', // Soft Mint Green (menggantikan duplikat kuning)
+                ],
+                'borderColor'     => '#ffffff',
+                'borderWidth'     => 2,
+            ]
+        ];
+
         $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
         
-        // =================================================================
-        // DATA KARDINAL (JUMLAH TOTAL)
-        // DIUBAH: Semua query count sekarang ditambahkan ->where('WERKSX', $kode)
-        // agar spesifik per plant.
-        // Asumsi: Semua tabel (TData1 s/d TData4) memiliki kolom 'WERKSX'.
-        // =================================================================
-
         $searchReservasi = $request->input('search_reservasi');
 
         $TData1 = ProductionTData1::where('WERKSX', $kode)->count();
@@ -155,6 +186,8 @@ class adminController extends Controller
             'targetUrls' => $targetUrls,
             'doughnutChartLabels' => $doughnutChartLabels,
             'doughnutChartDatasets' => $doughnutChartDatasets,
+            'pieChartLabels' => $pieChartLabels,
+            'pieChartDatasets' => $pieChartDatasets,
             'kode' => $kode,
             'nama_bagian' => $nama_bagian,
         ]);  
