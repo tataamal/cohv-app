@@ -17,7 +17,9 @@
                         <a href="{{ route('detail.data2', $plant) }}" class="btn btn-primary btn-sm nav-loader-link">
                             <i class="fas fa-sync-alt me-1"></i> Sync
                         </a>
-                        <button onclick="hideAllDetails()" class="btn btn-warning btn-sm">Hide All</button>
+                        <button onclick="deleteAllStorage()" class="btn btn-warning btn-sm">
+                            Hide All
+                        </button>
                         <a href="{{ route('dashboard.show', $plant) }}" class="btn btn-secondary btn-sm nav-loader-link">
                             &larr; Back To Dashboard
                         </a>
@@ -267,35 +269,133 @@
         function openSalesItem(tr) {
             const key = tr.dataset.key;
             if (currentSelectedRow === tr) {
-                hideAllDetails();
+                hideAllDetails(); // Ini akan menghapus state
                 return;
             }
             
-            hideAllDetails();
+            hideAllDetails(); // Ini juga akan menghapus state lama
             currentSelectedRow = tr;
+
+            // ==> BARU: Simpan state baris yang baru dibuka ke sessionStorage
+            sessionStorage.setItem('activeSalesOrderKey', key);
+            console.log(`State disimpan: ${key}`);
             
             const t1Container = document.getElementById('outstanding-order-container');
-
-            // Sembunyikan semua baris lain di tabel
             t1Container.querySelectorAll('tbody tr').forEach(row => {
-                if (row !== tr) {
-                    row.classList.add('d-none');
-                }
+                if (row !== tr) row.classList.add('d-none');
             });
-
-            // [PERBAIKAN] Tambahkan pengecekan sebelum menyembunyikan elemen
             const headerForm = t1Container.querySelector('form');
-            if (headerForm) {
-                headerForm.parentElement.classList.add('d-none');
-            }
-
+            if (headerForm) headerForm.parentElement.classList.add('d-none');
             const pager = t1Container.querySelector('.pagination');
-            if (pager) {
-                pager.parentElement.classList.add('d-none');
-            }
+            if (pager) pager.parentElement.classList.add('d-none');
 
             renderTData2Table(key);
         }
+
+        // Fungsi `hideAllDetails` sekarang bertanggung jawab untuk menghapus state
+        function hideAllDetails() {
+            // Lakukan pembersihan state DI AWAL, ini yang paling penting.
+            sessionStorage.removeItem('activeSalesOrderKey');
+            console.log('State dihapus dari sessionStorage.');
+
+            // Lanjutkan dengan membersihkan UI di dalam blok try-catch
+            try {
+                const t1Container = document.getElementById('outstanding-order-container');
+                document.getElementById('tdata2-section').classList.add('d-none');
+                document.getElementById('tdata3-container').classList.add('d-none');
+                document.getElementById('additional-data-container').innerHTML = '';
+                
+                t1Container.querySelectorAll('tbody tr').forEach(row => {
+                    row.classList.remove('d-none');
+                    row.classList.remove('table-active');
+                });
+
+                const headerForm = t1Container.querySelector('form');
+                if (headerForm) headerForm.parentElement.classList.remove('d-none');
+                const pager = t1Container.querySelector('.pagination');
+                if (pager) pager.parentElement.classList.remove('d-none');
+                
+                if (currentSelectedRow) currentSelectedRow = null;
+                allRowsData = [];
+                clearAllSelections();
+                togglePaginationDisabled(false);
+            } catch (error) {
+                console.error("Terjadi error saat membersihkan UI, namun state sudah berhasil dihapus.", error);
+            }
+        }
+        
+        function loadPersistedState() {
+            // === 1. Ambil semua key dari sessionStorage ===
+            const activeSOKey = sessionStorage.getItem('activeSalesOrderKey');
+            const activeT2Key = sessionStorage.getItem('activeTdata2Key');
+            const activeT3Aufnr = sessionStorage.getItem('activeT3Aufnr');
+            const activeT3Type = sessionStorage.getItem('activeT3Type');
+
+            if (!activeSOKey) return;
+
+            // === 2. Muat state level 1 (T1 -> T2) ===
+            console.log(`[DEBUG] Mencari T1 dengan key: ${activeSOKey}`);
+            const activeRowT1 = document.querySelector(`tr[data-key="${activeSOKey}"]`);
+
+            if (activeRowT1) {
+                openSalesItem(activeRowT1);
+            } else {
+                console.error(`[DEBUG] GAGAL: Baris T1 untuk key ${activeSOKey} tidak ditemukan.`);
+                sessionStorage.clear();
+                return;
+            }
+
+            if (!activeT2Key) return;
+
+            // === 3. Muat state level 2 (T2 -> T3) ===
+            setTimeout(() => {
+                console.log(`[DEBUG] Mencari T2 dengan key: ${activeT2Key}`);
+                const activeRowT2 = document.querySelector(`#tdata2-body tr[data-key="${activeT2Key}"]`);
+                
+                // ----> TAMBAHKAN LOG INI <----
+                if (activeRowT2) {
+                    console.log('[DEBUG] SUKSES: Baris T2 ditemukan!', activeRowT2);
+                    handleClickTData2Row(activeT2Key, activeRowT2);
+                } else {
+                    console.error(`[DEBUG] GAGAL: Baris T2 untuk key ${activeT2Key} tidak ditemukan di dalam #tdata2-body.`);
+                    return;
+                }
+
+                if (!activeT3Aufnr || !activeT3Type) return;
+
+                // === 4. Muat state level 3 (T3 -> T4) ===
+                setTimeout(() => {
+                    const buttonSelector = `#tdata3-body tr[data-aufnr="${activeT3Aufnr}"] .${activeT3Type}-button`;
+                    console.log(`[DEBUG] Mencari Tombol T3 dengan selector: ${buttonSelector}`);
+                    const activeButtonT3 = document.querySelector(buttonSelector);
+
+                    // ----> TAMBAHKAN LOG INI <----
+                    if (activeButtonT3) {
+                        console.log('[DEBUG] SUKSES: Tombol T3 ditemukan!', activeButtonT3);
+                        activeButtonT3.click();
+                    } else {
+                        console.error(`[DEBUG] GAGAL: Tombol T3 tidak ditemukan.`);
+                    }
+                }, 300); // Naikkan sedikit jeda untuk amannya
+
+            }, 300); // Naikkan sedikit jeda untuk amannya
+        }
+
+        function deleteAllStorage() {
+            hideAllDetails()
+            // Perintah ini akan menghapus semua data dari session storage
+            sessionStorage.clear();
+            // Opsional: Beri tahu pengguna bahwa session telah dihapus
+            console.info('Seluruh session storage telah berhasil dihapus!');
+        }
+
+        // Panggil fungsi load saat halaman selesai dimuat
+        document.addEventListener('DOMContentLoaded', loadPersistedState);
+        
+        // Pastikan fungsi-fungsi ini bisa diakses secara global oleh `onclick`
+        window.openSalesItem = openSalesItem;
+        window.hideAllDetails = hideAllDetails; 
+        window.deleteAllStorage = deleteAllStorage;
 
         function renderTData2Table(key) {
             const box = document.getElementById('tdata2-section');
@@ -343,7 +443,7 @@
                                         <th style="width: 5%;"></th>
                                     </tr>
                                 </thead>
-                                <tbody id="tdata2-tbody">`;
+                                <tbody id="tdata2-body">`; // <-- PERUBAHAN DI SINI: dari 'tdata2-tbody' menjadi 'tdata2-body'
                 
                 rows.forEach((r, i) => {
                     const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
@@ -372,8 +472,8 @@
                 });
                 
                 tableHtml += `</tbody></table></div>
-                    <p class="mt-3 small text-muted">Klik salah satu baris untuk melihat ORDER OVERVIEW TABLE.</p>
-                    </div>`;
+                        <p class="mt-3 small text-muted">Klik salah satu baris untuk melihat ORDER OVERVIEW TABLE.</p>
+                        </div>`;
                 cardWrapper.innerHTML = tableHtml;
             }
             
@@ -386,86 +486,44 @@
             });
         }
 
-        function handleClickTData2Row(key, clickedTrElement) {
-            // Ambil semua baris di tbody tdata2
-            const allT2Rows = document.querySelectorAll('#tdata2-tbody .t2-row');
-            
-            // Sembunyikan semua baris lain dan hapus status 'aktif'
-            allT2Rows.forEach(row => {
-                if (row !== clickedTrElement) {
-                    row.style.display = 'none'; // Sembunyikan baris
-                }
-                row.classList.remove('table-active'); // Hapus highlight dari baris manapun
-                row.classList.remove('cursor-pointer'); // Hapus cursor pointer karena interaksi dinonaktifkan sementara
-            });
-
-            // Pastikan baris yang diklik terlihat dan beri highlight
-            clickedTrElement.style.display = 'table-row';
-            clickedTrElement.classList.add('table-active');
-
-            // --- Ubah UI di header tdata2 (judul, search bar, dan tombol kembali) ---
-            const header = document.getElementById('tdata2-header');
-            const title = document.getElementById('tdata2-title');
-            const searchWrapper = document.getElementById('tdata2-search-wrapper');
-
-            if (header && title && searchWrapper) {
-                // Sembunyikan search bar karena tidak relevan untuk satu baris
-                searchWrapper.style.display = 'none';
-
-                // Hanya tambahkan tombol 'kembali' jika belum ada
-                if (!document.getElementById('tdata2-back-btn')) {
-                    const backButton = document.createElement('button');
-                    backButton.id = 'tdata2-back-btn';
-                    backButton.className = 'btn btn-sm btn-outline-secondary ms-auto';
-                    backButton.innerHTML = `<i class="fas fa-arrow-left me-2"></i> Tampilkan Semua Order`;
-                    
-                    // Logika untuk mengembalikan tampilan seperti semula
-                    backButton.onclick = () => {
-                        allT2Rows.forEach(row => {
-                            row.style.display = 'table-row'; // Tampilkan lagi semua baris
-                            row.classList.remove('table-active');
-                            row.classList.add('cursor-pointer'); // Kembalikan interaktivitas
-                        });
-
-                        // Sembunyikan section tdata3
-                        const tdata3Box = document.getElementById('tdata3-section'); // Asumsi ID tdata3
-                        if (tdata3Box) {
-                            tdata3Box.innerHTML = '';
-                            tdata3Box.classList.add('d-none');
-                        }
-
-                        // Kembalikan header seperti semula
-                        title.textContent = 'Outstanding Order';
-                        searchWrapper.style.display = 'flex';
-                        backButton.remove(); // Hapus tombol 'kembali'
-                    };
-
-                    title.textContent = 'Order Terpilih'; // Ganti judul
-                    header.appendChild(backButton);
-                }
-            }
-        }
-
         function showTData1ByAufnr(aufnr) {
             const container = document.getElementById('additional-data-container');
             const divId = `tdata1-${aufnr}`;
             const existing = document.getElementById(divId);
+
+            // BLOK LOGIKA UNTUK MENUTUP (COLLAPSE)
             if (existing) {
                 existing.remove();
                 document.querySelectorAll('#tdata3-body tr').forEach(row => row.classList.remove('d-none'));
                 togglePaginationDisabled(false);
+
+                // >> BARU: Hapus state dari session saat detail ditutup
+                sessionStorage.removeItem('activeT3Aufnr');
+                sessionStorage.removeItem('activeT3Type');
+                console.log(`State T3 untuk AUFNR ${aufnr} dihapus.`);
+                
                 return;
             }
+
+            // BLOK LOGIKA UNTUK MEMBUKA (EXPAND)
             const data = (tdata1ByAufnr && tdata1ByAufnr[aufnr]) ? tdata1ByAufnr[aufnr] : [];
             if (!Array.isArray(data) || data.length === 0) {
-                toast('info','Routing kosong','Tidak ada data routing ditemukan.');
+                toast('info', 'Routing kosong', 'Tidak ada data routing ditemukan.');
                 return;
             }
+            
+            // >> BARU: Simpan state ke session saat detail dibuka
+            // Karena fungsi ini spesifik untuk "Routing", kita asumsikan tipenya 'route'
+            sessionStorage.setItem('activeT3Aufnr', aufnr);
+            sessionStorage.setItem('activeT3Type', 'route');
+            console.log(`State T3 disimpan: AUFNR=${aufnr}, Tipe=route`);
+
             togglePaginationDisabled(true);
             document.querySelectorAll('#tdata3-body tr').forEach(row => {
                 if (!row.textContent.includes(aufnr)) row.classList.add('d-none');
                 else row.classList.remove('d-none');
             });
+
             const rowsHtml = data.map((t1, i) => `
                 <tr class="bg-white">
                     <td class="text-center fs-6">${i + 1}</td>
@@ -478,6 +536,7 @@
                     <td class="text-center">${t1.PV3 || '-'}</td>
                 </tr>
             `).join('');
+
             const block = document.createElement('div');
             block.id = divId;
             block.className = 'mt-4';
@@ -500,6 +559,7 @@
                         <tbody>${rowsHtml}</tbody>
                     </table>
                 </div>`;
+            
             container.innerHTML = '';
             container.appendChild(block);
         }
@@ -508,12 +568,28 @@
             const container = document.getElementById('additional-data-container');
             const blockId = `tdata4-${aufnr}`;
             const existing = document.getElementById(blockId);
+
+            // BLOK LOGIKA UNTUK MENUTUP (COLLAPSE)
             if (existing) {
                 existing.remove();
                 document.querySelectorAll('#tdata3-body tr').forEach(row => row.classList.remove('d-none'));
                 togglePaginationDisabled(false);
+
+                // >> BARU: Hapus state dari session saat detail ditutup
+                sessionStorage.removeItem('activeT3Aufnr');
+                sessionStorage.removeItem('activeT3Type');
+                console.log(`State T3 untuk komponen AUFNR ${aufnr} dihapus.`);
+                
                 return;
             }
+
+            // BLOK LOGIKA UNTUK MEMBUKA (EXPAND)
+            // >> BARU: Simpan state ke session saat detail dibuka
+            // Karena fungsi ini untuk menampilkan komponen, kita set tipenya 'component'
+            sessionStorage.setItem('activeT3Aufnr', aufnr);
+            sessionStorage.setItem('activeT3Type', 'component');
+            console.log(`State T3 disimpan: AUFNR=${aufnr}, Tipe=component`);
+
             togglePaginationDisabled(true);
             const data = (allTData4ByAufnr && allTData4ByAufnr[aufnr]) ? allTData4ByAufnr[aufnr] : [];
             const plantCode = data.length > 0 && data[0].WERKSX ? data[0].WERKSX : '{{ $kode ?? $plant }}';
@@ -532,7 +608,7 @@
             const pwwrk = firstRouting.PWWRK || '{{ $plant }}'; // Ambil WERKS dari objek, fallback ke plant
 
             const ltrim0 = (s) => String(s ?? '').replace(/^0+/, '');
-        
+
             const rowsHtml = data.map((c, i) => `
                 <tr class="bg-white">
                     <td class="px-4 py-3 text-center">
@@ -556,7 +632,7 @@
 
             block.id = blockId;
             block.className = 'mt-4';
-            block.innerHTML = block.innerHTML = `
+            block.innerHTML = `
             <div class="component-table-wrapper">
             
                 <div class="d-flex justify-content-between align-items-center p-3 bg-light">
@@ -724,6 +800,10 @@
                 t3Container.classList.add('d-none');
                 document.getElementById('additional-data-container').innerHTML = '';
 
+                // >> BARU: Hapus key dari session saat detail ditutup
+                sessionStorage.removeItem('activeTdata2Key'); 
+                console.log('State tdata2 dihapus dari session.');
+
                 // reset state pagination/selection
                 allRowsData = [];
                 t3CurrentPage = 1;
@@ -745,8 +825,12 @@
             t2CurrentSelectedRow = tr;
             t2CurrentKey = key;
 
+            // >> PINDAH & PERBAIKI: Simpan key ke session HANYA saat detail dibuka/diganti
+            sessionStorage.setItem('activeTdata2Key', key); // Gunakan 'key', bukan 'T2key'
+            console.log(`State disimpan: ${key}`);
+
             showTData3ForKey(key);
-            }
+        }
 
         function showTData3ForKey(key) {
             const t3Container = document.getElementById('tdata3-container');
@@ -827,9 +911,13 @@
             if (pg) pg.innerHTML = '';
             clearAllSelections();
         }
+
+        const ltrim0 = (s) => String(s ?? '').replace(/^0+/, '');
         
         function createTableRow(d3, index) {
             const row = document.createElement('tr');
+
+            row.dataset.aufnr = ltrim0(d3.AUFNR || '');
 
             const canSelectForPLO = d3.PLNUM && !d3.AUFNR;
             const canSelectForPRO = !!d3.AUFNR;
@@ -857,7 +945,7 @@
                     <span class="fw-medium">${d3.AUFNR || '-'}</span>
                     ${d3.AUFNR ? `
                     <div class="pro-cell-actions d-flex align-items-center gap-2">
-                        <button class="btn btn-info btn-sm py-0 px-1" onclick="showTData1ByAufnr('${d3.AUFNR}')">Route</button>
+                        <button class="btn btn-info btn-sm py-0 px-1" route-button onclick="showTData1ByAufnr('${d3.AUFNR}')">Route</button>
                         <button class="btn btn-primary btn-sm py-0 px-1" onclick="showTData4ByAufnr('${d3.AUFNR}')">Comp</button>
                     </div>
                     ` : ''}
@@ -913,9 +1001,39 @@
                 <td class="text-center">${formatDate(d3.GSTRP)}</td>
                 <td class="text-center">${formatDate(d3.GLTRP)}</td>
             `;
+
+            const actionCell = document.createElement('td');
+            const buttonWrapper = document.createElement('div');
+            buttonWrapper.className = 'd-flex gap-2 justify-content-center';
+
+            // Buat Tombol Route
+            const routeButton = document.createElement('button');
+            // ==========================================================
+            // 5. TAMBAHKAN CLASS 'route-button' DI SINI (PERBAIKAN KUNCI #2)
+            routeButton.className = 'btn btn-outline-primary btn-sm route-button';
+            // ==========================================================
+            routeButton.textContent = 'Route';
+            routeButton.onclick = () => showTData1ByAufnr(d3.AUFNR);
+            
+            // Buat Tombol Component
+            const componentButton = document.createElement('button');
+            // ==========================================================
+            // 6. TAMBAHKAN CLASS 'component-button' DI SINI (PERBAIKAN KUNCI #3)
+            componentButton.className = 'btn btn-outline-secondary btn-sm component-button';
+            // ==========================================================
+            componentButton.textContent = 'Component';
+            componentButton.onclick = () => showTData4ByAufnr(d3.AUFNR);
+
+            // Masukkan tombol ke dalam wrapper, lalu ke dalam <td>
+            buttonWrapper.appendChild(routeButton);
+            buttonWrapper.appendChild(componentButton);
+            actionCell.appendChild(buttonWrapper);
+
+            // Masukkan <td> terakhir ke dalam <tr>
+            row.appendChild(actionCell);
             row.dataset.rowData = JSON.stringify(d3);
             return row;
-            }
+        }
         // =================================================================
         // 3. SEMUA FUNGSI AKSI (MODALS, BULK, API)
         // =================================================================
