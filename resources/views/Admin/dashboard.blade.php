@@ -14,6 +14,23 @@
             /* Pastikan warna background sama dengan thead agar tidak transparan saat scroll */
             background-color: #f8f9fa !important; 
         }
+        chart-container {
+            position: relative;
+            /* Ukuran untuk Desktop & Tablet */
+            height: 24rem;
+            width: 100%;
+        }
+
+        /* Aturan khusus untuk layar kecil (mobile) */
+        @media (max-width: 767px) {
+            .chart-container {
+                /* Beri tinggi yang cukup agar chart tidak hilang saat render */
+                height: 400px; 
+                
+                /* Batasi tinggi maksimal agar tidak terlalu besar */
+                max-height: 500px; 
+            }
+        }
     </style>
     @endpush
 
@@ -83,7 +100,7 @@
                 <div class="card-body p-4">
                     <h3 class="h5 fw-semibold text-dark">Data Kapasitas Workcenter</h3>
                     <p class="small text-muted mb-4">Perbandingan Display Jumlah PRO dan Kapasitas di setiap Workcenter</p>
-                    <div style="height: 24rem;">
+                    <div class="chart-container">
                         <canvas id="myBarChart" 
                                 data-labels="{{ json_encode($labels) }}"
                                 data-datasets="{{ json_encode($datasets) }}"
@@ -97,6 +114,8 @@
                                     </a>
                                 @endforeach
                             </div>
+                        </canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -194,24 +213,38 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const chartLabels = @json($labels);
-            const chartDatasets = @json($datasets);
-            const targetUrls = JSON.parse(myBarChart.dataset.urls);
+            const chartCanvas = document.getElementById('myBarChart');
+            if (!chartCanvas) return;
 
-            // 2. Inisialisasi Bar Chart menggunakan variabel tersebut
-            const barChartCtx = document.getElementById('myBarChart').getContext('2d');
+            // Ambil data dari atribut data-*
+            const chartLabels = JSON.parse(chartCanvas.dataset.labels);
+            const chartDatasets = JSON.parse(chartCanvas.dataset.datasets);
+            const targetUrls = JSON.parse(chartCanvas.dataset.urls); // ✨ FIX: Ambil dari chartCanvas.dataset
+
+            // ✨ REVISI: Deteksi ukuran layar
+            const isMobile = window.innerWidth < 768;
+
+            const barChartCtx = chartCanvas.getContext('2d');
             new Chart(barChartCtx, {
                 type: 'bar',
                 data: {
-                    labels: chartLabels,   // <-- Gunakan variabel
-                    datasets: chartDatasets // <-- Gunakan variabel
+                    labels: chartLabels,
+                    datasets: chartDatasets
                 },
                 options: {
+                    // ✨ REVISI: Opsi utama untuk mengubah orientasi chart
+                    indexAxis: isMobile ? 'y' : 'x', // Ubah sumbu kategori ke Y jika mobile
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: !isMobile, // Jangan jaga rasio di mobile agar tinggi bisa menyesuaikan
+
                     scales: {
-                        y: {
-                            beginAtZero: true
+                        // Konfigurasi sumbu disesuaikan berdasarkan orientasi
+                        x: { 
+                            beginAtZero: true,
+                            title: { display: true, text: isMobile ? 'Jumlah' : 'Workcenter' }
+                        },
+                        y: { 
+                            title: { display: true, text: isMobile ? 'Workcenter' : 'Jumlah' }
                         }
                     },
                     plugins: {
@@ -219,7 +252,8 @@
                             callbacks: {
                                 title: function(context) {
                                     const dataIndex = context[0].dataIndex;
-                                    const description = context[0].dataset.descriptions[dataIndex];
+                                    // Asumsikan 'descriptions' ada di dalam dataset
+                                    const description = context[0].dataset.descriptions ? context[0].dataset.descriptions[dataIndex] : '';
                                     return description || '';
                                 },
                                 label: function(context) {
@@ -227,24 +261,22 @@
                                     if (label) {
                                         label += ': ';
                                     }
-                                    const value = context.parsed.y;
+                                    // ✨ REVISI: Ambil nilai dari sumbu yang benar (x untuk horizontal, y untuk vertikal)
+                                    const value = isMobile ? context.parsed.x : context.parsed.y;
                                     label += new Intl.NumberFormat('id-ID').format(value);
                                     const satuan = context.dataset.satuan || '';
                                     if (satuan) {
-                                    label += ' ' + satuan;
+                                        label += ' ' + satuan;
                                     }
                                     return label;
                                 }
                             }
                         }
                     },
-                    onClick: (event, elements, chart) => {
-                        // Cek apakah ada elemen (bar) yang diklik
+                    onClick: (event, elements) => {
                         if (elements.length > 0) {
-                            const dataIndex = elements[0].index; // Dapatkan index dari bar yang diklik
-                            const url = targetUrls[dataIndex]; // Ambil URL yang sesuai dari array URL
-                            
-                            // Arahkan pengguna ke URL tersebut
+                            const dataIndex = elements[0].index;
+                            const url = targetUrls[dataIndex];
                             if (url) {
                                 window.location.href = url;
                             }

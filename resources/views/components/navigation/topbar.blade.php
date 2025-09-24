@@ -23,17 +23,13 @@
     })->all();
 @endphp
 
-<!-- Topbar yang Sudah Diperbaiki dengan Bootstrap & Vanilla JS -->
 <nav class="navbar navbar-expand bg-white shadow-sm">
     <div class="container-fluid">
-        <!-- Grup Tombol Kiri: Mobile Toggle & Desktop Collapse -->
         <div class="d-flex align-items-center">
-            <!-- Tombol Hamburger untuk Mobile (muncul di layar kecil) -->
             <button id="sidebar-mobile-toggle" class="btn btn-light d-lg-none me-3">
                 <i class="fas fa-bars"></i>
             </button>
 
-            <!-- Navigasi Utama Topbar (muncul di layar medium ke atas) -->
             <nav class="d-none d-md-block">
                 <ul class="nav nav-pills">
                     @foreach($normalizedNav as $item)
@@ -46,9 +42,24 @@
                     @endforeach
                 </ul>
             </nav>
+
+            <div class="dropdown d-md-none">
+                <button class="btn btn-light" type="button" id="topbar-menu-mobile" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fa-solid fa-ellipsis-vertical"></i> 
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="topbar-menu-mobile">
+                    @foreach($normalizedNav as $item)
+                        <li>
+                            <a class="dropdown-item {{ $item['active'] ? 'active' : '' }}" href="{{ $item['href'] }}">
+                                {{ $item['name'] }}
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+            
         </div>
 
-        <!-- Konten Navbar Kanan: Info Pengguna -->
         <div class="ms-auto d-flex align-items-center">
             <div class="text-end d-none d-sm-block">
                 <p class="small fw-semibold text-dark mb-0">{{ $user->name ?? 'Guest User' }}</p>
