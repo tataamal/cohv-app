@@ -1,4 +1,12 @@
-<x-layouts.app title="Good Receipt Report">
+<x-layouts.app title="List GR - PT. Kayu Mebel Indonesia">
+    @push('styles')
+    <style>
+        /* Gaya tambahan untuk memastikan sticky header di tabel scroll tidak tembus pandang */
+        .table-responsive thead.sticky-top th {
+            background-color: var(--bs-table-bg);
+        }
+    </style>
+    @endpush
     <div class="mb-4">
         <div class="card shadow-sm p-3">
             <div class="d-lg-flex align-items-center justify-content-between">

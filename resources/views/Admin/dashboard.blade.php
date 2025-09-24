@@ -17,8 +17,8 @@
         chart-container {
             position: relative;
             /* Ukuran untuk Desktop & Tablet */
-            height: 24rem;
-            width: 100%;
+            height: 200px;
+            width: 800%;
         }
 
         /* Aturan khusus untuk layar kecil (mobile) */
@@ -121,7 +121,7 @@
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4 mx-4 mb-4">
         <div class="col-lg-6 mx-auto"> <div class="card shadow-sm border-0 h-100">
                 <div class="card-body p-4">
                     <h3 class="h5 fw-semibold text-dark">Status PRO</h3>
@@ -151,7 +151,7 @@
     </div>
 
     <!-- Tabel Section -->
-    <div class="mt-4">
+    <div class="row g-4 mx-4 ">
         <div class="card shadow-sm border-0">
             <div class="card-body p-4">
                 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-3 gap-3">

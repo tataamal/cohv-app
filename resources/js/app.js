@@ -9,6 +9,7 @@ import Chart from 'chart.js/auto';
 
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import listPlugin from '@fullcalendar/list';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 
@@ -277,78 +278,92 @@ function initDashboardCharts() {
         }
     });
 }
-
 function initializeGoodReceiptCalendar() {
-    // Pastikan elemen #calendar ada di DOM
     const calendarEl = document.getElementById('calendar');
-
-    // Jika elemen ditemukan, baru inisialisasi
     if (calendarEl) {
-        // --- Bagian Inisialisasi Modal (tidak berubah) ---
+        // --- Inisialisasi Modal (tidak berubah) ---
         const modalElement = document.getElementById('detailModal');
         const detailModal = new bootstrap.Modal(modalElement);
         const modalTitle = document.getElementById('modalTitle');
         const modalTableBody = document.getElementById('modal-table-body');
 
-        // --- Inisialisasi Kalender (tidak berubah) ---
+        const isMobile = window.innerWidth < 768;
+
         const calendar = new Calendar(calendarEl, {
-            plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
-            initialView: 'dayGridMonth',
+            plugins: [dayGridPlugin, interactionPlugin, listPlugin], // Pastikan listPlugin ada
+            initialView: isMobile ? 'listWeek' : 'dayGridMonth',
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
-                right: 'dayGridMonth,timeGridWeek'
+                right: 'dayGridMonth,listWeek'
             },
             events: window.processedCalendarData || [],
             eventContent: function(arg) {
-                // ... (logika eventContent Anda tidak perlu diubah)
-                let arrayOfDomNodes = [];
+                // ... (Logika eventContent responsif Anda tidak perlu diubah) ...
                 let container = document.createElement('div');
-                container.classList.add('fc-event-main-content', 'p-1', 'small');
-
                 const { totalGrCount, dispoBreakdown } = arg.event.extendedProps;
 
-                let totalGrHighlight = document.createElement('div');
-                totalGrHighlight.classList.add('badge', 'bg-success', 'text-white', 'text-start', 'w-100', 'py-2', 'mb-1');
-                totalGrHighlight.style.whiteSpace = 'normal';
-                totalGrHighlight.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Total GR Hari ini: <strong>${formatNumber(totalGrCount || 0)}</strong>`;
-                container.appendChild(totalGrHighlight);
-
-                if (dispoBreakdown && dispoBreakdown.length > 0) {
-                    let dispoList = document.createElement('ul');
-                    dispoList.classList.add('list-unstyled', 'mb-1', 'small');
-                    dispoBreakdown.forEach(item => {
-                        let listItem = document.createElement('li');
-                        listItem.innerHTML = `<i class="bi bi-dot me-1 text-muted"></i> Kode MRP <strong>${item.dispo || '-'}</strong>: ${formatNumber(item.gr_count || 0)}`;
-                        dispoList.appendChild(listItem);
-                    });
-                    container.appendChild(dispoList);
+                if (isMobile) {
+                    container.classList.add('d-flex', 'justify-content-between', 'align-items-center', 'w-100', 'p-2');
+                    let titleEl = document.createElement('div');
+                    titleEl.innerHTML = `<strong>Total Good Receipt:</strong>`;
+                    let valueEl = document.createElement('div');
+                    valueEl.innerHTML = `<span class="badge bg-success">${new Intl.NumberFormat().format(totalGrCount || 0)}</span>`;
+                    container.appendChild(titleEl);
+                    container.appendChild(valueEl);
+                } else {
+                    container.classList.add('fc-event-main-content', 'p-1', 'small');
+                    let totalGrHighlight = document.createElement('div');
+                    totalGrHighlight.classList.add('badge', 'bg-success', 'text-white', 'text-start', 'w-100', 'py-2', 'mb-1');
+                    totalGrHighlight.style.whiteSpace = 'normal';
+                    totalGrHighlight.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Total GR Hari ini: <strong>${formatNumber(totalGrCount || 0)}</strong>`;
+                    container.appendChild(totalGrHighlight);
+                    if (dispoBreakdown && dispoBreakdown.length > 0) {
+                        let dispoList = document.createElement('ul');
+                        dispoList.classList.add('list-unstyled', 'mb-1', 'small');
+                        dispoBreakdown.forEach(item => {
+                            let listItem = document.createElement('li');
+                            listItem.innerHTML = `<span class="text-black">
+                            <i class="bi bi-dot me-1"></i>
+                            MRP <strong>${item.dispo || '-'}</strong>: ${formatNumber(item.gr_count || 0)}
+                            </span>`;
+                            dispoList.appendChild(listItem);
+                        });
+                        container.appendChild(dispoList);
+                    }
                 }
-
-                let clickText = document.createElement('div');
-                clickText.classList.add('text-muted', 'text-end');
-                clickText.style.fontSize = '0.65em';
-                clickText.textContent = 'Click untuk detail PRO >';
-                container.appendChild(clickText);
-
-                arrayOfDomNodes.push(container);
-                return { domNodes: arrayOfDomNodes };
+                return { domNodes: [container] };
             },
+
+            // ✨ REVISI 1: Tambahkan cursor pointer untuk menandakan bisa di-klik
             eventDidMount: function(info) {
-                // ... (logika eventDidMount Anda tidak perlu diubah)
                 info.el.style.backgroundColor = 'transparent';
                 info.el.style.borderColor = 'transparent';
+                info.el.style.cursor = 'pointer'; // Menambahkan ikon tangan saat hover
             },
+            
+            // ✨ REVISI 2: Hapus dateClick atau kosongkan isinya
             dateClick: function(info) {
-                // ... (logika dateClick Anda tidak perlu diubah)
-                const clickedDateData = (window.processedCalendarData || []).find(event => event.start === info.dateStr);
-                if (clickedDateData && clickedDateData.details.length > 0) {
-                    const formattedDate = new Date(info.dateStr).toLocaleDateString('id-ID', {
+                // Dikosongkan agar klik pada area kosong tanggal tidak melakukan apa-apa
+            },
+
+            // ✨ REVISI 3: Pindahkan semua logika modal ke eventClick
+            eventClick: function(info) {
+                // Ambil data detail langsung dari event yang di-klik
+                const eventDetails = info.event.extendedProps.details;
+
+                if (eventDetails && eventDetails.length > 0) {
+                    const eventDate = info.event.start;
+                    const formattedDate = eventDate.toLocaleDateString('id-ID', {
                         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                     });
-                    modalTitle.textContent = 'Detail Tanggal: ' + formattedDate;
-                    modalTableBody.innerHTML = '';
-                    clickedDateData.details.forEach(item => {
+                    
+                    // Isi judul modal
+                    modalTitle.textContent = 'Detail Good Receipt untuk: ' + formattedDate;
+
+                    // Kosongkan dan isi tabel modal
+                    modalTableBody.innerHTML = ''; 
+                    eventDetails.forEach(item => {
                         const row = `
                             <tr>
                                 <td class="text-center align-middle small fw-medium">${item.AUFNR || '-'}</td>
@@ -362,32 +377,20 @@ function initializeGoodReceiptCalendar() {
                         `;
                         modalTableBody.insertAdjacentHTML('beforeend', row);
                     });
+
+                    // Tampilkan modal
                     detailModal.show();
                 }
             }
         });
 
-        // Merender kalender ke halaman
         calendar.render();
 
-        // ======================================================================
-        // ✨ TAMBAHKAN KODE SOLUSI DI SINI ✨
-        // Tujuan: Agar kalender menyesuaikan ukuran saat sidebar dibuka/tutup.
-        // ======================================================================
-
-        // 1. Cari tombol toggle sidebar Anda.
-        //    PENTING: Ganti '#sidebarToggle' jika ID tombol Anda berbeda.
+        // Fitur resize saat sidebar di-toggle (tidak berubah)
         const sidebarToggle = document.querySelector('#sidebar-collapse-toggle');
-
-        // 2. Jika tombol ditemukan, tambahkan 'event listener' untuk mendeteksi klik.
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', () => {
-                // 3. Beri jeda sejenak (misal: 350 milidetik) agar animasi transisi sidebar selesai.
-                setTimeout(() => {
-                    // 4. Setelah jeda, perintahkan kalender untuk memperbarui ukurannya.
-                    console.log('Sidebar Toggled -> Resizing Calendar'); // Untuk debugging
-                    calendar.updateSize();
-                }, 350); // Anda bisa sesuaikan durasi ini jika perlu
+                setTimeout(() => { calendar.updateSize(); }, 350);
             });
         }
     }
