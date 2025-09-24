@@ -118,6 +118,10 @@
                             <button class="btn btn-secondary btn-sm" onclick="clearAllSelections()">Clear All</button>
                         </div>
                     </div>
+
+                    <div class="mb-3">
+                        <input type="search" id="proSearchInput" class="form-control" placeholder="🔍 Cari berdasarkan Kode PRO...">
+                    </div>
                     
                     <div class="table-responsive border rounded-3">
                         <table id="tdata3-table" class="table table-hover table-bordered align-middle mb-0 small">
@@ -159,7 +163,7 @@
     @include('components.modals.bulk-refresh-modal')
     @include('components.modals.bulk-teco-modal')
     @include('components.modals.bulk-changepv-modal')
-
+    @include('components.modals.edit-component')
     @include('components.modals.add-component-modal')
     @push('scripts')
     <script src="{{ asset('js/bulk-modal-handle.js') }}"></script>
@@ -172,7 +176,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // --- [BARU] Inisialisasi semua Modal Bootstrap ---
-        let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal, bulkChangePvModal;
+        let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal, bulkChangePvModal, editComponentModal;
         let bulkActionPlantCode = null;
         let bulkActionVerid = null;
         const addComponentModal = document.getElementById('addComponentModal');
@@ -219,6 +223,7 @@
             bulkTecoModal = new bootstrap.Modal(document.getElementById('bulkTecoModal'));
             bulkRefreshModal = new bootstrap.Modal(document.getElementById('bulkRefreshModal'));
             bulkChangePvModal = new bootstrap.Modal(document.getElementById('bulkChangePvModal'));
+            editComponentModal = new bootstrap.Modal(document.getElementById('dataEntryModal'));
         });
 
         // --- Fungsi Helper Notifikasi (SweetAlert - Tidak Berubah) ---
@@ -625,6 +630,17 @@
                     <td class="px-4 py-3 text-center">${c.LGORT ?? '-'}</td>
                     <td class="px-4 py-3 text-center">${sanitize(c.MEINS === 'ST' ? 'PC' : (c.MEINS || '-'))}</td>
                     <td class="px-4 py-3 text-center">${c.LTEXT ?? '-'}</td>
+                    <td class="px-4 py-3 text-center">
+                        <button type="button" class="btn btn-warning btn-sm edit-component-btn"
+                                data-aufnr="${c.AUFNR ?? ''}"
+                                data-rspos="${c.RSPOS ?? ''}"
+                                data-matnr="${c.MATNR ?? ''}"
+                                data-bdmng="${c.BDMNG ?? ''}"
+                                data-lgort="${c.LGORT ?? ''}"
+                                data-sobkz="${c.SOBKZ ?? ''}"
+                                onclick="handleEditClick(this)"> Edit
+                        </button>
+                    </td>
                 </tr>
             `).join('');
 
@@ -665,16 +681,17 @@
                                     <input type="checkbox" id="select-all-components-${aufnr}" class="form-check-input" onchange="toggleSelectAllComponents('${aufnr}')">
                                 </th>
                                 <th class="text-center" style="width: 5%;">No.</th>
-                                <th>Number Reservasi</th>
-                                <th>Item Reservasi</th>
-                                <th>Material</th>
-                                <th>Description</th>
+                                <th class="text-center">Number Reservasi</th>
+                                <th class="text-center">Item Reservasi</th>
+                                <th class="text-center">Material</th>
+                                <th class="text-center">Description</th>
                                 <th class="text-center">Req. Qty</th>
                                 <th class="text-center">Stock</th>
                                 <th class="text-center">Outs. Req</th>
-                                <th>S.Log</th>
+                                <th class="text-center">S.Log</th>
                                 <th class="text-center">UOM</th>
-                                <th>Spec. Procurement</th>
+                                <th class="text-center">Spec. Procurement</th>
+                                <th class="text-center" >Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1613,6 +1630,82 @@
             }
         });
         }
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            // 1. Dapatkan elemen input dan tabel body
+            const searchInput = document.getElementById('proSearchInput');
+            const tableBody = document.getElementById('tdata3-body'); // Asumsikan tbody Anda punya ID ini
+            
+            // Pastikan elemennya ada sebelum menambahkan event listener
+            if (searchInput && tableBody) {
+                
+                // 2. Tambahkan event listener 'keyup' yang akan aktif setiap kali tombol dilepas
+                searchInput.addEventListener('keyup', function() {
+                    
+                    // 3. Ambil teks pencarian dan ubah ke huruf besar agar tidak case-sensitive
+                    const filterText = searchInput.value.toUpperCase();
+                    
+                    // 4. Dapatkan semua baris (tr) di dalam tabel body
+                    const tableRows = tableBody.getElementsByTagName('tr');
+
+                    // 5. Loop melalui setiap baris untuk membandingkan
+                    for (let i = 0; i < tableRows.length; i++) {
+                        // Ambil sel (td) ketiga, karena di situlah Kode PRO berada (index 2)
+                        let td = tableRows[i].getElementsByTagName('td')[2]; 
+                        
+                        if (td) {
+                            let textValue = td.textContent || td.innerText;
+                            
+                            // 6. Cek apakah teks di sel PRO mengandung teks pencarian
+                            if (textValue.toUpperCase().indexOf(filterText) > -1) {
+                                // Jika cocok, tampilkan barisnya
+                                tableRows[i].style.display = "";
+                            } else {
+                                // Jika tidak cocok, sembunyikan barisnya
+                                tableRows[i].style.display = "none";
+                            }
+                        }
+                    }
+                });
+            }
+
+        });
+
+        function handleEditClick(buttonElement) {
+            // 'buttonElement' adalah tombol yang baru saja Anda klik
+
+            // Ambil data dari atribut data-* menggunakan 'dataset'
+            const aufnr = buttonElement.dataset.aufnr;
+            const rspos = buttonElement.dataset.rspos;
+            const matnr = buttonElement.dataset.matnr;
+            const bdmng = buttonElement.dataset.bdmng;
+            const lgort = buttonElement.dataset.lgort;
+            const sobkz = buttonElement.dataset.sobkz;
+
+            // Sekarang Anda bisa menggunakan semua variabel ini
+            console.log('✅ Tombol Edit Diklik via onclick!');
+            console.log('AUFNR:', aufnr);
+            console.log('RSPOS:', rspos);
+            console.log('MATNR:', matnr);
+
+            // ✨ CONTOH: Langsung panggil logika untuk menampilkan modal di sini
+            // (Ini adalah kode dari pembahasan modal kita sebelumnya)
+            
+            // Isi nilai-nilai ke dalam field form di modal
+            document.getElementById('formPro').value = aufnr;
+            document.getElementById('formRspos').value = rspos;
+            document.getElementById('formMatnr').value = matnr;
+            document.getElementById('formBdmng').value = bdmng;
+            document.getElementById('formLgort').value = lgort;
+            document.getElementById('formSobkz').value = sobkz;
+
+            // Tampilkan modal
+            const dataModal = new bootstrap.Modal(document.getElementById('dataEntryModal'));
+            dataModal.show();
+        }
+
+        
     </script>
 @endpush
 </x-layouts.app>

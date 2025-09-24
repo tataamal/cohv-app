@@ -1,4 +1,4 @@
-<x-layouts.landing title="Welcome to KMI System">
+<x-layouts.landing title="COHV - PT Kayu Mebel Indonesia">
 
     @push('styles')
     <style>

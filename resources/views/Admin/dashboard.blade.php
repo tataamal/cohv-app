@@ -14,11 +14,12 @@
             /* Pastikan warna background sama dengan thead agar tidak transparan saat scroll */
             background-color: #f8f9fa !important; 
         }
-        chart-container {
+        .chart-container {
             position: relative;
             /* Ukuran untuk Desktop & Tablet */
-            height: 200px;
-            width: 800%;
+            height: 32rem;
+            /* width: 100%; */
+            /* max-height: 400px; */
         }
 
         /* Aturan khusus untuk layar kecil (mobile) */
@@ -100,7 +101,7 @@
                 <div class="card-body p-4">
                     <h3 class="h5 fw-semibold text-dark">Data Kapasitas Workcenter</h3>
                     <p class="small text-muted mb-4">Perbandingan Display Jumlah PRO dan Kapasitas di setiap Workcenter</p>
-                    <div class="chart-container">
+                    <div class="chart-container item d-flex justify-content-center align-items-center">
                         <canvas id="myBarChart" 
                                 data-labels="{{ json_encode($labels) }}"
                                 data-datasets="{{ json_encode($datasets) }}"
@@ -121,12 +122,14 @@
         </div>
     </div>
 
-    <div class="row g-4 mx-4 mb-4">
-        <div class="col-lg-6 mx-auto"> <div class="card shadow-sm border-0 h-100">
+    <div class="row g-4 mx-3 mb-4">
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body p-4">
                     <h3 class="h5 fw-semibold text-dark">Status PRO</h3>
                     <p class="small text-muted mb-4">Perbandingan status pada field PRO.</p>
-                      <div style="height: 24rem;" class="d-flex align-items-center justify-content-center">
+                    <div style="height: 24rem;" class="d-flex align-items-center justify-content-center">
                         <canvas class="chart-canvas" 
                                 data-type="pie"
                                 data-labels="{{ json_encode($doughnutChartLabels) }}"
@@ -135,19 +138,19 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-6 mx-auto"> <div class="card shadow-sm border-0 h-100">
+    
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body p-4">
-                    <h3 class="h5 fw-semibold text-dark">Most Capacity Workcenters</h3>
-                    <p class="small text-muted mb-4">TOP 5 Workcenter dengan kapasitas tertinggi</p>
-                      <div style="height: 24rem;" class="d-flex align-items-center justify-content-center">
-                        <canvas class="chart-canvas" 
-                                data-type="pie"
-                                data-labels="{{ json_encode($pieChartLabels) }}"
-                                data-datasets="{{ json_encode($pieChartDatasets) }}"></canvas>
+                    <h3 class="h5 fw-semibold text-dark">Peringkat 5 Workcenter</h3>
+                    <p class="small text-muted mb-4">Berdasarkan total kapasitas tertinggi.</p>
+                    <div style="height: 24rem;">
+                        <canvas id="lollipopChart"></canvas> 
                     </div>
                 </div>
             </div>
         </div>
+        
     </div>
 
     <!-- Tabel Section -->
@@ -241,10 +244,10 @@
                         // Konfigurasi sumbu disesuaikan berdasarkan orientasi
                         x: { 
                             beginAtZero: true,
-                            title: { display: true, text: isMobile ? 'Jumlah' : 'Workcenter' }
+                            title: { display: true, text: isMobile ? 'Jumlah PRO atau Capacity' : 'Workcenter yang ada di Plant ini' }
                         },
                         y: { 
-                            title: { display: true, text: isMobile ? 'Workcenter' : 'Jumlah' }
+                            title: { display: true, text: isMobile ? 'Workcenter yang ada di Plant ini' : 'Jumlah PRO atau Capacity' }
                         }
                     },
                     plugins: {
@@ -287,6 +290,57 @@
                     }
                 }
             });
+
+            const lollipopCanvas = document.getElementById('lollipopChart');
+
+            if (lollipopCanvas) {
+                // Ambil data dari Blade
+                const labels = @json($lolipopChartLabels ?? []);
+                const datasets = @json($lolipopChartDatasets ?? []);
+                
+                const ctx = lollipopCanvas.getContext('2d');
+                
+                new Chart(ctx, {
+                    type: 'bar', // Tipe dasar chart adalah 'bar'
+                    data: {
+                        labels: labels,
+                        datasets: datasets // Masukkan dua dataset kita di sini
+                    },
+                    options: {
+                        // Kunci untuk membuatnya horizontal
+                        indexAxis: 'y', 
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Total Kapasitas'
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        },
+                        plugins: {
+                            // Sembunyikan legenda, karena sudah jelas dari judul
+                            legend: {
+                                display: false
+                            },
+                            // Atur tooltip agar tidak menampilkan keduanya (gagang & titik)
+                            tooltip: {
+                                // Hanya tampilkan tooltip untuk dataset titik (dataset ke-2, index 1)
+                                filter: function (tooltipItem) {
+                                    return tooltipItem.datasetIndex === 1;
+                                }
+                            }
+                        }
+                    }
+                });
+            }
         });
     </script>
 </x-layouts.app>

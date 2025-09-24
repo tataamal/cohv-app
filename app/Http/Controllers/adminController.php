@@ -123,16 +123,16 @@ class adminController extends Controller
             ->get();
 
         // 2. Siapkan data untuk Chart.js dari hasil query
-        $pieChartLabels       = $topWcByCapacity->pluck('ARBPL')->all();
-        $pieChartData         = $topWcByCapacity->pluck('total_capacity')->all();
-        $pieChartDescriptions = $topWcByCapacity->pluck('description')->all(); // Data deskripsi untuk tooltip
+        $lolipopChartLabels       = $topWcByCapacity->pluck('ARBPL')->all();
+        $lolipopChartData         = $topWcByCapacity->pluck('total_capacity')->all();
+        $lolipopChartDescriptions = $topWcByCapacity->pluck('description')->all(); // Data deskripsi untuk tooltip
 
         // 3. Siapkan dataset untuk dikirim ke view, kini dengan deskripsi dan satuan
-        $pieChartDatasets = [
+        $lolipopChartDatasets = [
             [
                 'label'           => 'Distribusi Kapasitas',
-                'data'            => $pieChartData,
-                'descriptions'    => $pieChartDescriptions, // Kirim deskripsi untuk tooltip
+                'data'            => $lolipopChartData,
+                'descriptions'    => $lolipopChartDescriptions, // Kirim deskripsi untuk tooltip
                 'satuan'          => 'Jam',                  // Kirim satuan
                 'backgroundColor' => [
                     'rgba(255, 166, 158, 0.8)', // Soft Coral (alpha diperbaiki)
@@ -186,8 +186,8 @@ class adminController extends Controller
             'targetUrls' => $targetUrls,
             'doughnutChartLabels' => $doughnutChartLabels,
             'doughnutChartDatasets' => $doughnutChartDatasets,
-            'pieChartLabels' => $pieChartLabels,
-            'pieChartDatasets' => $pieChartDatasets,
+            'lolipopChartLabels' => $lolipopChartLabels,
+            'lolipopChartDatasets' => $lolipopChartDatasets,
             'kode' => $kode,
             'nama_bagian' => $nama_bagian,
         ]);  
