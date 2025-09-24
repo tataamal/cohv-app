@@ -169,7 +169,7 @@ def sync_data_for_date(target_date):
                         'AUFNR': row.get('AUFNR'), 
                         'WERKS': mapped_werks_from_data,
                         'CHARG': row.get('CHARG'), 'MATNR': row.get('MATNR'),
-                        'MAKTX': row.get('MAKTX'), 'KDAUF': row.get('DAUF'), 'KDPOS': row.get('KDPOS'),
+                        'MAKTX': row.get('MAKTX'), 'KDAUF': row.get('MAT_KDAUF'), 'KDPOS': row.get('MAT_KDPOS'),
                         'KUNNR': row.get('KUNNR'), 'NAME2': row.get('NAME2'),
                         'PSMNG': safe_convert(row.get('PSMNG'), float, 0.0),
                         'MENGE': safe_convert(row.get('MENGE'), float, 0.0),
