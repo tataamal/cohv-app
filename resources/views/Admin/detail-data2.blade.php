@@ -7,10 +7,11 @@
             <div class="card-body p-3">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                     <div>
-                        <h1 class="h5 fw-semibold text-dark mb-1">Kode Plant: {{ $plant }}</h1>
+                        <h1 class="h5 fw-semibold text-dark mb-1">Kode Plant: {{ $WERKS }}</h1>
                         <p class="small text-muted mb-0">
-                            <span class="fw-medium text-body-secondary">Nama Bagian:</span> {{ $bagian }} |
-                            <span class="fw-medium text-body-secondary">Kategori:</span> {{ $categories }}
+                            <span class="fw-medium text-body-secondary">Nama Bagian : </span> {{ $bagian }} |
+                            <span class="fw-medium text-body-secondary">Kategori : </span> {{ $categories }} | 
+                            <span class="fw-medium text-body-secondary">Kode Laravel : </span> {{ $plant }}
                         </p>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0">
@@ -39,7 +40,7 @@
                             <form method="GET" class="w-100" style="max-width: 320px;">
                                 <div class="input-group">
                                     <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari Buyer..."
+                                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Mau Cari Buyer Siapa ?"
                                         class="form-control border-start-0" id="searchInput">
                                 </div>
                             </form>
@@ -48,37 +49,50 @@
                         <div class="table-responsive scrollable">
                             <table class="table table-hover align-middle mb-0">
                                 <thead>
-                                <tr class="small">
-                                    <th class="text-center" style="width: 5%;">No.</th>
-                                    <th>Buyer Name</th>
-                                    <th style="width: 5%;"></th>
-                                </tr>
+                                    <tr class="small">
+                                        <th class="text-center" style="width: 5%;">No.</th>
+                                        <th>Buyer Name</th>
+                                        <th style="width: 5%;"></th>
+                                    </tr>
                                 </thead>
-                                <tbody>
-                                @forelse($tdata as $item)
-                                    @php $key = ($item->KUNNR ?? '') . '-' . ($item->NAME1 ?? ''); @endphp
-                                    <tr class="cursor-pointer" data-key="{{ $key }}" onclick="openSalesItem(this)">
-                                    <td class="text-center text-muted">{{ $loop->iteration }}</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                        <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle rounded-circle me-3" style="width: 32px; height: 32px;">
-                                            <span class="fw-bold text-primary">{{ substr($item->NAME1 ?? 'N/A', 0, 1) }}</span>
-                                        </div>
-                                        <span class="fw-semibold text-dark">{{ $item->NAME1 ?? '-' }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="text-center text-muted">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </td>
+                                <tbody id="salesOrderTableBody"> 
+                                    @forelse($tdata as $item)
+                                        @php $key = ($item->KUNNR ?? '') . '-' . ($item->NAME1 ?? ''); @endphp
+                                        
+                                        {{-- ✨ PERUBAHAN: Tambahkan atribut data-searchable-text --}}
+                                        <tr class="cursor-pointer" 
+                                            data-key="{{ $key }}" 
+                                            onclick="openSalesItem(this)" 
+                                            data-searchable-text="{{ strtolower($item->NAME1 ?? '') }}">
+                                            
+                                            <td class="text-center text-muted">{{ $loop->iteration }}</td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle rounded-circle me-3" style="width: 32px; height: 32px;">
+                                                        <span class="fw-bold text-primary">{{ substr($item->NAME1 ?? 'N/A', 0, 1) }}</span>
+                                                    </div>
+                                                    <span class="fw-semibold text-dark">{{ $item->NAME1 ?? '-' }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-center text-muted">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="text-center p-5 text-muted">Tidak ada data ditemukan.</td>
+                                        </tr>
+                                    @endforelse
+
+                                    <tr id="noResultsRow" style="display: none;">
+                                        <td colspan="3" class="text-center p-5 text-muted">
+                                            <i class="fas fa-search fs-4 d-block mb-2"></i>
+                                            Tidak ada data yang cocok dengan pencarian Anda.
+                                        </td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                    <td colspan="3" class="text-center p-5 text-muted">Tidak ada data ditemukan.</td>
-                                    </tr>
-                                @endforelse
                                 </tbody>
                             </table>
-                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -91,6 +105,7 @@
                             <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus(this, 'all')">All</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'crtd')">PRO (CRTD)</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'released')">PRO (Released)</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'outgoing')">PRO (Outgoing)</button>
                         </div>
                     </div>
                     
@@ -120,7 +135,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <input type="search" id="proSearchInput" class="form-control" placeholder="🔍 Cari berdasarkan Kode PRO...">
+                        <input type="search" id="proSearchInput" class="form-control" placeholder="Silahkan cari data menggunakan PRO, MRP, atau Start Date nya...">
                     </div>
                     
                     <div class="table-responsive border rounded-3">
@@ -142,7 +157,15 @@
                                     <th class="text-center">Finish Date</th>
                                 </tr>
                             </thead>
-                            <tbody id="tdata3-body"></tbody>
+                            <tbody id="tdata3-body">
+                                
+                                <tr id="tdata3-no-results" style="display: none;">
+                                    <td colspan="13" class="text-center p-5 text-muted"> 
+                                        <i class="fas fa-search fs-4 d-block mb-2"></i>
+                                        Tidak ada data yang cocok dengan pencarian Anda.
+                                    </td>
+                                </tr>
+                                </tbody>
                         </table>
                     </div>
                     <div id="tdata3-pagination" class="mt-3 d-flex justify-content-between align-items-center d-none"></div>
@@ -404,7 +427,7 @@
 
         function renderTData2Table(key) {
             const box = document.getElementById('tdata2-section');
-            const rows = allTData2[key] || []; // Menggunakan allT2Data sesuai variabel di kode sebelumnya
+            const rows = allTData2[key] || [];
 
             const cardWrapper = document.createElement('div');
             cardWrapper.className = 'card shadow-sm border-0';
@@ -414,7 +437,7 @@
             } else {
                 let scrollStyle = '';
                 if (rows.length > 8) {
-                    scrollStyle = 'style="max-height: 300px; overflow-y: auto;"';
+                    scrollStyle = 'style="max-height: 400px; overflow-y: auto;"'; // Sedikit lebih tinggi
                 }
 
                 let tableHtml = `
@@ -424,8 +447,8 @@
                             position: sticky;
                             top: 0;
                             z-index: 1;
-                            background-color: #fff; 
-                            box-shadow: inset 0 -2px 0 #dee2e6; 
+                            background-color: #f8f9fa; /* Warna latar yang lebih solid */
+                            box-shadow: inset 0 -2px 0 #dee2e6;
                         }
                     </style>
                     <div class="card-body">
@@ -433,7 +456,7 @@
                             <h3 id="tdata2-title" class="h5 fw-semibold text-dark mb-0">Outstanding Order</h3>
                             <div id="tdata2-search-wrapper" class="input-group" style="max-width: 320px;">
                                 <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                                <input type="text" id="tdata2-search" oninput="filterTData2Table()" placeholder="Cari di tabel ini..." class="form-control border-start-0">
+                                <input type="text" id="tdata2-search" oninput="filterTData2Table()" placeholder="Cari SO, Material..." class="form-control border-start-0">
                             </div>
                         </div>
 
@@ -448,11 +471,11 @@
                                         <th style="width: 5%;"></th>
                                     </tr>
                                 </thead>
-                                <tbody id="tdata2-body">`; // <-- PERUBAHAN DI SINI: dari 'tdata2-tbody' menjadi 'tdata2-body'
+                                <tbody id="tdata2-body">`;
                 
                 rows.forEach((r, i) => {
                     const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
-                    const t3 = allTData3[soKey] || allTData3[key] || [];
+                    const t3 = allTData3[soKey] || []; // Penyesuaian logika pengambilan data
                     let ploCount = 0, proCrt = 0, proRel = 0;
                     t3.forEach(d3 => {
                         if (d3.PLNUM && !d3.AUFNR) ploCount++;
@@ -461,8 +484,16 @@
                             else if (['PCNF','REL','CNF REL'].includes(d3.STATS)) proRel++;
                         }
                     });
+
+                    const searchableText = [
+                        r.KDAUF,
+                        ltrim(r.KDPOS, '0'),
+                        ltrim(r.MATFG, '0'),
+                        r.MAKFG
+                    ].join(' ').toLowerCase();
+
                     tableHtml += `
-                        <tr class="t2-row cursor-pointer" data-key="${soKey}" data-index="${i}">
+                        <tr class="t2-row cursor-pointer" data-key="${soKey}" data-index="${i}" data-searchable-text="${sanitize(searchableText)}">
                             <td class="text-center text-muted small">${i + 1}</td>
                             <td class="fw-semibold text-dark">${sanitize(r.KDAUF || '-')}</td>
                             <td class="text-muted">${ltrim(r.KDPOS, '0')}</td>
@@ -475,8 +506,15 @@
                             <td class="text-center text-muted"><i class="fas fa-chevron-right"></i></td>
                         </tr>`;
                 });
-                
-                tableHtml += `</tbody></table></div>
+
+                tableHtml += `
+                    <tr id="tdata2-no-results" style="display: none;">
+                        <td colspan="10" class="text-center p-5 text-muted">
+                            <i class="fas fa-search fs-4 d-block mb-2"></i>
+                            Tidak ada data yang cocok dengan pencarian Anda.
+                        </td>
+                    </tr>
+                </tbody></table></div>
                         <p class="mt-3 small text-muted">Klik salah satu baris untuk melihat ORDER OVERVIEW TABLE.</p>
                         </div>`;
                 cardWrapper.innerHTML = tableHtml;
@@ -485,10 +523,47 @@
             box.innerHTML = '';
             box.appendChild(cardWrapper);
             box.classList.remove('d-none');
-            // Pastikan event listener memanggil fungsi yang benar
+            
             box.querySelectorAll('.t2-row').forEach(tr => {
                 tr.addEventListener('click', () => handleClickTData2Row(tr.dataset.key, tr));
             });
+        }
+
+        function filterTData2Table() {
+            // 1. Ambil elemen yang diperlukan dari dalam tabel yang sudah dirender
+            const searchInput = document.getElementById('tdata2-search');
+            const tableBody = document.getElementById('tdata2-body');
+            
+            // Pastikan elemen ada sebelum melanjutkan
+            if (!searchInput || !tableBody) return;
+
+            const tableRows = tableBody.querySelectorAll('tr.t2-row');
+            const noResultsRow = document.getElementById('tdata2-no-results');
+            
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let visibleRowsCount = 0;
+
+            // 2. Loop melalui setiap baris data
+            tableRows.forEach(row => {
+                const searchableText = row.dataset.searchableText;
+
+                // 3. Cek kecocokan dan tampilkan/sembunyikan baris
+                if (searchableText && searchableText.includes(searchTerm)) {
+                    row.style.display = ''; // Tampilkan baris
+                    visibleRowsCount++;
+                } else {
+                    row.style.display = 'none'; // Sembunyikan baris
+                }
+            });
+
+            // 4. Atur visibilitas pesan "tidak ada hasil"
+            if (noResultsRow) {
+                if (visibleRowsCount === 0 && tableRows.length > 0) {
+                    noResultsRow.style.display = ''; // Tampilkan pesan
+                } else {
+                    noResultsRow.style.display = 'none'; // Sembunyikan pesan
+                }
+            }
         }
 
         function showTData1ByAufnr(aufnr) {
@@ -906,6 +981,14 @@
             if (status === 'plo') filteredData = allRowsData.filter(d3 => d3.PLNUM && !d3.AUFNR);
             else if (status === 'crtd') filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.STATS === 'CRTD');
             else if (status === 'released') filteredData = allRowsData.filter(d3 => d3.AUFNR && ['PCNF','REL','CNF REL'].includes(d3.STATS));
+            else if (status === 'outgoing') {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                const todayString = `${year}-${month}-${day}`;
+                filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.GSTRP === todayString);
+            }
 
             renderT3Page(filteredData);
         }
@@ -1633,43 +1716,53 @@
 
         document.addEventListener('DOMContentLoaded', function () {
 
-            // 1. Dapatkan elemen input dan tabel body
-            const searchInput = document.getElementById('proSearchInput');
-            const tableBody = document.getElementById('tdata3-body'); // Asumsikan tbody Anda punya ID ini
+        // 1. Dapatkan elemen yang dibutuhkan
+        const searchInput = document.getElementById('proSearchInput');
+        const tableBody = document.getElementById('tdata3-body');
+        const noResultsRow = document.getElementById('tdata3-no-results');
+
+        // Pastikan elemennya ada
+        if (searchInput && tableBody && noResultsRow) {
             
-            // Pastikan elemennya ada sebelum menambahkan event listener
-            if (searchInput && tableBody) {
+            // Gunakan event 'input' agar lebih responsif daripada 'keyup'
+            searchInput.addEventListener('input', function() {
                 
-                // 2. Tambahkan event listener 'keyup' yang akan aktif setiap kali tombol dilepas
-                searchInput.addEventListener('keyup', function() {
-                    
-                    // 3. Ambil teks pencarian dan ubah ke huruf besar agar tidak case-sensitive
-                    const filterText = searchInput.value.toUpperCase();
-                    
-                    // 4. Dapatkan semua baris (tr) di dalam tabel body
-                    const tableRows = tableBody.getElementsByTagName('tr');
+                const filterText = searchInput.value.toUpperCase().trim();
+                const tableRows = tableBody.getElementsByTagName('tr');
+                let visibleRowsCount = 0;
 
-                    // 5. Loop melalui setiap baris untuk membandingkan
-                    for (let i = 0; i < tableRows.length; i++) {
-                        // Ambil sel (td) ketiga, karena di situlah Kode PRO berada (index 2)
-                        let td = tableRows[i].getElementsByTagName('td')[2]; 
-                        
-                        if (td) {
-                            let textValue = td.textContent || td.innerText;
-                            
-                            // 6. Cek apakah teks di sel PRO mengandung teks pencarian
-                            if (textValue.toUpperCase().indexOf(filterText) > -1) {
-                                // Jika cocok, tampilkan barisnya
-                                tableRows[i].style.display = "";
-                            } else {
-                                // Jika tidak cocok, sembunyikan barisnya
-                                tableRows[i].style.display = "none";
-                            }
-                        }
+                // Loop melalui setiap baris (kecuali baris "no-results")
+                for (let i = 0; i < tableRows.length; i++) {
+                    const row = tableRows[i];
+                    
+                    // Lewati baris "no-results" dalam loop
+                    if (row.id === 'tdata3-no-results') continue;
+
+                    const cells = row.getElementsByTagName('td');
+                    let rowText = '';
+
+                    // ✨ PERUBAHAN UTAMA: Gabungkan teks dari semua sel (td) dalam satu baris
+                    for (let j = 0; j < cells.length; j++) {
+                        rowText += (cells[j].textContent || cells[j].innerText) + ' ';
                     }
-                });
-            }
+                    
+                    // Cek apakah gabungan teks baris mengandung teks pencarian
+                    if (rowText.toUpperCase().indexOf(filterText) > -1) {
+                        row.style.display = ""; // Tampilkan baris
+                        visibleRowsCount++;
+                    } else {
+                        row.style.display = "none"; // Sembunyikan baris
+                    }
+                }
 
+                // ✨ BARU: Tampilkan atau sembunyikan pesan "tidak ada hasil"
+                if (visibleRowsCount === 0) {
+                    noResultsRow.style.display = ''; // Tampilkan pesan jika tidak ada baris yang terlihat
+                } else {
+                    noResultsRow.style.display = 'none'; // Sembunyikan pesan jika ada hasil
+                }
+            });
+        }
         });
 
         function handleEditClick(buttonElement) {
@@ -1705,7 +1798,77 @@
             dataModal.show();
         }
 
-        
+        document.addEventListener('DOMContentLoaded', function () {
+            // 1. Ambil elemen input pencarian dan elemen lainnya yang dibutuhkan
+            const searchInput = document.getElementById('searchInput');
+            const tableBody = document.getElementById('salesOrderTableBody');
+            const tableRows = tableBody.querySelectorAll('tr:not(#noResultsRow)'); // Ambil semua baris data
+            const noResultsRow = document.getElementById('noResultsRow');
+
+            // Pastikan semua elemen ada sebelum menjalankan script
+            if (searchInput && tableBody && noResultsRow) {
+                
+                // 2. Tambahkan event listener 'input' pada kotak pencarian
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = searchInput.value.toLowerCase().trim();
+                    let visibleRowsCount = 0;
+
+                    // 3. Loop melalui setiap baris data di tabel
+                    tableRows.forEach(row => {
+                        const searchableText = row.dataset.searchableText;
+
+                        // 4. Cek apakah teks di baris mengandung kata kunci pencarian
+                        if (searchableText && searchableText.includes(searchTerm)) {
+                            row.style.display = ''; // Tampilkan baris jika cocok
+                            visibleRowsCount++;
+                        } else {
+                            row.style.display = 'none'; // Sembunyikan baris jika tidak cocok
+                        }
+                    });
+
+                    // 5. Tampilkan atau sembunyikan pesan "tidak ada hasil"
+                    if (visibleRowsCount === 0 && tableRows.length > 0) {
+                        noResultsRow.style.display = ''; // Tampilkan pesan
+                    } else {
+                        noResultsRow.style.display = 'none'; // Sembunyikan pesan
+                    }
+                });
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const visibleDateInput = document.getElementById('visibleDate');
+            const scheduleDateInput = document.getElementById('scheduleDate');
+            const dateError = document.getElementById('dateError');
+
+            flatpickr("#visibleDate", {
+                // Opsi ini akan membuat input tersembunyi dan mengisinya dengan format backend
+                "altInput": true,
+                "altFormat": "d/m/Y", // Format yang dilihat pengguna (dd/mm/yyyy)
+                "dateFormat": "Y-m-d", // Format yang dikirim ke backend (YYYY-MM-DD)
+                
+                // Langsung nonaktifkan tanggal lampau di kalender
+                "minDate": "today",
+
+                // Fungsi yang berjalan setiap kali tanggal berubah
+                "onChange": function(selectedDates, dateStr, instance) {
+                    // Cek manual jika pengguna mengetik tanggal lampau
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0); // Atur jam ke awal hari untuk perbandingan akurat
+
+                    if (selectedDates[0] < today) {
+                        // Jika tanggal lampau, tambahkan border merah dan tampilkan pesan
+                        visibleDateInput.classList.add('is-invalid');
+                        dateError.style.display = 'block';
+                    } else {
+                        // Jika valid, hapus border merah dan sembunyikan pesan
+                        visibleDateInput.classList.remove('is-invalid');
+                        dateError.style.display = 'none';
+                    }
+                }
+            });
+        });
+
     </script>
 @endpush
 </x-layouts.app>

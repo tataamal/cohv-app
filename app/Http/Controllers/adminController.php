@@ -11,6 +11,7 @@ use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
 use App\Models\Kode;
 use App\Models\SapUser;
+use Carbon\Carbon;
 
 class adminController extends Controller
 {
@@ -172,6 +173,14 @@ class adminController extends Controller
         $outstandingReservasi = ProductionTData4::where('WERKSX', $kode)
                                     ->whereColumn('KALAB', '<', 'BDMNG')
                                     ->count();
+        $today = Carbon::today();
+        $ongoingPRO = ProductionTData3::where('WERKSX', $kode)
+                              ->whereDate('GSTRP', $today)
+                              ->count();
+        $ongoingProData = ProductionTData3::where('WERKSX', $kode)
+                              ->whereDate('GSTRP', $today)
+                              ->latest('AUFNR') // Opsional: tetap diurutkan
+                              ->get();
         $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
 
         return view('Admin.dashboard', [
@@ -180,7 +189,9 @@ class adminController extends Controller
             'TData2' => $TData2, 
             'TData3' => $TData3, 
             'TData4' => $TData4,
-            'outstandingReservasi' => $outstandingReservasi, 
+            'outstandingReservasi' => $outstandingReservasi,
+            'ongoingPRO'  => $ongoingPRO,
+            'ongoingProData' => $ongoingProData,
             'labels' => $labels, 
             'datasets' => $datasets, // 'datasets' sekarang berisi deskripsi dan satuan
             'targetUrls' => $targetUrls,

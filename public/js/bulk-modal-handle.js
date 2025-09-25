@@ -32,6 +32,13 @@ function updateBulkControls() {
 // const bulkScheduleModal = new bootstrap.Modal(document.getElementById('bulkScheduleModal')); // Inisialisasi modal
 
 function openBulkScheduleModal() {
+    if (bulkDatePicker) {
+        bulkDatePicker.setDate(new Date(), true);
+    } else {
+        console.error("Picker untuk modal bulk belum siap/ditemukan.");
+        alert("Terjadi kesalahan, date picker tidak dapat dimuat.");
+    }
+    
     if (selectedPRO.size === 0) {
         Swal.fire('Info', 'Tidak ada Production Order (PRO) yang dipilih.', 'info');
         return;
@@ -60,7 +67,7 @@ function openBulkScheduleModal() {
     });
 
     // Set tanggal hari ini sebagai default
-    document.getElementById('bulkScheduleDate').valueAsDate = new Date();
+    bulkDatePicker.setDate(new Date(), true); 
 
     // Tampilkan modal
     bulkScheduleModal.show();

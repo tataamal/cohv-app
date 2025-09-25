@@ -66,7 +66,45 @@ body.sidebar-collapsed #content-wrapper {
 .btn-logout-icon { font-size: 1.1rem; }
 .btn-logout-text { white-space: nowrap; opacity: 1; transition: opacity 0.2s ease; }
 .sidebar-collapse-toggle { position: absolute; top: 50%; right: -15px; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; background-color: var(--primary-color); color: white; border: 2px solid white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform var(--transition-speed) ease; z-index: 10; }
+submenu {
+    padding-left: 1.5rem; /* Beri sedikit indentasi dari item induk */
+    margin-top: 0.5rem;
+}
 
+.submenu-item .submenu-link {
+    display: block;
+    padding: 0.6rem 1rem;
+    margin-bottom: 0.25rem;
+    border-radius: 8px; /* Memberikan 'shape' atau sudut melengkung */
+    transition: all 0.2s ease-in-out;
+    position: relative;
+    color: #6c757d; /* Warna teks default */
+    text-decoration: none;
+}
+
+.submenu-item .submenu-link:hover {
+    background-color: #f8f9fa; /* Warna latar saat cursor di atasnya */
+    color: #212529;
+}
+
+/* Style untuk item yang sedang aktif */
+.submenu-item .submenu-link.active {
+    background-color: #f3e8ff; /* Warna latar ungu muda, serasi dengan induk */
+    color: #9333ea; /* Warna teks ungu tua */
+    font-weight: 600; /* Membuat teks sedikit tebal */
+}
+
+.submenu-item .submenu-link.active::before {
+    content: '';
+    position: absolute;
+    left: -8px; /* Posisi di luar shape utama */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    background-color: #9333ea; /* Warna ungu tua yang sama dengan teks */
+    border-radius: 50%;
+}
 body.sidebar-collapsed .sidebar-brand-text,
 body.sidebar-collapsed .nav-section-text,
 body.sidebar-collapsed .nav-link-text,

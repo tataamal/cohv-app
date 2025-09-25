@@ -10,8 +10,18 @@
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="scheduleDate" class="form-label">Tanggal</label>
-                            <input type="date" name="date" id="scheduleDate" required class="form-control">
+                            <label for="visibleDate" class="form-label">Tanggal</label>
+                            
+                            {{-- Input ini yang akan dilihat dan diisi pengguna --}}
+                            <input type="text" id="visibleDate" placeholder="dd/mm/yyyy" class="form-control">
+                            
+                            {{-- Input ini tersembunyi, nilainya akan diisi otomatis untuk backend --}}
+                            <input type="hidden" name="date" id="scheduleDate">
+                            
+                            {{-- Tempat untuk pesan error, awalnya disembunyikan --}}
+                            <div id="dateError" class="invalid-feedback" style="display: none;">
+                                Tanggal tidak boleh sebelum hari ini.
+                            </div>
                         </div>
                         <div>
                             <label for="scheduleTime" class="form-label">Jam (HH.MM.SS)</label>

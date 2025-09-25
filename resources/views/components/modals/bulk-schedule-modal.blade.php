@@ -23,7 +23,10 @@
                     </div>
                     <div class="mb-3">
                         <label for="bulkScheduleDate" class="form-label">Set Tanggal Tujuan</label>
-                        <input type="date" name="date" id="bulkScheduleDate" required class="form-control">
+                        <input type="date" name="date" id="bulkScheduleDate" min="{{ date('Y-m-d') }}" required class="form-control">
+                        <div class="invalid-feedback" id="bulkDateError">
+                            Tanggal tidak boleh sebelum hari ini.
+                        </div>
                     </div>
                     <div>
                         <label for="bulkScheduleTime" class="form-label">Set Jam Tujuan (HH.MM.SS)</label>

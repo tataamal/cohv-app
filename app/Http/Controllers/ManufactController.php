@@ -261,6 +261,8 @@ class ManufactController extends Controller
         $workCenters = workcenter::where('WERKSX', $kode)
                          ->orderBy('kode_wc')
                          ->get();
+        
+        $werksValue = $allTData3_flat->isNotEmpty() ? $allTData3_flat->first()->PWWRK : null;
 
         // 5. Kirim semua data yang sudah benar ke view
         return view('Admin.detail-data2', [
@@ -270,6 +272,7 @@ class ManufactController extends Controller
             'tdata'            => $tdata,
             'allTData2'        => $allTData2,
             'allTData3'        => $allTData3Grouped,
+            'WERKS'            => $werksValue,
             'allTData1'        => $allTData1ByAufnr,
             'allTData4ByAufnr' => $allTData4ByAufnr,
             'allTData4ByPlnum' => $allTData4ByPlnum,
