@@ -1261,25 +1261,29 @@
             if (!id) return; 
 
             if (checkbox.checked) {
-                // 1. Isi Set untuk fitur lama
+                if (mappedPRO.size > 0 && rowData.WERKSX !== bulkActionPlantCode) {
+                    Swal.fire(
+                        'Aksi Diblokir',
+                        'Anda hanya dapat memilih PRO dari plant yang sama (' + bulkActionPlantCode + ').',
+                        'warning'
+                    );
+                    checkbox.checked = false; // Batalkan centang secara otomatis
+                    return; // Hentikan fungsi
+                }
+
                 selectedPRO.add(id);
-                
-                // 2. Isi Map (mappedPRO) untuk fitur baru
                 mappedPRO.set(id, rowData);
 
-                // Logika untuk plant code
+                // Atur plant code hanya pada pilihan pertama
                 if (mappedPRO.size === 1) { 
                     bulkActionPlantCode = rowData.WERKSX;
                 }
 
             } else { // Jika tidak dicentang
-                // 1. Hapus dari Set untuk fitur lama
                 selectedPRO.delete(id);
-                
-                // 2. Hapus dari Map (mappedPRO) untuk fitur baru
                 mappedPRO.delete(id);
 
-                // Logika untuk reset plant code
+                // Reset plant code jika tidak ada lagi yang dipilih
                 if (mappedPRO.size === 0) {
                     bulkActionPlantCode = null;
                 }
@@ -1867,6 +1871,46 @@
                     }
                 }
             });
+        });
+
+        let bulkDatePicker;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const visibleDateInput = document.getElementById('bulkVisibleDate');
+            const hiddenDateInput = document.getElementById('bulkScheduleDate');
+            const errorDiv = document.getElementById('bulkDateError');
+            const submitButton = document.getElementById('confirmBulkScheduleBtn');
+
+            if (visibleDateInput && hiddenDateInput && errorDiv && submitButton) {
+                const bulkElement = document.getElementById('bulkVisibleDate');
+                if (bulkElement) {
+                    // Isi variabel global yang sudah kita deklarasikan di atas
+                    bulkDatePicker = flatpickr(bulkElement, {
+                        "altInput": true,
+                        "altFormat": "d/m/Y",
+                        "dateFormat": "Y-m-d",
+                        "minDate": "today",
+                        "onChange": function(selectedDates, dateStr, instance) {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+
+                            if (selectedDates.length === 0 || selectedDates[0] < today) {
+                                // Jika tanggal KOSONG atau LAMPAU
+                                visibleDateInput.classList.add('is-invalid');
+                                errorDiv.style.display = 'block';
+                                submitButton.disabled = true;
+                            } else {
+                                // Jika tanggal VALID
+                                visibleDateInput.classList.remove('is-invalid');
+                                errorDiv.style.display = 'none';
+                                submitButton.disabled = false;
+                            }
+                        }
+                    });
+                } else {
+                    console.warn("Elemen #bulkVisibleDate tidak ditemukan saat halaman dimuat.");
+                }
+            }
         });
 
     </script>

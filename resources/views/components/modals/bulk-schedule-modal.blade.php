@@ -22,8 +22,12 @@
                         <p class="form-control-plaintext bg-light border rounded px-2" id="bulkSchedulePlant"></p>
                     </div>
                     <div class="mb-3">
-                        <label for="bulkScheduleDate" class="form-label">Set Tanggal Tujuan</label>
-                        <input type="date" name="date" id="bulkScheduleDate" min="{{ date('Y-m-d') }}" required class="form-control">
+                        <label for="bulkVisibleDate" class="form-label">Set Tanggal Tujuan</label>
+                        
+                        <input type="text" id="bulkVisibleDate" placeholder="dd/mm/yyyy" class="form-control">
+                        
+                        <input type="hidden" name="date" id="bulkScheduleDate">
+                        
                         <div class="invalid-feedback" id="bulkDateError">
                             Tanggal tidak boleh sebelum hari ini.
                         </div>

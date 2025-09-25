@@ -1,27 +1,24 @@
+// Fungsi ini akan menangani logika saat tombol konfirmasi di modal diklik
 function handleConfirmChangePV() {
     const confirmBtn = document.getElementById('confirmBulkChangePvBtn');
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Memproses...`;
 
-    const allVeridSelects = document.querySelectorAll('#pairedDataBody .verid-select');
-    
-    const finalData = [];
-    allVeridSelects.forEach(selectElement => {
-        // Ambil nomor PRO dari atribut 'data-pro'
-        const proNumber = selectElement.dataset.pro;
-        // Ambil nilai VERID yang terbaru dari dropdown
-        const selectedVerid = selectElement.value;
+    // 1. === PERUBAHAN UTAMA: CARA MENGAMBIL DATA ===
+    // Ambil VERID tujuan dari satu-satunya dropdown
+    const targetVerid = document.getElementById('targetVeridSelect').value;
 
-        finalData.push({
-            pro: proNumber,
-            verid: selectedVerid
-        });
-    });
+    // Ambil daftar PRO dari variabel 'mappedPRO' yang sudah kita simpan
+    const proNumbers = Array.from(mappedPRO.keys());
+
+    // 2. === PERUBAHAN UTAMA: STRUKTUR PAYLOAD BARU ===
     const payload = {
         plant: bulkActionPlantCode,
-        data: finalData 
+        verid: targetVerid,
+        pro_list: proNumbers
     };
     
+    // 3. PROSES FETCH (TETAP SAMA)
     fetch('/bulk-change-and-refresh', {
         method: 'POST',
         headers: {
@@ -33,20 +30,16 @@ function handleConfirmChangePV() {
     })
     .then(response => response.json().then(data => ({ok: response.ok, body: data})))
     .then(({ok, body}) => {
-        // Jika server mengembalikan error HTTP (misal: 500, 404)
         if (!ok) {
             throw new Error(body.message || 'Terjadi kesalahan pada server.');
         }
 
-        console.log('Proses selesai, respons dari Laravel:', body);
         bulkChangePvModal.hide();
         
+        // Logika SweetAlert Anda sudah sangat bagus, tidak perlu diubah
         let swalTitle = 'Gagal!';
         let swalIcon = 'error';
         let swalMessage = body.message || 'Terjadi kesalahan yang tidak diketahui.';
-
-        // Cek status logis yang dikirim oleh controller
-        // Asumsi controller mengembalikan 'status' dari Flask atau 'success' dari dirinya sendiri
         const status = body.status || (body.success ? 'sukses' : 'gagal');
 
         if (status === 'sukses') {
@@ -57,16 +50,18 @@ function handleConfirmChangePV() {
             swalIcon = 'warning';
         }
         
-        // Tampilkan notifikasi yang dinamis
         Swal.fire({
             title: swalTitle,
             text: swalMessage,
             icon: swalIcon,
             didClose: () => {
-                // Muat ulang data di tabel utama hanya jika ada perubahan
+                // Muat ulang data tabel via AJAX (ini lebih baik dari location.reload)
                 if (status === 'sukses' || status === 'sukses_parsial') {
                     if (typeof dataTable !== 'undefined') {
                         dataTable.ajax.reload();
+                    } else {
+                        // Fallback jika dataTable tidak ada
+                        location.reload(); 
                     }
                 }
             }
@@ -78,18 +73,19 @@ function handleConfirmChangePV() {
         Swal.fire('Gagal!', error.message, 'error');
     })
     .finally(() => {
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML ='Tunggu sebentar, sedang memuat data baru...';location.reload();
-        location.reload();
+        // 4. === PERBAIKAN: KEMBALIKAN TOMBOL KE KONDISI SEMULA ===
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML ='Ya, Lanjutkan Proses';
     });
 }
+
+// Event listener untuk memanggil fungsi di atas
 document.addEventListener('DOMContentLoaded', () => {
     const confirmBtn = document.getElementById('confirmBulkChangePvBtn');
     if (confirmBtn) {
         confirmBtn.addEventListener('click', handleConfirmChangePV);
     }
 });
-
 
 
 
