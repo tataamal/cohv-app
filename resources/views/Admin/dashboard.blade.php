@@ -2,199 +2,255 @@
 
     @push('styles')
     <style>
-        /* CSS for making tables scrollable with a sticky header */
+        /* CSS Kustom untuk Tampilan Profesional */
+        body {
+            background-color: var(--bs-body-tertiary);
+        }
+
+        /* Transisi halus untuk elemen interaktif */
+        .card, .btn {
+            transition: all 0.25s ease-in-out;
+        }
+
+        /* Efek hover untuk kartu yang dapat diklik */
+        .card-interactive:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--bs-box-shadow-lg) !important;
+            border-color: var(--bs-primary) !important;
+        }
+
+        /* Styling untuk tabel dengan header sticky */
         .table-container-scroll {
-            max-height: 300px; /* You can adjust the max table height here */
+            max-height: 350px; /* Tinggi maksimal tabel disesuaikan */
             overflow-y: auto;
+            border: 1px solid var(--bs-border-color-translucent);
+            border-radius: var(--bs-border-radius);
         }
         .table-container-scroll thead th {
             position: sticky;
             top: 0;
-            z-index: 1;
-            /* Ensure the background color matches the thead to avoid transparency on scroll */
-            background-color: #f8f9fa !important; 
-        }
-        .chart-container {
-            position: relative;
-            /* Size for Desktop & Tablet */
-            height: 28rem;
+            z-index: 10;
+            background-color: var(--bs-tertiary-bg); /* Menggunakan variabel bootstrap untuk tema */
         }
 
-        /* Specific rules for small screens (mobile) */
-        @media (max-width: 767px) {
-            .chart-container {
-                /* Provide enough height so the chart doesn't collapse on render */
-                height: 400px; 
-                /* Limit max height to avoid it being too large */
-                max-height: 500px; 
+        /* Wrapper untuk konsistensi ukuran chart */
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+            max-height: 50vh;
+        }
+
+        @media (min-width: 992px) {
+            .chart-wrapper {
+                height: 450px;
             }
+        }
+        
+        /* Styling untuk tombol info */
+        .info-button {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            z-index: 5;
         }
     </style>
     @endpush
 
-    <!-- Header Section -->
-    <div class="mb-2">
-        <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-sm-between">
-            <div>
-                <h1 class="h3 fw-bold text-dark">Dashboard Plant - {{ $nama_bagian }}</h1>
-                <p class="mt-2 text-muted">Berikut adalah report dari data COHV</p>
-            </div>
-            <div class="mt-3 mt-sm-0 small text-muted">
-                {{ now()->format('l, d F Y') }}
-            </div>
-        </div>
-    </div>
-
-    <!-- ======================================================= -->
-    <!--          MAIN DASHBOARD SECTIONS COLLECTION             -->
-    <!-- ======================================================= -->
-
-    <!-- Stats Cards Row (Wrapper fixed) -->
-    <div id="cardStatsSection">
-        <div class="row g-4 mb-3 mx-1">
-            <div class="col-12 col-md-6 col-lg">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center">
-                            <div class="d-inline-flex align-items-center justify-content-center bg-info-subtle rounded-3 me-3" style="width: 40px; height: 40px;">
-                                <svg class="text-info-emphasis" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                            <p class="text-muted mb-0">Outstanding SO</p>
-                        </div>
-                        <p class="stat-value h2 fw-bold text-dark mt-3" data-target="{{ $TData2 ?? 0 }}">0</p>
-                    </div>
+    <div class="container-fluid p-3 p-lg-4">
+        <div class="mb-4">
+            <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-sm-between">
+                <div>
+                    <h1 class="h3 fw-bold text-dark">Dashboard Plant - {{ $nama_bagian }}</h1>
+                    <p class="mt-1 text-muted">Selamat datang, berikut adalah informasi dan visualisasi data COHV</p>
                 </div>
-            </div>
-        
-            <div class="col-12 col-md-6 col-lg">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center">
-                            <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle rounded-3 me-3" style="width: 40px; height: 40px;">
-                                <svg class="text-primary" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-                            </div>
-                            <p class="text-muted mb-0">Total PRO</p>
-                        </div>
-                        <p class="stat-value h2 fw-bold text-dark mt-3" data-target="{{ $TData3 ?? 0 }}">0</p>
-                    </div>
-                </div>
-            </div>
-        
-            <div class="col-12 col-md-6 col-lg">
-                <div id="card-outstanding-reservasi" class="card border-0 shadow-sm h-100" style="cursor: pointer;">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center">
-                            <div class="d-inline-flex align-items-center justify-content-center bg-danger-subtle rounded-3 me-3" style="width: 40px; height: 40px;">
-                                <svg class="text-danger-emphasis" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                            <p class="text-muted mb-0">Outstanding Reservasi</p>
-                        </div>
-                        <p class="stat-value h2 fw-bold text-dark mt-3" data-target="{{ $outstandingReservasi ?? 0 }}">0</p>
-                    </div>
-                </div>
-            </div>
-        
-            <div class="col-12 col-md-6 col-lg">
-                <div id="card-outgoing-pro" class="card border-0 shadow-sm h-100" style="cursor: pointer;">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center">
-                            <div class="d-inline-flex align-items-center justify-content-center bg-secondary-subtle rounded-3 me-3" style="width: 40px; height: 40px;">
-                                 <svg class="text-secondary-emphasis" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                            <p class="text-muted mb-0">Outgoing PRO</p>
-                        </div>
-                        <p class="stat-value h2 fw-bold text-dark mt-3" data-target="{{ $ongoingPRO ?? 0 }}">0</p>
-                    </div>
+                <div class="mt-3 mt-sm-0 small text-muted">
+                    <i class="fas fa-calendar-alt me-2"></i>{{ now()->format('l, d F Y') }}
                 </div>
             </div>
         </div>
-    </div>
-    
-    <div id="barChartSection">
-        <div class="row g-4 mx-2 mb-2"> 
-            <div class="col-12">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body p-4">
-                        <h3 class="h5 fw-semibold text-dark">Data Kapasitas Workcenter</h3>
-                        <p class="small text-muted mb-4">Perbandingan Display Jumlah PRO dan Kapasitas di setiap Workcenter</p>
-                        <div class="chart-container item d-flex justify-content-center align-items-center">
-                            <canvas id="myBarChart" data-labels="{{ json_encode($labels ?? []) }}" data-datasets="{{ json_encode($datasets ?? []) }}" data-urls="{{ json_encode($targetUrls ?? []) }}"></canvas>
+
+        <div id="mainDashboardContent">
+            <div id="cardStatsSection" class="row g-4 mb-4">
+                <div class="col-sm-6 col-lg-3">
+                    <div class="card border-0 shadow-sm h-100 position-relative">
+                        <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
+                            data-bs-toggle="popover"
+                            data-bs-trigger="hover focus"
+                            data-bs-placement="top"
+                            data-bs-content="Menampilkan jumlah Sales Order (SO) pada bagian ini">
+                            <i class="fas fa-info"></i>
+                        </button>
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center">
+                                <div class="d-inline-flex align-items-center justify-content-center bg-info-subtle rounded-3 me-3 p-2">
+                                    <svg class="text-info-emphasis" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <p class="text-muted mb-0">Outstanding SO</p>
+                            </div>
+                            <p class="stat-value h2 fw-bold text-dark mt-3 mb-0" data-target="{{ $TData2 ?? 0 }}">0</p>
                         </div>
-                        <div class="mt-3 text-center">
-                            <p class="small text-muted mb-2">Atau klik link Workcenter di bawah ini:</p>
-                            @if (!empty($labels))
-                                @foreach($labels as $index => $label)
-                                    <a href="{{ $targetUrls[$index] ?? '#' }}" class="btn btn-sm btn-outline-primary m-1">
-                                        {{ $label }}
-                                    </a>
-                                @endforeach
-                            @endif
+                    </div>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <div class="card border-0 shadow-sm h-100 position-relative">
+                        <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
+                            data-bs-toggle="popover"
+                            data-bs-trigger="hover focus"
+                            data-bs-placement="top"
+                            data-bs-content="Jumlah total Production Order (PRO) pada bagian ini.">
+                            <i class="fas fa-info"></i>
+                        </button>
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center">
+                                <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle rounded-3 me-3 p-2">
+                                    <svg class="text-primary-emphasis" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                </div>
+                                <p class="text-muted mb-0">Total PRO</p>
+                            </div>
+                            <p class="stat-value h2 fw-bold text-dark mt-3 mb-0" data-target="{{ $TData3 ?? 0 }}">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <div id="card-outstanding-reservasi" class="card border-light-subtle shadow-sm h-100 card-interactive position-relative" style="cursor: pointer;">
+                        <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
+                            data-bs-toggle="popover"
+                            data-bs-trigger="hover focus"
+                            data-bs-placement="top"
+                            data-bs-content="Jumlah material yang dibutuhkan untuk produksi tetapi stoknya belum mencukupi. Klik untuk detail.">
+                            <i class="fas fa-info"></i>
+                        </button>
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center">
+                                <div class="d-inline-flex align-items-center justify-content-center bg-danger-subtle rounded-3 me-3 p-2">
+                                    <svg class="text-danger-emphasis" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <p class="text-muted mb-0">Outstanding Reservasi</p>
+                            </div>
+                            <p class="stat-value h2 fw-bold text-dark mt-3 mb-0" data-target="{{ $outstandingReservasi ?? 0 }}">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <div id="card-outgoing-pro" class="card border-light-subtle shadow-sm h-100 card-interactive position-relative" style="cursor: pointer;">
+                        <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
+                            data-bs-toggle="popover"
+                            data-bs-trigger="hover focus"
+                            data-bs-placement="top"
+                            data-bs-content="Jumlah PRO yang basic start date nya hari ini. click untuk melihat detail...">
+                            <i class="fas fa-info"></i>
+                        </button>
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center">
+                                <div class="d-inline-flex align-items-center justify-content-center bg-success-subtle rounded-3 me-3 p-2">
+                                     <svg class="text-success-emphasis" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <p class="text-muted mb-0">Outgoing PRO</p>
+                            </div>
+                            <p class="stat-value h2 fw-bold text-dark mt-3 mb-0" data-target="{{ $ongoingPRO ?? 0 }}">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chartsSection" class="row g-4">
+                <div class="col-12">
+                    <div class="card shadow-sm border-0 h-100 position-relative">
+                        <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
+                            data-bs-toggle="popover"
+                            data-bs-trigger="hover focus"
+                            data-bs-placement="left"
+                            data-bs-content="Grafik ini membandingkan total jam kapasitas yang tersedia dengan jumlah PRO di setiap workcenter.">
+                            <i class="fas fa-info"></i>
+                        </button>
+                        <div class="card-body p-4">
+                            <h3 class="h5 fw-semibold text-dark">Data Kapasitas Workcenter</h3>
+                            <p class="small text-muted mb-4">Perbandingan Jumlah PRO dan Kapasitas di setiap Workcenter.</p>
+                            <div class="chart-wrapper">
+                                <canvas id="myBarChart" data-labels="{{ json_encode($labels ?? []) }}" data-datasets="{{ json_encode($datasets ?? []) }}" data-urls="{{ json_encode($targetUrls ?? []) }}"></canvas>
+                            </div>
+                            <div class="mt-4 text-center">
+                                <p class="small text-muted mb-2">Navigasi cepat ke Workcenter:</p>
+                                <div class="d-flex flex-wrap justify-content-center gap-2">
+                                @if (!empty($labels))
+                                    @foreach($labels as $index => $label)
+                                        <a href="{{ $targetUrls[$index] ?? '#' }}" class="btn btn-sm btn-outline-primary">
+                                            {{ $label }}
+                                        </a>
+                                    @endforeach
+                                @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0 h-100 position-relative">
+                         <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
+                            data-bs-toggle="popover"
+                            data-bs-trigger="hover focus"
+                            data-bs-placement="left"
+                            data-bs-content="Distribusi persentase dari semua status Production Order yang ada.">
+                            <i class="fas fa-info"></i>
+                        </button>
+                        <div class="card-body p-4 d-flex flex-column">
+                            <h3 class="h5 fw-semibold text-dark">Status PRO</h3>
+                            <p class="small text-muted mb-4">Distribusi status pada Production Order.</p>
+                            <div class="chart-wrapper flex-grow-1">
+                                <canvas id="pieChart" data-labels="{{ json_encode($doughnutChartLabels ?? []) }}" data-datasets="{{ json_encode($doughnutChartDatasets ?? []) }}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0 h-100 position-relative">
+                         <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
+                            data-bs-toggle="popover"
+                            data-bs-trigger="hover focus"
+                            data-bs-placement="left"
+                            data-bs-content="5 workcenter teratas yang memiliki total jam kapasitas paling tinggi.">
+                            <i class="fas fa-info"></i>
+                        </button>
+                        <div class="card-body p-4 d-flex flex-column">
+                            <h3 class="h5 fw-semibold text-dark">Peringkat 5 Workcenter</h3>
+                            <p class="small text-muted mb-4">Berdasarkan total kapasitas tertinggi.</p>
+                            <div class="chart-wrapper flex-grow-1">
+                                <canvas id="lollipopChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div id="pieChartSection">
-        <div class="row g-4 mx-3 mb-4">
-            <div class="col-lg-6">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body p-4">
-                        <h3 class="h5 fw-semibold text-dark">Status PRO</h3>
-                        <p class="small text-muted mb-4">Perbandingan status pada field PRO.</p>
-                        <div style="height: 24rem;" class="d-flex align-items-center justify-content-center">
-                            <canvas id="pieChart" data-labels="{{ json_encode($doughnutChartLabels ?? []) }}" data-datasets="{{ json_encode($doughnutChartDatasets ?? []) }}"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        
-            <div class="col-lg-6">
-                <div class="card shadow-sm border-0 h-100">
-                    <div class="card-body p-4">
-                        <h3 class="h5 fw-semibold text-dark">Peringkat 5 Workcenter</h3>
-                        <p class="small text-muted mb-4">Berdasarkan total kapasitas tertinggi.</p>
-                        <div style="height: 24rem;">
-                            <canvas id="lollipopChart"></canvas> 
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ======================================================= -->
-    <!--         HIDDEN DETAIL SECTIONS COLLECTION               -->
-    <!-- ======================================================= -->
-
-    <!-- Outstanding Reservation Table -->
-    <div id="outstandingReservasiSection" class="row g-4 mx-4" style="display: none;">
-        <div class="col-12">
+        <div id="outstandingReservasiSection" style="display: none;">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
                             <h3 class="h5 fw-semibold text-dark mb-1">Daftar Item Outstanding Reservasi</h3>
                             <p class="small text-muted mb-0">Material yang dibutuhkan belum terpenuhi oleh stok.</p>
                         </div>
-                        <button id="backToDashboardBtn" class="btn btn-outline-secondary">
+                        <button id="backToDashboardBtn" class="btn btn-outline-secondary flex-shrink-0">
                             <i class="fas fa-arrow-left me-2"></i>Kembali ke Dashboard
                         </button>
                     </div>
-                    <div class="w-100 mb-3" style="max-width: 320px;">
+                    <div class="mb-3" style="max-width: 320px;">
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
                             <input type="text" id="realtimeSearchInput" placeholder="Cari Reservasi..." class="form-control border-start-0">
                         </div>
                     </div>
-                    <div class="table-responsive table-container-scroll">
-                        <table class="table table-hover table-striped align-middle">
+                    <div class="table-container-scroll">
+                        <table class="table table-hover table-striped align-middle mb-0">
                             <thead class="table-light">
                                 <tr class="small text-uppercase">
                                     <th class="text-center">No.</th>
-                                    <th class="text-center">No. Reservasi</th>
-                                    <th class="text-center">Kode Material</th>
+                                    <th>No. Reservasi</th>
+                                    <th>Kode Material</th>
                                     <th>Deskripsi Material</th>
                                     <th class="text-center">Req. Qty</th>
                                     <th class="text-end">Stock</th>
@@ -204,8 +260,8 @@
                                 @forelse($TData4 as $item)
                                     <tr data-searchable-text="{{ strtolower(($item->RSNUM ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
                                         <td class="text-center small">{{ $loop->iteration }}</td>
-                                        <td class="text-center small">{{ $item->RSNUM ?? '-' }}</td>
-                                        <td class="text-center small">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}</td>
+                                        <td class="small">{{ $item->RSNUM ?? '-' }}</td>
+                                        <td class="small">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}</td>
                                         <td class="small">{{ $item->MAKTX ?? '-' }}</td>
                                         <td class="text-center small fw-medium">{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}</td>
                                         <td class="text-end small fw-medium text-primary">{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}</td>
@@ -220,46 +276,43 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Ongoing PRO Table -->
-    <div id="ongoingProSection" class="row g-4 mx-4" style="display: none;">
-        <div class="col-12">
+        <div id="ongoingProSection" style="display: none;">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
                             <h3 class="h5 fw-semibold text-dark mb-1">Daftar Ongoing PRO</h3>
                             <p class="small text-muted mb-0">Daftar Production Order yang sedang berjalan.</p>
                         </div>
-                        <button id="backToDashboardBtnPro" class="btn btn-outline-secondary">
+                        <button id="backToDashboardBtnPro" class="btn btn-outline-secondary flex-shrink-0">
                             <i class="fas fa-arrow-left me-2"></i>Kembali ke Dashboard
                         </button>
                     </div>
-                    <div class="w-100 mb-3" style="max-width: 320px;">
+                    <div class="mb-3" style="max-width: 320px;">
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
                             <input type="text" id="realtimeSearchInputPro" placeholder="Cari SO, PRO, Material..." class="form-control border-start-0">
                         </div>
                     </div>
-                    <div class="table-responsive table-container-scroll">
-                        <table class="table table-hover table-striped align-middle">
+                    <div class="table-container-scroll">
+                        <table class="table table-hover table-striped table-sm align-middle mb-0">
                             <thead class="table-light">
                                 <tr class="small text-uppercase">
-                                    <th class="text-center align-middle">No.</th>
-                                    <th class="text-center align-middle">SO</th>
-                                    <th class="text-center align-middle">SO. Item</th>
-                                    <th class="text-center align-middle">PRO</th>
-                                    <th class="text-center align-middle">Status</th>
-                                    <th class="text-center align-middle">Kode Material</th>
-                                    <th class="text-center align-middle">Deskripsi</th>
-                                    <th class="text-center align-middle">Plant</th>
-                                    <th class="text-center align-middle">MRP</th>\
-                                    <th class="text-center align-middle">Qty. ORDER</th>
-                                    <th class="text-center align-middle">Qty. GR</th>
-                                    <th class="text-center align-middle">Outs. GR</th>
-                                    <th class="text-center align-middle">Start Date</th>
-                                    <th class="text-center align-middle">End Date</th>
+                                    <th class="text-center">No.</th>
+                                    <th>SO</th>
+                                    <th>SO. Item</th>
+                                    <th>PRO</th>
+                                    <th class="text-center">Status</th>
+                                    <th>Kode Material</th>
+                                    <th>Deskripsi</th>
+                                    <th class="text-center">Plant</th>
+                                    <th class="text-center">MRP</th>
+                                    <th class="text-end">Qty. ORDER</th>
+                                    <th class="text-end">Qty. GR</th>
+                                    <th class="text-end">Outs. GR</th>
+                                    <th class="text-center">Start Date</th>
+                                    <th class="text-center">End Date</th>
                                 </tr>
                             </thead>
                             <tbody id="ongoingProTableBody">
@@ -273,17 +326,17 @@
                                     @endphp
                                     <tr data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->AUFNR ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
                                         <td class="text-center small">{{ $loop->iteration }}</td>
-                                        <td class="small text-center">{{ $item->KDAUF ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->KDPOS ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->AUFNR ?? '-' }}</td>
+                                        <td class="small">{{ $item->KDAUF ?? '-' }}</td>
+                                        <td class="small">{{ $item->KDPOS ?? '-' }}</td>
+                                        <td class="small">{{ $item->AUFNR ?? '-' }}</td>
                                         <td class="text-center"><span class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span></td>
-                                        <td class="small text-center">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}</td>
-                                        <td class="smal text-center">{{ $item->MAKTX ?? '-' }}</td>
+                                        <td class="small">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}</td>
+                                        <td class="small">{{ $item->MAKTX ?? '-' }}</td>
                                         <td class="small text-center">{{ $item->PWWRK ?? '-' }}</td>
                                         <td class="small text-center">{{ $item->DISPO ?? '-' }}</td>
-                                        <td class="small text-center">{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="small text-center">{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="small text-center">{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}</td>
+                                        <td class="small text-end">{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="small text-end">{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="small text-end fw-bold">{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}</td>
                                         <td class="small text-center">{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}</td>
                                         <td class="small text-center">{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}</td>
                                     </tr>
@@ -298,12 +351,16 @@
             </div>
         </div>
     </div>
-    
+
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
-    
+
+        // Mengaktifkan semua popover di halaman
+        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+        const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
+
         // =======================================================
         // PART 1: INITIALIZE ALL CHARTS
         // =======================================================
@@ -327,10 +384,10 @@
                 return {
                     indexAxis: isMobile ? 'y' : 'x',
                     responsive: true,
-                    maintainAspectRatio: !isMobile,
+                    maintainAspectRatio: false,
                     scales: {
-                        x: { beginAtZero: true, title: { display: true, text: isMobile ? 'Jumlah' : 'Workcenter' }},
-                        y: { title: { display: true, text: isMobile ? 'Workcenter' : 'Jumlah' }}
+                        x: { beginAtZero: true, title: { display: !isMobile, text: 'Workcenter' }},
+                        y: { title: { display: true, text: 'Jumlah' }}
                     },
                     plugins: {
                         tooltip: {
@@ -338,7 +395,7 @@
                                 label: function(context) {
                                     let label = context.dataset.label || '';
                                     if (label) { label += ': '; }
-                                    const value = isMobile ? context.parsed.x : context.parsed.y;
+                                    const value = context.parsed.y;
                                     label += new Intl.NumberFormat('id-ID').format(value);
                                     return label;
                                 }
@@ -368,7 +425,7 @@
                 barChart.update();
             }));
         }
-    
+
         function initLollipopChart() {
             const lollipopCanvas = document.getElementById('lollipopChart');
             if (!lollipopCanvas) return;
@@ -394,14 +451,14 @@
                 }
             });
         }
-    
+
         function initPieChart() {
             const pieCanvas = document.getElementById('pieChart');
             if (!pieCanvas) return;
             const labels = JSON.parse(pieCanvas.dataset.labels);
             const datasets = JSON.parse(pieCanvas.dataset.datasets);
             new Chart(pieCanvas.getContext('2d'), {
-                type: 'pie', // Changed from doughnut for simplicity, can be changed back
+                type: 'pie',
                 data: { labels, datasets },
                 options: {
                     responsive: true,
@@ -412,72 +469,63 @@
                 }
             });
         }
-    
+
         initBarChart();
         initLollipopChart();
         initPieChart();
-    
+
         // =======================================================
         // PART 2: DASHBOARD SHOW/HIDE LOGIC
         // =======================================================
+        const mainDashboardContent = document.getElementById('mainDashboardContent');
+        const outstandingReservasiSection = document.getElementById('outstandingReservasiSection');
+        const ongoingProSection = document.getElementById('ongoingProSection');
+
         const cardOutstandingReservasi = document.getElementById('card-outstanding-reservasi');
         const cardOutgoingPro = document.getElementById('card-outgoing-pro');
-    
-        const backToDashboardBtnReservasi = document.getElementById('backToDashboardBtn');
-        const backToDashboardBtnPro = document.getElementById('backToDashboardBtnPro');
-    
-        const mainDashboardSections = [
-            document.getElementById('cardStatsSection'),
-            document.getElementById('barChartSection'),
-            document.getElementById('pieChartSection')
+
+        const backToDashboardBtns = [
+            document.getElementById('backToDashboardBtn'),
+            document.getElementById('backToDashboardBtnPro')
         ].filter(Boolean);
-    
-        const allDetailSections = [
-            document.getElementById('outstandingReservasiSection'),
-            document.getElementById('ongoingProSection')
-        ].filter(Boolean);
-    
-        function toggleView(sectionToShow) {
-            mainDashboardSections.forEach(section => section.style.display = 'none');
-            allDetailSections.forEach(section => section.style.display = 'none');
-    
-            if (sectionToShow === 'main') {
-                mainDashboardSections.forEach(section => section.style.display = 'block');
-            } else if (sectionToShow) {
+
+        function showSection(sectionToShow) {
+            mainDashboardContent.style.display = 'none';
+            outstandingReservasiSection.style.display = 'none';
+            ongoingProSection.style.display = 'none';
+
+            if (sectionToShow) {
                 sectionToShow.style.display = 'block';
             }
         }
-    
+
         if (cardOutstandingReservasi) {
-            cardOutstandingReservasi.addEventListener('click', () => toggleView(document.getElementById('outstandingReservasiSection')));
+            cardOutstandingReservasi.addEventListener('click', () => showSection(outstandingReservasiSection));
         }
-        if (backToDashboardBtnReservasi) {
-            backToDashboardBtnReservasi.addEventListener('click', () => toggleView('main'));
-        }
-    
+
         if (cardOutgoingPro) {
-            cardOutgoingPro.addEventListener('click', () => toggleView(document.getElementById('ongoingProSection')));
+            cardOutgoingPro.addEventListener('click', () => showSection(ongoingProSection));
         }
-        if (backToDashboardBtnPro) {
-            backToDashboardBtnPro.addEventListener('click', () => toggleView('main'));
-        }
-    
+
+        backToDashboardBtns.forEach(btn => {
+            btn.addEventListener('click', () => showSection(mainDashboardContent));
+        });
+
         // =======================================================
-        // PART 3: REALTIME SEARCH LOGIC (FOR BOTH TABLES)
+        // PART 3: REALTIME SEARCH LOGIC
         // =======================================================
         function setupRealtimeSearch(inputId, tableBodyId, noResultsRowId) {
             const searchInput = document.getElementById(inputId);
             const tableBody = document.getElementById(tableBodyId);
             const noResultsRow = document.getElementById(noResultsRowId);
-    
             if (!searchInput || !tableBody || !noResultsRow) return;
-    
+
             const tableRows = tableBody.querySelectorAll('tr:not(#' + noResultsRowId + ')');
-    
+
             searchInput.addEventListener('input', function() {
-                const searchTerm = searchInput.value.toLowerCase().trim();
+                const searchTerm = this.value.toLowerCase().trim();
                 let visibleRowsCount = 0;
-    
+
                 tableRows.forEach(row => {
                     const searchableText = row.dataset.searchableText || '';
                     if (searchableText.includes(searchTerm)) {
@@ -487,14 +535,12 @@
                         row.style.display = 'none';
                     }
                 });
-    
                 noResultsRow.style.display = visibleRowsCount === 0 ? '' : 'none';
             });
         }
-    
+
         setupRealtimeSearch('realtimeSearchInput', 'reservasiTableBody', 'noResultsRow');
         setupRealtimeSearch('realtimeSearchInputPro', 'ongoingProTableBody', 'noResultsProRow');
-    
     });
     </script>
     @endpush

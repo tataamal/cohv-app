@@ -141,6 +141,70 @@ class Data4Controller extends Controller
         }
     }
 
+    public function update(Request $request)
+    {
+        // 1. Validasi data masuk dari form
+        $validated = $request->validate([
+            'aufnr' => 'required|string',
+            'rspos' => 'required|string',
+            'plant' => 'required|string', // Ditambahkan karena diperlukan untuk sinkronisasi
+            'matnr' => 'sometimes|nullable|string',
+            'bdmng' => 'sometimes|nullable|numeric',
+            'lgort' => 'sometimes|nullable|string',
+            'sobkz' => 'sometimes|nullable|in:0,1',
+        ]);
+
+        // 2. Cek kredensial SAP dari session
+        $sapUser = session('username');
+        $sapPass = session('password');
+        if (!$sapUser || !$sapPass) {
+            return response()->json(['message' => 'Otentikasi SAP tidak valid atau sesi telah berakhir.'], 401);
+        }
+
+        // 3. Siapkan request ke API Flask
+        $flaskApiUrl = rtrim(env('FLASK_API_URL'), '/') . '/api/edit_component';
+
+        try {
+            $response = Http::timeout(60) // Timeout 60 detik
+                ->withHeaders([
+                    'X-SAP-Username' => $sapUser,
+                    'X-SAP-Password' => $sapPass,
+                ])
+                ->post($flaskApiUrl, $validated);
+
+            // 4. Handle response dari Flask
+            if ($response->successful()) {
+                // Jika Flask mengembalikan sukses (2xx), lanjutkan ke sinkronisasi
+                Log::info('Transaksi SAP berhasil, memulai proses refresh dan sinkronisasi...');
+                $syncResult = $this->refreshAndSyncOrderByAufnr($validated['aufnr'], $validated['plant']);
+
+                $originalResponse = $response->json();
+
+                if ($syncResult['success']) {
+                    Log::info('Sinkronisasi data berhasil.');
+                    $originalResponse['sync_message'] = 'Data berhasil disinkronkan ke database lokal.';
+                } else {
+                    Log::error('Sinkronisasi GAGAL setelah transaksi SAP berhasil.', ['error' => $syncResult['error']]);
+                    $originalResponse['sync_warning'] = 'Transaksi SAP berhasil, tetapi sinkronisasi data lokal gagal. ' . $syncResult['error'];
+                }
+
+                return response()->json($originalResponse);
+
+            } else {
+                // Jika Flask mengembalikan error (4xx atau 5xx)
+                $errorData = $response->json();
+                $errorMessage = $errorData['message'] ?? 'Terjadi kesalahan pada API service.';
+                Log::error('Flask API Error:', $errorData);
+                return response()->json(['message' => $errorMessage, 'details' => $errorData], $response->status());
+            }
+
+        } catch (\Throwable $th) {
+            // Handle jika API Flask tidak bisa dihubungi
+            Log::error('Gagal menghubungi Flask API: ' . $th->getMessage());
+            return response()->json(['message' => 'Tidak dapat terhubung ke service SAP.'], 503); // Service Unavailable
+        }
+    }
+
     private function refreshAndSyncOrderByAufnr(string $aufnr, string $plant): array
     {
         try {

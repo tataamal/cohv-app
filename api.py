@@ -8,6 +8,7 @@ from flask_cors import CORS
 from datetime import time
 from decimal import Decimal
 from datetime import datetime
+import traceback
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "*"}})
@@ -1655,6 +1656,139 @@ def bulk_change_pv():
         if conn:
             conn.close()
             print("\nDEBUG: Koneksi SAP ditutup.")
+
+# api edit component
+@app.route('/api/edit_component', methods=['POST'])
+def edit_component():
+    """
+    Endpoint untuk mengedit komponen Production Order (PRO) di SAP.
+    """
+    print("\n--- [MULAI] Proses Edit Komponen ---")
+    conn = None
+
+    try:
+        # --- LANGKAH 1: Validasi Kredensial & Data Masuk ---
+        print("1. Memvalidasi kredensial dan data masuk...")
+        username, password = get_credentials()
+
+        data = request.get_json()
+        if not data:
+            raise ValueError("Request body harus berisi data JSON.")
+        
+        print(f"   -> Data yang diterima: {data}")
+        
+        # Validasi hanya field kunci. Field lain opsional.
+        required_keys = ['aufnr', 'rspos']
+        for key in required_keys:
+            if key not in data or data[key] is None:
+                raise ValueError(f"Field kunci '{key}' wajib diisi.")
+        
+        print("   -> Validasi data masuk berhasil.")
+
+        # --- LANGKAH 2: Menyiapkan Koneksi ke SAP ---
+        print("2. Menyiapkan koneksi ke SAP...")
+        conn = connect_sap(username, password)
+        print(f"   -> Koneksi SAP berhasil dibuat untuk user '{username}'.")
+
+        # --- LANGKAH 3: Mempersiapkan Parameter RFC secara dinamis ---
+        print("3. Mempersiapkan parameter untuk RFC 'Z_RFC_PRODORD_COMPONENT_MAINTA'...")
+        
+        params = {
+            'IV_AUFNR': data['aufnr'],
+            'IV_RSPOS': data['rspos'],
+        }
+
+        # Logika untuk MATNR
+        if 'matnr' in data:
+            params['IV_MATNR'] = data['matnr']
+            params['IV_MATNRX'] = 'X'
+        else:
+            params['IV_MATNR'] = ''
+            params['IV_MATNRX'] = ' '
+
+        # Logika untuk BDMNG
+        if 'bdmng' in data and data['bdmng'] is not None:
+            params['IV_BDMNG'] = str(data['bdmng'])
+            params['IV_BDMNGX'] = 'X'
+        else:
+            params['IV_BDMNG'] = '0'
+            params['IV_BDMNGX'] = ' '
+            
+        # Logika untuk LGORT
+        if 'lgort' in data:
+            params['IV_LGORT'] = data['lgort']
+            params['IV_LGORTX'] = 'X'
+        else:
+            params['IV_LGORT'] = ''
+            params['IV_LGORTX'] = ' '
+            
+        # Logika untuk SOBKZ
+        if 'sobkz' in data and data['sobkz'] is not None:
+            params['IV_SOBKZ'] = 'X' if str(data['sobkz']) == '1' else ' '
+            params['IV_SOBKZX'] = 'X'
+        else:
+            params['IV_SOBKZ'] = ''
+            params['IV_SOBKZX'] = ''
+            
+        print(f"   -> Parameter yang akan dikirim: {params}")
+
+        # --- LANGKAH 4: Memanggil RFC ---
+        print("4. Memanggil RFC 'Z_RFC_PRODORD_COMPONENT_MAINTA'...")
+        result_change = conn.call('Z_RFC_PRODORD_COMPONENT_MAINTA', **params)
+        print("   -> Respons mentah dari RFC Change:")
+        print("      " + str(result_change))
+
+        # --- LANGKAH 5: Menganalisis hasil SEBELUM commit ---
+        print("5. Menganalisis hasil dari tabel IT_RETURN...")
+        return_table = result_change.get('IT_RETURN', [])
+        is_success = True
+        sap_errors = []
+
+        if return_table:
+            for row in return_table:
+                if row['MSGTYP'] in ('E', 'A'):
+                    is_success = False
+                    error_msg = f"Pesan SAP: {row['MESSAGE']}"
+                    sap_errors.append(error_msg)
+                    print(f"   -> Ditemukan pesan GAGAL: {error_msg}")
+        
+        if not is_success:
+            print("   -> Transaksi GAGAL. Commit tidak akan dilakukan.")
+            return jsonify({
+                "success": False, "message": "Proses edit komponen gagal.",
+                "sap_errors": sap_errors, "raw_sap_response": result_change
+            }), 400
+
+        print("   -> Proses edit komponen berhasil. Melanjutkan ke COMMIT.")
+
+        # --- LANGKAH 6: COMMIT Jika Berhasil ---
+        print("6. Memanggil BAPI_TRANSACTION_COMMIT...")
+        result_commit = conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
+        print("   -> Respons mentah dari BAPI COMMIT:", result_commit)
+
+        # --- LANGKAH 7: Mengembalikan Respons Sukses ---
+        print("7. Mengirim respons sukses kembali ke controller...")
+        return jsonify({
+            "success": True, "message": "Komponen berhasil diubah dan transaksi telah di-commit.",
+            "raw_change_response": result_change, "raw_commit_response": result_commit
+        }), 200
+
+    except ValueError as ve:
+        print(f"   -> ERROR (Validasi): {ve}")
+        return jsonify({"success": False, "message": str(ve)}), 400
+    except RFCError as rfc_err:
+        print(f"   -> ERROR (RFC): {rfc_err}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Terjadi kesalahan RFC: {rfc_err}"}), 500
+    except Exception as e:
+        print(f"   -> ERROR (Umum): {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": "Terjadi kesalahan internal pada server API."}), 500
+    finally:
+        if conn:
+            conn.close()
+            print("   -> Koneksi SAP ditutup.")
+        print("--- [SELESAI] Proses Edit Komponen ---\n")
 
 
 if __name__ == '__main__':

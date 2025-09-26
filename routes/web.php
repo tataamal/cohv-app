@@ -59,8 +59,8 @@ Route::middleware('auth')->group(function (){
     Route::get('gr/{kode}', [ManufactController::class, 'list_gr'])->name('list.gr');
     Route::get('/wc-mapping', [WcCompatibilityController::class, 'index']);
     Route::get('/wc-mapping/details/{kode}/{wc}', [WcCompatibilityController::class, 'showDetails'])->name('wc.details');
-    Route::post('/changeWC/{kode}/{wcTujuan}', [WcCompatibilityController::class,'changeWorkcenter'])->name('change-wc-drag');
-    Route::post('/changePV/{kode}/{wc}', [WcCompatibilityController::class,'changePV'])->name('change-pv-drag');
+    Route::post('/changeWC', [Data1Controller::class, 'changeWc'])->name('wc.change.single');
+    Route::post('/components/update', [Data4Controller::class, 'update'])->name('components.update');
 
     // Routing untuk Bulk Function
     Route::post('/bulk-refresh-pro', [bulkController::class, 'handleBulkRefresh'])->name('bulk-refresh.store');
@@ -68,5 +68,6 @@ Route::middleware('auth')->group(function (){
     Route::post('/bulk-read-pp-process', [bulkController::class, 'processBulkReadPp'])->name('bulk.readpp.process');
     Route::post('/bulk-schedule-process', [bulkController::class, 'processBulkSchedule'])->name('bulk.schedule.process');
     Route::post('/bulk-change-and-refresh', [bulkController::class, 'handleBulkChangeAndRefresh']);
+    Route::post('/changeWCBulk/{kode}/{wc_tujuan}', [Data1Controller::class, 'changeWcBulk'])->name('wc.change.bulk');
 
 });

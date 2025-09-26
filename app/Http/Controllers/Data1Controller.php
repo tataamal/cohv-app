@@ -11,15 +11,16 @@ use Carbon\Carbon;
 use App\Models\ProductionTData;
 use App\Models\ProductionTData1;
 use App\Models\ProductionTData2;
-
+use Illuminate\Support\Facades\Redirect;
 use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
+use Throwable;
 
 class Data1Controller extends Controller
 {
     public function changeWc(Request $request)
     {
-        // 1. Validasi input dari form AJAX
+        // 1. Validasi input dari form
         $validated = $request->validate([
             'aufnr' => 'required|string',
             'vornr' => 'required|string',
@@ -28,11 +29,12 @@ class Data1Controller extends Controller
             'work_center_tujuan' => 'required|string',
         ]);
         
-        // Cek Session
+        // Cek Session SAP
         $sapUser = session('username');
         $sapPass = session('password');
         if (!$sapUser || !$sapPass) {
-            return response()->json(['success' => false, 'message' => 'Otentikasi SAP tidak valid.'], 401);
+            // Kembali ke halaman sebelumnya dengan pesan error
+            return Redirect::back()->with('error', 'Otentikasi SAP tidak valid atau sesi telah berakhir.');
         }
         
         $proCode = $validated['aufnr'];
@@ -40,14 +42,12 @@ class Data1Controller extends Controller
         $flaskBase = rtrim(env('FLASK_API_URL'), '/');
 
         try {
-            // ==========================================================
             // LANGKAH 1: Dapatkan Deskripsi Work Center Tujuan
-            // ==========================================================
             Log::info("Memulai pindah WC untuk PRO {$proCode}. Langkah 1: Get WC Desc.");
             $descResponse = Http::timeout(30)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
                 ->get($flaskBase . '/api/get_wc_desc', [
                     'wc' => $wc_tujuan,
-                    'pwwrk' => $validated['pwwrk'], // Menggunakan plant dari hidden input
+                    'pwwrk' => $validated['pwwrk'],
                 ]);
             
             if ($descResponse->failed()) {
@@ -56,9 +56,7 @@ class Data1Controller extends Controller
             $shortText = $descResponse->json()['E_DESC'] ?? '';
             Log::info(" -> Deskripsi untuk WC {$wc_tujuan} didapatkan: '{$shortText}'");
 
-            // ==========================================================
             // LANGKAH 2: Kirim Perubahan Work Center ke SAP
-            // ==========================================================
             $payload = [
                 "IV_AUFNR" => $proCode, "IV_COMMIT" => "X",
                 "IT_OPERATION" => [[
@@ -75,10 +73,11 @@ class Data1Controller extends Controller
                 throw new \Exception("API Change WC Gagal: " . $changeResponse->body());
             }
             Log::info(" -> Perubahan WC di SAP berhasil.");
+            
+            // Beri jeda 2 detik untuk latensi SAP
+            sleep(2);
 
-            // ==========================================================
             // LANGKAH 3: Refresh Data PRO yang Baru Diubah
-            // ==========================================================
             Log::info("Langkah 3: Me-refresh data PRO {$proCode} dari SAP...");
             $refreshResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
                 ->get($flaskBase . '/api/refresh-pro', [
@@ -90,21 +89,115 @@ class Data1Controller extends Controller
                 throw new \Exception("API Refresh PRO Gagal: " . $refreshResponse->body());
             }
             $refreshedData = $refreshResponse->json();
+            
+            // Validasi data yang di-refresh
+            if (empty($refreshedData['T_DATA']) || empty($refreshedData['T_DATA2']) || empty($refreshedData['T_DATA3'])) {
+                throw new \Exception("Data inti tidak lengkap setelah refresh. Proses sinkronisasi dibatalkan.");
+            }
             Log::info(" -> Data PRO berhasil di-refresh.");
 
-            // ==========================================================
             // LANGKAH 4: Jalankan Sinkronisasi ke Database
-            // ==========================================================
             DB::transaction(function () use ($refreshedData, $validated) {
+                // Pastikan Anda memiliki method _syncSingleProData di controller ini
                 $this->_syncSingleProData($refreshedData, $validated['plant']);
             });
 
-            return response()->json(['success' => true, 'message' => "PRO {$proCode} berhasil dipindahkan ke WC {$wc_tujuan} dan data telah disinkronkan."], 200);
+            // Kembali ke halaman sebelumnya dengan pesan SUKSES
+            $successMessage = "PRO {$proCode} berhasil dipindahkan ke WC {$wc_tujuan} dan data telah disinkronkan.";
+            return Redirect::back()->with('success', $successMessage);
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error("Gagal memindahkan PRO {$proCode}: " . $e->getMessage());
-            return response()->json(['success' => false, 'message' => "Gagal! " . $e->getMessage()], 500);
+            // Kembali ke halaman sebelumnya dengan pesan GAGAL
+            return Redirect::back()->with('error', "Proses Gagal! " . $e->getMessage());
         }
+    }
+
+    public function changeWcBulk(Request $request)
+    {
+        $validated = $request->validate(['bulk_pros' => 'required|string|json']);
+        $wc_tujuan = $request->route('wc_tujuan');
+        $kode = $request->route('kode');
+
+        if (!$wc_tujuan || !$kode) return back()->with('error', 'Plant atau Work Center tujuan tidak valid.');
+
+        $sapUser = session('username');
+        $sapPass = session('password');
+        if (!$sapUser || !$sapPass) return back()->with('error', 'Otentikasi SAP tidak valid.');
+
+        $prosToMove = json_decode($validated['bulk_pros'], true);
+        if (empty($prosToMove)) return back()->with('warning', 'Tidak ada PRO yang dipilih.');
+
+        $flaskBase = rtrim(env('FLASK_API_URL'), '/');
+        $successes = [];
+        $failures = [];
+
+        try {
+            // LANGKAH 1: Ambil deskripsi WC Tujuan
+            $firstPro = $prosToMove[0];
+            Log::info("[BULK] Mengambil deskripsi untuk WC Tujuan: {$wc_tujuan}");
+            $descResponse = Http::timeout(30)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])->get($flaskBase . '/api/get_wc_desc', ['wc' => $wc_tujuan, 'pwwrk' => $firstPro['pwwrk']]);
+            if ($descResponse->failed()) throw new \Exception("Gagal mengambil deskripsi WC Tujuan: " . $descResponse->body());
+            $shortText = $descResponse->json()['E_DESC'] ?? '';
+            Log::info(" -> Deskripsi didapatkan: '{$shortText}'");
+
+            foreach ($prosToMove as $pro) {
+                $proCode = $pro['proCode'];
+                try {
+                    // LANGKAH 2: Ubah WC di SAP
+                    $payload = ["IV_AUFNR" => $proCode, "IV_COMMIT" => "X", "IT_OPERATION" => [["SEQUEN" => "0", "OPER" => $pro['oper'], "WORK_CEN" => $wc_tujuan, "W" => "X", "SHORT_T" => $shortText, "S" => "X"]]];
+                    Log::info("[BULK] [PRO: {$proCode}] Langkah 2: Mengubah WC di SAP...");
+                    $changeResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])->post($flaskBase . '/api/save_edit', $payload);
+                    if ($changeResponse->failed()) throw new \Exception("API Save Edit Gagal: " . $changeResponse->body());
+                    Log::info(" -> [PRO: {$proCode}] Perubahan WC di SAP berhasil.");
+
+                    // LANGKAH 3: Refresh data dengan mekanisme RETRY
+                    $maxRetries = 5; $retryDelay = 5; $refreshedData = null;
+                    for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+                        if ($attempt > 1) {
+                            Log::info("[BULK] [PRO: {$proCode}] Menunggu {$retryDelay} detik...");
+                            sleep($retryDelay);
+                        }
+                        Log::info("[BULK] [PRO: {$proCode}] Refresh attempt #{$attempt}/{$maxRetries}...");
+                        $refreshResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])->get($flaskBase . '/api/refresh-pro', ['plant' => $kode, 'aufnr' => $proCode]);
+                        if ($refreshResponse->failed()) throw new \Exception("API Refresh Gagal: " . $refreshResponse->body());
+                        
+                        $tempData = $refreshResponse->json();
+                        if (!empty($tempData['T_DATA']) && !empty($tempData['T_DATA2']) && !empty($tempData['T_DATA3'])) {
+                            $refreshedData = $tempData;
+                            Log::info(" -> [PRO: {$proCode}] Data refresh valid on attempt #{$attempt}.");
+                            break;
+                        }
+                        Log::warning(" -> [PRO: {$proCode}] Data refresh tidak lengkap pada attempt #{$attempt}.");
+                    }
+
+                    if (is_null($refreshedData)) throw new \Exception("Data inti tidak lengkap setelah {$maxRetries} kali percobaan.");
+
+                    // LANGKAH 4: Sinkronisasi ke DB Lokal (INI YANG DIPERBAIKI)
+                    DB::transaction(function () use ($refreshedData, $kode) {
+                        $this->_syncSingleProData($refreshedData, $kode);
+                    });
+                    Log::info(" -> [PRO: {$proCode}] Data berhasil disinkronkan.");
+                    $successes[] = $proCode;
+
+                } catch (Throwable $e) {
+                    Log::error("[BULK] Gagal memproses PRO {$proCode}: " . $e->getMessage());
+                    $failures[] = ['pro' => $proCode, 'error' => $e->getMessage()];
+                }
+            }
+        } catch (Throwable $e) {
+            Log::error("[BULK] Proses gagal sebelum loop: " . $e->getMessage());
+            return back()->with('error', 'Proses Gagal! ' . $e->getMessage());
+        }
+        
+        // Membuat notifikasi akhir
+        $successCount = count($successes);
+        $failureCount = count($failures);
+        if ($successCount > 0 && $failureCount == 0) session()->flash('success', "{$successCount} PRO berhasil dipindahkan dan disinkronkan.");
+        elseif ($successCount > 0 && $failureCount > 0) session()->flash('warning', "{$successCount} PRO berhasil, namun {$failureCount} PRO gagal. Periksa log.");
+        elseif ($successCount == 0 && $failureCount > 0) session()->flash('error', "Semua {$failureCount} PRO gagal dipindahkan. Periksa log.");
+
+        return redirect()->back();
     }
 
     public function changePv(Request $request)
@@ -175,7 +268,7 @@ class Data1Controller extends Controller
                 'change_result' => $changeData,
             ], 200);
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error('changePv exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['error' => 'Exception: ' . $e->getMessage()], 500);
         }
