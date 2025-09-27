@@ -46,14 +46,20 @@ class AppServiceProvider extends ServiceProvider
 
                 // --- LOGIKA PEMBUATAN SUBMENU DINAMIS ---
                 if ($sapUser) {
+                    // 1. Ambil semua 'kodes' yang berelasi
                     $allKodes = $sapUser->kode()->orderBy('nama_bagian')->get();
-                    if ($allKodes->isNotEmpty()) {
-                        foreach ($allKodes as $kode) {
+                    
+                    // 2. FIX: Filter koleksi untuk mendapatkan hanya nilai 'kode' yang unik
+                    $uniqueKodes = $allKodes->unique('kode');
+
+                    // 3. Loop melalui koleksi yang SUDAH unik
+                    if ($uniqueKodes->isNotEmpty()) {
+                        foreach ($uniqueKodes as $kode) {
                             $submenuItems[] = [
                                 'name' => $kode->nama_bagian,
                                 // [DIUBAH] Mengirim nama route dan parameter secara terpisah
-                                'route_name'   => 'manufaktur.dashboard.show',
-                                'route_params' => ['kode' => $kode->kode],
+                                'route_name'    => 'manufaktur.dashboard.show',
+                                'route_params'  => ['kode' => $kode->kode],
                                 'badge' => $kode->kategori,
                             ];
                         }

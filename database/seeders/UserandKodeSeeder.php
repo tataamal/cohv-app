@@ -28,65 +28,61 @@ class UserandKodeSeeder extends Seeder
         // Buka file CSV untuk dibaca
         $file = fopen($csvFilePath, 'r');
 
-        // Baca baris header untuk mendapatkan nama kolom (dan lewati)
-        // Delimiter diubah menjadi ';'
-        $header = fgetcsv($file, 0, ';');
+        // Baca baris header
+        $header_raw = fgetcsv($file, 0, ',');
 
-        // FIX: Hapus karakter BOM (Byte Order Mark) yang tidak terlihat dari header pertama
-        if (isset($header[0])) {
-            $header[0] = str_replace("\xEF\xBB\xBF", '', $header[0]);
-        }
+        // Bersihkan SETIAP nama kolom di header dari BOM dan spasi ekstra
+        $header = array_map(function($h) {
+            return trim(preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $h));
+        }, $header_raw);
 
         // Inisialisasi progress bar di terminal
-        $this->command->getOutput()->progressStart(count(file($csvFilePath)) - 1);
+        $totalRows = count(file($csvFilePath)) - 1;
+        $this->command->getOutput()->progressStart($totalRows > 0 ? $totalRows : 0);
 
         // Memulai transaksi database
         DB::transaction(function () use ($file, $header) {
             // Loop melalui setiap baris data di file CSV
-            while (($row = fgetcsv($file, 0, ';')) !== false) {
-                // Lewati baris kosong yang mungkin ada di akhir file
-                if (empty(array_filter($row))) {
+            while (($row = fgetcsv($file, 0, ',')) !== false) {
+                
+                $data = @array_combine($header, $row);
+
+                if ($data === false || empty(array_filter($data))) {
                     continue;
                 }
 
-                // Gabungkan header dengan baris saat ini untuk membuat array asosiatif
-                $data = array_combine($header, $row);
-
-                // Ambil data dari kolom yang relevan, trim spasi ekstra
-                // Nama kolom disesuaikan dengan file mapping.csv
-                $id_sap = trim($data['ID SAP']);
-                $nama_user = trim($data['NAMA']);
-                $kode_val = trim($data['Kode']);
-                $mrp_val = trim($data['MRP']);
+                $id_sap = trim($data['id_sap'] ?? null);
+                $nama_user = trim($data['NAMA'] ?? null);
+                $kode_val = trim($data['Kode'] ?? null);
+                $mrp_val = trim($data['MRP'] ?? null);
                 
-                // Lanjutkan hanya jika data penting ada
                 if (!empty($id_sap) && !empty($nama_user) && !empty($kode_val)) {
                     
-                    // Langkah 1: Buat atau temukan SapUser
-                    $sapUser = SapUser::firstOrCreate(
+                    // BENAR: SapUser harus UNIK. Gunakan updateOrCreate.
+                    // Cari berdasarkan 'sap_id', jika ada perbarui 'nama', jika tidak ada buat baru.
+                    $sapUser = SapUser::updateOrCreate(
                         ['sap_id' => $id_sap],
                         ['nama' => $nama_user]
                     );
 
-                    // Langkah 2: Buat atau temukan Kode
-                    $kode = Kode::firstOrCreate(
-                        ['kode' => $kode_val],
-                        [
-                            'sap_user_id' => $sapUser->id,
-                            'nama_bagian' => $data['Nama Bagian'],
-                            'kategori' => $data['Kategori']
-                        ]
-                    );
-
-                    MRP::create(
-                        [
+                    // BENAR: Kode TIDAK unik. SELALU buat entri baru untuk setiap baris CSV.
+                    $kode = Kode::create([
+                        'kode' => $kode_val,
+                        'sap_user_id' => $sapUser->id,
+                        'nama_bagian' => trim($data['Nama Bagian'] ?? null),
+                        'kategori' => trim($data['Kategori'] ?? null)
+                    ]);
+                    
+                    // Hanya buat MRP jika nilainya tidak kosong
+                    if (!empty($mrp_val)) {
+                        // MRP juga dibuat baru karena berelasi dengan Kode yang baru dibuat.
+                        MRP::create([
                             'mrp' => $mrp_val,
                             'kode_id' => $kode->id
-                        ]
-                    );
+                        ]);
+                    }
                 }
                 
-                // Majukan progress bar
                 $this->command->getOutput()->progressAdvance();
             }
         });
@@ -96,6 +92,6 @@ class UserandKodeSeeder extends Seeder
 
         // Selesaikan progress bar
         $this->command->getOutput()->progressFinish();
-        $this->command->info('Seeding SapUser dan Kode dari file CSV berhasil diselesaikan!');
+        $this->command->info('Seeding dari file CSV berhasil diselesaikan!');
     }
 }

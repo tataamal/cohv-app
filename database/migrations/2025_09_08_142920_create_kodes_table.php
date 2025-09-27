@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('kodes', function (Blueprint $table) {
             $table->id();
-            $table->string('kode')->unique();
+            $table->string('kode');
             $table->foreignId('sap_user_id')->constrained('sap_users')->onDelete('cascade');
             $table->string('nama_bagian');
             $table->string('kategori');

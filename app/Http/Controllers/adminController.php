@@ -206,8 +206,9 @@ class adminController extends Controller
 
     public function AdminDashboard()
     {
-        // Inisialisasi koleksi kosong untuk menampung data plant
+        // Inisialisasi koleksi kosong untuk menampung data
         $plants = collect();
+        $allUsers = collect(); // Inisialisasi allUsers juga
 
         // Pastikan pengguna sudah login sebelum mengambil data
         if (Auth::check()) {
@@ -222,16 +223,24 @@ class adminController extends Controller
                 $sapUser = SapUser::where('sap_id', $sapId)->first();
             } 
 
-            // Jika SapUser ditemukan, ambil semua 'kodes' (plant) yang berelasi dengannya
+            // Jika SapUser ditemukan, ambil dan filter 'kodes' (plant) yang berelasi
             if ($sapUser) {
-                $plants = $sapUser->kode()->get();
+                // Ambil SEMUA kode yang berelasi terlebih dahulu
+                $allRelatedKodes = $sapUser->kode()->get();
+
+                // FIX: Filter koleksi untuk mendapatkan hanya nilai 'kode' yang unik.
+                // Metode unique('kode') akan mengambil item pertama untuk setiap 'kode'
+                // dan mengabaikan duplikat selanjutnya.
+                $plants = $allRelatedKodes->unique('kode');
             }
+            
+            // Ambil semua user untuk keperluan lain di dashboard
             $allUsers = SapUser::orderBy('nama')->get();
         }
         
-        // Kirim data 'plants' ke view 'dashboard-landing'
+        // Kirim data 'plants' yang sudah unik ke view
         return view('dashboard', [
-            'plants' => $plants, // asumsikan ini sudah ada
+            'plants' => $plants,
             'allUsers' => $allUsers
         ]);
     }
