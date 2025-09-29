@@ -31,10 +31,8 @@
             box-shadow: inset 0 -2px 0 var(--bs-border-color);
         }
 
-        /* Feedback visual untuk baris yang dapat di-drag */
-        .pro-row {
-            cursor: grab;
-        }
+        /* --- PERUBAHAN CSS --- */
+        /* Hapus cursor grab dari seluruh baris */
         .pro-row:hover {
             background-color: var(--bs-primary-bg-subtle);
             transform: scale(1.01);
@@ -44,6 +42,16 @@
             background-color: var(--bs-info-bg-subtle) !important;
             border-left: 4px solid var(--bs-info);
         }
+        /* Tambahkan style untuk drag handle agar memiliki cursor grab */
+        .drag-handle {
+            cursor: grab;
+            padding: 0.5rem; /* Perluas area klik agar lebih mudah digunakan */
+            display: inline-block; /* Pastikan padding diterapkan */
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        /* --- AKHIR PERUBAHAN CSS --- */
 
         /* Styling untuk Loading Overlay */
         .loading-overlay {
@@ -183,6 +191,8 @@
                             <table class="table table-hover table-striped mb-0 table-sticky align-middle">
                                 <thead>
                                     <tr class="small text-uppercase">
+                                        {{-- --- PERUBAHAN HTML: Tambah kolom header untuk drag handle --- --}}
+                                        <th class="text-center" style="width: 40px;" title="Drag to move"><i class="fa-solid fa-arrows-up-down-left-right"></i></th>
                                         <th class="text-center" style="width: 50px;"><input class="form-check-input" type="checkbox" id="select-all-pro" title="Select all visible"></th>
                                         <th class="text-center" scope="col">No</th>
                                         <th class="text-center" scope="col">Kode PRO</th>
@@ -196,11 +206,18 @@
                                 </thead>
                                 <tbody id="proTableBody">
                                     @forelse ($pros as $pro)
-                                        <tr class="pro-row" draggable="true" 
+                                        {{-- --- PERUBAHAN HTML: Hapus draggable="true" dari <tr> --- --}}
+                                        <tr class="pro-row" 
                                             data-pro-code="{{ $pro->AUFNR }}" 
                                             data-wc-asal="{{ $pro->ARBPL }}"
                                             data-oper="{{ $pro->VORNR }}"
                                             data-pwwrk="{{ $pro->PWWRK }}">
+                                            {{-- --- PERUBAHAN HTML: Tambah sel <td> untuk drag handle --- --}}
+                                            <td class="text-center">
+                                                <span class="drag-handle" draggable="true">
+                                                    <i class="fa-solid fa-grip-vertical text-muted"></i>
+                                                </span>
+                                            </td>
                                             <td class="text-center"><input class="form-check-input pro-select-checkbox" type="checkbox"></td>
                                             <td class="text-center">{{ $loop->iteration }}</td>
                                             <td class="text-center fw-bold">{{ $pro->AUFNR }}</td>
@@ -209,18 +226,11 @@
                                             <td class="text-center">
                                                 <span class="badge
                                                     @switch($pro->STATS)
-                                                        @case('REL')
-                                                            bg-success
-                                                            @break
-                                                        @case('CRTD')
-                                                            bg-primary
-                                                            @break
-                                                        @default
-                                                            bg-secondary
+                                                        @case('REL') bg-success @break
+                                                        @case('CRTD') bg-primary @break
+                                                        @default bg-secondary
                                                     @endswitch
-                                                ">
-                                                    {{ $pro->STATS }}
-                                                </span>
+                                                ">{{ $pro->STATS }}</span>
                                             </td>
                                             <td class="text-center">{{ $pro->ARBPL }}</td>
                                             <td class="text-center">{{ $pro->MAKTX }}</td>
@@ -228,7 +238,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="9" class="text-center py-5 text-muted">Tidak ada data PRO di Work Center ini.</td>
+                                            <td colspan="10" class="text-center py-5 text-muted">Tidak ada data PRO di Work Center ini.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -267,8 +277,7 @@
                         <div id="bulk-move-content" class="d-none">
                             Anda akan memindahkan <strong id="bulk-pro-count"></strong> PRO ke WC <strong id="bulk-wcTujuanWc"></strong>.
                             <p class="mt-2">Daftar PRO:</p>
-                            <div id="pro-list-modal" class="list-group" style="max-height: 200px; overflow-y: auto;">
-                            </div>
+                            <div id="pro-list-modal" class="list-group" style="max-height: 200px; overflow-y: auto;"></div>
                         </div>
                         <p class="mt-3">Apakah Anda yakin ingin melanjutkan?</p>
                     </div>
@@ -285,6 +294,7 @@
 
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js/helpers.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         
@@ -336,7 +346,10 @@
         let activeWcAsal = null;
         document.querySelectorAll('.pro-row').forEach(row => {
             row.addEventListener('click', function (e) {
-                if (e.target.matches('.pro-select-checkbox')) { return; }
+                // Abaikan klik jika berasal dari checkbox atau drag handle
+                if (e.target.matches('.pro-select-checkbox') || e.target.closest('.drag-handle')) { 
+                    return; 
+                }
                 const wcAsal = this.dataset.wcAsal;
                 const allRows = document.querySelectorAll('.pro-row');
                 if (wcAsal === activeWcAsal) {
@@ -373,13 +386,22 @@
                 wcChart.update();
             });
 
-            row.addEventListener('dragstart', function(e) {
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', JSON.stringify({
-                    type: 'single', proCode: this.dataset.proCode, wcAsal: this.dataset.wcAsal,
-                    oper: this.dataset.oper, pwwrk: this.dataset.pwwrk
-                }));
-            });
+            // --- PERUBAHAN JAVASCRIPT: Pindahkan event listener 'dragstart' ke handle ---
+            const dragHandle = row.querySelector('.drag-handle');
+            if (dragHandle) {
+                dragHandle.addEventListener('dragstart', function(e) {
+                    const parentRow = this.closest('.pro-row');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                        type: 'single', 
+                        proCode: parentRow.dataset.proCode, 
+                        wcAsal: parentRow.dataset.wcAsal,
+                        oper: parentRow.dataset.oper, 
+                        pwwrk: parentRow.dataset.pwwrk
+                    }));
+                    e.stopPropagation(); // Mencegah event lain terpicu
+                });
+            }
         });
 
         document.getElementById('bulk-drag-handle').addEventListener('dragstart', function(e) {
@@ -394,19 +416,13 @@
         const chartCanvas = document.getElementById('wcChart');
         chartCanvas.addEventListener('dragover', (e) => e.preventDefault());
         
-        // ========================================================================= //
-        // === PERBAIKAN BUG DROP AREA DIMULAI DI SINI ===                           //
-        // ========================================================================= //
         chartCanvas.addEventListener('drop', function(e) {
             e.preventDefault();
             const droppedData = JSON.parse(e.dataTransfer.getData('text/plain'));
             
-            // Logika baru: Dapatkan index kategori pada sumbu X berdasarkan posisi kursor,
-            // bukan berdasarkan bar yang ada.
             const canvasPosition = Chart.helpers.getRelativePosition(e, wcChart);
             const dataIndex = wcChart.scales.x.getValueForPixel(canvasPosition.x);
             
-            // Pastikan index yang didapat valid dan ada labelnya
             if (dataIndex !== undefined && wcChart.data.labels[dataIndex]) {
                 const wcTujuan = wcChart.data.labels[dataIndex];
                 const modal = new bootstrap.Modal(document.getElementById('changeWcModal'));
@@ -418,9 +434,6 @@
                 }
             }
         });
-        // ========================================================================= //
-        // === PERBAIKAN BUG DROP AREA SELESAI ===                                   //
-        // ========================================================================= //
 
         function handleSingleDrop(data, wcTujuan, modal) {
             if (wcTujuan === data.wcAsal) return;
@@ -439,7 +452,6 @@
                 document.getElementById('formPwwrk').value = data.pwwrk;
                 document.getElementById('formPlant').value = plantKode;
                 document.getElementById('formWcTujuan').value = wcTujuan;
-                
                 document.getElementById('formBulkPros').value = '';
                 modal.show();
             } else { showToast(`Pemindahan ke Work Center ${wcTujuan} tidak diizinkan.`); }
@@ -449,7 +461,7 @@
             if (data.pros.length === 0) return;
             let allCompatible = true;
             for (const pro of data.pros) {
-                if (wcTujuan === pro.wcAsal) continue;
+                if (wcTujuan === pro.wcAsal) continue; // Tidak perlu cek jika tujuannya sama
                 const status = (compatibilities[pro.wcAsal] || []).find(r => r.wc_tujuan_code === wcTujuan)?.status;
                 if (status !== 'compatible' && status !== 'compatible with condition') {
                     allCompatible = false;
@@ -524,7 +536,7 @@
         document.getElementById('proSearchInput')?.addEventListener('keyup', function() {
             const filterText = this.value.toUpperCase();
             document.querySelectorAll('#proTableBody tr').forEach(row => {
-                const proCodeCell = row.cells[2];
+                const proCodeCell = row.cells[3]; // Kolom Kode PRO sekarang di index 3
                 if (proCodeCell) row.style.display = proCodeCell.textContent.toUpperCase().includes(filterText) ? "" : "none";
             });
             updateBulkSelection();
