@@ -102,7 +102,6 @@
             <h2 class="h4 fw-semibold text-dark">Memproses Pemindahan...</h2>
         </div>
         
-        <!-- Header Halaman -->
         <div class="mb-4 d-flex justify-content-between align-items-center">
             <div>
                 <h1 class="h3 fw-bold text-dark">Kelola Work Center</h1>
@@ -115,7 +114,6 @@
             </div>
         </div>
 
-        <!-- BARIS 1: CHART BAR -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card border-0 shadow-sm">
@@ -145,7 +143,6 @@
             </div>
         </div>
 
-        <!-- BARIS 2: TABEL PRO -->
         <div class="row g-4">
             <div class="col-12">
                 <div class="card border-0 shadow-sm h-100">
@@ -172,7 +169,6 @@
                             <input type="search" id="proSearchInput" class="form-control" placeholder="🔍 Cari berdasarkan Kode PRO (AUFNR)...">
                         </div>
 
-                        <!-- Panel Aksi Bulk -->
                         <div id="bulk-action-bar" class="d-none align-items-center justify-content-between p-2 mx-3 mb-3 rounded-3">
                             <div class="d-flex align-items-center">
                                 <span id="bulk-drag-handle" class="px-2" draggable="true" title="Drag to move selected items">
@@ -189,13 +185,13 @@
                                     <tr class="small text-uppercase">
                                         <th class="text-center" style="width: 50px;"><input class="form-check-input" type="checkbox" id="select-all-pro" title="Select all visible"></th>
                                         <th class="text-center" scope="col">No</th>
-                                        <th scope="col">Kode PRO</th>
-                                        <th scope="col">KD. Workcenter</th>
-                                        <th scope="col">Material Description</th>
-                                        <th scope="col">Operation Key</th>
-                                        <th scope="col">PV1</th>
-                                        <th scope="col">PV2</th>
-                                        <th scope="col">PV3</th>
+                                        <th class="text-center" scope="col">Kode PRO</th>
+                                        <th class="text-center" scope="col">SO</th>
+                                        <th class="text-center" scope="col">SO. Item</th>
+                                        <th class="text-center" scope="col">Status</th>
+                                        <th class="text-center" scope="col">KD. Workcenter</th>
+                                        <th class="text-center" scope="col">Material Description</th>
+                                        <th class="text-center" scope="col">Operation Key</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proTableBody">
@@ -207,13 +203,28 @@
                                             data-pwwrk="{{ $pro->PWWRK }}">
                                             <td class="text-center"><input class="form-check-input pro-select-checkbox" type="checkbox"></td>
                                             <td class="text-center">{{ $loop->iteration }}</td>
-                                            <td class="fw-bold">{{ $pro->AUFNR }}</td>
-                                            <td>{{ $pro->ARBPL }}</td>
-                                            <td>{{ $pro->MAKTX }}</td>
-                                            <td>{{ $pro->STEUS }}</td>
-                                            <td>{{ $pro->PV1 }}</td>
-                                            <td>{{ $pro->PV2 }}</td>
-                                            <td>{{ $pro->PV3 }}</td>
+                                            <td class="text-center fw-bold">{{ $pro->AUFNR }}</td>
+                                            <td class="text-center">{{ $pro->KDAUF }}</td>
+                                            <td class="text-center">{{ $pro->KDPOS }}</td>
+                                            <td class="text-center">
+                                                <span class="badge
+                                                    @switch($pro->STATS)
+                                                        @case('REL')
+                                                            bg-success
+                                                            @break
+                                                        @case('CRTD')
+                                                            bg-primary
+                                                            @break
+                                                        @default
+                                                            bg-secondary
+                                                    @endswitch
+                                                ">
+                                                    {{ $pro->STATS }}
+                                                </span>
+                                            </td>
+                                            <td class="text-center">{{ $pro->ARBPL }}</td>
+                                            <td class="text-center">{{ $pro->MAKTX }}</td>
+                                            <td class="text-center">{{ $pro->STEUS }}</td>
                                         </tr>
                                     @empty
                                         <tr>
@@ -382,18 +393,34 @@
 
         const chartCanvas = document.getElementById('wcChart');
         chartCanvas.addEventListener('dragover', (e) => e.preventDefault());
+        
+        // ========================================================================= //
+        // === PERBAIKAN BUG DROP AREA DIMULAI DI SINI ===                           //
+        // ========================================================================= //
         chartCanvas.addEventListener('drop', function(e) {
             e.preventDefault();
             const droppedData = JSON.parse(e.dataTransfer.getData('text/plain'));
-            const elements = wcChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-
-            if (elements.length) {
-                const wcTujuan = wcChart.data.labels[elements[0].index];
+            
+            // Logika baru: Dapatkan index kategori pada sumbu X berdasarkan posisi kursor,
+            // bukan berdasarkan bar yang ada.
+            const canvasPosition = Chart.helpers.getRelativePosition(e, wcChart);
+            const dataIndex = wcChart.scales.x.getValueForPixel(canvasPosition.x);
+            
+            // Pastikan index yang didapat valid dan ada labelnya
+            if (dataIndex !== undefined && wcChart.data.labels[dataIndex]) {
+                const wcTujuan = wcChart.data.labels[dataIndex];
                 const modal = new bootstrap.Modal(document.getElementById('changeWcModal'));
-                if (droppedData.type === 'single') handleSingleDrop(droppedData, wcTujuan, modal);
-                else if (droppedData.type === 'bulk') handleBulkDrop(droppedData, wcTujuan, modal);
+                
+                if (droppedData.type === 'single') {
+                    handleSingleDrop(droppedData, wcTujuan, modal);
+                } else if (droppedData.type === 'bulk') {
+                    handleBulkDrop(droppedData, wcTujuan, modal);
+                }
             }
         });
+        // ========================================================================= //
+        // === PERBAIKAN BUG DROP AREA SELESAI ===                                   //
+        // ========================================================================= //
 
         function handleSingleDrop(data, wcTujuan, modal) {
             if (wcTujuan === data.wcAsal) return;
@@ -444,11 +471,9 @@
                     </div>`).join('');
 
                 const form = document.getElementById('changeWcForm');
-                // PERBAIKAN: Tambahkan plantKode ke URL action
                 form.action = `/changeWCBulk/${plantKode}/${wcTujuan}`;
                 document.getElementById('formBulkPros').value = JSON.stringify(data.pros);
                 
-                // Kosongkan input untuk single move
                 document.getElementById('formAufnr').value = '';
                 document.getElementById('formVornr').value = '';
                 document.getElementById('formPwwrk').value = '';
@@ -505,7 +530,6 @@
             updateBulkSelection();
         });
 
-        // Peningkatan UX: Nonaktifkan tombol submit dan tampilkan spinner saat form disubmit
         document.getElementById('changeWcForm')?.addEventListener('submit', function(e) {
             document.getElementById('loading-overlay').classList.remove('d-none');
             const submitButton = this.querySelector('button[type="submit"]');
@@ -521,4 +545,3 @@
     </script>
     @endpush
 </x-layouts.app>
-

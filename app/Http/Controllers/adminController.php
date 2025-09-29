@@ -177,10 +177,12 @@ class adminController extends Controller
         $ongoingPRO = ProductionTData3::where('WERKSX', $kode)
                               ->whereDate('GSTRP', $today)
                               ->count();
-        $ongoingProData = ProductionTData3::where('WERKSX', $kode)
+                              $ongoingProData = ProductionTData3::where('WERKSX', $kode)
                               ->whereDate('GSTRP', $today)
-                              ->latest('AUFNR') // Opsional: tetap diurutkan
+                              ->where('STATS', 'REL') // Tambahan filter untuk status REL
+                              ->latest('AUFNR')
                               ->get();
+                              
         $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
 
         return view('Admin.dashboard', [

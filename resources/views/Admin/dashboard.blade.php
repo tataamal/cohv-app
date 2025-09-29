@@ -249,22 +249,22 @@
                             <thead class="table-light">
                                 <tr class="small text-uppercase">
                                     <th class="text-center">No.</th>
-                                    <th>No. Reservasi</th>
-                                    <th>Kode Material</th>
-                                    <th>Deskripsi Material</th>
+                                    <th class="text-center">No. Reservasi</th>
+                                    <th class="text-center">Kode Material</th>
+                                    <th class="text-center">Deskripsi Material</th>
                                     <th class="text-center">Req. Qty</th>
-                                    <th class="text-end">Stock</th>
+                                    <th class="text-center">Stock</th>
                                 </tr>
                             </thead>
                             <tbody id="reservasiTableBody">
                                 @forelse($TData4 as $item)
                                     <tr data-searchable-text="{{ strtolower(($item->RSNUM ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
-                                        <td class="text-center small">{{ $loop->iteration }}</td>
-                                        <td class="small">{{ $item->RSNUM ?? '-' }}</td>
-                                        <td class="small">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}</td>
-                                        <td class="small">{{ $item->MAKTX ?? '-' }}</td>
-                                        <td class="text-center small fw-medium">{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="text-end small fw-medium text-primary">{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}</td>
+                                        <td class="text-center">{{ $loop->iteration }}</td>
+                                        <td cclass="text-center">{{ $item->RSNUM ?? '-' }}</td>
+                                        <td class="text-center">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}</td>
+                                        <td class="text-center">{{ $item->MAKTX ?? '-' }}</td>
+                                        <td class="text-center">{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="text-center">{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="6" class="text-center p-5 text-muted">Tidak ada data reservasi ditemukan.</td></tr>
@@ -298,19 +298,19 @@
                     <div class="table-container-scroll">
                         <table class="table table-hover table-striped table-sm align-middle mb-0">
                             <thead class="table-light">
-                                <tr class="small text-uppercase">
+                                <tr class="small text-uppercase align-middle">
                                     <th class="text-center">No.</th>
-                                    <th>SO</th>
-                                    <th>SO. Item</th>
-                                    <th>PRO</th>
+                                    <th class="text-center">SO</th>
+                                    <th class="text-center">SO. Item</th>
+                                    <th class="text-center">PRO</th>
                                     <th class="text-center">Status</th>
-                                    <th>Kode Material</th>
-                                    <th>Deskripsi</th>
+                                    <th class="text-center">Kode Material</th>
+                                    <th class="text-center">Deskripsi</th>
                                     <th class="text-center">Plant</th>
                                     <th class="text-center">MRP</th>
-                                    <th class="text-end">Qty. ORDER</th>
-                                    <th class="text-end">Qty. GR</th>
-                                    <th class="text-end">Outs. GR</th>
+                                    <th class="text-center">Qty. ORDER</th>
+                                    <th class="text-center">Qty. GR</th>
+                                    <th class="text-center">Outs. GR</th>
                                     <th class="text-center">Start Date</th>
                                     <th class="text-center">End Date</th>
                                 </tr>
@@ -326,19 +326,19 @@
                                     @endphp
                                     <tr data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->AUFNR ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
                                         <td class="text-center small">{{ $loop->iteration }}</td>
-                                        <td class="small">{{ $item->KDAUF ?? '-' }}</td>
-                                        <td class="small">{{ $item->KDPOS ?? '-' }}</td>
-                                        <td class="small">{{ $item->AUFNR ?? '-' }}</td>
+                                        <td class="text-center">{{ $item->KDAUF ?? '-' }}</td>
+                                        <td class="text-center">{{ $item->KDPOS ?? '-' }}</td>
+                                        <td class="text-center">{{ $item->AUFNR ?? '-' }}</td>
                                         <td class="text-center"><span class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span></td>
-                                        <td class="small">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}</td>
-                                        <td class="small">{{ $item->MAKTX ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->PWWRK ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->DISPO ?? '-' }}</td>
-                                        <td class="small text-end">{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="small text-end">{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="small text-end fw-bold">{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}</td>
-                                        <td class="small text-center">{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}</td>
-                                        <td class="small text-center">{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}</td>
+                                        <td class="text-center">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}</td>
+                                        <td class="text-center"">{{ $item->MAKTX ?? '-' }}</td>
+                                        <td class="text-center">{{ $item->PWWRK ?? '-' }}</td>
+                                        <td class="text-center">{{ $item->DISPO ?? '-' }}</td>
+                                        <td class="text-center">{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="text-center">{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="text-center">{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}</td>
+                                        <td class="text-center">{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}</td>
+                                        <td class="text-center">{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="14" class="text-center p-5 text-muted">Tidak ada data Ongoing PRO yang ditemukan.</td></tr>

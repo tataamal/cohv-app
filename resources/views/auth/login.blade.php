@@ -1,6 +1,6 @@
 <x-layouts.guest>
     <x-slot:title>
-        Admin Login
+        Login COHV
     </x-slot:title>
 
     {{-- KONTEN UTAMA HALAMAN LOGIN --}}

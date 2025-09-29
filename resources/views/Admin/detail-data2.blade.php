@@ -990,7 +990,7 @@
                 const month = String(today.getMonth() + 1).padStart(2, '0');
                 const day = String(today.getDate()).padStart(2, '0');
                 const todayString = `${year}-${month}-${day}`;
-                filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.GSTRP === todayString);
+                filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.GSTRP === todayString && d3.STATS === 'REL');
             }
 
             renderT3Page(filteredData);
