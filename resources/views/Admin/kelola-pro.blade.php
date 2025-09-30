@@ -190,29 +190,28 @@
                         <div class="table-container-scroll">
                             <table class="table table-hover table-striped mb-0 table-sticky align-middle">
                                 <thead>
-                                    <tr class="small text-uppercase">
-                                        {{-- --- PERUBAHAN HTML: Tambah kolom header untuk drag handle --- --}}
+                                    <tr class="small text-uppercase align-middle">
                                         <th class="text-center" style="width: 40px;" title="Drag to move"><i class="fa-solid fa-arrows-up-down-left-right"></i></th>
                                         <th class="text-center" style="width: 50px;"><input class="form-check-input" type="checkbox" id="select-all-pro" title="Select all visible"></th>
                                         <th class="text-center" scope="col">No</th>
-                                        <th class="text-center" scope="col">Kode PRO</th>
+                                        <th class="text-center" scope="col">PRO</th>
                                         <th class="text-center" scope="col">SO</th>
                                         <th class="text-center" scope="col">SO. Item</th>
                                         <th class="text-center" scope="col">Status</th>
-                                        <th class="text-center" scope="col">KD. Workcenter</th>
+                                        <th class="text-center" scope="col">Workcenter</th>
+                                        {{-- --- PERUBAHAN 1: Tambah kolom header baru --- --}}
+                                        <th class="text-center" scope="col">Kapasitas WC per Oper</th>
                                         <th class="text-center" scope="col">Material Description</th>
                                         <th class="text-center" scope="col">Operation Key</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proTableBody">
                                     @forelse ($pros as $pro)
-                                        {{-- --- PERUBAHAN HTML: Hapus draggable="true" dari <tr> --- --}}
                                         <tr class="pro-row" 
                                             data-pro-code="{{ $pro->AUFNR }}" 
                                             data-wc-asal="{{ $pro->ARBPL }}"
                                             data-oper="{{ $pro->VORNR }}"
                                             data-pwwrk="{{ $pro->PWWRK }}">
-                                            {{-- --- PERUBAHAN HTML: Tambah sel <td> untuk drag handle --- --}}
                                             <td class="text-center">
                                                 <span class="drag-handle" draggable="true">
                                                     <i class="fa-solid fa-grip-vertical text-muted"></i>
@@ -233,12 +232,15 @@
                                                 ">{{ $pro->STATS }}</span>
                                             </td>
                                             <td class="text-center">{{ $pro->ARBPL }}</td>
+                                            {{-- --- PERUBAHAN 2: Tambah sel data baru untuk KAPAZ --- --}}
+                                            <td class="text-center">{{ $pro->KAPAZ }} jam</td>
                                             <td class="text-center">{{ $pro->MAKTX }}</td>
                                             <td class="text-center">{{ $pro->STEUS }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="10" class="text-center py-5 text-muted">Tidak ada data PRO di Work Center ini.</td>
+                                            {{-- --- PERUBAHAN 3: Sesuaikan colspan agar pas dengan jumlah kolom baru (11) --- --}}
+                                            <td colspan="11" class="text-center py-5 text-muted">Tidak ada data PRO di Work Center ini.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>

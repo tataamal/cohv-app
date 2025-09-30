@@ -585,12 +585,9 @@
                 existing.remove();
                 document.querySelectorAll('#tdata3-body tr').forEach(row => row.classList.remove('d-none'));
                 togglePaginationDisabled(false);
-
-                // >> BARU: Hapus state dari session saat detail ditutup
                 sessionStorage.removeItem('activeT3Aufnr');
                 sessionStorage.removeItem('activeT3Type');
                 console.log(`State T3 untuk AUFNR ${aufnr} dihapus.`);
-                
                 return;
             }
 
@@ -601,8 +598,6 @@
                 return;
             }
             
-            // >> BARU: Simpan state ke session saat detail dibuka
-            // Karena fungsi ini spesifik untuk "Routing", kita asumsikan tipenya 'route'
             sessionStorage.setItem('activeT3Aufnr', aufnr);
             sessionStorage.setItem('activeT3Type', 'route');
             console.log(`State T3 disimpan: AUFNR=${aufnr}, Tipe=route`);
@@ -613,18 +608,48 @@
                 else row.classList.remove('d-none');
             });
 
-            const rowsHtml = data.map((t1, i) => `
-                <tr class="bg-white">
-                    <td class="text-center fs-6">${i + 1}</td>
-                    <td class="text-center">${t1.VORNR || '-'}</td>
-                    <td class="text-center">${t1.STEUS || '-'}</td>
-                    <td class="text-center">${t1.KTEXT || '-'}</td>
-                    <td class="text-center">${t1.ARBPL || '-'}</td>
-                    <td class="text-center">${t1.PV1 || '-'}</td>
-                    <td class="text-center">${t1.PV2 || '-'}</td>
-                    <td class="text-center">${t1.PV3 || '-'}</td>
-                </tr>
-            `).join('');
+            const rowsHtml = data.map((t1, i) => {
+                // Siapkan variabel untuk hasil kalkulasi
+                let hasilPerHari = '-'; 
+                
+                // --- PERBAIKAN: Bersihkan titik pemisah ribuan SEBELUM parseFloat ---
+
+                // 1. Ambil nilai mentah sebagai string, beri nilai default '0' jika kosong
+                const kapazStr = t1.KAPAZ ? String(t1.KAPAZ) : '0';
+                const vgw01Str = t1.VGW01 ? String(t1.VGW01) : '0';
+
+                // 2. Hapus semua titik (.), lalu konversi ke angka.
+                const kapazNum = parseFloat(kapazStr.replace(/\./g, ''));
+                const vgw01Num = parseFloat(vgw01Str.replace(/\./g, ''));
+                
+                // Lakukan kalkulasi hanya jika kapazNum valid dan bukan nol untuk menghindari error
+                if (kapazNum > 0 && !isNaN(vgw01Num)) {
+                    let result;
+                    if (t1.VGE01 === 'S') {
+                        result = vgw01Num / (kapazNum * 3600);
+                    } else {
+                        result = vgw01Num / (kapazNum * 60);
+                    }
+                    // Format hasil menjadi 2 angka desimal agar rapi
+                    hasilPerHari = result.toFixed(2);
+                }
+                
+                // Kembalikan HTML untuk baris, termasuk kolom baru
+                return `
+                    <tr class="bg-white">
+                        <td class="text-center fs-6">${i + 1}</td>
+                        <td class="text-center">${t1.VORNR || '-'}</td>
+                        <td class="text-center">${t1.STEUS || '-'}</td>
+                        <td class="text-center">${t1.KTEXT || '-'}</td>
+                        <td class="text-center">${t1.ARBPL || '-'}</td>
+                        <td class="text-center">${t1.KAPAZ || '-'}</td>
+                        <td class="text-center">${hasilPerHari}</td>
+                        <td class="text-center">${t1.PV1 || '-'}</td>
+                        <td class="text-center">${t1.PV2 || '-'}</td>
+                        <td class="text-center">${t1.PV3 || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
 
             const block = document.createElement('div');
             block.id = divId;
@@ -634,12 +659,14 @@
                 <div class="table-responsive border rounded-lg">
                     <table class="table table-striped table-hover table-sm">
                         <thead class="bg-purple-light text-purple-dark">
-                            <tr>
+                            <tr class="align-middle">
                                 <th scope="col" class="text-center fs-6">No.</th>
                                 <th scope="col" class="text-center">Activity</th>
                                 <th scope="col" class="text-center">Control Key</th>
                                 <th scope="col" class="text-center">Description</th>
                                 <th scope="col" class="text-center">Work Center</th>
+                                <th scope="col" class="text-center">Kapasitas (Jam)</th>
+                                <th scope="col" class="text-center">Hasil per Hari</th>
                                 <th scope="col" class="text-center">PV 1</th>
                                 <th scope="col" class="text-center">PV 2</th>
                                 <th scope="col" class="text-center">PV 3</th>
