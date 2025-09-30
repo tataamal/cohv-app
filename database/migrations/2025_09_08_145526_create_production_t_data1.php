@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('PWWRK')->nullable();
             $table->string('KTEXT')->nullable();
             $table->string('ARBID')->nullable();
+            $table->string('KAPID')->nullable();
+            $table->integer('KAPAZ')->nullable();
             $table->string('VERID')->nullable();
             $table->string('KDAUF')->nullable();
             $table->string('KDPOS')->nullable();

@@ -253,8 +253,56 @@ def process_plant_data(plant_code, config):
                         pv3 = ' - '.join(parts_pv3) if parts_pv3 else None
                         # --- [PERUBAHAN SELESAI] ---
                         
-                        sql = "INSERT INTO production_t_data1 (MANDT, ARBPL, PWWRK, KTEXT, WERKSX, ARBID, VERID, KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MTART, MAKTX, VORNR, STEUS, AUART, MEINS, MATKL, PSMNG, WEMNG, MGVRG2, LMNGA, P1, MENG2, VGW01, VGE01, CPCTYX, DTIME, DDAY, SSSLD, SSAVD, MATFG, MAKFG, CATEGORY, ORDERX, STATS2, PV1, PV2, PV3) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-                        vals = (safe_get_value(t1_row, 'MANDT'), safe_get_value(t1_row, 'ARBPL'), safe_get_value(t1_row, 'PWWRK'), safe_get_value(t1_row, 'KTEXT'), plant_code, safe_get_value(t1_row, 'ARBID'), safe_get_value(t1_row, 'VERID'), safe_get_value(t1_row, 'KDAUF'), safe_get_value(t1_row, 'KDPOS'), aufnr_t3, safe_get_value(t1_row, 'PLNUM'), safe_get_value(t1_row, 'STATS'), safe_get_value(t1_row, 'DISPO'), safe_get_value(t1_row, 'MATNR'), safe_get_value(t1_row, 'MTART'), safe_get_value(t1_row, 'MAKTX'), safe_get_value(t1_row, 'VORNR'), safe_get_value(t1_row, 'STEUS'), safe_get_value(t1_row, 'AUART'), safe_get_value(t1_row, 'MEINS'), safe_get_value(t1_row, 'MATKL'), t1_row.get('PSMNG'), t1_row.get('WEMNG'), t1_row.get('MGVRG2'), t1_row.get('LMNGA'), t1_row.get('P1'), t1_row.get('MENG2'), t1_row.get('VGW01'), t1_row.get('VGE01'), safe_get_value(t1_row, 'CPCTYX'), t1_row.get('DTIME'), t1_row.get('DDAY'), format_sap_date_for_db(t1_row.get('SSSLD')), format_sap_date_for_db(t1_row.get('SSAVD')), safe_get_value(t1_row, 'MATFG'), safe_get_value(t1_row, 'MAKFG'), safe_get_value(t1_row, 'CATEGORY'), safe_get_value(t1_row, 'ORDERX'), safe_get_value(t1_row, 'STATS2'), pv1, pv2, pv3)
+                        sql = "INSERT INTO production_t_data1 (MANDT, ARBPL, PWWRK, KTEXT, WERKSX, ARBID, KAPID, KAPAZ, VERID, KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MTART, MAKTX, VORNR, STEUS, AUART, MEINS, MATKL, PSMNG, WEMNG, MGVRG2, LMNGA, P1, MENG2, VGW01, VGE01, CPCTYX, DTIME, DDAY, SSSLD, SSAVD, MATFG, MAKFG, CATEGORY, ORDERX, STATS2, PV1, PV2, PV3) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+                        vals = (safe_get_value(t1_row, 'MANDT'), 
+                                safe_get_value(t1_row, 'ARBPL'), 
+                                safe_get_value(t1_row, 'PWWRK'), 
+                                safe_get_value(t1_row, 'KTEXT'), 
+                                plant_code, 
+                                safe_get_value(t1_row, 'ARBID'), 
+                                
+                                # --- TAMBAHKAN DUA BARIS INI ---
+                                safe_get_value(t1_row, 'KAPID'), 
+                                safe_get_value(t1_row, 'KAPAZ'), 
+                                # ---------------------------------
+
+                                safe_get_value(t1_row, 'VERID'), 
+                                safe_get_value(t1_row, 'KDAUF'), 
+                                safe_get_value(t1_row, 'KDPOS'), 
+                                aufnr_t3, 
+                                safe_get_value(t1_row, 'PLNUM'), 
+                                safe_get_value(t1_row, 'STATS'), 
+                                safe_get_value(t1_row, 'DISPO'), 
+                                safe_get_value(t1_row, 'MATNR'), 
+                                safe_get_value(t1_row, 'MTART'), 
+                                safe_get_value(t1_row, 'MAKTX'), 
+                                safe_get_value(t1_row, 'VORNR'), 
+                                safe_get_value(t1_row, 'STEUS'), 
+                                safe_get_value(t1_row, 'AUART'), 
+                                safe_get_value(t1_row, 'MEINS'), 
+                                safe_get_value(t1_row, 'MATKL'), 
+                                t1_row.get('PSMNG'), 
+                                t1_row.get('WEMNG'), 
+                                t1_row.get('MGVRG2'), 
+                                t1_row.get('LMNGA'), 
+                                t1_row.get('P1'), 
+                                t1_row.get('MENG2'), 
+                                t1_row.get('VGW01'), 
+                                t1_row.get('VGE01'), 
+                                safe_get_value(t1_row, 'CPCTYX'), 
+                                t1_row.get('DTIME'), 
+                                t1_row.get('DDAY'), 
+                                format_sap_date_for_db(t1_row.get('SSSLD')), 
+                                format_sap_date_for_db(t1_row.get('SSAVD')), 
+                                safe_get_value(t1_row, 'MATFG'), 
+                                safe_get_value(t1_row, 'MAKFG'), 
+                                safe_get_value(t1_row, 'CATEGORY'), 
+                                safe_get_value(t1_row, 'ORDERX'), 
+                                safe_get_value(t1_row, 'STATS2'), 
+                                pv1, 
+                                pv2, 
+                                pv3)
+
                         cursor.execute(sql, vals)
 
                     for t4_row in children_t4:

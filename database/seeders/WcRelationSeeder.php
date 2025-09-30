@@ -16,35 +16,27 @@ class WcRelationSeeder extends Seeder
         DB::table('wc_relations')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // 2. Buat peta lookup (kode_wc => id) dari tabel workcenters
+        // 2. Buat peta lookup (kode_wc => id) dari tabel workcenters untuk efisiensi
         $this->command->info('Memuat data workcenter ke memori...');
         $wcLookup = workcenter::pluck('id', 'kode_wc');
         $this->command->info(count($wcLookup) . ' workcenter berhasil dimuat.');
 
-        // 3. Path ke file CSV
-        $filesToProcess = [
-            database_path('seeders/Data/List_WC_Kompatible_Surabaya_cleaned.csv'),
-            database_path('seeders/Data/List_WC_Kompatible_Semarang_cleaned.csv'),
-        ];
+        // 3. Path ke file CSV yang baru dan sudah diproses
+        $filePath = database_path('seeders/Data/data_compatible_all.csv');
         
-        $allRelations = [];
+        // 4. Proses file CSV
+        $allRelations = $this->processCsvFile($filePath, $wcLookup);
 
-        // 4. Proses setiap file menggunakan satu fungsi yang sama
-        foreach ($filesToProcess as $filePath) {
-            $relationsFromFile = $this->processFile($filePath, $wcLookup);
-            $allRelations = array_merge($allRelations, $relationsFromFile);
-        }
-
-        // 5. Masukkan semua data relasi yang terkumpul
+        // 5. Masukkan semua data relasi yang valid ke database
         if (empty($allRelations)) {
-            $this->command->error('GAGAL: Tidak ada relasi valid yang ditemukan dari semua file CSV.');
-            $this->command->warn('Pastikan kolom "WC Asal" di file CSV cocok dengan "kode_wc" di tabel workcenters.');
+            $this->command->error('GAGAL: Tidak ada relasi valid yang bisa diproses dari file CSV.');
+            $this->command->warn('Pastikan kolom "wc_asal" dan "wc_tujuan" di CSV cocok dengan "kode_wc" di tabel workcenters.');
             return;
         }
 
         $this->command->info("Memasukkan total " . count($allRelations) . " relasi ke database...");
         
-        // Memasukkan data dalam batch untuk efisiensi
+        // Memasukkan data dalam batch (potongan kecil) agar lebih efisien
         foreach (array_chunk($allRelations, 500) as $chunk) {
             DB::table('wc_relations')->insert($chunk);
         }
@@ -53,28 +45,28 @@ class WcRelationSeeder extends Seeder
     }
 
     /**
-     * Membaca satu file CSV dan mengubahnya menjadi array relasi.
+     * Membaca file CSV yang sudah diproses dan mengubahnya menjadi array relasi.
      */
-    protected function processFile(string $filePath, $wcLookup): array
+    protected function processCsvFile(string $filePath, $wcLookup): array
     {
         if (!file_exists($filePath)) {
-            $this->command->warn("Peringatan: File tidak ditemukan di: " . $filePath);
+            $this->command->error("KRITIS: File tidak ditemukan di: " . $filePath);
             return [];
         }
 
         $this->command->info("Memproses file: " . basename($filePath));
         $fileHandle = fopen($filePath, 'r');
         
-        $header = fgetcsv($fileHandle, 0, ',');
+        // Baca header untuk mendapatkan nama kolom
+        $header = fgetcsv($fileHandle);
         
         $relations = [];
         $rowCount = 0;
-        
-        // *** PERUBAHAN: Inisialisasi array untuk menyimpan WC yang dilewati ***
-        $skippedAsalWcs = [];
-        $skippedTujuanWcs = [];
+        $skippedWcs = []; // Untuk mencatat semua WC yang tidak ditemukan di DB
 
-        while (($row = fgetcsv($fileHandle, 0, ',')) !== false) {
+        // Baca file baris per baris
+        while (($row = fgetcsv($fileHandle)) !== false) {
+            // Lewati baris kosong
             if (empty(array_filter($row))) continue;
             
             $rowCount++;
@@ -82,49 +74,47 @@ class WcRelationSeeder extends Seeder
 
             if ($record === false) continue;
 
-            $wcAsalKode = trim($record['WC Asal'] ?? '');
-            $wcAsalId = $wcLookup->get($wcAsalKode);
+            // Ambil data dari kolom yang sesuai
+            $wcAsalKode   = trim($record['wc_asal'] ?? '');
+            $wcTujuanKode = trim($record['wc_tujuan'] ?? '');
+            $status       = trim($record['status'] ?? '');
 
-            if (!$wcAsalId) {
-                // *** PERUBAHAN: Catat WC Asal yang dilewati ***
-                if (!empty($wcAsalKode)) $skippedAsalWcs[] = $wcAsalKode;
+            // Validasi: pastikan semua data yang dibutuhkan ada
+            if (empty($wcAsalKode) || empty($wcTujuanKode) || empty($status)) {
                 continue;
             }
 
-            $add = function(string $columnName, string $status) use ($record, $wcLookup, $wcAsalId, &$relations, &$skippedTujuanWcs) {
-                $wcTujuanKode = trim($record[$columnName] ?? '');
-                if (!empty($wcTujuanKode)) {
-                    $wcTujuanId = $wcLookup->get($wcTujuanKode);
-                    if ($wcTujuanId) {
-                        $relations[] = [
-                            'wc_asal_id'   => $wcAsalId,
-                            'wc_tujuan_id' => $wcTujuanId,
-                            'status'       => $status,
-                            'created_at'   => now(),
-                            'updated_at'   => now(),
-                        ];
-                    } else {
-                        // *** PERUBAHAN: Catat WC Tujuan yang dilewati ***
-                        $skippedTujuanWcs[] = $wcTujuanKode;
-                    }
-                }
-            };
-            
-            $add('WC Kompatibel', 'compatible');
-            $add('WC Kompatibel With Condition', 'compatible with condition');
+            // Cari ID dari kode WC menggunakan peta lookup
+            $wcAsalId   = $wcLookup->get($wcAsalKode);
+            $wcTujuanId = $wcLookup->get($wcTujuanKode);
+
+            // Jika salah satu ID tidak ditemukan, catat dan lewati baris ini
+            if (!$wcAsalId) {
+                $skippedWcs[] = $wcAsalKode;
+                continue;
+            }
+            if (!$wcTujuanId) {
+                $skippedWcs[] = $wcTujuanKode;
+                continue;
+            }
+
+            // Jika semua valid, tambahkan ke daftar untuk di-insert
+            $relations[] = [
+                'wc_asal_id'   => $wcAsalId,
+                'wc_tujuan_id' => $wcTujuanId,
+                'status'       => $status,
+                'created_at'   => now(),
+                'updated_at'   => now(),
+            ];
         }
 
         fclose($fileHandle);
-        $this->command->info("Selesai memproses $rowCount baris dari " . basename($filePath) . ". Menghasilkan " . count($relations) . " relasi.");
+        $this->command->info("Selesai memproses $rowCount baris. Menghasilkan " . count($relations) . " relasi valid.");
         
-        // *** PERUBAHAN: Tampilkan daftar unik WC yang dilewati ***
-        if (!empty($skippedAsalWcs)) {
-            $uniqueSkipped = array_unique($skippedAsalWcs);
-            $this->command->warn(count($uniqueSkipped) . " 'WC Asal' unik dilewati karena tidak ditemukan di DB: " . implode(', ', $uniqueSkipped));
-        }
-        if (!empty($skippedTujuanWcs)) {
-            $uniqueSkipped = array_unique($skippedTujuanWcs);
-            $this->command->warn(count($uniqueSkipped) . " 'WC Tujuan' unik dilewati karena tidak ditemukan di DB: " . implode(', ', $uniqueSkipped));
+        // Tampilkan peringatan jika ada WC di CSV yang tidak ada di database
+        if (!empty($skippedWcs)) {
+            $uniqueSkipped = array_unique($skippedWcs);
+            $this->command->warn(count($uniqueSkipped) . " WC unik berikut dilewati karena tidak ditemukan di DB: " . implode(', ', $uniqueSkipped));
         }
 
         return $relations;
