@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
     {{-- PASTIKAN PATH INI BENAR --}}
-    <link rel="stylesheet" href="{{ asset('css/sidenav.css') }}"> 
+    {{-- <link rel="stylesheet" href="{{ asset('css/sidenav.css') }}">  --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     
@@ -47,7 +47,7 @@
     @stack('scripts')
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.js'></script>
     {{-- PASTIKAN PATH INI BENAR --}}
-    <script src="{{ asset('js/sidenav.js') }}"></script>
+    {{-- <script src="{{ asset('js/sidenav.js') }}"></script> --}}
     
 </body>
 </html>

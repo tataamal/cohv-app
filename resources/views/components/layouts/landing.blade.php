@@ -1,30 +1,31 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-100">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
-    {{-- Menggunakan Vite untuk memuat SCSS Bootstrap dan JS utama --}}
+    
+    {{-- Cukup baris ini untuk memuat semua CSS & JS Anda, termasuk Bootstrap --}}
     @vite(['resources/js/app.js', 'resources/scss/app.scss'])
     
-    <title>{{ $title ?? 'KMI System' }}</title>
-    {{-- Font Awesome untuk ikon, karena kita menggunakannya di halaman dashboard --}}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
-
+    <title>{{ $title ?? config('app.name', 'Laravel') }} - KMI-PO System</title>
+    
+    {{-- HAPUS ATAU BERI KOMENTAR PADA BARIS INI --}}
+    {{-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"> --}}
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    {{-- Font Awesome boleh tetap ada karena tidak di-bundle via Vite --}}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
     @stack('styles')
 </head>
-<body class="h-100 bg-body-tertiary">
-    
-    {{-- Overlay Loading (DIUBAH KE VANILLA JS) --}}
-    <div id="loading-overlay" class="loading-overlay d-none">
-        <div class="loader mb-4"></div>
-        <h2 class="h4 fw-semibold text-secondary">Memuat Halaman...</h2>
-    </div>
-    
-    {{-- Ini adalah tempat konten halaman akan dimasukkan --}}
+<body class="h-full primary-bg-subtle">
     {{ $slot }}
-    {{-- Tumpukan skrip custom dari setiap halaman --}}
-    @stack('custom-scripts')
+    
+    {{-- HAPUS ATAU BERI KOMENTAR PADA BARIS INI --}}
+    {{-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script> --}}
+    
+    @stack('scripts')
 </body>
 </html>

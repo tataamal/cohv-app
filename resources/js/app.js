@@ -1,6 +1,7 @@
 // resources/js/app.js
 
 import './bootstrap';
+import 'bootstrap';
 import './sidebar.js';
 import * as bootstrap from 'bootstrap';
 window.bootstrap = bootstrap; 
@@ -159,71 +160,6 @@ function runTypingEffect(elementId, cursorId, text) {
     }
     type();
 }
-    
-/**
- * Fungsi untuk kalender sederhana di landing page.
- */
-function initializeCalendar() {
-    // ... (kode fungsi ini tidak diubah)
-    const monthYearEl = document.getElementById('calendar-month-year');
-    const calendarGridEl = document.getElementById('calendar-grid');
-    const prevMonthBtn = document.getElementById('prev-month');
-    const nextMonthBtn = document.getElementById('next-month');
-    if (!calendarGridEl || !prevMonthBtn || !nextMonthBtn || !monthYearEl) return;
-    let currentDate = new Date();
-    function renderCalendar() {
-        calendarGridEl.innerHTML = '';
-        const month = currentDate.getMonth();
-        const year = currentDate.getFullYear();
-        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-        monthYearEl.textContent = `${monthNames[month]} ${year}`;
-        const firstDayOfMonth = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-        dayNames.forEach(day => {
-            const dayEl = document.createElement('div');
-            dayEl.className = 'fw-semibold small text-muted text-center pb-2';
-            dayEl.textContent = day;
-            calendarGridEl.appendChild(dayEl);
-        });
-        for (let i = 0; i < firstDayOfMonth; i++) {
-            calendarGridEl.appendChild(document.createElement('div'));
-        }
-        const today = new Date();
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dayCell = document.createElement('div');
-            dayCell.className = 'd-flex align-items-center justify-content-center small rounded-circle';
-            dayCell.style.height = '36px';
-            dayCell.textContent = day;
-            if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-                dayCell.classList.add('bg-primary', 'text-white', 'fw-bold');
-            } else {
-                dayCell.classList.add('text-body');
-            }
-            calendarGridEl.appendChild(dayCell);
-        }
-    }
-    prevMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); });
-    nextMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); });
-    renderCalendar();
-}
-
-const sidebarTogglers = document.querySelectorAll('#sidebar-toggle-button, .sidebar-collapse-toggle');
-
-function resizeCalendar() {
-    // Gunakan setTimeout untuk memberi waktu pada animasi sidebar selesai
-    setTimeout(() => {
-        // Panggil kembali fungsi render kalender Anda untuk menggambarnya ulang
-        // sesuai ukuran kontainer yang baru.
-        renderCalendar(); 
-    }, 350); // Sesuaikan durasi jika perlu
-}
-
-// Tambahkan event listener ke setiap tombol toggle
-sidebarTogglers.forEach(toggler => {
-    toggler.addEventListener('click', resizeCalendar);
-});
-
 
 // --- FUNGSI UNTUK HALAMAN DASHBOARD ---
 

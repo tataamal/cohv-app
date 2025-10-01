@@ -1,43 +1,60 @@
-// Fungsi ini akan dieksekusi setelah semua HTML dimuat
-document.addEventListener('DOMContentLoaded', function() {
-    const toggleButton = document.getElementById('sidebar-collapse-toggle');
+// resources/js/sidebar.js
 
-    // Periksa apakah tombolnya ada di halaman
-    if (!toggleButton) {
-        // Jika Anda ingin pesan error, bisa ditambahkan di sini.
-        // console.error("Tombol collapse sidebar tidak ditemukan.");
-        return; 
-    }
-
-    const collapseSidebar = () => {
-        document.body.classList.toggle('sidebar-collapsed');
-        updateToggleButtonState();
-    };
-    
-    const updateToggleButtonState = () => {
-        const isCollapsed = document.body.classList.contains('sidebar-collapsed');
-        const collapseButton = document.getElementById('sidebar-collapse-toggle');
+class Sidebar {
+    constructor() {
+        this.sidebar = document.getElementById('sidebar');
+        this.toggle = document.getElementById('sidebar-toggle');
+        this.overlay = document.getElementById('sidebar-overlay');
+        this.storageKey = 'sidebarCollapsed';
         
-        if (collapseButton) {
-            const icon = collapseButton.querySelector('.collapse-icon');
-            const text = collapseButton.querySelector('.sidebar-text');
-            
+        if (!this.sidebar) return;
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadState();
+        this.attachEvents();
+    }
+    
+    loadState() {
+        if (window.innerWidth > 991.98) {
+            const isCollapsed = localStorage.getItem(this.storageKey) === 'true';
             if (isCollapsed) {
-                icon.classList.remove('fa-chevron-left');
-                icon.classList.add('fa-chevron-right');
-                if(text) text.textContent = 'Expand';
-            } else {
-                icon.classList.remove('fa-chevron-right');
-                icon.classList.add('fa-chevron-left');
-                if(text) text.textContent = 'Collapse';
+                document.body.classList.add('sidebar-collapsed');
             }
         }
-    };
-
-    // Tambahkan event listener ke tombol di footer sidebar
-    toggleButton.addEventListener('click', collapseSidebar);
+    }
     
-    // Inisialisasi state tombol saat halaman dimuat
-    updateToggleButtonState();
+    attachEvents() {
+        // Desktop toggle
+        if (this.toggle) {
+            this.toggle.addEventListener('click', () => {
+                document.body.classList.toggle('sidebar-collapsed');
+                const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                localStorage.setItem(this.storageKey, isCollapsed);
+            });
+        }
+        
+        // Mobile overlay
+        if (this.overlay) {
+            this.overlay.addEventListener('click', () => {
+                document.body.classList.remove('sidebar-open');
+            });
+        }
+        
+        // Resize handler
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 991.98) {
+                document.body.classList.remove('sidebar-open');
+            }
+        });
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    new Sidebar();
 });
 
+export default Sidebar;

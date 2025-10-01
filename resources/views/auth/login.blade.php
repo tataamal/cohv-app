@@ -1,197 +1,226 @@
 <x-layouts.guest>
     <x-slot:title>
-        Admin Login
+        Login COHV
     </x-slot:title>
 
-    {{-- KONTEN UTAMA HALAMAN LOGIN --}}
-    <div class="container-fluid">
-        <div class="row min-vh-100 g-0">
-            
-            {{-- Kolom Kiri: Form Login --}}
-            <div class="col-lg-5 d-flex flex-column justify-content-center py-5 px-4 px-sm-5">
-                <div class="mx-auto w-100" style="max-width: 28rem;">
-                    {{-- Logo dan Judul Perusahaan --}}
-                    <div class="d-flex align-items-center mb-5">
-                        <div class="shadow-sm bg-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; padding: 0.375rem;">
-                            <img src="{{ asset('images/KMI.png') }}" alt="Logo KMI" class="img-fluid">
-                        </div>
-                        <h1 class="h6 fw-semibold text-body-secondary mb-0">PT. Kayu Mabel Indonesia</h1>
-                    </div>
+    @push('styles')
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-                    {{-- Judul Form --}}
-                    <div class="text-left mb-4">
-                        <h2 id="form-title" class="h2 fw-bold text-dark">Login Admin</h2>
-                        <p class="mt-2 text-muted">Silakan masukkan kredensial Anda untuk melanjutkan.</p>
-                    </div>
-                    
-                    {{-- Alert Error --}}
-                    @if($errors->any())
-                        <div class="alert alert-danger border-0 border-start border-4 border-danger" role="alert">
-                            <p class="fw-bold mb-1">Terjadi Kesalahan</p>
-                            <p class="mb-0">{{ $errors->first() }}</p>
-                        </div>
-                    @endif
+        <style>
+            body {
+                font-family: 'Plus Jakarta Sans', sans-serif;
+                background-color: #f8f9fa;
+                overflow-x: hidden;
+            }
 
-                    {{-- Card Wrapper untuk Form --}}
-                    <div class="bg-white p-4 p-sm-5 rounded-4 shadow-lg">
-                        <form id="admin-form" class="row g-3" action="{{ route('login.admin') }}" method="POST">
-                            @csrf
-                            <div class="col-12">
-                                <label for="admin_sap_id" class="form-label">SAP ID</label>
-                                <input id="admin_sap_id" name="sap_id" type="text" required autofocus placeholder="Masukkan SAP ID"
-                                       class="form-control form-control-lg">
-                            </div>
-                            <div class="col-12">
-                                <label for="admin_password" class="form-label">Password</label>
-                                <input id="admin_password" name="password" type="password" required placeholder="Masukkan Password"
-                                       class="form-control form-control-lg">
-                            </div>
-                            <div class="col-12 pt-3">
-                                <button type="submit" class="btn btn-primary btn-lg w-100 d-flex justify-content-center align-items-center">
-                                    <div class="spinner-border spinner-border-sm me-3 d-none" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                    <span class="button-text">Masuk</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            /* === TAMPILAN DESKTOP (TIDAK BERUBAH) === */
+            .left-panel {
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: white;
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                padding: 3rem;
+                overflow: hidden;
+            }
+            .left-panel-content { z-index: 2; }
+            .logo-wrapper {
+                width: 130px;
+                height: 130px;
+                background-color: white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto;
+                box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+                padding: 1.25rem;
+            }
+            .logo-wrapper img { max-width: 100%; height: auto; }
+            .left-panel h1 { font-weight: 800; }
+            .left-panel p { color: rgba(255, 255, 255, 0.85); font-size: 1.1rem; }
+
+            .right-panel {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #ffffff;
+            }
+            .form-container { width: 100%; max-width: 400px; padding: 2rem; }
+            .form-title h2 { font-weight: 800; }
+            .input-group-custom {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 0.75rem;
+                padding: 0.5rem 1rem;
+                display: flex;
+                align-items: center;
+                transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            }
+            .input-group-custom:focus-within {
+                border-color: #10b981;
+                box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+            }
+            .input-group-custom .form-control { border: none; background: transparent; box-shadow: none !important; padding-left: 0.75rem; }
+            .input-group-custom .input-icon { color: #6c757d; }
+            .form-label-custom { font-weight: 600; color: #495057; margin-bottom: 0.5rem; font-size: 0.9rem; text-align: left;}
+            .btn-submit-custom {
+                background: linear-gradient(90deg, #10b981, #059669);
+                border: none;
+                padding: 0.9rem 1.5rem;
+                border-radius: 0.75rem;
+                font-weight: 700;
+                transition: transform 0.2s ease, box-shadow 0.3s ease;
+                box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+            }
+            .btn-submit-custom:hover { transform: translateY(-2px); box-shadow: 0 7px 20px rgba(16, 185, 129, 0.35); }
+
+
+            /* === [V3 - DIROMBAK TOTAL] TAMPILAN MOBILE PROFESIONAL === */
+            @media (max-width: 991.98px) {
+                .right-panel {
+                    /* Latar gradient, menjadi flex container yang menengahkan card */
+                    background: linear-gradient(160deg, #10b981, #059669);
+                    display: flex;
+                    align-items: center; /* Vertikal center */
+                    justify-content: center; /* Horizontal center */
+                    padding: 1.5rem; /* Jarak dari tepi layar */
+                    min-height: 100vh;
+                }
+
+                .form-container {
+                    /* Card yang ditengahkan, dengan proporsi seimbang */
+                    background-color: #ffffff;
+                    width: 100%;
+                    max-width: 400px;
+                    border-radius: 1.5rem; /* Sudut bulat di semua sisi */
+                    padding: 4.5rem 1.5rem 2rem; /* Padding atas lebih besar untuk logo */
+                    position: relative;
+                    text-align: center;
+                    box-shadow: 0 20px 50px rgba(0,0,0,0.1); /* Shadow lebih lembut */
+                    height: auto;
+                }
+
+                .mobile-logo-wrapper {
+                    width: 90px;
+                    height: 90px;
+                    background-color: #fff;
+                    border-radius: 50%;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.08); /* Shadow halus */
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 1.25rem;
+                    position: absolute;
+                    top: -45px; /* Setengah tinggi logo */
+                    left: 50%;
+                    transform: translateX(-50%);
+                }
+                .mobile-logo-wrapper img { max-width: 100%; height: auto; }
+                
+                .form-title { text-align: center; margin-bottom: 2rem !important; }
+                .form-title h2 { font-weight: 800; }
+                
+                /* Desain ulang input field */
+                .input-group-custom {
+                    border-radius: 50px;
+                    padding: 0.5rem 1.25rem;
+                    background-color: #ffffff;
+                    border: 1px solid #e2e8f0; /* Border abu-abu halus */
+                    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+                }
+                .input-group-custom:focus-within {
+                    border-color: #059669; /* Border hijau saat fokus */
+                    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15); /* Efek glow hijau */
+                }
+                .input-group-custom .form-control { text-align: left; }
+                .input-group-custom .form-control::placeholder { font-size: 0.95rem; }
+
+                .btn-submit-custom {
+                    border-radius: 50px; /* Bentuk kapsul */
+                    padding-top: 0.8rem;
+                    padding-bottom: 0.8rem;
+                    font-size: 1rem;
+                    font-weight: 700;
+                }
+            }
+        </style>
+    @endpush
+
+    <div class="row min-vh-100 g-0">
+        <div class="col-lg-5 left-panel d-none d-lg-flex">
+            <div class="left-panel-content">
+                <div class="logo-wrapper mb-5"><img src="{{ asset('images/KMI.png') }}" alt="Logo KMI"></div>
+                <h1 class="display-5">Welcome Back</h1>
+                <p>Login to manage your COHV application features.</p>
             </div>
+        </div>
 
-            {{-- Kolom Kanan: Preview Dashboard --}}
-            <div id="interactive-panel" class="col-lg-7 d-none d-lg-flex align-items-center justify-content-center p-5" style="background-color: #f8f9fa;">
-                <div id="interactive-card" class="w-100 bg-white rounded-4 shadow-lg p-5" style="max-width: 42rem; transform: rotate(-3deg);">
-                    
-                    <h2 class="h3 fw-bold text-dark">Analytics</h2>
-
-                    <div class="row g-4 mt-3">
-                        <div class="col-sm-6">
-                            <div class="p-4 bg-white border rounded-3">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <p class="text-muted mb-0">Sales</p>
-                                    <div class="p-1 bg-light rounded-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-graph-up-arrow text-secondary" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M0 0h1v15h15v1H0zm10 3.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.9l-3.613 4.417a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61L13.445 4H10.5a.5.5 0 0 1-.5-.5"/></svg>
-                                    </div>
-                                </div>
-                                <div class="mt-2 d-flex align-items-baseline">
-                                    <p id="sales-count" class="h2 fw-bold text-dark me-2 mb-0">0</p>
-                                    <p class="small fw-semibold text-danger d-flex align-items-center mb-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-arrow-down me-1" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 1a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 13.293V1.5A.5.5 0 0 1 8 1"/></svg>
-                                        -2%
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-sm-6">
-                            <div class="p-4 bg-white border rounded-3">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <p class="text-muted mb-0">Views</p>
-                                    <div class="p-1 bg-light rounded-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye-fill text-secondary" viewBox="0 0 16 16"><path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/><path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8m8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7"/></svg>
-                                    </div>
-                                </div>
-                                <div class="mt-2 d-flex align-items-baseline">
-                                    <p id="views-count" class="h2 fw-bold text-dark me-2 mb-0">0</p>
-                                    <p class="small fw-semibold text-success d-flex align-items-center mb-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-arrow-up me-1" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L7.5 2.707V14.5a.5.5 0 0 0 .5.5"/></svg>
-                                        +8%
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mt-4">
-                         <h3 class="h6 text-body-secondary">Store traffic</h3>
-                         <div class="mt-3" style="height: 160px; width: 100%;">
-                            <svg class="w-100 h-100" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <defs><linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stop-color="var(--bs-primary)" stop-opacity="0.2"/><stop offset="95%" stop-color="var(--bs-primary)" stop-opacity="0"/></linearGradient></defs>
-                                <path d="M0 101.5C124.833 21.333 234.3 -46.5 354 51.5C473.7 149.5 491.5 163 609 101.5" stroke="var(--bs-primary)" stroke-width="3" stroke-linecap="round"/>
-                                <path d="M0 101.5C124.833 21.333 234.3 -46.5 354 51.5C473.7 149.5 491.5 163 609 101.5V192H0V101.5Z" fill="url(#chartGradient)"/>
-                            </svg>
-                         </div>
-                         <div class="d-flex justify-content-between small text-muted mt-2 px-2">
-                             <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
-                         </div>
-                    </div>
-                    
+        <div class="col-lg-7 right-panel">
+            <div class="form-container">
+                <div class="d-lg-none mobile-logo-wrapper">
+                    <img src="{{ asset('images/KMI.png') }}" alt="Logo KMI">
                 </div>
+
+                <div class="form-title">
+                    <h2 class="h1 text-dark">Account Login</h2>
+                    <p class="mt-2 text-muted">Please enter your credentials.</p>
+                </div>
+                
+                @if($errors->any())
+                    <div class="alert alert-danger border-0 shadow-sm mb-4" role="alert">{{ $errors->first() }}</div>
+                @endif
+
+                <form id="admin-form" action="{{ route('login.admin') }}" method="POST" class="row g-3">
+                    @csrf
+                    <div class="col-12">
+                        <div class="input-group-custom">
+                            <span class="input-icon pe-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-person text-muted" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>
+                            </span>
+                            <input id="admin_sap_id" name="sap_id" type="text" required autofocus class="form-control" placeholder="SAP ID">
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="input-group-custom">
+                            <span class="input-icon pe-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-lock text-muted" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1"/></svg>
+                            </span>
+                            <input id="admin_password" name="password" type="password" required class="form-control" placeholder="Password">
+                        </div>
+                    </div>
+                    <div class="col-12 pt-3">
+                        <button type="submit" class="btn btn-primary btn-submit-custom w-100 d-flex justify-content-center align-items-center">
+                            <div class="spinner-border spinner-border-sm me-3 d-none" role="status"><span class="visually-hidden">Loading...</span></div>
+                            <span class="button-text">Log In</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
     @push('scripts')
     <script>
-        function initializeApp() {
-            // Fungsi untuk animasi angka naik (Tidak ada perubahan, berfungsi seperti sebelumnya)
-            function animateCountUp(el, endValue, duration) {
-                let startTime = null;
-                const startValue = 0;
-                const step = (timestamp) => {
-                    if (!startTime) startTime = timestamp;
-                    const progress = Math.min((timestamp - startTime) / duration, 1);
-                    const currentValue = Math.floor(progress * (endValue - startValue) + startValue);
-                    el.innerText = currentValue.toLocaleString('id-ID');
-                    if (progress < 1) {
-                        window.requestAnimationFrame(step);
-                    } else {
-                        el.innerText = endValue.toLocaleString('id-ID');
-                    }
-                };
-                window.requestAnimationFrame(step);
-            }
-
-            // Fungsi untuk panel interaktif di sebelah kanan (Tidak ada perubahan)
-            function initializeInteractivePanel() {
-                const panel = document.getElementById('interactive-panel');
-                const card = document.getElementById('interactive-card');
-                if (!panel || !card) return;
-                const maxRotate = 6; // Sedikit diturunkan agar lebih smooth
-                panel.addEventListener('mousemove', (e) => {
-                    const { width, height, left, top } = panel.getBoundingClientRect();
-                    const mouseX = e.clientX - left; const mouseY = e.clientY - top;
-                    const xPct = (mouseX / width - 0.5) * 2; const yPct = (mouseY / height - 0.5) * 2;
-                    const rotateY = xPct * maxRotate; const rotateX = -yPct * maxRotate;
-                    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotate(-3deg)`;
-                });
-                panel.addEventListener('mouseleave', () => {
-                    card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) rotate(-3deg)';
-                });
-            }
-
-            // Fungsi untuk menampilkan loading spinner pada tombol saat form disubmit
-            function initializeLoadingOnSubmit() {
-                const adminForm = document.getElementById('admin-form');
-                if (adminForm) {
-                    adminForm.addEventListener('submit', function() {
-                        const button = adminForm.querySelector('button[type="submit"]');
-                        const buttonText = button.querySelector('.button-text');
-                        const spinner = button.querySelector('.spinner-border');
-
+        document.addEventListener('DOMContentLoaded', function() {
+            const adminForm = document.getElementById('admin-form');
+            if (adminForm) {
+                adminForm.addEventListener('submit', function() {
+                    const button = adminForm.querySelector('button[type="submit"]');
+                    const buttonText = button.querySelector('.button-text');
+                    const spinner = button.querySelector('.spinner-border');
+                    if (button && buttonText && spinner) {
                         button.disabled = true;
-                        // PERUBAHAN: Menggunakan kelas 'd-none' dari Bootstrap
-                        if (spinner) spinner.classList.remove('d-none');
-                        if (buttonText) buttonText.classList.add('d-none');
-                    });
-                }
+                        spinner.classList.remove('d-none');
+                        buttonText.textContent = 'Processing...';
+                    }
+                });
             }
-
-            // --- MENJALANKAN SEMUA FUNGSI ---
-            const salesCountEl = document.getElementById('sales-count');
-            const viewsCountEl = document.getElementById('views-count');
-            if(salesCountEl) animateCountUp(salesCountEl, 8224, 1500);
-            if(viewsCountEl) animateCountUp(viewsCountEl, 32640, 1500);
-            
-            initializeInteractivePanel();
-            initializeLoadingOnSubmit();
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeApp);
-        } else {
-            initializeApp();
-        }
+        });
     </script>
     @endpush
 </x-layouts.guest>
