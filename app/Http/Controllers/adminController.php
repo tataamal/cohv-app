@@ -19,15 +19,11 @@ class adminController extends Controller
     {
         // =================================================================
         // DATA UNTUK CHART PERTAMA (BAR CHART - WORKCENTER)
-        // Query ini sudah benar dan spesifik per $kode. Tidak ada perubahan.
         // =================================================================
-
-        // 1a) Buat query untuk mendapatkan daftar induk semua ARBPL unik untuk plant ini
         $allWcQuery = DB::table('workcenters')
-            ->select('kode_wc', 'description') // Ambil juga kolom 'description' untuk tooltip
+            ->select('kode_wc', 'description')
             ->where('werksx', $kode);
 
-        // 2. Gabungkan (LEFT JOIN) daftar WC utama dengan data transaksi
         $statsPerWc = DB::table(DB::raw("({$allWcQuery->toSql()}) as master_wc"))
             ->mergeBindings($allWcQuery)
             ->leftJoin('production_t_data1 as trans_data', 'master_wc.kode_wc', '=', 'trans_data.ARBPL')
@@ -37,52 +33,47 @@ class adminController extends Controller
                 COUNT(DISTINCT trans_data.AUFNR) AS pro_count,
                 COALESCE(SUM(trans_data.CPCTYX), 0) AS total_capacity
             ")
-            ->groupBy('master_wc.kode_wc', 'master_wc.description') // Group berdasarkan keduanya
+            ->groupBy('master_wc.kode_wc', 'master_wc.description')
             ->orderBy('master_wc.kode_wc', 'asc')
             ->get();
 
-        // 3. Siapkan data untuk Chart.js
-        $labels          = $statsPerWc->pluck('wc_label')->all();
-        $descriptions    = $statsPerWc->pluck('wc_description')->all(); // Data deskripsi untuk tooltip
-        $datasetPro      = $statsPerWc->pluck('pro_count')->all();
+        $labels = $statsPerWc->pluck('wc_label')->all();
+        $descriptions = $statsPerWc->pluck('wc_description')->all();
+        $datasetPro = $statsPerWc->pluck('pro_count')->all();
         $datasetCapacity = $statsPerWc->pluck('total_capacity')->all();
 
-        // Membuat URL untuk setiap bar chart agar bisa diklik
         $targetUrls = collect($labels)->map(function ($wcLabel) use ($kode) {
             return route('wc.details', ['kode' => $kode, 'wc' => $wcLabel]);
         })->all();
 
-        // 4. Definisikan dataset untuk chart, tambahkan 'descriptions' ke meta-data
         $datasets = [
             [
-                'label'           => 'Jumlah PRO',
-                'data'            => $datasetPro,
-                'descriptions'    => $descriptions, // Kirim deskripsi ke view
+                'label' => 'PRO Count',
+                'data' => $datasetPro,
+                'descriptions' => $descriptions,
                 'backgroundColor' => 'rgba(59, 130, 246, 0.6)',
-                'borderColor'     => 'rgba(37, 99, 235, 1)',
-                'borderWidth'     => 1,
-                'borderRadius'    => 4,
-                'satuan'          => 'PRO' // Menambahkan satuan
+                'borderColor' => 'rgba(37, 99, 235, 1)',
+                'borderWidth' => 1,
+                'borderRadius' => 4,
+                'satuan' => 'PRO'
             ],
             [
-                'label'           => 'Jumlah Kapasitas',
-                'data'            => $datasetCapacity,
-                'descriptions'    => $descriptions, // Kirim deskripsi ke view
+                'label' => 'Capacity Count',
+                'data' => $datasetCapacity,
+                'descriptions' => $descriptions,
                 'backgroundColor' => 'rgba(249, 115, 22, 0.6)',
-                'borderColor'     => 'rgba(234, 88, 12, 1)',
-                'borderWidth'     => 1,
-                'borderRadius'    => 4,
-                'satuan'          => 'Jam' // Asumsi satuan kapasitas adalah jam
+                'borderColor' => 'rgba(234, 88, 12, 1)',
+                'borderWidth' => 1,
+                'borderRadius' => 4,
+                'satuan' => 'Jam'
             ],
         ];
 
         // =================================================================
         // DATA UNTUK CHART KEDUA (DOUGHNUT CHART - PER STATUS DI PLANT INI)
-        // DIUBAH: Query ini sekarang menghitung jumlah PRO berdasarkan status ('REL', 'CNF', dll)
-        // HANYA untuk plant ($kode) yang sedang aktif.
         // =================================================================
         $statsByStatus = DB::table('production_t_data1')
-            ->where('WERKSX', $kode) // Filter utama berdasarkan plant
+            ->where('WERKSX', $kode)
             ->whereRaw("NULLIF(TRIM(AUFNR), '') IS NOT NULL")
             ->select('STATS', DB::raw('COUNT(DISTINCT AUFNR) as pro_count_by_status'))
             ->groupBy('STATS')
@@ -94,60 +85,58 @@ class adminController extends Controller
 
         $doughnutChartDatasets = [
             [
-                'label' => 'Jumlah PRO per Status',
-                'data'  => $doughnutChartDataset,
+                'label' => 'PRO Count by Status',
+                'data' => $doughnutChartDataset,
                 'backgroundColor' => [
-                    'rgba(255, 99, 132, 0.7)',  // Merah
-                    'rgba(54, 162, 235, 0.7)', // Biru
-                    'rgba(255, 206, 86, 0.7)', // Kuning
-                    'rgba(75, 192, 192, 0.7)',  // Hijau
-                    'rgba(153, 102, 255, 0.7)',// Ungu
-                    'rgba(255, 159, 64, 0.7)' // Oranye
+                    'rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)'
                 ],
                 'borderColor' => '#ffffff',
                 'borderWidth' => 2,
             ]
         ];
-
+        
+        // =================================================================
+        // DATA UNTUK CHART KETIGA (LOLLIPOP CHART - TOP 5 WORKCENTER)
+        // =================================================================
         $topWcByCapacity = DB::table('production_t_data1 as t1')
-            ->join('workcenters as wc', 't1.ARBPL', '=', 'wc.kode_wc') // JOIN dengan tabel workcenters
+            ->join('workcenters as wc', 't1.ARBPL', '=', 'wc.kode_wc')
             ->select(
                 't1.ARBPL',
-                'wc.description', // Ambil kolom deskripsi
+                'wc.description',
                 DB::raw('SUM(t1.CPCTYX) as total_capacity')
             )
             ->where('t1.WERKSX', $kode)
             ->whereNotNull('t1.ARBPL')
-            ->groupBy('t1.ARBPL', 'wc.description') // Group by deskripsi juga
+            ->groupBy('t1.ARBPL', 'wc.description')
             ->orderByDesc('total_capacity')
             ->limit(5)
             ->get();
 
-        // 2. Siapkan data untuk Chart.js dari hasil query
-        $lolipopChartLabels       = $topWcByCapacity->pluck('ARBPL')->all();
-        $lolipopChartData         = $topWcByCapacity->pluck('total_capacity')->all();
-        $lolipopChartDescriptions = $topWcByCapacity->pluck('description')->all(); // Data deskripsi untuk tooltip
+        $lolipopChartLabels = $topWcByCapacity->pluck('ARBPL')->all();
+        $lolipopChartData = $topWcByCapacity->pluck('total_capacity')->all();
+        $lolipopChartDescriptions = $topWcByCapacity->pluck('description')->all();
 
-        // 3. Siapkan dataset untuk dikirim ke view, kini dengan deskripsi dan satuan
         $lolipopChartDatasets = [
             [
-                'label'           => 'Distribusi Kapasitas',
-                'data'            => $lolipopChartData,
-                'descriptions'    => $lolipopChartDescriptions, // Kirim deskripsi untuk tooltip
-                'satuan'          => 'Jam',                  // Kirim satuan
+                'label' => 'Distribusi Kapasitas',
+                'data' => $lolipopChartData,
+                'descriptions' => $lolipopChartDescriptions,
+                'satuan' => 'Jam',
                 'backgroundColor' => [
-                    'rgba(255, 166, 158, 0.8)', // Soft Coral (alpha diperbaiki)
-                    'rgba(174, 217, 224, 0.8)', // Soft Blue
-                    'rgba(204, 204, 255, 0.8)', // Soft Lavender (menggantikan merah gelap)
-                    'rgba(255, 225, 179, 0.8)', // Soft Yellow (alpha diperbaiki)
-                    'rgba(181, 234, 215, 0.8)', // Soft Mint Green (menggantikan duplikat kuning)
+                    'rgba(255, 166, 158, 0.8)', 'rgba(174, 217, 224, 0.8)', 'rgba(204, 204, 255, 0.8)',
+                    'rgba(255, 225, 179, 0.8)', 'rgba(181, 234, 215, 0.8)',
                 ],
-                'borderColor'     => '#ffffff',
-                'borderWidth'     => 2,
+                'borderColor' => '#ffffff',
+                'borderWidth' => 2,
             ]
         ];
-
+        
+        // =================================================================
+        // PENGAMBILAN DATA KARDINAL & TABEL
+        // =================================================================
         $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
+        $kategori = Kode::where('kode', $kode)->value('kategori');
         
         $searchReservasi = $request->input('search_reservasi');
 
@@ -155,56 +144,77 @@ class adminController extends Controller
         $TData2 = ProductionTData2::where('WERKSX', $kode)->count();
         $TData3 = ProductionTData3::where('WERKSX', $kode)->count();
         $TData4 = ProductionTData4::where('WERKSX', $kode)
-        ->when($searchReservasi, function ($query, $term) {
-            // Lakukan pencarian jika $searchReservasi tidak kosong
-            return $query->where(function($q) use ($term) {
-                $q->where('RSNUM', 'like', "%{$term}%")
-                  ->orWhere('MATNR', 'like', "%{$term}%")
-                  ->orWhere('MAKTX', 'like', "%{$term}%");
+            ->when($searchReservasi, function ($query, $term) {
+                return $query->where(function($q) use ($term) {
+                    $q->where('RSNUM', 'like', "%{$term}%")
+                      ->orWhere('MATNR', 'like', "%{$term}%")
+                      ->orWhere('MAKTX', 'like', "%{$term}%");
+                });
+            })->get()
+            ->map(function ($item) {
+                $item->MAKTX = trim(preg_replace('/\s+/', ' ', $item->MAKTX ?? ''));
+                return $item;
             });
-        })->get()
-        // TAMBAHKAN BLOK INI untuk membersihkan data sebelum dikirim
-        ->map(function ($item) {
-            // Hapus baris baru, tabs, dan spasi berlebih dari deskripsi
-            $item->wc_description = trim(preg_replace('/\s+/', ' ', $item->wc_description ?? ''));
-            return $item;
-        });
-
+        
         $outstandingReservasi = ProductionTData4::where('WERKSX', $kode)
-                                    ->whereColumn('KALAB', '<', 'BDMNG')
-                                    ->count();
+                                      ->whereColumn('KALAB', '<', 'BDMNG')
+                                      ->count();
         $today = Carbon::today();
         $ongoingPRO = ProductionTData3::where('WERKSX', $kode)
-                              ->whereDate('GSTRP', $today)
-                              ->count();
-                              $ongoingProData = ProductionTData3::where('WERKSX', $kode)
-                              ->whereDate('GSTRP', $today)
-                              ->where('STATS', 'REL') // Tambahan filter untuk status REL
-                              ->latest('AUFNR')
-                              ->get();
-                              
-        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
+                                ->whereDate('GSTRP', $today)
+                                ->count();
 
+        // Data dari TData3 (Ongoing) untuk ditampilkan di tabel
+        $ongoingProData = ProductionTData3::where('WERKSX', $kode)
+                                ->whereDate('GSTRP', $today)
+                                ->latest('AUFNR')
+                                ->get();
+
+        // [BARU] Data dari TData3 (Keseluruhan) untuk tabel Total PRO
+        $allProData = ProductionTData3::where('WERKSX', $kode)
+                                ->latest('AUFNR')
+                                ->get();
+
+        // Data dari TData2 untuk ditampilkan sebagai tabel Sales Order
+        $salesOrderData = ProductionTData2::where('WERKSX', $kode)
+                                ->latest('KDAUF') // Diurutkan berdasarkan nomor SO terbaru
+                                ->get();
+
+        // =================================================================
+        // MENGIRIM SEMUA DATA KE VIEW
+        // =================================================================
         return view('Admin.dashboard', [
-            // ... data kardinal dan doughnut chart ...
+            // Data untuk kardinal (summary cards)
             'TData1' => $TData1, 
             'TData2' => $TData2, 
             'TData3' => $TData3, 
             'TData4' => $TData4,
             'outstandingReservasi' => $outstandingReservasi,
-            'ongoingPRO'  => $ongoingPRO,
+            'ongoingPRO' => $ongoingPRO,
             'ongoingProData' => $ongoingProData,
+            'salesOrderData' => $salesOrderData, 
+            'allProData' => $allProData, // DATA BARU
+            
+            // Data untuk Bar Chart
             'labels' => $labels, 
-            'datasets' => $datasets, // 'datasets' sekarang berisi deskripsi dan satuan
+            'datasets' => $datasets,
             'targetUrls' => $targetUrls,
+            
+            // Data untuk Doughnut Chart
             'doughnutChartLabels' => $doughnutChartLabels,
             'doughnutChartDatasets' => $doughnutChartDatasets,
+            
+            // Data untuk Lollipop Chart
             'lolipopChartLabels' => $lolipopChartLabels,
             'lolipopChartDatasets' => $lolipopChartDatasets,
+            
+            // Info Halaman
             'kode' => $kode,
+            'kategori' => $kategori,
             'nama_bagian' => $nama_bagian,
         ]);  
     }
+
 
     public function AdminDashboard()
     {

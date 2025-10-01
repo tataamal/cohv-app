@@ -1,36 +1,380 @@
+/* =================================================================
+   SIDENAV.CSS - GREEN THEME VERSION
+   ================================================================= */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@font-face {
-  font-family: 'Plus Jakarta Sans';
-  src: url('../fonts/plus-jakarta-sans-v8-latin-regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
+   :root {
+    --sidebar-width: 260px;
+    --sidebar-width-collapsed: 80px;
+    --primary-color: #10b981;
+    --primary-color-dark: #059669;
+    --primary-color-light: #d1fae5;
+    --text-color: #4b5563;
+    --text-color-dark: #333333;
+    --border-color: #e5e7eb;
+    --hover-bg: #f3f4f6;
+    --transition-speed: 0.3s;
 }
 
-@layer components {
-  .loader {
-    border: 5px solid #f3f3f3; /* Warna latar belakang lingkaran */
-    border-top: 5px solid #3498db; /* Warna animasi spinner */
+/* --- STRATEGI LAYOUT UTAMA --- */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    z-index: 1000;
+    width: var(--sidebar-width);
+    background-color: #FFFFFF;
+    border-right: 1px solid var(--border-color);
+    transition: width var(--transition-speed) ease;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+}
+
+#content-wrapper {
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    transition: margin-left var(--transition-speed) ease, width var(--transition-speed) ease;
+}
+
+/* --- KONDISI COLLAPSED (DESKTOP) --- */
+body.sidebar-collapsed .sidebar {
+    width: var(--sidebar-width-collapsed);
+}
+
+body.sidebar-collapsed #content-wrapper {
+    margin-left: var(--sidebar-width-collapsed);
+    width: calc(100% - var(--sidebar-width-collapsed));
+}
+
+/* --- SIDEBAR BRAND --- */
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    gap: 0.75rem;
+    text-decoration: none;
+}
+
+.sidebar-brand-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.sidebar-brand-text {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-color-dark);
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+/* --- SIDEBAR NAV --- */
+.sidebar-nav {
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.nav-section-title {
+    padding: 0.75rem 0.5rem 0.5rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6b7280;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+.nav-item {
+    margin-bottom: 0.25rem;
+}
+
+/* --- NAV LINK (Parent Menu dengan Submenu) --- */
+.nav-link {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0.5rem;
+    border-radius: 0.5rem;
+    color: var(--text-color);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.nav-link:hover {
+    background-color: var(--hover-bg);
+}
+
+.nav-icon {
+    width: 20px;
+    text-align: center;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+}
+
+.nav-link-text {
+    flex: 1;
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+.collapse-arrow {
+    margin-left: auto;
+    transition: transform var(--transition-speed) ease;
+}
+
+/* --- PARENT MENU AKTIF (MANUFAKTUR) - GRADIENT HIJAU --- */
+.nav-link.active-parent,
+.nav-link.active {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 4px 15px -2px rgba(16, 185, 129, 0.4);
+}
+
+.nav-link[aria-expanded="true"] .collapse-arrow {
+    transform: rotate(180deg);
+}
+
+/* --- SUBMENU CONTAINER --- */
+.submenu {
+    padding-left: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.submenu-item {
+    list-style: none;
+    margin: 0;
+}
+
+/* --- SUBMENU LINK --- */
+.submenu-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    margin-bottom: 0.25rem;
+    border-radius: 0.375rem;
+    color: var(--text-color-dark);
+    text-decoration: none;
+    font-weight: 400;
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+.submenu-link:hover {
+    background-color: var(--hover-bg);
+}
+
+.submenu-link i {
+    width: 18px;
+    font-size: 0.875rem;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.submenu-link span {
+    flex: 1;
+    color: var(--text-color-dark);
+}
+
+/* --- SUBMENU AKTIF dengan BAR HIJAU --- */
+.submenu-link.active {
+    background-color: var(--primary-color-light);
+    font-weight: 700;
+    border-left-color: var(--primary-color);
+}
+
+.submenu-link.active i {
+    color: var(--primary-color);
+}
+
+.submenu-link.active span {
+    color: var(--text-color-dark);
+}
+
+/* --- SIDEBAR FOOTER --- */
+.sidebar-footer {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+    margin-top: auto;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.user-avatar {
+    font-size: 2rem;
+    color: var(--text-color);
+}
+
+.user-details {
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+.user-name {
+    font-weight: 600;
+    color: var(--text-color-dark);
+}
+
+.user-role {
+    font-size: 0.875rem;
+    color: var(--text-color);
+}
+
+.btn-logout {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background-color: transparent;
+    border-radius: 0.5rem;
+    color: var(--text-color);
+    text-align: left;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.btn-logout:hover {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.btn-logout-icon {
+    font-size: 1.1rem;
+}
+
+.btn-logout-text {
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+/* --- TOMBOL COLLAPSE SIDEBAR --- */
+.sidebar-collapse-toggle {
+    position: absolute;
+    top: 50%;
+    right: -12px;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    animation: spin 1s linear infinite;
-  }
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.sidebar-collapse-toggle:hover {
+    transform: translateY(-50%) scale(1.1);
 }
 
-:root {
-  --bs-primary: #8B5CF6; /* Warna ungu dari Tailwind */
-  --bs-primary-rgb: 139, 92, 246;
-  --bs-btn-hover-bg: #7C3AED;
-  --bs-btn-hover-border-color: #7C3AED;
-  --bs-link-color: #8B5CF6;
-  --bs-link-hover-color: #7C3AED;
+.sidebar-collapse-toggle i {
+    transition: transform 0.3s ease;
+}
+
+/* --- STATE COLLAPSED --- */
+body.sidebar-collapsed .sidebar-brand-text,
+body.sidebar-collapsed .nav-section-text,
+body.sidebar-collapsed .nav-link-text,
+body.sidebar-collapsed .collapse-arrow,
+body.sidebar-collapsed .user-details,
+body.sidebar-collapsed .btn-logout-text {
+    opacity: 0;
+    width: 0;
+    display: none;
+}
+
+body.sidebar-collapsed .nav-link,
+body.sidebar-collapsed .btn-logout,
+body.sidebar-collapsed .user-profile {
+    justify-content: center;
+}
+
+body.sidebar-collapsed .nav-icon,
+body.sidebar-collapsed .btn-logout-icon {
+    margin-right: 0;
+}
+
+body.sidebar-collapsed .submenu {
+    display: none !important;
+}
+
+body.sidebar-collapsed .sidebar-collapse-toggle i {
+    transform: rotate(180deg);
+}
+
+/* --- TAMPILAN MOBILE (< 992px) --- */
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease;
+}
+
+body.sidebar-open .sidebar-overlay {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (max-width: 991.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+    
+    #content-wrapper {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    body.sidebar-collapsed .sidebar {
+        width: var(--sidebar-width);
+    }
+    
+    body.sidebar-collapsed #content-wrapper {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    .sidebar-collapse-toggle {
+        display: none !important;
+    }
 }

@@ -1,31 +1,29 @@
 @php
-    // Variabel dari kode Anda, tidak perlu diubah
     $menuItems = $menuItems ?? [];
     $user = Auth::user() ?? (object)['name' => 'User', 'role' => 'Guest'];
 @endphp
 
-<aside id="sidebar" class="sidebar d-flex flex-column">
-    {{-- 1. Bagian Header/Brand Sidebar --}}
+<aside id="sidebar" class="sidebar">
+    {{-- Brand --}}
     <div class="sidebar-brand">
-        <a href="{{ route('dashboard-landing') }}" class="d-flex align-items-center text-decoration-none">
+        <a href="{{ route('dashboard-landing') }}">
             <img src="{{ asset('images/KMI.png') }}" alt="Logo KMI" class="sidebar-brand-logo">
             <span class="sidebar-brand-text">KMI-COHV</span>
         </a>
     </div>
 
-    {{-- 2. Bagian Navigasi Utama --}}
-    <nav class="sidebar-nav flex-grow-1">
-        <ul class="list-unstyled">
+    {{-- Navigation --}}
+    <nav class="sidebar-nav">
+        <ul class="nav-list">
             @forelse($menuItems as $section)
-                <li class="nav-section-title">
-                    <span class="nav-section-text">{{ $section['title'] }}</span>
+                <li class="nav-section">
+                    <span class="nav-section-title">{{ $section['title'] }}</span>
                 </li>
 
                 @foreach($section['items'] as $item)
                     <li class="nav-item">
                         @if(!empty($item['submenu']))
                             @php
-                                // Logika active state dari kode Anda, tidak diubah
                                 $currentPath = request()->path();
                                 $currentKode = last(explode('/', $currentPath));
                                 $isParentActive = collect($item['submenu'])->contains(function ($subitem) use ($currentKode) {
@@ -34,26 +32,27 @@
                                 });
                                 $collapseId = 'submenu-' . Str::slug($item['name']);
                             @endphp
-                            <a class="nav-link {{ $isParentActive ? 'active-parent' : '' }}" 
-                               data-bs-toggle="collapse" 
-                               href="#{{ $collapseId }}" 
-                               role="button" 
+                            
+                            <a class="nav-link {{ $isParentActive ? 'active-parent' : '' }}"
+                               data-bs-toggle="collapse"
+                               href="#{{ $collapseId }}"
                                aria-expanded="{{ $isParentActive ? 'true' : 'false' }}">
-                                <i class="nav-icon {{ $item['icon'] ?? 'fa-solid fa-folder' }}"></i>
-                                <span class="nav-link-text">{{ $item['name'] }}</span>
-                                <i class="collapse-arrow fa-solid fa-chevron-down ms-auto"></i>
+                                <span class="nav-text">{{ $item['name'] }}</span>
+                                <i class="nav-arrow fas fa-chevron-down"></i>
                             </a>
+                            
                             <div class="collapse {{ $isParentActive ? 'show' : '' }}" id="{{ $collapseId }}">
-                                <ul class="submenu list-unstyled">
+                                <ul class="submenu">
                                     @foreach($item['submenu'] as $subitem)
                                         @php
-                                            // Logika active state dari kode Anda, tidak diubah
                                             $routeKode = $subitem['route_params']['kode'] ?? null;
                                             $isSubmenuActive = $currentKode && $routeKode && $currentKode === $routeKode;
                                         @endphp
-                                        <li class="submenu-item">
-                                            <a href="{{ route($subitem['route_name'], $subitem['route_params']) }}" class="submenu-link {{ $isSubmenuActive ? 'active' : '' }}">
-                                                {{ $subitem['name'] }}
+                                        <li>
+                                            <a href="{{ route($subitem['route_name'], $subitem['route_params']) }}" 
+                                               class="submenu-link {{ $isSubmenuActive ? 'active' : '' }}">
+                                                <i class="fas fa-database"></i>
+                                                <span>{{ $subitem['name'] }}</span>
                                             </a>
                                         </li>
                                     @endforeach
@@ -62,39 +61,40 @@
                         @else
                             @php $isActive = request()->routeIs($item['route_name']); @endphp
                             <a href="{{ route($item['route_name']) }}" class="nav-link {{ $isActive ? 'active' : '' }}">
-                                <i class="nav-icon {{ $item['icon'] ?? 'fa-solid fa-file-lines' }}"></i>
-                                <span class="nav-link-text">{{ $item['name'] }}</span>
+                                <i class="nav-icon {{ $item['icon'] ?? 'fas fa-file' }}"></i>
+                                <span class="nav-text">{{ $item['name'] }}</span>
                             </a>
                         @endif
                     </li>
                 @endforeach
-
             @empty
-                <li class="nav-item px-3 text-muted small">Menu tidak ditemukan.</li>
+                <li class="nav-empty">Menu tidak ditemukan.</li>
             @endforelse
         </ul>
     </nav>
 
-    {{-- 3. Bagian Footer/User Info Sidebar --}}
+    {{-- Footer --}}
     <div class="sidebar-footer">
-        <div class="user-profile">
-            <i class="user-avatar fa-solid fa-circle-user"></i>
+        <div class="user-info">
+            <i class="fas fa-circle-user"></i>
             <div class="user-details">
                 <div class="user-name">{{ $user->name }}</div>
                 <div class="user-role">{{ $user->role }}</div>
             </div>
         </div>
-        <form method="POST" action="{{ route('logout') }}" class="w-100">
+        <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="btn-logout">
-                <i class="btn-logout-icon fa-solid fa-right-from-bracket"></i>
-                <span class="btn-logout-text">Logout</span>
+                <i class="fas fa-right-from-bracket"></i>
+                <span>Logout</span>
             </button>
         </form>
     </div>
 
-    {{-- Tombol untuk Collapse di Desktop --}}
-    <button id="sidebar-collapse-toggle" class="sidebar-collapse-toggle d-none d-lg-block">
-        <i class="fa-solid fa-chevron-left"></i>
+    {{-- Toggle Button --}}
+    <button id="sidebar-toggle" class="sidebar-toggle">
+        <i class="fas fa-chevron-left"></i>
     </button>
 </aside>
+
+<div id="sidebar-overlay" class="sidebar-overlay"></div>

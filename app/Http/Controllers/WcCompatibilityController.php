@@ -11,6 +11,7 @@ use App\Models\ProductionTData1;
 use App\Models\ProductionTData2;
 use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
+use App\Models\Kode;
 use App\Models\wc_relations;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -26,73 +27,96 @@ class WcCompatibilityController extends Controller
 
     public function showDetails($kode, $wc)
     {
-        $allWcQuery = DB::table('workcenters')
-            ->select('kode_wc as ARBPL','description')
+        // =================================================================
+        // LANGKAH 1: AMBIL DATA KOMPATIBILITAS DAN DATA MENTAH
+        // =================================================================
+        $compatibilities = DB::table('wc_relations as rel')
+            ->join('workcenters as asal', 'rel.wc_asal_id', '=', 'asal.id')
+            ->join('workcenters as tujuan', 'rel.wc_tujuan_id', '=', 'tujuan.id')
+            ->select(
+                'asal.kode_wc as wc_asal_code',
+                'tujuan.id as wc_tujuan_id',
+                'tujuan.kode_wc as wc_tujuan_code',
+                'tujuan.description as wc_tujuan_description',
+                'rel.status'
+            )
+            ->where('asal.werksx', $kode)
+            ->get()
+            ->groupBy('wc_asal_code');
+
+        $compatibleWcCodes = $compatibilities->get($wc, collect())
+            ->filter(function ($relation) {
+                return strtolower($relation->status ?? '') === 'compatible';
+            })
+            ->pluck('wc_tujuan_code')
+            ->all();
+
+        $targetWcCodes = collect([$wc])->merge($compatibleWcCodes)->unique()->values()->all();
+        
+        // =================================================================
+        // LANGKAH 2: FILTER DATA UTAMA BERDASARKAN KOMPATIBILITAS
+        // =================================================================
+        $filteredWcs = DB::table('workcenters')
+            ->select('kode_wc as ARBPL', 'description')
+            ->where('werksx', $kode)
+            ->whereIn('kode_wc', $targetWcCodes)
             ->distinct()
-            ->where('werksx', $kode)->get();
-        // Ganti 'Pro' dan 'work_center_column' dengan nama model dan kolom yang sesuai di proyek Anda
-        // Ini adalah contoh query untuk mengambil semua PRO yang terkait dengan WC yang di-klik
+            ->get();
+
         $pros = DB::table('production_t_data1')
-                ->where('WERKSX', $kode) // <-- TAMBAHKAN BARIS INI
-                ->where('ARBPL', $wc)
-                ->whereRaw("NULLIF(TRIM(AUFNR), '') IS NOT NULL")
-                ->orderBy('AUFNR', 'asc')
-                ->get();
+            ->where('WERKSX', $kode)
+            ->where('ARBPL', $wc)
+            ->whereRaw("NULLIF(TRIM(AUFNR), '') IS NOT NULL")
+            ->orderBy('AUFNR', 'asc')
+            ->get();
 
+        // =================================================================
+        // LANGKAH 3: SIAPKAN DATA CHART (sudah otomatis terfilter)
+        // =================================================================
         $proDensity = DB::table('production_t_data1')
-                    ->select('ARBPL', DB::raw('COUNT(*) as pro_count')) // Hapus DISTINCT dan ganti AUFNR dengan *
-                    ->where('WERKSX', $kode)
-                    ->groupBy('ARBPL')
-                    ->get()
-                    ->keyBy('ARBPL');
+            ->select('ARBPL', DB::raw('COUNT(*) as pro_count'))
+            ->where('WERKSX', $kode)
+            ->groupBy('ARBPL')
+            ->get()
+            ->keyBy('ARBPL');
 
-        $chartDensityData = $allWcQuery->map(function ($wc_item) use ($proDensity) {
-            return $proDensity[$wc_item->ARBPL]->pro_count ?? 0;
-        });
-
-        $capacityDensity = DB::table('production_t_data3') // Ambil dari tabel yang ada CPCTYX
+        $capacityDensity = DB::table('production_t_data3')
             ->select('ARBPL', DB::raw('SUM(CPCTYX) as capacity_sum'))
             ->where('WERKSX', $kode)
             ->groupBy('ARBPL')
             ->get()
             ->keyBy('ARBPL');
 
-        $chartCapacityData = $allWcQuery->map(function ($wc_item) use ($capacityDensity) {
-            // Jika tidak ada data capacity, beri nilai 0
+        $chartProData = $filteredWcs->map(function ($wc_item) use ($proDensity) {
+            return $proDensity[$wc_item->ARBPL]->pro_count ?? 0;
+        });
+
+        $chartCapacityData = $filteredWcs->map(function ($wc_item) use ($capacityDensity) {
             return $capacityDensity[$wc_item->ARBPL]->capacity_sum ?? 0;
         });
 
-        $wcDescriptionMap = $allWcQuery->keyBy('ARBPL')->map(function ($item) {
+        $wcDescriptionMap = $filteredWcs->keyBy('ARBPL')->map(function ($item) {
             return $item->description;
         });
 
-        $compatibilities = DB::table('wc_relations as rel')
-            // Join ke tabel workcenters untuk mendapatkan detail WC ASAL
-            ->join('workcenters as asal', 'rel.wc_asal_id', '=', 'asal.id')
-            // Join lagi ke tabel workcenters untuk mendapatkan detail WC TUJUAN
-            ->join('workcenters as tujuan', 'rel.wc_tujuan_id', '=', 'tujuan.id')
-            ->select(
-                'asal.kode_wc as wc_asal_code', // Kode WC Asal, misal: 'WC031'
-                'tujuan.id as wc_tujuan_id',
-                'tujuan.kode_wc as wc_tujuan_code', // Kode WC Tujuan, misal: 'WC032'
-                'tujuan.description as wc_tujuan_description', // Deskripsi WC Tujuan
-                'rel.status' // Ambil status dari tabel relasi
-            )
-            ->where('asal.werksx', $kode) // Filter berdasarkan plant jika perlu
-            ->get()
-            ->groupBy('wc_asal_code');
-
-        // Kirim data yang ditemukan ke view 'wc-details'
+        // [DITAMBAHKAN] Ambil detail plant untuk dikirim ke layout, ini akan memperbaiki error
+        $plant = Kode::where('kode', $kode)->firstOrFail();
+        
+        // =================================================================
+        // LANGKAH 4: KIRIM DATA KE VIEW
+        // =================================================================
+        
         return view('Admin.kelola-pro', [
-            'workCenter' => $wc,
-            'pros' => $pros,
-            'allWcs' => $allWcQuery,
-            'chartLabels'       => $allWcQuery->pluck('ARBPL'),
-            'chartProData'  => $chartDensityData,
-            'chartCapacityData'   => $chartCapacityData,
+            'workCenter'        => $wc,
+            'pros'              => $pros,
+            'allWcs'            => $filteredWcs,
+            'chartLabels'       => $filteredWcs->pluck('ARBPL'),
+            'chartProData'      => $chartProData,
+            'chartCapacityData' => $chartCapacityData,
             'compatibilities'   => $compatibilities,
             'wcDescriptionMap'  => $wcDescriptionMap,
             'kode'              => $kode,
+            'plant'             => $plant, // [DITAMBAHKAN] Kirim variabel plant ke view
         ]);
     }
 

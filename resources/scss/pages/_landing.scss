@@ -1,0 +1,43 @@
+.hero-section {
+    background: linear-gradient(160deg, #10b981, #059669);
+    color: white;
+    padding: 2rem 1.5rem 6rem;
+    position: relative;
+
+    .text-white {
+        color: white !important;
+    }
+}
+
+.main-content {
+    margin-top: -4rem;
+    z-index: 10;
+    position: relative;
+}
+
+.plant-card {
+    border: 2px solid #e2e8f0;
+    transition: all 0.3s ease-in-out;
+    box-shadow: 0 0 15px 0 rgba(25, 135, 84, 0.2);
+
+    &:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 25px 25px 0 rgba(25, 135, 84, 0.35);
+    }
+    
+    // [DITAMBAHKAN] Aturan untuk memperkecil teks di dalam card
+    .card-title {
+        font-size: 1.05rem; // Sedikit lebih kecil dari default h5
+        margin-bottom: 0.25rem; // Mengurangi jarak bawah judul
+    }
+
+    .card-text {
+        font-size: 0.8rem; // Memperkecil teks kategori
+    }
+}
+
+// Animasi untuk kursor teks
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}

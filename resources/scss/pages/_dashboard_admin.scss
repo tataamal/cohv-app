@@ -1,0 +1,52 @@
+// CSS Kustom untuk Tampilan Profesional
+body {
+    background-color: var(--bs-body-tertiary);
+}
+
+// Transisi halus untuk elemen interaktif
+.card, .btn {
+    transition: all 0.25s ease-in-out;
+}
+
+// Efek hover untuk kartu yang dapat diklik
+.card-interactive:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--bs-box-shadow-lg) !important;
+    border-color: var(--bs-primary) !important;
+}
+
+// Styling untuk tabel dengan header sticky
+.table-container-scroll {
+    max-height: 350px; /* Tinggi maksimal tabel disesuaikan */
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: var(--bs-border-radius);
+
+    thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: var(--bs-tertiary-bg); /* Menggunakan variabel bootstrap untuk tema */
+    }
+}
+
+// Wrapper untuk konsistensi ukuran chart
+.chart-wrapper {
+    position: relative;
+    height: 400px;
+    max-height: 50vh;
+}
+
+@media (min-width: 992px) {
+    .chart-wrapper {
+        height: 450px;
+    }
+}
+
+// Styling untuk tombol info
+.info-button {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 5;
+}

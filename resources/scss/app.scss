@@ -1,534 +1,369 @@
-// resources/scss/app.scss
-
-// =================================================================
-// 1. KUSTOMISASI VARIABEL BOOTSTRAP (WAJIB sebelum import utama)
-// =================================================================
-
-// Mengintegrasikan Google Fonts dengan cara yang benar
+// ============================================
+// BOOTSTRAP CONFIGURATION
+// ============================================
 $font-family-sans-serif: "Plus Jakarta Sans", sans-serif;
+$primary: #10b981;
+$success: #059669;
 
-// Mengganti warna tema utama Bootstrap
-$primary: #8B5CF6; // Ini akan otomatis menghasilkan warna :root dan kelas utilitas (bg-primary, text-primary, dll)
+// Import Bootstrap
+@import 'bootstrap/scss/bootstrap';
+@import 'pages/landing';
+@import 'pages/_dashboard_admin';
+@import 'pages/kelola-pro';
 
-// =================================================================
-// 2. IMPORT BOOTSTRAP
-// =================================================================
-@use 'bootstrap/scss/bootstrap';
-
-
-// =================================================================
-// 3. CSS KUSTOM ANDA
-// =================================================================
-
-// -- Loader Global --
-.loading-overlay {
+// ============================================
+// SIDEBAR STYLES
+// ============================================
+.sidebar {
     position: fixed;
     top: 0;
     left: 0;
+    bottom: 0;
+    width: 260px;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    transition: width 0.3s ease;
+    z-index: 1000;
+}
+
+// Brand
+.sidebar-brand {
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    
+    a {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-decoration: none;
+    }
+    
+    .sidebar-brand-logo {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .sidebar-brand-text {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: #333;
+    }
+}
+
+// Navigation
+.sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav-section {
+    list-style: none;
+}
+
+.nav-section-title {
+    display: block;
+    padding: 0.75rem 0.5rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+}
+
+.nav-item {
+    list-style: none;
+    margin-bottom: 0.25rem;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0.75rem;
+    color: #4b5563;
+    text-decoration: none;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    
+    .nav-icon {
+        width: 20px;
+        margin-right: 0.75rem;
+        text-align: center;
+    }
+    
+    .nav-text {
+        flex: 1;
+    }
+    
+    .nav-arrow {
+        margin-left: auto;
+        font-size: 0.75rem;
+        transition: transform 0.3s;
+    }
+    
+    &:hover {
+        background: #f3f4f6;
+        color: #4b5563;
+    }
+    
+    &.active-parent,
+    &.active {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: #fff !important;
+        font-weight: 700;
+        box-shadow: 0 4px 15px -2px rgba(16, 185, 129, 0.4);
+    }
+    
+    &[aria-expanded="true"] .nav-arrow {
+        transform: rotate(180deg);
+    }
+}
+
+// Submenu
+.submenu {
+    list-style: none;
+    padding: 0.25rem 0 0.5rem 0;
+    margin: 0;
+}
+
+.submenu-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem 0.65rem 1rem;
+    margin-bottom: 0.15rem;
+    color: #333;
+    text-decoration: none;
+    border-radius: 0.375rem;
+    border-left: 4px solid transparent;
+    transition: all 0.2s;
+    
+    i {
+        width: 18px;
+        font-size: 0.875rem;
+        color: #9ca3af;
+    }
+    
+    span {
+        flex: 1;
+    }
+    
+    &:hover {
+        background: #f3f4f6;
+    }
+    
+    &.active {
+        background: #d1fae5;
+        border-left-color: #10b981;
+        font-weight: 700;
+        
+        i {
+            color: #10b981;
+        }
+    }
+}
+
+// Footer
+.sidebar-footer {
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    margin-top: auto;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    
+    i {
+        font-size: 2rem;
+        color: #6b7280;
+    }
+    
+    .user-name {
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .user-role {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+}
+
+.btn-logout {
     width: 100%;
-    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    border-radius: 0.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    &:hover {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+}
+
+// Toggle Button
+.sidebar-toggle {
+    position: absolute;
+    right: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: transform 0.3s;
+    
+    i {
+        font-size: 0.75rem;
+        transition: transform 0.3s;
+    }
+    
+    &:hover {
+        transform: translateY(-50%) scale(1.1);
+    }
+}
+
+// Collapsed State
+body.sidebar-collapsed {
+    .sidebar {
+        width: 80px;
+        
+        .sidebar-brand-text,
+        .nav-section-title,
+        .nav-text,
+        .nav-arrow,
+        .user-details,
+        .btn-logout span {
+            display: none;
+        }
+        
+        .nav-link,
+        .user-info {
+            justify-content: center;
+        }
+        
+        .nav-icon {
+            margin-right: 0;
+        }
+        
+        .submenu {
+            display: none;
+        }
+    }
+    
+    .sidebar-toggle i {
+        transform: rotate(180deg);
+    }
+    
+    #content-wrapper {
+        margin-left: 80px;
+    }
+}
+
+// Overlay for Mobile
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+}
+
+body.sidebar-open .sidebar-overlay {
+    opacity: 1;
+    visibility: visible;
+}
+
+// Mobile
+@media (max-width: 991.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+    
+    .sidebar-toggle {
+        display: none !important;
+    }
+    
+    #content-wrapper {
+        margin-left: 0 !important;
+    }
+}
+
+// Desktop
+@media (min-width: 992px) {
+    #content-wrapper {
+        margin-left: 260px;
+        transition: margin-left 0.3s;
+    }
+}
+
+// ============================================
+// LOADER STYLES
+// ============================================
+.loading-overlay {
+    position: fixed;
+    inset: 0;
     z-index: 9999;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: rgba(229, 99, 255, 0.398);
+    background: rgba(248, 249, 250, 0.7);
     backdrop-filter: blur(4px);
-    transition: opacity 0.3s ease;
-}
-.text-color-loading {
-    color: #000000;
 }
 
-.loader {
-    position: relative;
-    width: 108px;
-    display: flex;
-    justify-content: space-between;
-}
-.loader::after , .loader::before  {
-    content: '';
-    display: inline-block;
-    width: 48px;
-    height: 48px;
-    background-color: #FFF;
-    background-image:  radial-gradient(circle 14px, #0d161b 100%, transparent 0);
-    background-repeat: no-repeat;
-    border-radius: 50%;
-    animation: eyeMove 10s infinite , blink 10s infinite;
-}
-@keyframes eyeMove {
-    0%  , 10% {     background-position: 0px 0px}
-    13%  , 40% {     background-position: -15px 0px}
-    43%  , 70% {     background-position: 15px 0px}
-    73%  , 90% {     background-position: 0px 15px}
-    93%  , 100% {     background-position: 0px 0px}
-}
-@keyframes blink {
-    0%  , 10% , 12% , 20%, 22%, 40%, 42% , 60%, 62%,  70%, 72% , 90%, 92%, 98% , 100%
-    { height: 48px}
-    11% , 21% ,41% , 61% , 71% , 91% , 99%
-    { height: 18px}
-}
-
-// -- Styling Kustom untuk Sidebar Layout (Versi Final) --
-
-:root {
-    --sidebar-width: 260px;
-    --sidebar-collapsed-width: 80px;
-    --transition-speed: 0.3s;
-}
-
-.sidebar {
-    width: var(--sidebar-width);
-    transition: width var(--transition-speed) ease, 
-                transform var(--transition-speed) ease;
-
-    .sidebar-brand {
-        height: 56px; // Tinggi Navbar Bootstrap
-        .logo-img {
-            width: 32px;
-            height: 32px;
-            transition: all var(--transition-speed) ease;
-        }
-    }
-    
-    .nav-link {
-        white-space: nowrap;
-        overflow: hidden;
-        font-weight: 500;
-        color: #555;
-
-        .nav-icon {
-            width: 24px;
-            text-align: center;
-            margin-right: 0.75rem;
-            transition: margin var(--transition-speed) ease;
-        }
-
-        &.active, &:hover {
-            color: var(--bs-primary);
-            background-color: var(--bs-primary-bg-subtle);
-        }
-        
-        &.active-parent {
-            background-color: transparent;
-            color: var(--bs-primary);
-        }
-    }
-
-    .collapse .nav-link {
-        position: relative;
-        padding-left: 3.25rem;
-        font-weight: 400;
-        color: #6c757d;
-
-        &.active, &:hover {
-            color: var(--bs-primary);
-            background-color: transparent;
-        }
-    }
-
-    .collapse-arrow {
-        transition: transform var(--transition-speed) ease;
-    }
-    a[aria-expanded="true"] .collapse-arrow {
-        transform: rotate(180deg);
-    }
-}
-
-body.sidebar-collapsed .sidebar {
-    width: var(--sidebar-collapsed-width);
-
-    .sidebar-brand {
-        .logo-img { width: 40px; height: 40px; }
-    }
-
-    .nav-link {
-        justify-content: center;
-        .nav-icon {
-            margin-right: 0;
-            font-size: 1.25rem;
-        }
-    }
-
-    .sidebar-text {
-        transition: opacity 0.1s ease;
-        opacity: 0;
-        width: 0;
-    }
-}
-
-@media (max-width: 991.98px) {
-    .sidebar {
-        position: fixed;
-        top: 0; bottom: 0; left: 0;
-        z-index: 1031;
-        transform: translateX(calc(-1 * var(--sidebar-width)));
-    }
-    body.sidebar-open .sidebar {
-        transform: translateX(0);
-    }
-    .sidebar-overlay {
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1030;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease;
-    }
-    body.sidebar-open .sidebar-overlay {
-        opacity: 1;
-        visibility: visible;
-    }
-}
-
-// =================================================================
-// STYLING KUSTOM UNTUK SIDEBAR LAYOUT (VERSI DESAIN BARU)
-// =================================================================
-
-:root {
-    --sidebar-width: 260px;
-    --sidebar-collapsed-width: 80px;
-    --transition-speed: 0.3s;
-}
-
-.sidebar {
-    width: var(--sidebar-width);
-    background-color: var(--bs-body-tertiary);
-    transition: width var(--transition-speed) ease, 
-                transform var(--transition-speed) ease;
-
-    .sidebar-brand {
-        height: 56px;
-        .logo-img {
-            width: 32px; height: 32px;
-            transition: all var(--transition-speed) ease;
-        }
-    }
-    
-    .nav-link {
-        white-space: nowrap;
-        overflow: hidden;
-        font-weight: 500;
-        color: var(--bs-secondary-color);
-        padding: 0.75rem 1rem; // Padding yang lebih nyaman
-        border-radius: 0.5rem; // Sudut yang lebih lembut
-
-        .nav-icon {
-            width: 24px;
-            text-align: center;
-            margin-right: 0.75rem;
-            transition: all var(--transition-speed) ease;
-        }
-
-        &:hover {
-            color: var(--bs-body-color);
-            background-color: var(--bs-secondary-bg);
-        }
-        
-        &.active {
-            color: var(--bs-primary);
-            background-color: var(--bs-primary-bg-subtle);
-            font-weight: 600;
-        }
-        
-        &.active-parent {
-            background-color: transparent;
-            color: var(--bs-primary);
-        }
-    }
-
-    .submenu .nav-link {
-        color: var(--bs-secondary-color);
-        font-weight: 400;
-        position: relative;
-        padding-left: 3.5rem; // Dorong ke dalam agar lebih jelas
-
-        &.active {
-            color: var(--bs-primary);
-            font-weight: 600;
-            background-color: transparent;
-
-            // Garis indikator modern
-            &::before {
-                content: '';
-                position: absolute;
-                left: 1.75rem;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 3px;
-                height: 1rem;
-                background-color: var(--bs-primary);
-                border-radius: 3px;
-            }
-        }
-
-        &:hover { background-color: transparent; }
-    }
-
-    .collapse-arrow {
-        transition: transform var(--transition-speed) ease;
-    }
-    a[aria-expanded="true"] .collapse-arrow {
-        transform: rotate(180deg);
-    }
-}
-
-// State ketika sidebar dilipat (desktop)
-body.sidebar-collapsed .sidebar {
-    width: var(--sidebar-collapsed-width);
-
-    .sidebar-brand {
-        .logo-img { width: 40px; height: 40px; }
-    }
-
-    .nav-link {
-        justify-content: center;
-        .nav-icon {
-            margin-right: 0;
-            font-size: 1.2rem;
-        }
-    }
-
-    .sidebar-text, .nav-section-title {
-        transition: opacity 0.1s ease;
-        opacity: 0;
-        width: 0;
-    }
-}
-
-
-// State untuk mobile (sidebar muncul dari kiri)
-@media (max-width: 991.98px) {
-    .sidebar {
-        position: fixed; top: 0; bottom: 0; left: 0;
-        z-index: 1031;
-        transform: translateX(calc(-1 * var(--sidebar-width)));
-    }
-    body.sidebar-open .sidebar {
-        transform: translateX(0);
-    }
-    .sidebar-overlay {
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1030;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease;
-    }
-
-    #sidebar-collapse-toggle {
-        .collapse-icon {
-            transition: transform var(--transition-speed) ease;
-        }
-    }
-
-    // Saat sidebar dilipat, putar ikonnya
-    body.sidebar-collapsed #sidebar-collapse-toggle .collapse-icon {
-        transform: rotate(180deg);
-    }
-
-    body.sidebar-open .sidebar-overlay {
-        opacity: 1;
-        visibility: visible;
-    }
-
-    .sidebar-footer {
-    .btn-logout:hover {
-        // Efek hover merah yang bersih
-        background-color: var(--bs-danger-bg-subtle);
-        color: var(--bs-danger-text-emphasis);
-    }
-
-    .collapse-icon {
-        transition: transform var(--transition-speed) ease;
-    }
-}
-
-
-// Perilaku Footer saat Sidebar terlipat
-body.sidebar-collapsed .sidebar-footer {
-    // Pusatkan semua item di footer
-    .user-info, .btn {
-        justify-content: center !important;
-    }
-
-    // Ganti ikon collapse agar menunjuk ke arah yang benar
-    .collapse-icon {
-        transform: rotate(180deg);
-    }
-}
-}
-body {
-    // Gradien lembut yang cocok dengan tema ungu Anda
-    background-image: linear-gradient(120deg, #f3e8ff 0%, #e9d5ff 100%);
-    background-attachment: fixed; // Membuat gradien tetap diam saat di-scroll
-}
-
-/* Scroll vertikal bila tinggi konten melebihi batas */
-#outstanding-order-container .table-responsive {
-    max-height: 420px;   /* atur sesuai kebutuhan */
-    overflow-y: auto;
-}
-
-/* Bantu sticky header */
-#outstanding-order-container .table-responsive table {
-    border-collapse: separate;
-    border-spacing: 0;
-}
-
-/* Header nempel saat discroll */
-#outstanding-order-container thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--bs-body-bg, #fff);
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,.075);
-}
-
-/* Jika card pakai efek glass */
-.card-glass #outstanding-order-container thead th {
-    background: rgba(255, 255, 255, 0.75);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-}
-/* Scroll dan sticky header untuk tdata3 */
-#tdata3-container .table-responsive {
-    max-height: 420px;      /* biar kalau data banyak, scroll vertikal */
-    overflow-y: auto;
-}
-#tdata3-container table {
-    border-collapse: separate;
-    border-spacing: 0;
-}
-#tdata3-container thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #f8fafc; /* soft background header */
-    color: #374151;      /* teks gelap */
-    font-weight: 600;
-}
-
-/* Hover row lebih soft */
-#tdata3-container tbody tr:hover {
-    background-color: rgba(0,0,0,.03);
-}
-
-/* Soft border */
-#tdata3-container table td,
-#tdata3-container table th {
-    border-color: #e5e7eb !important;
-}
-
-/* Modern badge warna status */
-.badge-status-crtd {
-    background: #facc15; /* kuning lembut */
-    color: #000;
-}
-.badge-status-rel {
-    background: #4ade80; /* hijau lembut */
-    color: #064e3b;
-}
-.badge-status-other {
-    background: #9ca3af; /* abu lembut */
-    color: #111827;
-}
-
-/* Button warna custom */
-.btn-schedule {
-    background-color: #facc15; /* kuning */
-    color: #111827;
-    border: none;
-}
-.btn-schedule:hover { background-color: #eab308; color:#fff; }
-
-.btn-readpp {
-    background-color: #4ade80; /* hijau */
-    color: #064e3b;
-    border: none;
-}
-.btn-readpp:hover { background-color: #22c55e; color:#fff; }
-
-.btn-teco {
-    background-color: #f87171; /* merah soft */
-    color: #fff;
-    border: none;
-}
-.btn-teco:hover { background-color: #dc2626; }
-.pro-cell-inner {
-    width: min(360px, 100%);
-    margin: 0 auto;                 /* center di dalam cell */
-}
-.pro-cell-actions .btn {
-    padding: .2rem .4rem;           /* tombol kecil rapi */
-}
-
-/* Kontainer utama untuk styling dan scoping */
+// ============================================
+// TABLE STYLES
+// ============================================
 .component-table-wrapper {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #d1fae5;
     border-radius: 0.5rem;
-    overflow: hidden; /* Penting untuk rounded corner di table */
+    overflow: hidden;
+    
+    thead th {
+        position: sticky;
+        top: 0;
+        background: #f0fdf4;
+        color: #065f46;
+        font-weight: 600;
+    }
+    
+    tbody tr:hover {
+        background: #ecfdf5;
+    }
 }
-
-/* Kontainer untuk scroll vertikal */
-.component-table-wrapper .table-responsive {
-    max-height: 450px; /* Atur tinggi maksimal tabel sebelum scroll muncul */
-    overflow-y: auto;
-}
-
-/* Membuat header tabel menempel (sticky) saat di-scroll */
-.component-table-wrapper thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    /* Ganti warna background agar tidak transparan saat scroll */
-    background-color: #f8fafc; 
-    box-shadow: inset 0 -2px 0 #e5e7eb; /* Garis bawah halus */
-}
-
-/* Styling tambahan untuk header agar lebih jelas */
-.component-table-wrapper thead th {
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    color: #374151;
-}
-
-/* Padding untuk sel agar tidak terlalu rapat */
-.component-table-wrapper td, .component-table-wrapper th {
-    padding: 0.75rem 1rem;
-    vertical-align: middle;
-}
-
-/* Efek hover pada baris tabel */
-.component-table-wrapper tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.03);
-}
-
-#selection-counter {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background-color: #eef2ff; /* Warna ungu muda yang lembut */
-    color: #4338ca; /* Warna teks ungu tua */
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.375rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-}
-
-#selection-counter .count-badge {
-    background-color: #4338ca;
-    color: #fff;
-    font-weight: bold;
-    padding: 0.2rem 0.5rem;
-    border-radius: 9999px; /* Membuatnya bulat */
-    min-width: 28px;
-    text-align: center;
-}
-
-@import 'sidebar';
