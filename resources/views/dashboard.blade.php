@@ -1,43 +1,7 @@
 <x-layouts.landing title="COHV - PT Kayu Mebel Indonesia">
 
-    @push('styles')
-    {{-- [DIUBAH] Blok style yang sudah dirapikan --}}
-    <style>
-        .hero-section {
-            background: linear-gradient(160deg, #10b981, #059669);
-            color: white;
-            padding: 2rem 1.5rem 6rem;
-            position: relative;
-        }
-        .hero-section .text-white { color: white !important; }
-
-        .main-content {
-            margin-top: -4rem;
-            z-index: 10;
-            position: relative;
-        }
-
-        /* Aturan gabungan untuk .plant-card */
-        .plant-card {
-            border: 2px solid #e2e8f0;
-            /* Transisi untuk semua properti agar lebih halus */
-            transition: all 0.3s ease-in-out;
-            /* Bayangan hijau transparan sebagai default */
-            box-shadow: 0 0 15px 0 rgba(25, 135, 84, 0.2);
-        }
-
-        /* Efek saat card di-hover */
-        .plant-card:hover {
-            /* Card sedikit terangkat */
-            transform: translateY(-8px);
-            /* Bayangan hijau menjadi lebih tebal */
-            box-shadow: 0 25px 25px 0 rgba(25, 135, 84, 0.35);
-        }
-    </style>
-    @endpush
-
     @php
-        $user = Auth::user() ?? (object)['name' => 'User', 'role' => 'Guest'];
+        $user = Auth::user() ?? (object) ['name' => 'User', 'role' => 'Guest'];
     @endphp
 
     <div class="d-flex flex-column min-vh-100">
@@ -49,7 +13,7 @@
                         <div class="bg-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; padding: 0.375rem;">
                             <img src="{{ asset('images/KMI.png') }}" alt="Logo KMI" class="img-fluid">
                         </div>
-                        <h1 class="h6 fw-semibold text-white d-none d-sm-block mb-0">PT. Kayu Mabel Indonesia</h1>
+                        <h1 class="h6 fw-semibold text-white d-none d-sm-block mb-0">PT. Kayu Mebel Indonesia</h1>
                     </div>
                     
                     <div class="dropdown">
@@ -58,8 +22,6 @@
                             <i class="fa-solid fa-user text-white"></i>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2">
-                            <li><a class="dropdown-item" href="#">Profil Saya</a></li>
-                            <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
@@ -96,13 +58,16 @@
                         $colors = $colorClasses[$loop->index % count($colorClasses)];
                     @endphp
                     
-                    <div class="col-12 col-md-6 col-lg-4 d-flex">
+                    {{-- [DIUBAH] Grid classes diubah untuk menampung lebih banyak card per baris --}}
+                    <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
                         <a href="{{ route('manufaktur.dashboard.show', [$plant->kode]) }}"
                             onclick="event.preventDefault(); appLoader.show(); setTimeout(() => { window.location.href = this.href }, 150)"
                             class="card w-100 text-decoration-none text-center p-3 rounded-4 shadow-sm plant-card">
                             <div class="card-body">
-                                <div class="d-inline-flex align-items-center justify-content-center rounded-circle mx-auto mb-4 {{ $colors['bg'] }}" style="width: 64px; height: 64px;">
-                                    <svg class="{{ $colors['text'] }}" width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                {{-- [DIUBAH] Ukuran container ikon diubah dari 64px menjadi 56px --}}
+                                <div class="d-inline-flex align-items-center justify-content-center rounded-circle mx-auto mb-3 {{ $colors['bg'] }}" style="width: 56px; height: 56px;">
+                                    {{-- [DIUBAH] Ukuran SVG diubah dari 32 menjadi 28 --}}
+                                    <svg class="{{ $colors['text'] }}" width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                                 </div>
                                 <h3 class="card-title h5 fw-bold text-dark">{{ $plant->nama_bagian }}</h3>
                                 <p class="card-text text-muted">Kategori: {{ $plant->kategori }}</p>
@@ -127,7 +92,4 @@
         </main>
     </div>
     
-    @push('scripts')
-    @endpush
-
 </x-layouts.landing>

@@ -1,18 +1,19 @@
-// resources/js/app.js
+// ===================================
+// IMPORT COMPONENT
+// ===================================
 
 import './bootstrap';
 import 'bootstrap';
 import './sidebar.js';
 import * as bootstrap from 'bootstrap';
 window.bootstrap = bootstrap; 
-// Impor Chart.js di paling atas agar tersedia untuk semua fungsi
 import Chart from 'chart.js/auto';
-
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import './pages/_dashboard_admin.js';
 
 // =================================================================
 // 1. DEFINISIKAN OBJECT & FUNGSI GLOBAL
@@ -186,34 +187,6 @@ function animateCountUp(element) {
     window.requestAnimationFrame(step);
 }
 
-/**
- * Fungsi untuk merender chart di dashboard.
- */
-function initDashboardCharts() {
-    // ... (kode fungsi ini tidak diubah)
-    const chartCanvases = document.querySelectorAll('.chart-canvas');
-    if (chartCanvases.length === 0) return;
-    chartCanvases.forEach(canvas => {
-        try {
-            const ctx = canvas.getContext('2d');
-            const type = canvas.dataset.type || 'bar';
-            const labels = JSON.parse(canvas.dataset.labels);
-            const datasets = JSON.parse(canvas.dataset.datasets);
-            new Chart(ctx, {
-                type: type,
-                data: { labels, datasets },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { legend: { position: type === 'pie' || type === 'doughnut' ? 'bottom' : 'top' } }
-                }
-            });
-        } catch (error) {
-            console.error('Gagal merender chart:', error, canvas);
-        }
-    });
-}
 function initializeGoodReceiptCalendar() {
     const calendarEl = document.getElementById('calendar');
     if (calendarEl) {
