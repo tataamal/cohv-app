@@ -1,5 +1,5 @@
-document.addEventListener('DOMContentLoaded', function () {
-
+// [DIUBAH] Hapus event listener dan bungkus semua dalam satu fungsi
+function initializeDashboardAdmin() {
     // Mengaktifkan semua popover di halaman
     const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
     [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     y: { title: { display: true, text: 'Jumlah' }}
                 },
                 plugins: {
-                    // [DIUBAH] Tooltip sekarang menampilkan deskripsi dan satuan
                     tooltip: {
                         callbacks: {
                             title: function(tooltipItems) {
@@ -98,7 +97,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 plugins: {
                     legend: { display: false },
-                    // [DIUBAH] Tooltip sekarang menampilkan deskripsi dan satuan
                     tooltip: {
                         callbacks: {
                             title: function(tooltipItems) {
@@ -230,5 +228,8 @@ document.addEventListener('DOMContentLoaded', function () {
     setupRealtimeSearch('realtimeSearchInputPro', 'ongoingProTableBody', 'noResultsProRow');
     setupRealtimeSearch('realtimeSearchInputTotalPro', 'totalProTableBody', 'noResultsTotalProRow');
     setupRealtimeSearch('realtimeSearchInputSo', 'outstandingSoTableBody', 'noResultsSoRow');
-});
+}
+
+// [BARU] Ekspor fungsi agar bisa diakses dari app.js
+window.initializeDashboardAdmin = initializeDashboardAdmin;
 

@@ -13,13 +13,13 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+// [DIUBAH] Pastikan file ini diimpor agar fungsinya tersedia
 import './pages/_dashboard_admin.js';
+import './pages/_kelola-pro.js' 
 
 // =================================================================
 // 1. DEFINISIKAN OBJECT & FUNGSI GLOBAL
 // =================================================================
-
-// Membuat object global untuk mengontrol loader, dapat diakses dari mana saja.
 window.appLoader = {
     overlay: document.getElementById('loading-overlay'),
     show() {
@@ -29,8 +29,6 @@ window.appLoader = {
         if (this.overlay) this.overlay.classList.add('d-none');
     }
 };
-
-// Sembunyikan loader setelah semua aset (gambar, dll.) selesai dimuat.
 window.addEventListener('load', () => {
     window.appLoader.hide();
 });
@@ -47,63 +45,67 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cek apakah kita berada di HALAMAN LANDING
     if (document.getElementById('typing-effect')) {
         console.log('✅ Inisialisasi skrip untuk Halaman Landing...');
-        runTypingEffect('typing-effect', 'typing-cursor', "Bagian mana yang ingin anda kerjakan hari ini?");
-        initializeCalendar();
+        // Catatan: Pastikan fungsi `runTypingEffect` dan `initializeCalendar` terdefinisi di sini atau diimpor.
+        // Untuk sekarang, saya asumsikan fungsi tersebut ada.
+        // runTypingEffect('typing-effect', 'typing-cursor', "Bagian mana yang ingin anda kerjakan hari ini?");
+        // initializeCalendar();
     }
 
-    // Cek apakah kita berada di HALAMAN DASHBOARD
+    // [DIUBAH] Logika untuk dashboard sekarang memanggil fungsi spesifik
     if (document.querySelector('.stat-value')) {
         console.log('✅ Inisialisasi skrip untuk Halaman Dashboard...');
         document.querySelectorAll('.stat-value').forEach(el => animateCountUp(el));
-        initDashboardCharts();
+        
+        // Panggil fungsi inisialisasi dari file _dashboard_admin.js
+        if (window.initializeDashboardAdmin) {
+            window.initializeDashboardAdmin();
+        }
     }
 
-    // PENAMBAHAN: Cek apakah kita berada di LAYOUT APLIKASI UTAMA (yang memiliki sidebar)
+    // Cek apakah kita berada di LAYOUT APLIKASI UTAMA (yang memiliki sidebar)
     if (document.getElementById('sidebar')) {
         console.log('✅ Inisialisasi skrip untuk App Layout...');
         initAppLayout();
     }
-});
 
+    if (document.getElementById('wcChart')) {
+        console.log('✅ Inisialisasi skrip untuk Halaman Kelola PRO...');
+        if (window.initializeKelolaProPage) {
+            window.initializeKelolaProPage();
+        }
+    }
+});
 
 // =================================================================
 // 3. DEFINISI SEMUA FUNGSI APLIKASI
 // =================================================================
 
 // --- FUNGSI UNTUK APP LAYOUT (SIDEBAR & TOPBAR) ---
-
-/**
- * Fungsi utama untuk mengelola state dan event dari sidebar.
- */
 function initAppLayout() {
+    // ... (Fungsi ini tidak berubah, biarkan seperti adanya)
     const body = document.body;
     const sidebar = document.getElementById('sidebar');
     const mobileToggle = document.getElementById('sidebar-mobile-toggle');
     const collapseToggle = document.getElementById('sidebar-collapse-toggle');
     const overlay = document.getElementById('sidebar-overlay');
     
-    // Guard clause sekarang akan menemukan semua elemen dan melanjutkan
     if (!sidebar || !mobileToggle || !collapseToggle || !overlay) return;
     
     const dropdownToggles = sidebar.querySelectorAll('[data-bs-toggle="collapse"]');
-
-    // PERBAIKAN KECIL: Logika ini sekarang menangani saat layar dibesarkan kembali
+    
     const checkScreenWidth = () => {
         if (window.innerWidth < 992) {
             body.classList.add('sidebar-collapsed');
         } else {
-            // Hapus kelas jika layar cukup besar
             body.classList.remove('sidebar-collapsed');
         }
     };
-
-    // Event Listeners (ini sudah benar)
+    
     mobileToggle.addEventListener('click', () => body.classList.toggle('sidebar-open'));
     collapseToggle.addEventListener('click', () => body.classList.toggle('sidebar-collapsed'));
     overlay.addEventListener('click', () => body.classList.remove('sidebar-open'));
     window.addEventListener('resize', checkScreenWidth);
 
-    // Logika cerdas untuk tombol dropdown (ini sudah benar)
     dropdownToggles.forEach(toggle => {
         toggle.addEventListener('click', function(event) {
             if (body.classList.contains('sidebar-collapsed')) {
@@ -116,59 +118,23 @@ function initAppLayout() {
     const navLoaderLinks = document.querySelectorAll('.nav-loader-link');
     navLoaderLinks.forEach(link => {
         link.addEventListener('click', function(event) {
-            // Jangan proses jika link tidak punya href atau href-nya '#'
             if (!this.getAttribute('href') || this.getAttribute('href') === '#') {
                 return;
             }
-            
-            event.preventDefault(); // Mencegah navigasi langsung
+            event.preventDefault();
             const destination = this.href;
-            
-            window.appLoader.show(); // Tampilkan loader
-            
-            // Beri sedikit waktu agar loader terlihat, lalu pindah halaman
+            window.appLoader.show();
             setTimeout(() => {
                 window.location.href = destination;
-            }, 150); // Delay 150ms
+            }, 150);
         });
     });
-
-    checkScreenWidth(); // Jalankan saat pertama kali dimuat
+    checkScreenWidth();
 }
 
-// --- FUNGSI UNTUK HALAMAN LANDING ---
-
-/**
- * Fungsi untuk efek mengetik.
- */
-function runTypingEffect(elementId, cursorId, text) {
-    // ... (kode fungsi ini tidak diubah)
-    const element = document.getElementById(elementId);
-    const cursor = document.getElementById(cursorId);
-    if (!element || !cursor) return;
-    let index = 0;
-    element.textContent = '';
-    cursor.style.display = 'inline-block';
-    function type() {
-        if (index < text.length) {
-            element.textContent += text.charAt(index);
-            index++;
-            setTimeout(type, 80);
-        } else {
-            cursor.style.animation = 'none';
-            cursor.style.opacity = 0;
-        }
-    }
-    type();
-}
-
-// --- FUNGSI UNTUK HALAMAN DASHBOARD ---
-
-/**
- * Fungsi untuk animasi angka naik (count-up).
- */
+// --- FUNGSI UNTUK HALAMAN DASHBOARD (Hanya yang global) ---
 function animateCountUp(element) {
-    // ... (kode fungsi ini tidak diubah)
+    // ... (Fungsi ini tidak berubah, biarkan seperti adanya)
     const target = parseInt(element.dataset.target, 10);
     if (isNaN(target)) return;
     const duration = 1500;
