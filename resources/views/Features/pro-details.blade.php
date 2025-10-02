@@ -15,9 +15,9 @@
                 <div class="summary-card d-flex align-items-center">
                     <div class="icon me-3"><i class="bi bi-journal-text"></i></div>
                     <div>
-                        <h6>Total PRO's</h6>
-                        <span class="value">{{ $totalPro }}</span> <span class="sub-value">orders</span>
-                        <div class="sub-value mt-1">Count All PRO</div>
+                        <h6>{{ $summaryCardTitle }}</h6>
+                        <span class="value">{{ $summaryCardCount }}</span> <span class="sub-value">orders</span>
+                        <div class="sub-value mt-1">{{ $summaryCardSubtitle }}</div>
                     </div>
                 </div>
             </div>

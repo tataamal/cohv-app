@@ -93,15 +93,22 @@ class SidebarService
 
         $today = Carbon::today()->toDateString(); // Format Y-m-d untuk query
 
-        // --- QUERY UTAMA: Mengambil semua data dalam satu kali jalan ---
+        // --- QUERY UTAMA: Menghitung semua status dan total yang relevan dalam satu query ---
         $buyerStats = ProductionTData3::query()
             ->where('WERKSX', $activeKode)
             ->whereNotNull('NAME1')
             ->select(
                 'NAME1',
-                DB::raw('COUNT(*) as total_pro'),
-                DB::raw("SUM(CASE WHEN GLTRP >= '{$today}' THEN 1 ELSE 0 END) as on_schedule_count"),
-                DB::raw("SUM(CASE WHEN GLTRP < '{$today}' THEN 1 ELSE 0 END) as overdue_count"),
+                // Menghitung total hanya untuk STATS 'CRTD' atau 'REL'
+                DB::raw("SUM(CASE WHEN STATS IN ('CRTD', 'REL') THEN 1 ELSE 0 END) as total_pro"),
+                
+                // On-Schedule sekarang memeriksa STATS == 'REL'
+                DB::raw("SUM(CASE WHEN STATS = 'REL' AND GLTRP >= '{$today}' THEN 1 ELSE 0 END) as on_schedule_count"),
+                
+                // Overdue sekarang memeriksa STATS == 'REL'
+                DB::raw("SUM(CASE WHEN STATS = 'REL' AND GLTRP < '{$today}' THEN 1 ELSE 0 END) as overdue_count"),
+                
+                // Created tetap sama
                 DB::raw("SUM(CASE WHEN STATS = 'CRTD' THEN 1 ELSE 0 END) as created_count")
             )
             ->groupBy('NAME1')
@@ -117,7 +124,7 @@ class SidebarService
             $statusSubmenu = [
                 [
                     'name' => 'On Schedule',
-                    'route_name'   => 'pro.detail.buyer', // Gunakan route yang sama
+                    'route_name'   => 'pro.detail.buyer',
                     'route_params' => ['kode' => $activeKode, 'buyerName' => $buyer->NAME1, 'status' => 'on-schedule'],
                     'badge' => $buyer->on_schedule_count,
                     'is_active' => $isParentActive && $activeStatus === 'on-schedule',
@@ -125,32 +132,31 @@ class SidebarService
                 [
                     'name' => 'Overdue',
                     'route_name'   => 'pro.detail.buyer',
-                    'route_params' => ['kode' => $activeKode, 'buyerName' => $buyer->NAME1, 'status' => 'overdue'], 
+                    'route_params' => ['kode' => $activeKode, 'buyerName' => $buyer->NAME1, 'status' => 'overdue'],
                     'badge' => $buyer->overdue_count,
                     'is_active' => $isParentActive && $activeStatus === 'overdue',
                 ],
                 [
                     'name' => 'Created',
                     'route_name'   => 'pro.detail.buyer',
-                    'route_params' => ['kode' => $activeKode, 'buyerName' => $buyer->NAME1, 'status' => 'created'], 
+                    'route_params' => ['kode' => $activeKode, 'buyerName' => $buyer->NAME1, 'status' => 'created'],
                     'badge' => $buyer->created_count,
                     'is_active' => $isParentActive && $activeStatus === 'created',
                 ]
             ];
 
             $buyerMenuItems[] = [
-                'name'        => $buyer->NAME1,
-                'submenu'     => $statusSubmenu,
-                'badge'       => $buyer->total_pro,
-                'is_active'   => $isParentActive,
-                'route_name'  => 'pro.detail.buyer',
+                'name'         => $buyer->NAME1,
+                'submenu'      => $statusSubmenu,
+                'badge'        => $buyer->total_pro,
+                'is_active'    => $isParentActive,
+                'route_name'   => 'pro.detail.buyer',
                 'route_params' => ['kode' => $activeKode, 'buyerName' => $buyer->NAME1],
             ];
         }
-        
+
         return [['title' => 'Buyer Clients', 'items' => $buyerMenuItems]];
     }
-
     private function getUniqueBuyersByWerks(?string $werksFilter): Collection
     {
         return ProductionTData::where('WERKSX', $werksFilter)
