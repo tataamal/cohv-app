@@ -15,7 +15,8 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 // [DIUBAH] Pastikan file ini diimpor agar fungsinya tersedia
 import './pages/_dashboard_admin.js';
-import './pages/_kelola-pro.js' 
+import './pages/_kelola-pro.js';
+import './pages/_monitoring-pro.js'; 
 
 // =================================================================
 // 1. DEFINISIKAN OBJECT & FUNGSI GLOBAL

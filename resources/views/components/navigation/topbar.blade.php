@@ -2,7 +2,11 @@
     'navigation' => [
         ['name' => 'Dashboard', 'route_name' => 'manufaktur.dashboard.show'],
         ['name' => 'List Data', 'route_name' => 'manufaktur.show.detail.data2'],
-        ['name' => 'Monitoring PRO', 'route_name' => 'list.gr'],
+        [
+            'name' => 'Monitoring PRO', 
+            'route_name' => 'monitoring-pro.index',
+            'active_on' => ['monitoring-pro.index*', 'pro.detail.buyer*']
+        ],
         ['name' => 'List GR', 'route_name' => 'list.gr'],
     ],
 ])
@@ -27,7 +31,7 @@
 <nav class="navbar navbar-expand bg-white shadow-sm">
     <div class="container-fluid">
         <div class="d-flex align-items-center">
-            <button id="sidebar-mobile-toggle" class="btn btn-light d-lg-none me-3">
+            <button id="mobile-sidebar-toggle" class="btn d-lg-none">
                 <i class="fas fa-bars"></i>
             </button>
 

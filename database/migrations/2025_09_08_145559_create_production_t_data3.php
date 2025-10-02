@@ -24,6 +24,8 @@ return new class extends Migration
             $table->string('KDAUF')->nullable();
             $table->string('KDPOS')->nullable();
             $table->string('AUFNR')->nullable();
+            $table->string('NAME1')->nullable();
+            $table->string('KUNNR')->nullable();
             $table->string('PLNUM')->nullable();
             $table->string('STATS')->nullable();
             $table->string('DISPO')->nullable();

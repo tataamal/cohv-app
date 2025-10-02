@@ -17,6 +17,8 @@ class ProductionTData3 extends Model
             'KDAUF',
             'KDPOS', 
             'AUFNR',
+            'NAME1',
+            'KUNNR',
             'PLNUM', 
             'STATS', 
             'DISPO',

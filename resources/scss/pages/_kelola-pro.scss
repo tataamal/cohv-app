@@ -76,3 +76,14 @@ body {
 #bulk-drag-handle:active {
     cursor: grabbing;
 }
+@media (max-width: 768px) {
+    /* Sembunyikan kolom yang ditandai .d-none-mobile */
+    .d-none-mobile {
+        display: none;
+    }
+
+    /* Ubah kursor menjadi pointer untuk menandakan baris bisa di-klik */
+    #proTableBody .pro-row {
+        cursor: pointer;
+    }
+}

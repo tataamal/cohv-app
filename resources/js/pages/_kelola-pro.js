@@ -214,17 +214,41 @@ function initializeKelolaProPage() {
     // =================================================================
     // EVENT LISTENER LAINNYA (NAVIGASI, PENCARIAN, SUBMIT) (tidak ada perubahan)
     // =================================================================
+    const wcSelect = document.getElementById('wcQuickNavSelect');
+    if (wcSelect) {
+        // Ambil semua elemen <option>, ubah menjadi array, lalu urutkan
+        const options = Array.from(wcSelect.options);
+        options.sort((a, b) => a.textContent.localeCompare(b.textContent));
+
+        // Masukkan kembali options yang sudah terurut ke dalam select
+        options.forEach(option => wcSelect.appendChild(option));
+    }
+
+    // Event listener untuk tombol navigasi (tidak berubah)
     document.getElementById('wcQuickNavBtn')?.addEventListener('click', () => {
-        const selectedWc = document.getElementById('wcQuickNavSelect').value;
-        if (selectedWc) window.location.href = `/wc-mapping/details/${plantKode}/${selectedWc}`;
+        const selectedWc = wcSelect.value;
+        if (selectedWc) {
+            // Pastikan variabel plantKode sudah didefinisikan sebelumnya di scope ini
+            window.location.href = `/wc-mapping/details/${plantKode}/${selectedWc}`;
+        }
     });
+
+    // --- Bagian 2: Modifikasi untuk Search by All ---
     document.getElementById('proSearchInput')?.addEventListener('keyup', function() {
         const filterText = this.value.toUpperCase();
         document.querySelectorAll('#proTableBody tr').forEach(row => {
-            const proCodeCell = row.cells[2];
-            if (proCodeCell) row.style.display = proCodeCell.textContent.toUpperCase().includes(filterText) ? "" : "none";
+            // Ambil seluruh teks dari satu baris (tr)
+            const rowText = row.textContent || row.innerText;
+
+            // Cek apakah teks baris mengandung teks filter
+            // Jika iya, tampilkan. Jika tidak, sembunyikan.
+            row.style.display = rowText.toUpperCase().includes(filterText) ? "" : "none";
         });
-        updateBulkSelection();
+        
+        // Pastikan fungsi ini ada jika Anda membutuhkannya
+        if (typeof updateBulkSelection === 'function') {
+            updateBulkSelection();
+        }
     });
     document.getElementById('changeWcForm')?.addEventListener('submit', function() {
         document.getElementById('loading-overlay').classList.remove('d-none');
@@ -235,6 +259,50 @@ function initializeKelolaProPage() {
         }
     });
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const proDetailModalElement = document.getElementById('proDetailModal');
+    
+    // Pastikan elemen modal ditemukan sebelum melanjutkan
+    if (!proDetailModalElement) {
+        console.error('Elemen modal dengan ID "proDetailModal" tidak ditemukan.');
+        return; // Hentikan eksekusi jika modal tidak ada
+    }
+
+    const proDetailModal = new bootstrap.Modal(proDetailModalElement);
+
+    document.querySelectorAll('#proTableBody .pro-row').forEach(row => {
+        row.addEventListener('click', function(event) {
+            
+            // =================================================================
+            // INI BAGIAN YANG DITAMBAHKAN
+            // Hentikan fungsi jika elemen yang diklik memiliki class 'pro-select-checkbox'
+            if (event.target.matches('.pro-select-checkbox')) {
+                return; 
+            }
+            // =================================================================
+
+            // Logika lama tetap berjalan jika bukan checkbox yang diklik
+            if (window.innerWidth <= 768) {
+                const cells = this.getElementsByTagName('td');
+                const proCode = cells[2].textContent.trim();
+                
+                document.getElementById('proModalTitle').textContent = 'Detail PRO: ' + proCode;
+                document.getElementById('modalPro').textContent = proCode;
+                document.getElementById('modalSo').textContent = cells[3].textContent.trim();
+                document.getElementById('modalSoItem').textContent = cells[4].textContent.trim();
+                document.getElementById('modalWc').textContent = cells[5].textContent.trim();
+                document.getElementById('modalMaterial').textContent = cells[6].textContent.trim();
+                document.getElementById('modalOperKey').textContent = cells[7].textContent.trim();
+                document.getElementById('modalPv1').textContent = cells[8].textContent.trim();
+                document.getElementById('modalPv2').textContent = cells[9].textContent.trim();
+                document.getElementById('modalPv3').textContent = cells[10].textContent.trim();
+                
+                proDetailModal.show();
+            }
+        });
+    });
+});
 // Ekspor fungsi utama agar bisa dipanggil dari app.js
 window.initializeKelolaProPage = initializeKelolaProPage;
 

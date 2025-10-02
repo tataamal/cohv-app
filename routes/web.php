@@ -9,6 +9,7 @@ use App\Http\Controllers\bulkController;
 use App\Http\Controllers\Data4Controller;
 use App\Http\Controllers\ManufactController;
 use App\Http\Controllers\WcCompatibilityController;
+use App\Http\Controllers\MonitoringProController;
 
 /*
 |--------------------------------------------------------------------------
@@ -69,5 +70,10 @@ Route::middleware('auth')->group(function (){
     Route::post('/bulk-schedule-process', [bulkController::class, 'processBulkSchedule'])->name('bulk.schedule.process');
     Route::post('/bulk-change-and-refresh', [bulkController::class, 'handleBulkChangeAndRefresh']);
     Route::post('/changeWCBulk/{kode}/{wc_tujuan}', [Data1Controller::class, 'changeWcBulk'])->name('wc.change.bulk');
+
+    Route::get('/monitoring-pro/{kode}', [MonitoringProController::class, 'index'])->name('monitoring-pro.index');
+    Route::get('/monitoring-pro/{kode}/filter', [MonitoringProController::class, 'filter'])->name('monitoring-pro.filter');
+    Route::get('/monitoring-pro/{buyer}/{status}', [MonitoringProController::class, 'show'])->name('monitoring-pro.show');
+    Route::get('/pro-details/{kode}/{buyerName}/{status?}', [MonitoringProController::class, 'showByBuyer'])->name('pro.detail.buyer');
 
 });

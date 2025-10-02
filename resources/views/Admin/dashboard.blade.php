@@ -355,7 +355,7 @@
                 <div class="card-body p-4">
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
-                            <h3 class="h5 fw-semibold text-dark mb-1">Daftar Semua Production Order (PRO)</h3>
+                            <h3 class="h5 fw-semibold text-dark mb-1">List of Production Order (PRO)</h3>
                             <p class="small text-muted mb-0">Menampilkan semua PRO yang ada di plant ini.</p>
                         </div>
                         <button id="backToDashboardBtnTotalPro" class="btn btn-outline-secondary flex-shrink-0">
@@ -377,7 +377,7 @@
                                     <th class="text-center">SO. Item</th>
                                     <th class="text-center">PRO</th>
                                     <th class="text-center">Status</th>
-                                    <th class="text-center">Kode Material</th>
+                                    <th class="text-center">Material Code</th>
                                     <th class="text-center">Deskripsi</th>
                                     <th class="text-center">Plant</th>
                                     <th class="text-center">MRP</th>

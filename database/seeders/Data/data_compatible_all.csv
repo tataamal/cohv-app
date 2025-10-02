@@ -1748,3 +1748,13 @@ WC751,WC750,compatible
 WC266,WC753,compatible
 WC756,WC757,compatible
 WC757,WC756,compatible
+WC320,WC528,compatible
+WC320,WC529,compatible
+WC528,WC320,compatible
+WC528,WC529,compatible
+WC529,WC320,compatible
+WC529,WC528,compatible
+WC322,WC323,compatible
+WC323,WC322,compatible
+WC324,WC325,compatible
+WC325,WC324,compatible

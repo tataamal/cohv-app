@@ -94,12 +94,13 @@
                                         <th class="text-center" style="width: 50px;"><input class="form-check-input" type="checkbox" id="select-all-pro" title="Pilih semua yang terlihat"></th>
                                         <th class="text-center" scope="col">No</th>
                                         <th class="text-center" scope="col">PRO</th>
-                                        <th class="text-center" scope="col">Workcenter</th>
-                                        <th class="text-center" scope="col">Material Description</th>
-                                        <th class="text-center" scope="col">Operation Key</th>
-                                        <th class="text-center" scope="col">PV1</th>
-                                        <th class="text-center" scope="col">PV2</th>
-                                        <th class="text-center" scope="col">PV3</th>
+                                        <th class="text-center d-none-mobile" scope="col">SO</th>
+                                        <th class="text-center d-none-mobile" scope="col">SO Item</th>
+                                        <th class="text-center d-none-mobile" scope="col">Workcenter</th>
+                                        <th class="text-left" scope="col">Material Description</th> <th class="text-center d-none-mobile" scope="col">Operation Key</th>
+                                        <th class="text-center d-none-mobile" scope="col">PV1</th>
+                                        <th class="text-center d-none-mobile" scope="col">PV2</th>
+                                        <th class="text-center d-none-mobile" scope="col">PV3</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proTableBody">
@@ -109,20 +110,17 @@
                                             data-wc-asal="{{ $pro->ARBPL }}"
                                             data-oper="{{ $pro->VORNR }}"
                                             data-pwwrk="{{ $pro->PWWRK }}">
-                                            <td class="text-center">
-                                                <span class="drag-handle" draggable="true">
-                                                    <i class="fa-solid fa-grip-vertical text-muted"></i>
-                                                </span>
-                                            </td>
                                             <td class="text-center"><input class="form-check-input pro-select-checkbox" type="checkbox"></td>
                                             <td class="text-center">{{ $loop->iteration }}</td>
-                                            <td class="text-center fw-bold">{{ $pro->AUFNR }}</td>
-                                            <td class="text-center">{{ $pro->ARBPL }}</td>
+                                            <td class="text-center">{{ $pro->AUFNR }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->KDAUF }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->KDPOS }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->ARBPL }}</td>
                                             <td class="text-center">{{ $pro->MAKTX }}</td>
-                                            <td class="text-center">{{ $pro->STEUS }}</td>
-                                            <td class="text-center">{{ $pro->PV1 }}</td>
-                                            <td class="text-center">{{ $pro->PV2 }}</td>
-                                            <td class="text-center">{{ $pro->PV3 }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->STEUS }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->PV1 }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->PV2 }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->PV3 }}</td>
                                         </tr>
                                     @empty
                                         <tr>
@@ -181,6 +179,7 @@
     
     {{-- MODAL UNTUK PETUNJUK (Struktur tidak berubah) --}}
     @include('components.modals.petunjuk-penggunaan-modal')
+    @include('components.modals.kelola-pro.detail-pro-modal')
 
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

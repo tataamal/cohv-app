@@ -25,6 +25,7 @@
 
     {{-- Sidebar dipanggil langsung di dalam body --}}
     <x-navigation.sidebar />
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
     
     {{-- Wrapper konten juga langsung di dalam body --}}
     <div id="content-wrapper" class="d-flex flex-column flex-grow-1">
