@@ -22,45 +22,46 @@
 
                 @foreach($section['items'] as $item)
                     <li class="nav-item">
+                        {{-- JIKA ITEM PUNYA SUBMENU --}}
                         @if(!empty($item['submenu']))
                             @php
-                                $currentPath = request()->path();
-                                $currentKode = last(explode('/', $currentPath));
-                                $isParentActive = collect($item['submenu'])->contains(function ($subitem) use ($currentKode) {
-                                    $routeKode = $subitem['route_params']['kode'] ?? null;
-                                    return $currentKode && $routeKode && $currentKode === $routeKode;
-                                });
                                 $collapseId = 'submenu-' . Str::slug($item['name']);
                             @endphp
                             
-                            <a class="nav-link {{ $isParentActive ? 'active-parent' : '' }}"
+                            <a class="nav-link {{ $item['is_active'] ? 'active-parent' : '' }}"
                                data-bs-toggle="collapse"
                                href="#{{ $collapseId }}"
-                               aria-expanded="{{ $isParentActive ? 'true' : 'false' }}">
+                               aria-expanded="{{ $item['is_active'] ? 'true' : 'false' }}">
                                 <span class="nav-text">{{ $item['name'] }}</span>
+                                @if(isset($item['badge']))
+                                    <span class="badge bg-success ms-auto me-2p p-1">{{ $item['badge'] }}</span>
+                                @endif
                                 <i class="nav-arrow fas fa-chevron-down"></i>
                             </a>
                             
-                            <div class="collapse {{ $isParentActive ? 'show' : '' }}" id="{{ $collapseId }}">
+                            <div class="collapse {{ $item['is_active'] ? 'show' : '' }}" id="{{ $collapseId }}">
                                 <ul class="submenu">
                                     @foreach($item['submenu'] as $subitem)
-                                        @php
-                                            $routeKode = $subitem['route_params']['kode'] ?? null;
-                                            $isSubmenuActive = $currentKode && $routeKode && $currentKode === $routeKode;
-                                        @endphp
                                         <li>
-                                            <a href="{{ route($subitem['route_name'], $subitem['route_params']) }}" 
-                                               class="submenu-link {{ $isSubmenuActive ? 'active' : '' }}">
+                                            <a href="{{ $subitem['route_name'] ? route($subitem['route_name'], $subitem['route_params'] ?? []) : '#' }}" 
+                                               class="submenu-link {{ $subitem['is_active'] ? 'active' : '' }}">
                                                 <i class="fas fa-database"></i>
                                                 <span>{{ $subitem['name'] }}</span>
+                                                @if(isset($subitem['badge']))
+                                                    <span class="badge {{ $subitem['name'] === 'Overdue' ? 'bg-danger-soft' : 'bg-secondary-soft' }} ms-auto">
+                                                        {{ $subitem['badge'] }}
+                                                    </span>
+                                                @endif
                                             </a>
                                         </li>
                                     @endforeach
                                 </ul>
                             </div>
+                        
+                        {{-- JIKA ITEM ADALAH LINK BIASA (TIDAK PUNYA SUBMENU) --}}
                         @else
-                            @php $isActive = request()->routeIs($item['route_name']); @endphp
-                            <a href="{{ route($item['route_name']) }}" class="nav-link {{ $isActive ? 'active' : '' }}">
+                            <a href="{{ $item['route_name'] ? route($item['route_name'], $item['route_params'] ?? []) : '#' }}" 
+                               class="nav-link {{ $item['is_active'] ? 'active' : '' }}">
                                 <i class="nav-icon {{ $item['icon'] ?? 'fas fa-file' }}"></i>
                                 <span class="nav-text">{{ $item['name'] }}</span>
                             </a>
