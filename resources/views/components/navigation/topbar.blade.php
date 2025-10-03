@@ -1,13 +1,13 @@
 @props([
     'navigation' => [
         ['name' => 'Dashboard', 'route_name' => 'manufaktur.dashboard.show'],
-        ['name' => 'List Data', 'route_name' => 'manufaktur.show.detail.data2'],
         [
             'name' => 'Monitoring PRO', 
             'route_name' => 'monitoring-pro.index',
             'active_on' => ['monitoring-pro.index*', 'pro.detail.buyer*']
         ],
-        ['name' => 'List GR', 'route_name' => 'list.gr'],
+        ['name' => 'List Data', 'route_name' => 'manufaktur.show.detail.data2'],
+        // ['name' => 'List GR', 'route_name' => 'list.gr'],
     ],
 ])
 

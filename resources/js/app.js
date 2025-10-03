@@ -7,16 +7,17 @@ import 'bootstrap';
 import './sidebar.js';
 import * as bootstrap from 'bootstrap';
 window.bootstrap = bootstrap; 
-import Chart from 'chart.js/auto';
+import jQuery from 'jquery';
+window.$ = window.jQuery = jQuery;
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 // [DIUBAH] Pastikan file ini diimpor agar fungsinya tersedia
-import './pages/_dashboard_admin.js';
 import './pages/_kelola-pro.js';
 import './pages/_monitoring-pro.js'; 
+import './pages/_dashboard_admin.js';
 
 // =================================================================
 // 1. DEFINISIKAN OBJECT & FUNGSI GLOBAL

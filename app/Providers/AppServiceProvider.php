@@ -21,10 +21,10 @@ class AppServiceProvider extends ServiceProvider
             $activeBuyer = Request::route('buyer');
             $activeStatus = Request::route('status');
 
-            if (Request::routeIs(['manufaktur.dashboard.show', 'list.gr', 'wc.details'])) {
+            if (Request::routeIs(['manufaktur.dashboard.show', 'list.gr', 'wc.details', 'manufaktur.show.detail.data2'])) {
                 $menuItems = $sidebarService->getDashboardMenu($activeKode);
             } 
-            elseif (Request::routeIs('manufaktur.show.detail.data2')) {
+            elseif (Request::routeIs('#')) {
                 $menuItems = $sidebarService->getFilteredBuyerListMenu($activeKode);
             }
             elseif (Request::routeIs(['monitoring-pro.index', 'pro.detail.buyer'])) {

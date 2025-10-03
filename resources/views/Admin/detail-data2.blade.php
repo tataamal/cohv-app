@@ -353,29 +353,65 @@
         }
         
         function loadPersistedState() {
+            // --- START: LOGIKA SHORTCUT /T3 (Prioritas Pertama) ---
+            // Ambil data yang dikirim oleh Controller (hanya ada pada muatan halaman pertama dari shortcut)
+            const initialView = @json($initialView ?? 'T1', JSON_HEX_TAG); 
+            const proData = @json($proData ?? null, JSON_HEX_TAG); 
+            const outstandingOrderData = @json($outstandingOrder ?? null, JSON_HEX_TAG);
+            const buyerData = @json($buyerData ?? null, JSON_HEX_TAG);
 
+            if (initialView === 'T3' && proData && outstandingOrderData && buyerData) {
+                console.log('Mode Navigasi Cepat /T3 Aktif. Menyimpan state dan me-reload.');
+
+                // 1. Hitung Kunci yang Relevan dari data Controller
+                // Kunci T1 (Buyer)
+                const activeSOKey = `${buyerData.KUNNR || ''}-${buyerData.NAME1 || ''}`;
+                // Kunci T2 (Outstanding Order) - KDAUF dan KDPOS diambil dari TData3 ($proData)
+                const activeT2Key = `${proData.KDAUF || ''}-${proData.KDPOS || ''}`;
+
+                // 2. Simpan semua state yang diperlukan ke Session Storage
+                sessionStorage.setItem('activeSalesOrderKey', activeSOKey);
+                sessionStorage.setItem('activeTdata2Key', activeT2Key);
+                sessionStorage.setItem('activeT3Aufnr', proData.AUFNR);
+                sessionStorage.setItem('activeT3Type', 'route'); // Asumsi: ingin membuka detail Rute/Komponen
+                
+                // 3. Muat Ulang Halaman
+                // Ini adalah kunci untuk memicu alur pemulihan state multi-level
+                window.location.reload(); 
+                
+                // Hentikan eksekusi lebih lanjut untuk mencegah logika lama berjalan
+                return;
+            }
+            // --- END: LOGIKA SHORTCUT /T3 ---
+
+            // --- START: LOGIKA PEMULIHAN STATE LAMA (Hanya berjalan setelah reload) ---
+            
+            // Logika deteksi navigasi baru vs reload Anda
             const navEntries = performance.getEntriesByType("navigation");
             if (navEntries.length > 0 && navEntries[0].type !== 'reload') {
                 sessionStorage.clear();
                 console.log('Navigasi baru terdeteksi. Session storage dibersihkan.');
-                return; 
+                return;
             } else {
                 console.log('Refresh halaman terdeteksi. State dipertahankan.');
             }
+            
             // === 1. Ambil semua key dari sessionStorage ===
             const activeSOKey = sessionStorage.getItem('activeSalesOrderKey');
             const activeT2Key = sessionStorage.getItem('activeTdata2Key');
             const activeT3Aufnr = sessionStorage.getItem('activeT3Aufnr');
             const activeT3Type = sessionStorage.getItem('activeT3Type');
 
-            if (!activeSOKey) return;
+            // Jika tidak ada state yang disimpan, keluar
+            if (!activeSOKey) return; 
 
             // === 2. Muat state level 1 (T1 -> T2) ===
             console.log(`[DEBUG] Mencari T1 dengan key: ${activeSOKey}`);
             const activeRowT1 = document.querySelector(`tr[data-key="${activeSOKey}"]`);
 
             if (activeRowT1) {
-                openSalesItem(activeRowT1);
+                // openSalesItem akan menyembunyikan baris T1 lainnya dan merender T2
+                openSalesItem(activeRowT1); 
             } else {
                 console.error(`[DEBUG] GAGAL: Baris T1 untuk key ${activeSOKey} tidak ditemukan.`);
                 sessionStorage.clear();
@@ -385,37 +421,59 @@
             if (!activeT2Key) return;
 
             // === 3. Muat state level 2 (T2 -> T3) ===
+            // Wajib menggunakan setTimeout karena DOM (T2) baru saja dibuat oleh renderTData2Table 
+            // di dalam openSalesItem() yang mungkin belum selesai sepenuhnya.
             setTimeout(() => {
                 console.log(`[DEBUG] Mencari T2 dengan key: ${activeT2Key}`);
                 const activeRowT2 = document.querySelector(`#tdata2-body tr[data-key="${activeT2Key}"]`);
                 
-                // ----> TAMBAHKAN LOG INI <----
                 if (activeRowT2) {
-                    console.log('[DEBUG] SUKSES: Baris T2 ditemukan!', activeRowT2);
-                    handleClickTData2Row(activeT2Key, activeRowT2);
+                    console.log('[DEBUG] SUKSES: Baris T2 ditemukan!');
+                    // handleClickTData2Row akan menyembunyikan baris T2 lainnya dan merender T3
+                    handleClickTData2Row(activeT2Key, activeRowT2); 
                 } else {
-                    console.error(`[DEBUG] GAGAL: Baris T2 untuk key ${activeT2Key} tidak ditemukan di dalam #tdata2-body.`);
+                    console.error(`[DEBUG] GAGAL: Baris T2 untuk key ${activeT2Key} tidak ditemukan.`);
                     return;
                 }
 
                 if (!activeT3Aufnr || !activeT3Type) return;
 
                 // === 4. Muat state level 3 (T3 -> T4) ===
+                // Jeda lagi untuk memastikan T3 (Order Overview) sudah selesai di-render
                 setTimeout(() => {
-                    const buttonSelector = `#tdata3-body tr[data-aufnr="${activeT3Aufnr}"] .${activeT3Type}-button`;
-                    console.log(`[DEBUG] Mencari Tombol T3 dengan selector: ${buttonSelector}`);
-                    const activeButtonT3 = document.querySelector(buttonSelector);
+                    // Kita harus mensimulasikan klik pada tombol Route atau Comp di baris T3
+                    // Kita asumsikan tombol Route atau Comp memiliki kelas 'route-button' atau 'comp-button'
+                    const buttonClass = (activeT3Type === 'route') ? 'route-button' : '';
+                    
+                    // Cari baris T3 yang cocok, lalu tombol Route atau Comp di dalamnya
+                    // Asumsi: Baris T3 memiliki data-aufnr yang sesuai
+                    const rowT3 = document.querySelector(`#tdata3-body tr[data-aufnr="${activeT3Aufnr}"]`);
 
-                    // ----> TAMBAHKAN LOG INI <----
-                    if (activeButtonT3) {
-                        console.log('[DEBUG] SUKSES: Tombol T3 ditemukan!', activeButtonT3);
-                        activeButtonT3.click();
+                    if (rowT3) {
+                        // Cari tombol Route atau Comp di dalam baris tersebut
+                        let activeButtonT3;
+                        if(activeT3Type === 'route') {
+                            activeButtonT3 = rowT3.querySelector('[route-button]');
+                        } else if (activeT3Type === 'component') {
+                            // Cari tombol Comp (asumsi tombol Comp adalah tombol kedua di .pro-cell-actions)
+                            activeButtonT3 = rowT3.querySelector('.pro-cell-actions button:last-child');
+                        }
+                        
+                        if (activeButtonT3) {
+                            console.log(`[DEBUG] SUKSES: Memicu klik tombol ${activeT3Type} di T3!`);
+                            // Gunakan fungsi onclick yang sudah ada di tombol tersebut
+                            activeButtonT3.click();
+                        } else {
+                            console.error(`[DEBUG] GAGAL: Tombol ${activeT3Type} tidak ditemukan di baris T3.`);
+                        }
                     } else {
-                        console.error(`[DEBUG] GAGAL: Tombol T3 tidak ditemukan.`);
+                        console.error(`[DEBUG] GAGAL: Baris T3 untuk AUFNR ${activeT3Aufnr} tidak ditemukan.`);
                     }
-                }, 300); // Naikkan sedikit jeda untuk amannya
 
-            }, 300); // Naikkan sedikit jeda untuk amannya
+                }, 500); // Jeda ditingkatkan sedikit (500ms) untuk memastikan T3 benar-benar selesai di-render
+
+            }, 300); // Jeda ditingkatkan sedikit (300ms) untuk memastikan T2 selesai di-render
+
         }
 
         function deleteAllStorage() {

@@ -101,6 +101,37 @@
                 </div>
             </div>
 
+            {{-- <form id="searchPROForm">
+                <div class="row g-2">
+                    <input type="hidden" name="werks_code" id="werksCode" value="{{ $kode }}">
+                    <input type="hidden" name="bagian_name" id="bagianName" value="{{ $nama_bagian }}">
+                    <input type="hidden" name="categories_name" id="categoriesName" value="{{ $kategori }}">
+                    <div class="col-md-9 col-lg-10">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                class="form-control border-start-0" 
+                                id="proNumber" 
+                                name="proNumber" 
+                                placeholder="Enter PRO number (e.g., PRO-2024-001)"
+                                required
+                                autocomplete="off">
+                        </div>
+                        <small class="text-muted d-block mt-2">Enter the PRO number to view detailed information</small>
+                    </div>
+            
+                    <div class="col-md-3 col-lg-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-arrow-right me-2"></i>
+                            <span>Go To PRO</span>
+                        </button>
+                    </div>
+                </div>
+            </form> --}}
+
             <div id="chartsSection" class="row g-4">
                 <div class="col-12">
                     <div class="card shadow-sm border-0 h-100 position-relative">
@@ -132,9 +163,13 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-6">
+                <div class="col-lg-6" 
+                    id="proStatusCardContainer"
+                    data-bagian="{{ $nama_bagian }}" 
+                    data-kategori="{{ $kategori }}"
+                    data-kode="{{ $kode }}">  
                     <div class="card shadow-sm border-0 h-100 position-relative">
-                         <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
+                        <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
                             data-bs-toggle="popover"
                             data-bs-trigger="hover focus"
                             data-bs-placement="left"
@@ -142,10 +177,16 @@
                             <i class="fas fa-info"></i>
                         </button>
                         <div class="card-body p-4 d-flex flex-column">
-                            <h3 class="h5 fw-semibold text-dark">PRO Status in - {{ $nama_bagian }} {{ $kategori }}</h3>
-                            <p class="small text-muted mb-4">Distribusi status pada Production Order.</p>
-                            <div class="chart-wrapper flex-grow-1">
+                            <div id="cardHeaderContent">
+                                <h3 class="h5 fw-semibold text-dark">PRO Status in - {{ $nama_bagian }} {{ $kategori }}</h3>
+                                <p class="small text-muted mb-4">Distribusi status pada Production Order.</p>
+                            </div>
+                            
+                            <div id="chartView" class="chart-wrapper flex-grow-1">
                                 <canvas id="pieChart" data-labels="{{ json_encode($doughnutChartLabels ?? []) }}" data-datasets="{{ json_encode($doughnutChartDatasets ?? []) }}"></canvas>
+                            </div>
+
+                            <div id="tableView" style="display: none;" class="flex-grow-1">
                             </div>
                         </div>
                     </div>
@@ -350,6 +391,7 @@
         </div>
 
         {{-- [BARU] Seksi Tabel untuk Total PRO --}}
+        
         <div id="totalProSection" style="display: none;">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
@@ -358,10 +400,18 @@
                             <h3 class="h5 fw-semibold text-dark mb-1">List of Production Order (PRO)</h3>
                             <p class="small text-muted mb-0">Menampilkan semua PRO yang ada di plant ini.</p>
                         </div>
-                        <button id="backToDashboardBtnTotalPro" class="btn btn-outline-secondary flex-shrink-0">
-                            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                        </button>
-                    </div>
+                        <div class="d-flex flex-column flex-sm-row gap-2 align-self-stretch align-items-sm-center">
+                            <select id="statusFilterTotalPro" class="form-select flex-shrink-0" style="width: 150px;">
+                                <option value="">Semua Status</option>
+                                <option value="REL">RELEASE</option>
+                                <option value="CRTD">CREATED</option>
+                            </select>
+
+                            <button id="backToDashboardBtnTotalPro" class="btn btn-outline-secondary flex-shrink-0">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                            </button>
+                        </div>
+                        </div>
                     <div class="mb-3" style="max-width: 320px;">
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
@@ -396,8 +446,13 @@
                                         if (in_array($status, ['REL', 'PCNF', 'CNF'])) $badgeClass = 'bg-success-subtle text-success-emphasis';
                                         elseif ($status === 'CRTD') $badgeClass = 'bg-info-subtle text-info-emphasis';
                                         elseif ($status === 'TECO') $badgeClass = 'bg-dark-subtle text-dark-emphasis';
+
+                                        // Tentukan nilai data-status yang akan digunakan di JS
+                                        $dataStatus = in_array($status, ['REL', 'PCNF', 'CNF', 'CRTD', 'TECO']) ? $status : 'Lainnya';
                                     @endphp
-                                    <tr data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->AUFNR ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
+                                    <tr
+                                        data-status="{{ $dataStatus }}" {{-- Atribut data-status untuk filter status --}}
+                                    >
                                         <td class="text-center small">{{ $loop->iteration }}</td>
                                         <td class="text-center small">{{ $item->KDAUF ?? '-' }}</td>
                                         <td class="text-center small">{{ $item->KDPOS ?? '-' }}</td>
@@ -423,7 +478,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 
     @push('scripts')

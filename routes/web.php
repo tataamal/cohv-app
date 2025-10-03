@@ -33,6 +33,8 @@ Route::middleware('auth')->group(function (){
 
     // Routing Admin
     Route::get('/dashboard-landing', [AdminController::class, 'AdminDashboard'])->name('dashboard-landing');
+    Route::get('/api/pro-details/{status}', [AdminController::class, 'getProDetails'])->name('pro.details');
+    Route::get('/detail-data2/pro/{proNumber}/{werksCode}/{view?}', [AdminController::class, 'showProDetail']);
 
     Route::post('/create_prod_order', [ManufactController::class, 'convertPlannedOrder'])->name('convert-button');
     Route::post('/component/add', [Data4Controller::class, 'addComponent'])->name('component.add');
