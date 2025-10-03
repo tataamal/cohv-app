@@ -72,7 +72,7 @@ class MonitoringProController extends Controller
         return view('Features.partials.pro-table', ['pros' => $pros]);
     }
 
-        public function showByBuyer(string $kode, string $buyerName, ?string $status = null): View
+    public function showByBuyer(string $kode, string $buyerName, ?string $status = null): View
     {
         // 1. Inisialisasi tanggal dan query dasar
         $today = Carbon::today();
@@ -110,10 +110,6 @@ class MonitoringProController extends Controller
             if ($status === 'created') {
                 return $q->where('STATS', 'CRTD');
             }
-
-            if ($status === 'complete') {
-                return $q->whereIn('STATS', ['TECO', 'DLV']);
-            }
         });
 
         // 4. Ambil hasil PRO setelah mungkin difilter, urutkan berdasarkan deadline
@@ -136,12 +132,6 @@ class MonitoringProController extends Controller
                     $pro->status_text = 'On Schedule';
                     $pro->status_class = 'on-schedule';
                 }
-            } elseif (in_array($pro->STATS, ['TECO', 'DLV'])) {
-                $pro->status_text = 'Complete';
-                $pro->status_class = 'complete';
-            } else {
-                $pro->status_text = 'Lainnya';
-                $pro->status_class = 'other';
             }
             
             $pro->progress_percentage = ($pro->PSMNG > 0) ? ($pro->WEMNG / $pro->PSMNG) * 100 : 0;
