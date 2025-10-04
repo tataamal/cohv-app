@@ -454,65 +454,12 @@ function initializeDashboardAdmin() {
             scrollTop: $('#cardHeaderContent').offset().top - 100
         }, 400);
     }
-    
-    // Alternatif tanpa jQuery (Pure JavaScript)
-    function backToChartViewVanilla(initialTitle) {
-        const defaultTitle = initialTitle || 'PRO Status Distribution';
-        
-        const initialHeader = `
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
-                    <h3 class="h5 mb-1 fw-bold text-dark">${defaultTitle}</h3>
-                    <p class="small text-muted mb-0">
-                        <i class="fas fa-chart-pie me-1"></i>
-                        Distribusi status pada Production Order
-                    </p>
-                </div>
-            </div>`;
-        
-        // Update header
-        const headerElement = document.getElementById('cardHeaderContent');
-        headerElement.style.transition = 'opacity 0.2s';
-        headerElement.style.opacity = '0';
-        
-        setTimeout(() => {
-            headerElement.innerHTML = initialHeader;
-            headerElement.style.opacity = '1';
-        }, 200);
-        
-        // Toggle views
-        const tableView = document.getElementById('tableView');
-        const chartView = document.getElementById('chartView');
-        
-        tableView.style.transition = 'opacity 0.3s';
-        tableView.style.opacity = '0';
-        
-        setTimeout(() => {
-            tableView.style.display = 'none';
-            tableView.innerHTML = ''; // Kosongkan
-            
-            chartView.style.display = 'block';
-            chartView.style.opacity = '0';
-            
-            setTimeout(() => {
-                chartView.style.opacity = '1';
-            }, 50);
-        }, 300);
-        
-        // Smooth scroll
-        window.scrollTo({
-            top: headerElement.offsetTop - 100,
-            behavior: 'smooth'
-        });
-    }
-    // =======================================================
 }
 
 // Panggil fungsi utama saat DOM sudah siap
 document.addEventListener('DOMContentLoaded', initializeDashboardAdmin);
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Ambil elemen formulir utama
     const searchForm = document.getElementById('searchPROForm');
     
     if (searchForm) {
@@ -522,21 +469,19 @@ document.addEventListener('DOMContentLoaded', function() {
             // 1. Ambil semua nilai yang dibutuhkan dari input
             const proNumber = document.getElementById('proNumber').value.trim();
             
-            // Mengambil nilai dari input hidden (Penting: harus ada ID ini di HTML Anda)
+            // Mengambil nilai dari input hidden
             const werksCode = document.getElementById('werksCode').value.trim();
             const bagianName = document.getElementById('bagianName').value.trim();
             const categoriesName = document.getElementById('categoriesName').value.trim();
 
             if (proNumber) {
-                // 2. Siapkan URL utama untuk routing (PRO dan WERKS wajib di URL segment)
-                // Digunakan 'let' karena nilainya akan diubah (ditambahkan query params)
+                // 2. Siapkan URL utama untuk routing
+                // Menggunakan segment '/t3' untuk inisialisasi tampilan detail PRO
                 let detailUrl = `/detail-data2/pro/${encodeURIComponent(proNumber)}/${encodeURIComponent(werksCode)}/t3`;
 
                 // 3. Tambahkan data header sebagai Query Parameters
                 const params = new URLSearchParams();
                 
-                // Gunakan nama variabel yang sama dengan yang diharapkan Controller (Langkah 4)
-                // URLSearchParams akan secara otomatis meng-encode nilainya
                 params.append('bagian', bagianName); 
                 params.append('categories', categoriesName);
                 

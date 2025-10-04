@@ -101,11 +101,13 @@
                 </div>
             </div>
 
-            {{-- <form id="searchPROForm">
+            <form id="searchPROForm">
                 <div class="row g-2">
+                    {{-- Input Hidden untuk Data Header dari Laravel/Blade --}}
                     <input type="hidden" name="werks_code" id="werksCode" value="{{ $kode }}">
                     <input type="hidden" name="bagian_name" id="bagianName" value="{{ $nama_bagian }}">
                     <input type="hidden" name="categories_name" id="categoriesName" value="{{ $kategori }}">
+                    
                     <div class="col-md-9 col-lg-10">
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0">
@@ -122,7 +124,7 @@
                         </div>
                         <small class="text-muted d-block mt-2">Enter the PRO number to view detailed information</small>
                     </div>
-            
+                
                     <div class="col-md-3 col-lg-2">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="fas fa-arrow-right me-2"></i>
@@ -130,7 +132,7 @@
                         </button>
                     </div>
                 </div>
-            </form> --}}
+            </form>
 
             <div id="chartsSection" class="row g-4">
                 <div class="col-12">

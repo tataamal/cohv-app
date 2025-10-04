@@ -25,6 +25,7 @@ Route::middleware('guest')->group(function (){
 
 Route::middleware('auth')->group(function (){
 
+    Route::get('/detail-data2/pro/{proNumber}/{werksCode}/{view?}', [AdminController::class, 'showProDetail'])->name('pro.detail.view');
     Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
         Route::get('/dashboard/{kode}', [AdminController::class, 'index'])->name('dashboard.show');
         Route::get('data2/{kode}', [ManufactController::class, 'DetailData2'])->name('detail.data2');
@@ -34,7 +35,6 @@ Route::middleware('auth')->group(function (){
     // Routing Admin
     Route::get('/dashboard-landing', [AdminController::class, 'AdminDashboard'])->name('dashboard-landing');
     Route::get('/api/pro-details/{status}', [AdminController::class, 'getProDetails'])->name('pro.details');
-    Route::get('/detail-data2/pro/{proNumber}/{werksCode}/{view?}', [AdminController::class, 'showProDetail']);
 
     Route::post('/create_prod_order', [ManufactController::class, 'convertPlannedOrder'])->name('convert-button');
     Route::post('/component/add', [Data4Controller::class, 'addComponent'])->name('component.add');
