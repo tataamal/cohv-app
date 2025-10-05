@@ -351,56 +351,6 @@
                 console.error("Terjadi error saat membersihkan UI, namun state sudah berhasil dihapus.", error);
             }
         }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const navEntries = performance.getEntriesByType("navigation");
-            const isNewNavigation = navEntries.length > 0 && navEntries[0].type !== 'reload';
-            
-            // Ambil data kunci dari Blade (Controller)
-            // PERBAIKAN KRITIS: Selalu gunakan ?? "" untuk fallback string kosong, 
-            // dan tambahkan .trim() untuk menghapus spasi dari nilai PHP yang di-render.
-            const t1Key = '{{ $initSOKey ?? "" }}'.trim(); 
-            const t2Key = '{{ $initT2Key ?? "" }}'.trim();
-            const proNumber = '{{ $initProNumber ?? "" }}'.trim();
-            
-            // --- LOGGING UNTUK VERIFIKASI NILAI STRING AKHIR ---
-            console.log("DEBUG: isNewNavigation:", isNewNavigation);
-            console.log("DEBUG: T1 Key (TRIMMED):", t1Key); 
-            console.log("DEBUG: T2 Key (TRIMMED):", t2Key);
-            console.log("DEBUG: PRO Number (TRIMMED):", proNumber); 
-            // --- END LOGGING ---
-            
-            // Cek apakah ini navigasi baru DAN semua data PRO kunci valid (tidak kosong)
-            if (isNewNavigation && proNumber !== '' && t1Key !== '' && t2Key !== '') {
-                
-                console.log("SUCCESS: Memenuhi semua syarat. Inisialisasi Session State...");
-                
-                // Simpan state yang diperlukan
-                sessionStorage.setItem('activeSalesOrderKey', t1Key);
-                sessionStorage.setItem('activeTdata2Key', t2Key);
-                sessionStorage.setItem('activeT3Aufnr', proNumber);
-                sessionStorage.setItem('activeT3Type', 'route'); // Default: buka tab Route
-                
-                // Konfirmasi penyimpanan langsung dari Session Storage
-                console.log("SUCCESS: Session Storage T1 key set and retrieved:", sessionStorage.getItem('activeSalesOrderKey')); 
-                
-                // Panggil fungsi pemuatan state Anda
-                if (typeof loadPersistedState === 'function') {
-                    loadPersistedState(); 
-                } else {
-                    console.error("ERROR: Fungsi loadPersistedState tidak terdefinisi.");
-                }
-                
-            } else if (!isNewNavigation) {
-                // Jika ini adalah page reload, panggil fungsi Anda
-                console.log("INFO: Page Reload terdeteksi. Memuat state dari sesi...");
-                if (typeof loadPersistedState === 'function') {
-                    loadPersistedState();
-                }
-            } else {
-                console.log("INFO: Navigasi baru, tetapi data inisialisasi tidak lengkap atau kosong.");
-            }
-        });
         
         let isAutoLoadingState = false; 
 

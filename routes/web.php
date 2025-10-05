@@ -25,7 +25,7 @@ Route::middleware('guest')->group(function (){
 
 Route::middleware('auth')->group(function (){
 
-    Route::get('/detail-data2/pro/{proNumber}/{werksCode}/{view?}', [AdminController::class, 'showProDetail'])->name('pro.detail.view');
+    Route::get('/pro-transaction/{proNumber}/{werksCode}/{view?}', [AdminController::class, 'showProDetail'])->name('pro.transaction.detail');
     Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
         Route::get('/dashboard/{kode}', [AdminController::class, 'index'])->name('dashboard.show');
         Route::get('data2/{kode}', [ManufactController::class, 'DetailData2'])->name('detail.data2');

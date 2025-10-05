@@ -308,7 +308,6 @@ class adminController extends Controller
     {
         $proNumber = strtoupper($proNumber);
 
-        // Dapatkan data header dari Query Parameters
         $bagianName = $request->query('bagian');
         $categoriesName = $request->query('categories');
         
@@ -319,11 +318,25 @@ class adminController extends Controller
             abort(404, 'Production Order (PRO) not found in TData3.');
         }
         
+        // --- PEMFORMATAN TANGGAL DI CONTROLLER ---
+        // Tambahkan properti _formatted untuk View Blade
+        $dateFields = ['GSTRP', 'GLTRP', 'SSAVD'];
+        foreach ($dateFields as $field) {
+            if (!empty($tdata3->{$field})) {
+                try {
+                    $tdata3->{$field . '_formatted'} = Carbon::parse($tdata3->{$field})->format('d/m/Y');
+                } catch (\Exception $e) {
+                    $tdata3->{$field . '_formatted'} = '-';
+                }
+            } else {
+                $tdata3->{$field . '_formatted'} = '-';
+            }
+        }
+        
         // Kunci relasi dasar
         $t2Key = trim($tdata3->KDAUF ?? '') . '-' . trim($tdata3->KDPOS ?? '');
         
-        // 2. Ambil data TData2 (Outstanding Order) dan TData1 (Buyer) spesifik
-        // Kedua helper method ini sekarang menambahkan properti ->key_for_frontend
+        // 2. Ambil data TData2 dan TData1 spesifik
         $outstandingOrder = $this->getTData2BySalesOrder($tdata3->KDAUF, $tdata3->KDPOS);
         $buyerData = $this->getTData1BySalesOrder($tdata3->NAME1); 
 
@@ -331,15 +344,16 @@ class adminController extends Controller
         if (!$outstandingOrder) { $outstandingOrder = (object)['key_for_frontend' => '']; }
         if (!$buyerData) { $buyerData = (object)['key_for_frontend' => '', 'NAME1' => $tdata3->NAME1 ?? '']; }
 
-        // --- LOGIKA PENGAMBILAN DATA GLOBAL LENGKAP UNTUK VIEW ---
+        // --- LOGIKA PENGAMBILAN DATA GLOBAL (DIPERTAHANKAN UNTUK KONTEKS) ---
         
-        // A. Ambil SEMUA TData3 (jika ada lebih dari satu PRO di SO yang sama)
+        // A. Ambil SEMUA TData3 (Masih perlu untuk 'Order Overview' di Tab 1)
         $allTData3_flat = ProductionTData3::where('WERKSX', $werksCode)
             ->where(DB::raw("CONCAT(KDAUF, '-', KDPOS)"), $t2Key)
+            ->where("AUFNR", $proNumber)
             ->get();
         $allTData3Grouped = $allTData3_flat->groupBy(fn($it) => trim($it->KDAUF ?? '') . '-' . trim($it->KDPOS ?? ''));
 
-        // B. Ambil SEMUA TData2 yang terkait dengan Buyer ini
+        // B. Ambil SEMUA TData2
         $allTData2_flat = ProductionTData2::where('WERKSX', $werksCode)
             ->where('NAME1', $tdata3->NAME1)
             ->get();
@@ -353,35 +367,42 @@ class adminController extends Controller
         $tdata = ProductionTData::where('WERKSX', $werksCode)
             ->where('NAME1', $tdata3->NAME1) 
             ->get();
-            
-        // Tambahkan key_for_frontend ke tdata agar cocok dengan T1 HTML di Blade
         $tdata->each(function ($item) {
             $kunnr = trim($item->KUNNR ?? '');
             $name1 = trim($item->NAME1 ?? '');
             $item->key_for_frontend = !empty($kunnr) ? ($kunnr . '-' . $name1) : $name1;
         });
             
-        // D. Ambil TData1 & TData4 (Routing & Komponen)
-        $aufnrValues = $allTData3_flat->pluck('AUFNR')->filter()->unique(); 
-        $plnumValues = $allTData3_flat->pluck('PLNUM')->filter()->unique(); 
-
-        $allTData1ByAufnr = ProductionTData1::whereIn('AUFNR', $aufnrValues->values())->get()->groupBy('AUFNR');
-        $allTData4ByAufnr = ProductionTData4::whereIn('AUFNR', $aufnrValues->values())->get()->groupBy('AUFNR');
-        $allTData4ByPlnum = ProductionTData4::whereIn('PLNUM', $plnumValues->values())->get()->groupBy('PLNUM');
+        // D. ✅ PERBAIKAN KRITIS: ROUTING & KOMPONEN HANYA BERDASARKAN PRO SPESIFIK
+        
+        $targetAufnr = $proNumber; 
+        $targetPlnum = $tdata3->PLNUM;
+        
+        // TData1 (Routing) - HANYA PRO SPESIFIK YANG DI-SEARCH
+        $allTData1ByAufnr = ProductionTData1::where('AUFNR', $targetAufnr)
+            ->get()
+            ->groupBy('AUFNR');
+        
+        // TData4 (Komponen) - HANYA PRO SPESIFIK YANG DI-SEARCH
+        $allTData4ByAufnr = ProductionTData4::where('AUFNR', $targetAufnr)
+            ->get()
+            ->groupBy('AUFNR');
+        
+        // TData4 (Komponen PLO) - HANYA PLNUM TERKAIT DARI PRO SPESIFIK
+        $allTData4ByPlnum = ProductionTData4::where('PLNUM', $targetPlnum)
+            ->get()
+            ->groupBy('PLNUM');
         
         // E. Ambil Work Center
         $workCenters = workcenter::where('WERKSX', $werksCode)->orderBy('kode_wc')->get();
 
         // --- PEMBENTUKAN KUNCI INISIALISASI SESSION ---
-        
-        // Kunci T1 dan T2 diambil langsung dari properti yang dihitung di helper
         $activeSOKey = $buyerData->key_for_frontend ?? '';
         $activeT2Key = $outstandingOrder->key_for_frontend ?? ''; 
-        
         $initialView = ($view === 't3') ? 'T3' : 'T1';
 
-        // 3. Kirim semua data yang dibutuhkan ke View
-        return view('Admin.detail-data2', [
+        // 3. Kirim semua data yang dibutuhkan ke View BARU
+        return view('Admin.pro-transaction', [
             // Data Header
             'WERKS'             => $werksCode,
             'plant'             => $werksCode, 
@@ -389,14 +410,14 @@ class adminController extends Controller
             'categories'        => urldecode($categoriesName),
             'workCenters'       => $workCenters,
 
-            // Data Tampilan Utama (GLOBAL DATA)
+            // Data Tampilan Utama (GLOBAL DATA - Sekarang lebih fokus)
             'tdata'             => $tdata, 
             'allTData2'         => $allTData2, 
             'allTData3'         => $allTData3Grouped, 
-            'allTData1'         => $allTData1ByAufnr, 
-            'allTData4ByAufnr'  => $allTData4ByAufnr, 
+            'allTData1'         => $allTData1ByAufnr, // Hanya 1 PRO
+            'allTData4ByAufnr'  => $allTData4ByAufnr, // Hanya 1 PRO
             'allTData4ByPlnum'  => $allTData4ByPlnum, 
-
+            
             // Data Shortcut & Inisialisasi
             'proData'           => $tdata3, 
             'outstandingOrder'  => $outstandingOrder,

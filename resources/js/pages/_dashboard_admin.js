@@ -477,7 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (proNumber) {
                 // 2. Siapkan URL utama untuk routing
                 // Menggunakan segment '/t3' untuk inisialisasi tampilan detail PRO
-                let detailUrl = `/detail-data2/pro/${encodeURIComponent(proNumber)}/${encodeURIComponent(werksCode)}/t3`;
+                let detailUrl = `/pro-transaction/${encodeURIComponent(proNumber)}/${encodeURIComponent(werksCode)}/t3`;
 
                 // 3. Tambahkan data header sebagai Query Parameters
                 const params = new URLSearchParams();
