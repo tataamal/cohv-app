@@ -10,6 +10,7 @@ use App\Http\Controllers\Data4Controller;
 use App\Http\Controllers\ManufactController;
 use App\Http\Controllers\WcCompatibilityController;
 use App\Http\Controllers\MonitoringProController;
+use App\Http\Controllers\ProTransactionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -78,5 +79,9 @@ Route::middleware('auth')->group(function (){
     Route::get('/monitoring-pro/{kode}/filter', [MonitoringProController::class, 'filter'])->name('monitoring-pro.filter');
     Route::get('/monitoring-pro/{buyer}/{status}', [MonitoringProController::class, 'show'])->name('monitoring-pro.show');
     Route::get('/pro-details/{kode}/{buyerName}/{status?}', [MonitoringProController::class, 'showByBuyer'])->name('pro.detail.buyer');
+
+
+    // Routing untunk PRO Transaction
+    Route::post('/pro/reschedule', [ProTransactionController::class, 'reschedule'])->name('api.pro.reschedule');
 
 });

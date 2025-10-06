@@ -203,5 +203,215 @@
             </div>
         </div>
     </div>
-    
-    </x-layouts.app>
+
+    @include('components.modals.schedule-modal')
+    @include('components.modals.resultModal')
+    @include('components.modals.refreshModal')
+    @include('components.modals.changeWCmodal')
+    @include('components.modals.changePVmodal')
+    @include('components.modals.add-component-modal')
+    @include('components.modals.edit-component')
+    @include('components.modals.add-component-modal')
+    @push('scripts')
+    <script src="{{ asset('js/readpp.js') }}"></script>
+    <script src="{{ asset('js/refresh.js') }}"></script>
+    <script src="{{ asset('js/schedule.js') }}"></script>
+    <script src="{{ asset('js/teco.js') }}"></script>
+    <script src="{{ asset('js/component.js') }}"></script>
+    <script src="{{ asset('js/changePv.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // ======================= START SCRIPT RESCHEDULE =========================
+            // Keluar jika elemen-elemen penting tidak ada di halaman
+            const scheduleModalElement = document.getElementById('scheduleModal');
+            const visibleDateInput = document.getElementById('visibleDate');
+            const scheduleDateInput = document.getElementById('scheduleDate'); // Input tersembunyi untuk backend
+            
+            if (!scheduleModalElement || !visibleDateInput || !scheduleDateInput) {
+                console.warn('Schedule modal elements not found, schedule.js will not run.');
+                return;
+            }
+
+            // Inisialisasi Modal Bootstrap
+            const scheduleModal = new bootstrap.Modal(scheduleModalElement);
+            
+            // Inisialisasi Flatpickr pada input yang TERLIHAT
+            const flatpickrInstance = flatpickr(visibleDateInput, {
+                dateFormat: "Y-m-d",    // Format dasar yang akan digunakan untuk sinkronisasi
+                altInput: true,         // Membuat input kedua yang ramah pengguna (ini adalah #visibleDate)
+                altFormat: "d/m/Y",     // Format yang dilihat oleh pengguna
+                minDate: "today",
+                
+                // FUNGSI KUNCI UNTUK SINKRONISASI
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Setiap kali tanggal di kalender (visibleDate) berubah,
+                    // salin nilainya ke input 'scheduleDate' yang akan dikirim ke backend.
+                    // 'dateStr' sudah dalam format 'Y-m-d' sesuai 'dateFormat'.
+                    scheduleDateInput.value = dateStr;
+
+                    // Logika validasi untuk menampilkan pesan error
+                    const dateError = document.getElementById('dateError');
+                    if (dateError) {
+                        if (selectedDates.length > 0) {
+                            instance.altInput.classList.remove('is-invalid');
+                            dateError.style.display = 'none';
+                        }
+                    }
+                }
+            });
+
+
+            // Fungsi global untuk membuka modal
+            window.openSchedule = function(aufnr, scheduleDate) {
+                document.getElementById('scheduleAufnr').value = aufnr;
+
+                let initialDate = "today";
+                if (scheduleDate && scheduleDate.includes('/')) {
+                    const parts = scheduleDate.split('/'); // Format: d/m/Y
+                    if (parts.length === 3) {
+                        initialDate = `${parts[2]}-${parts[1]}-${parts[0]}`; // Konversi ke: Y-m-d
+                    }
+                }
+                
+                // Mengatur tanggal di Flatpickr. Ini akan otomatis memicu 'onChange'
+                // dan menyinkronkan nilai ke input 'scheduleDate' juga.
+                flatpickrInstance.setDate(initialDate, true);
+
+                document.getElementById('scheduleTime').value = '00:00:00';
+                scheduleModal.show();
+            }
+
+
+            // Logika untuk submit form (AJAX)
+            const scheduleForm = document.getElementById('scheduleForm');
+            if (scheduleForm) {
+                scheduleForm.addEventListener('submit', function(event) {
+                    event.preventDefault();
+
+                    // Validasi terakhir sebelum mengirim
+                    if (!scheduleDateInput.value) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Tanggal Belum Dipilih',
+                            text: 'Silakan pilih tanggal penjadwalan ulang.',
+                        });
+                        // Tampilkan error di input visual juga
+                        flatpickrInstance.altInput.classList.add('is-invalid');
+                        const dateError = document.getElementById('dateError');
+                        if(dateError) dateError.style.display = 'block';
+                        return; // Hentikan proses submit
+                    }
+
+                    const formData = new FormData(this);
+                    const submitButton = this.querySelector('button[type="submit"]');
+                    const originalButtonText = submitButton.innerHTML;
+
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Processing...`;
+
+                    // URL diambil dari atribut data-* di form
+                    const actionUrl = scheduleForm.dataset.actionUrl; 
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                    fetch(actionUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json',
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        scheduleModal.hide();
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success!',
+                                text: data.message,
+                            }).then(() => location.reload());
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error!',
+                                text: data.message,
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        scheduleModal.hide();
+                        console.error('Fetch Error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Request Failed',
+                            text: 'Could not connect to the server.',
+                        });
+                    })
+                    .finally(() => {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalButtonText;
+                    });
+                });
+            }
+            // ====================== END SCRIPT RESCHEDULE =======================
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            const confirmBtn = document.getElementById('confirmScheduleBtn');
+            const form = document.getElementById('scheduleForm');
+
+            // ======================= START SCRIPT RESCHEDULE =========================
+
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', function() {
+                    // Ambil referensi tombol dan simpan teks aslinya
+                    const button = this;
+                    const originalButtonText = button.innerHTML;
+                    const cancelButton = button.previousElementSibling; // Tombol "Batal"
+
+                    // Tampilkan loading & sembunyikan tombol Batal
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
+                    cancelButton.style.display = 'none';
+
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
+
+                    fetch("{{ route('reschedule.store') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json().then(resData => ({ status: response.status, body: resData })))
+                    .then(({ status, body }) => {
+                        if (status >= 400) { throw new Error(body.message); }
+                        
+                        // Tutup modal dan tampilkan notifikasi sukses
+                        const modalElement = document.getElementById('scheduleModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        if (modalInstance) { modalInstance.hide(); }
+
+                        showSwal(body.message, 'success');
+                        // Lakukan reload tabel jika perlu
+                        // if (typeof dataTable !== 'undefined') dataTable.ajax.reload();
+                    })
+                    .catch(error => {
+                        showSwal(error.message, 'error');
+                    })
+                    .finally(() => {
+                        // Kembalikan tombol ke keadaan semula
+                        button.disabled = false;
+                        button.innerHTML = originalButtonText;
+                        cancelButton.style.display = 'inline-block';
+                    });
+                });
+            }
+            // ======================= END SCRIPT RESCHEDULE =========================
+        });
+    </script>
+    @endpush
+</x-layouts.app>

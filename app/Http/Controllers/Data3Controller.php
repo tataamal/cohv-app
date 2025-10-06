@@ -132,7 +132,7 @@ class Data3Controller extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Production Order berhasil dijadwalkan/di-reschedule.'
+                'message' => 'Production Order berhasil dijadwalkan/di-reschedule, Silahkan Refresh PRO'
             ], 200);
                          
         } catch (\Throwable $e) {
