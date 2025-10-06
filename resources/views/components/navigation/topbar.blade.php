@@ -1,29 +1,56 @@
 @props([
     'navigation' => [
-        ['name' => 'Dashboard', 'route_name' => 'manufaktur.dashboard.show'],
+        [
+            'name' => 'Dashboard', 
+            'route_name' => 'manufaktur.dashboard.show',
+            // Gunakan nama rute lengkap
+            'active_on' => ['manufaktur.dashboard.show', 'manufaktur.pro.transaction.detail*'] 
+        ],
         [
             'name' => 'Monitoring PRO', 
             'route_name' => 'monitoring-pro.index',
+            // Diasumsikan rute ini TIDAK memiliki prefix 'manufaktur.'
             'active_on' => ['monitoring-pro.index*', 'pro.detail.buyer*']
         ],
-        ['name' => 'List Data', 'route_name' => 'manufaktur.show.detail.data2'],
+        ['name' => 'Data COHV', 'route_name' => 'manufaktur.show.detail.data2'],
         // ['name' => 'List GR', 'route_name' => 'list.gr'],
     ],
 ])
 
 @php
     $user = Auth::user();
-    $kodeAktif = request()->route('kode');
+
+    // 1. Logika untuk mendapatkan KODE AKTIF
+    $kodeAktif = request()->route('kode'); 
+    
+    // Jika tidak ada 'kode', cek rute detail transaksi dan ambil 'werksCode'
+    if (!$kodeAktif) {
+        if (request()->routeIs('manufaktur.pro.transaction.detail*')) {
+            $kodeAktif = request()->route('werksCode');
+        }
+    }
+    
+    // Defaultkan ke null jika tidak ditemukan
+    $kodeAktif = $kodeAktif ?? null;
+
+
+    // 2. Normalisasi Navigasi
     $normalizedNav = collect($navigation)->map(function ($item) use ($kodeAktif) {
-        $name   = $item['name'] ?? 'Menu';
+        $name = $item['name'] ?? 'Menu';
         $active = false;
-        $href   = '#';
+        $href = '#';
+
         if (isset($item['route_name']) && $kodeAktif && Route::has($item['route_name'])) {
+            
+            // Perbaikan: Pastikan parameter 'kode' selalu dilewatkan saat memanggil route()
             $params = array_merge(['kode' => $kodeAktif], $item['params'] ?? []);
-            $href   = route($item['route_name'], $params);
+            $href = route($item['route_name'], $params);
+            
+            // Logika Aktivasi
             $activePattern = $item['active_on'] ?? $item['route_name'].'*';
             $active = request()->routeIs($activePattern);
         }
+        
         return compact('name','href','active');
     })->all();
 @endphp

@@ -35,19 +35,19 @@
                         <td>{{ $pro->WEMNG }}</td>
             
                         {{-- [DIPERBAIKI] Gunakan null coalescing operator (??) untuk keamanan --}}
-                        <td>{{ ($pro->KALAB ?? 0) - ($pro->WEMNG ?? 0) }}</td>
+                        <td>{{ ($pro->PSMNG ?? 0) - ($pro->WEMNG ?? 0) }}</td>
             
                         {{-- [DIPERBAIKI] Tambahkan pengecekan @if sebelum memformat tanggal --}}
                         <td>
                             @if($pro->GLTRP)
-                                {{ \Carbon\Carbon::parse($pro->GLTRP)->format('d M Y') }}
+                                {{ \Carbon\Carbon::parse($pro->GSTRP)->format('d M Y') }}
                             @else
                                 - {{-- Tampilkan strip jika tanggalnya null --}}
                             @endif
                         </td>
                         <td>
                             @if($pro->GSTRP)
-                                {{ \Carbon\Carbon::parse($pro->GSTRP)->format('d M Y') }}
+                                {{ \Carbon\Carbon::parse($pro->GLTRP)->format('d M Y') }}
                             @else
                                 - {{-- Tampilkan strip jika tanggalnya null --}}
                             @endif

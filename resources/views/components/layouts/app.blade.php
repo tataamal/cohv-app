@@ -40,15 +40,8 @@
     {{-- Overlay dipindah ke sini agar berada di atas segalanya --}}
     <div id="sidebar-overlay" class="sidebar-overlay d-lg-none"></div>
 
-    <div id="loading-overlay" class="loading-overlay d-none">
-        <div class="loader mb-4"></div>
-        <h2 class="h4 fw-semibold text-color-loading">Memuat Halaman...</h2>
-    </div>
-
     @stack('scripts')
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.js'></script>
-    {{-- PASTIKAN PATH INI BENAR --}}
-    {{-- <script src="{{ asset('js/sidenav.js') }}"></script> --}}
     
 </body>
 </html>

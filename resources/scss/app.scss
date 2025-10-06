@@ -369,3 +369,17 @@ body.sidebar-open .sidebar-overlay {
         background: #ecfdf5;
     }
 }
+/* CSS UNTUK HEADER STICKY PADA CONTAINER SCROLL */
+.sticky-header-js {
+    position: sticky;
+    top: 0; /* Menempel di bagian atas container scroll */
+    z-index: 10; /* Pastikan ia berada di atas konten tabel */
+    background-color: var(--bs-primary); /* Menjaga warna header tetap solid */
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.2); /* Bayangan opsional */
+}
+
+/* Pastikan semua TH di dalam sticky header memiliki latar belakang yang solid */
+.sticky-header-js th {
+    background-color: inherit; 
+    color: white; /* Karena thead Anda table-primary */
+}

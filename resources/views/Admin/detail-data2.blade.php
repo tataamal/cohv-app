@@ -45,8 +45,18 @@
                                 </div>
                             </form>
                         </div>
-
-                        <div class="table-responsive scrollable">
+                
+                        {{-- Logika Max Height untuk Scroll --}}
+                        @php
+                            $maxRows = 8;
+                            $totalRows = count($tdata);
+                            
+                            // Tentukan tinggi baris (misalnya 48px per baris) dan padding. 
+                            // 8 baris * 48px = 384px. Kita gunakan sekitar 400px untuk aman.
+                            $scrollStyle = ($totalRows > $maxRows) ? 'style="max-height: 400px; overflow-y: auto;"' : '';
+                        @endphp
+                
+                        <div class="table-responsive" {!! $scrollStyle !!}>
                             <table class="table table-hover align-middle mb-0">
                                 <thead>
                                     <tr class="small">
@@ -59,7 +69,6 @@
                                     @forelse($tdata as $item)
                                         @php $key = ($item->KUNNR ?? '') . '-' . ($item->NAME1 ?? ''); @endphp
                                         
-                                        {{-- ✨ PERUBAHAN: Tambahkan atribut data-searchable-text --}}
                                         <tr class="cursor-pointer" 
                                             data-key="{{ $key }}" 
                                             onclick="openSalesItem(this)" 
@@ -83,7 +92,7 @@
                                             <td colspan="3" class="text-center p-5 text-muted">Tidak ada data ditemukan.</td>
                                         </tr>
                                     @endforelse
-
+                
                                     <tr id="noResultsRow" style="display: none;">
                                         <td colspan="3" class="text-center p-5 text-muted">
                                             <i class="fas fa-search fs-4 d-block mb-2"></i>
@@ -109,39 +118,56 @@
                         </div>
                     </div>
                     
-                    <div id="bulk-actions-wrapper" data-refresh-url="{{ route('bulk-refresh.store') }}" class="d-flex align-items-center gap-3 mt-4 mb-3 d-none">
-                        <div id="selection-counter">
-                            <span>PRO Terpilih:</span>
-                            <span class="count-badge" id="selection-count-badge">0</span>
+                    <div id="bulk-actions-wrapper" data-refresh-url="{{ route('bulk-refresh.store') }}" 
+                        class="d-flex flex-wrap align-items-center gap-3 mt-4 mb-3 d-none p-3 border rounded-3 bg-light">
+                        
+                        {{-- 1. SELECTION COUNTER (Lebih Menonjol) --}}
+                        <div id="selection-counter" class="d-flex align-items-center">
+                            <span class="fw-semibold text-dark me-2">PRO Terpilih:</span>
+                            <span class="count-badge fw-bold badge bg-primary fs-6" id="selection-count-badge">0</span>
                         </div>
-                        <div id="bulk-controls" class="d-flex align-items-center gap-2">
+                        
+                        {{-- 2. BULK CONTROLS --}}
+                        <div id="bulk-controls" class="d-flex align-items-center gap-2 ms-sm-auto">
+                            
+                            {{-- Bulk Schedule: Kuning (Warning) --}}
                             <button class="btn btn-warning btn-sm" id="bulk-schedule-btn" style="display: none;" onclick="openBulkScheduleModal()">
-                                <i class="fas fa-calendar-alt me-1"></i> Bulk Schedule
+                                <i class="fas fa-calendar-alt me-1"></i> Bulk Reschedule
                             </button>
-                            <button class="btn btn-readpp btn-sm" id="bulk-readpp-btn" style="display: none;" onclick="openBulkReadPpModal()">
-                                <i class="fas fa-book-open me-1"></i> Buklk Read PP
+
+                            {{-- Bulk Refresh: Hijau (Success/Positive) --}}
+                            <button class="btn btn-info btn-sm" id="bulk-refresh-btn" style="display: none;" onclick="openBulkRefreshModal()">
+                                <i class="fa-solid fa-arrows-rotate me-1"></i> Bulk Refresh PRO
                             </button>
-                            <button class="btn btn-teco btn-sm" id="bulk-teco-btn" style="display: none;" onclick="openBulkTecoModal()">
-                                <i class="fas fa-circle-check me-1"></i> Bulk TECO
-                            </button>
-                            <button class="btn btn-primary btn-sm" id="bulk-refresh-btn" style="display: none;" onclick="openBulkRefreshModal()">
-                                <i class="fas fa-sync-alt me-1"></i> Bulk Refresh
-                            </button>
+
+                            {{-- Bulk Change PV: Kuning (Warning) --}}
                             <button class="btn btn-warning btn-sm" id="bulk-changePv-btn" style="display: none;" onclick="openBulkChangePvModal()">
-                                <i class="fa-solid fa-code-compare"></i> Bulk Change PV
+                                <i class="fa-solid fa-code-compare me-1"></i> Bulk Change PV
                             </button>
-                            <button class="btn btn-secondary btn-sm" onclick="clearAllSelections()">Clear All</button>
+                            
+                            {{-- Bulk Read PP: Biru Muda (Info) --}}
+                            <button class="btn btn-info btn-sm" id="bulk-readpp-btn" style="display: none;" onclick="openBulkReadPpModal()">
+                                <i class="fas fa-book-open me-1"></i> Bulk Read PP
+                            </button>
+                            
+                            {{-- Bulk TECO: Merah/Bahaya (Primary Action) --}}
+                            <button class="btn btn-danger btn-sm" id="bulk-teco-btn" style="display: none;" onclick="openBulkTecoModal()">
+                                <i class="fas fa-trash me-1"></i> Bulk TECO
+                            </button>
+
+                            {{-- Clear All (Netral) --}}
+                            <button class="btn btn-outline-secondary btn-sm" onclick="clearAllSelections()">Clear All</button>
                         </div>
                     </div>
-
+                
                     <div class="mb-3">
                         <input type="search" id="proSearchInput" class="form-control" placeholder="Silahkan cari data menggunakan PRO, MRP, atau Start Date nya...">
                     </div>
                     
                     <div class="table-responsive border rounded-3">
                         <table id="tdata3-table" class="table table-hover table-bordered align-middle mb-0 small">
-                            <thead class="table-primary">
-                                <tr class="text-uppercase" style="font-size: 0.75rem;">
+                            <thead class="table-primary sticky-header-js">
+                                <tr class="text-uppercase align-middle" style="font-size: 0.75rem;">
                                     <th class="text-center"><input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()"></th>
                                     <th class="text-center">No.</th>
                                     <th class="text-center">PRO</th>
@@ -165,7 +191,7 @@
                                         Tidak ada data yang cocok dengan pencarian Anda.
                                     </td>
                                 </tr>
-                                </tbody>
+                            </tbody>
                         </table>
                     </div>
                     <div id="tdata3-pagination" class="mt-3 d-flex justify-content-between align-items-center d-none"></div>
@@ -467,17 +493,18 @@
             } else {
                 let scrollStyle = '';
                 if (rows.length > 8) {
-                    scrollStyle = 'style="max-height: 400px; overflow-y: auto;"'; // Sedikit lebih tinggi
+                    scrollStyle = 'style="max-height: 400px; overflow-y: auto;"';
                 }
 
                 let tableHtml = `
                     <style>
+                        /* Gaya sticky header tetap dipertahankan */
                         .sticky-header th {
                             position: -webkit-sticky;
                             position: sticky;
                             top: 0;
                             z-index: 1;
-                            background-color: #f8f9fa; /* Warna latar yang lebih solid */
+                            background-color: #f8f9fa;
                             box-shadow: inset 0 -2px 0 #dee2e6;
                         }
                     </style>
@@ -493,25 +520,40 @@
                         <div class="table-responsive" ${scrollStyle}>
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="sticky-header">
-                                    <tr class="small">
-                                        <th class="text-center">No.</th>
-                                        <th>Order</th><th>Item</th><th>Material FG</th>
-                                        <th>Description</th><th>PO Date</th><th>Total PLO</th>
-                                        <th>PRO (CRTD)</th><th>PRO (Released)</th>
-                                        <th style="width: 5%;"></th>
+                                    <tr class="small align-middle">
+                                        <th class="text-center" style="width: 5%;">No.</th>
+                                        <th class="text-center" style="width: 15%;">Sales Order</th>
+                                        <th class="text-center" style="width: 10%;">Sales Order Item</th>
+                                        <th class="text-center" style="width: 15%;">Material FG</th>
+                                        <th class="text-center">Description</th>
+                                        
+                                        <th class="text-center" style="width: 12%;">PO Date</th> 
+                                        
+                                        <th class="text-center" style="width: 6%;">PRO (CRTD)</th> 
+                                        <th class="text-center" style="width: 6%;">PRO (Released)</th>
+                                        <th style="width: 3%;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="tdata2-body">`;
                 
                 rows.forEach((r, i) => {
                     const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
-                    const t3 = allTData3[soKey] || []; // Penyesuaian logika pengambilan data
+                    const t3 = allTData3[soKey] || [];
                     let ploCount = 0, proCrt = 0, proRel = 0;
+                    
                     t3.forEach(d3 => {
                         if (d3.PLNUM && !d3.AUFNR) ploCount++;
                         if (d3.AUFNR){
-                            if (d3.STATS === 'CRTD') proCrt++;
-                            else if (['PCNF','REL','CNF REL'].includes(d3.STATS)) proRel++;
+                            // Perbaikan logika status yang konsisten: mencakup semua yang mengandung 'REL'
+                            const stats = d3.STATS ? d3.STATS.toUpperCase() : '';
+                            
+                            if (stats === 'CRTD') {
+                                proCrt++;
+                            } 
+                            // Menggunakan includes() atau pengecekan substring untuk konsistensi
+                            else if (stats.includes('REL') || stats === 'PCNF') {
+                                proRel++;
+                            }
                         }
                     });
 
@@ -525,12 +567,11 @@
                     tableHtml += `
                         <tr class="t2-row cursor-pointer" data-key="${soKey}" data-index="${i}" data-searchable-text="${sanitize(searchableText)}">
                             <td class="text-center text-muted small">${i + 1}</td>
-                            <td class="fw-semibold text-dark">${sanitize(r.KDAUF || '-')}</td>
-                            <td class="text-muted">${ltrim(r.KDPOS, '0')}</td>
-                            <td class="text-muted">${ltrim(r.MATFG, '0') || '-'}</td>
-                            <td>${sanitize(r.MAKFG || '-')}</td>
-                            <td>${formatSapYmd(r.EDATU)}</td>
-                            <td class="text-center fw-medium">${ploCount}</td>
+                            <td class="fw-semibold text-dark text-center">${sanitize(r.KDAUF || '-')}</td>
+                            <td class="text-muted text-center">${ltrim(r.KDPOS, '0')}</td>
+                            <td class="text-muted text-center">${ltrim(r.MATFG, '0') || '-'}</td>
+                            <td class="text-center">${sanitize(r.MAKFG || '-')}</td>
+                            <td class="text-center">${formatDate(r.EDATU)}</td>
                             <td class="text-center fw-medium">${proCrt}</td>
                             <td class="text-center fw-medium">${proRel}</td>
                             <td class="text-center text-muted"><i class="fas fa-chevron-right"></i></td>
@@ -545,7 +586,7 @@
                         </td>
                     </tr>
                 </tbody></table></div>
-                        <p class="mt-3 small text-muted">Klik salah satu baris untuk melihat ORDER OVERVIEW TABLE.</p>
+                        <p class="mt-3 small text-muted">Click On a Row to View the Order Overview Table.</p>
                         </div>`;
                 cardWrapper.innerHTML = tableHtml;
             }
@@ -632,27 +673,49 @@
             const rowsHtml = data.map((t1, i) => {
                 // Siapkan variabel untuk hasil kalkulasi
                 let hasilPerHari = '-'; 
-                
-                // --- PERBAIKAN: Bersihkan titik pemisah ribuan SEBELUM parseFloat ---
-
-                // 1. Ambil nilai mentah sebagai string, beri nilai default '0' jika kosong
                 const kapazStr = t1.KAPAZ ? String(t1.KAPAZ) : '0';
                 const vgw01Str = t1.VGW01 ? String(t1.VGW01) : '0';
 
-                // 2. Hapus semua titik (.), lalu konversi ke angka.
-                const kapazNum = parseFloat(kapazStr.replace(/\./g, ''));
-                const vgw01Num = parseFloat(vgw01Str.replace(/\./g, ''));
-                
-                // Lakukan kalkulasi hanya jika kapazNum valid dan bukan nol untuk menghindari error
-                if (kapazNum > 0 && !isNaN(vgw01Num)) {
+                console.log(`[DEBUG] MENTAH | KAPAZ: ${kapazStr}, VGW01: ${vgw01Str}, VGE01: ${t1.VGE01}`);
+
+                // 1. Pembersihan dan Konversi KAPAZ
+                // Perbaikan: Ganti koma (,) menjadi titik (.) agar menjadi desimal yang dikenali JS.
+                const cleanedKapazStr = kapazStr.replace(/,/g, '.');
+                const kapazNum = parseFloat(cleanedKapazStr) || 0; // Seharusnya 6.75
+
+                // 2. Pembersihan dan Konversi VGW01
+                // Perbaikan: Hapus titik (pemisah ribuan) DAN ganti koma (pemisah desimal) menjadi titik.
+                // VGW01 (1.200,000) harus menjadi 1200.000
+                const cleanedVgw01Str = vgw01Str.replace(/\./g, '').replace(/,/g, '.'); 
+                const vgw01Num = parseFloat(cleanedVgw01Str) || 0; // Seharusnya 1200
+
+                console.log(`[DEBUG] BERSIH | kapazNum: ${kapazNum} (Tipe: ${typeof kapazNum})`);
+                console.log(`[DEBUG] BERSIH | vgw01Num: ${vgw01Num} (Tipe: ${typeof vgw01Num})`);
+
+
+                // 3. Kalkulasi dan Pembulatan
+                if (kapazNum > 0 && vgw01Num > 0) {
                     let result;
+                    
                     if (t1.VGE01 === 'S') {
-                        result = vgw01Num / (kapazNum * 3600);
+                        // (KAPAZ * 3600) / VGW01
+                        result = (kapazNum * 3600) / vgw01Num;
+                        console.log(`[DEBUG] RUMUS | (KAPAZ * 3600) / VGW01 = (${kapazNum} * 3600) / ${vgw01Num}`);
                     } else {
-                        result = vgw01Num / (kapazNum * 60);
+                        // (KAPAZ * 60) / VGW01
+                        result = (kapazNum * 60) / vgw01Num;
+                        console.log(`[DEBUG] RUMUS | (KAPAZ * 60) / VGW01 = (${kapazNum} * 60) / ${vgw01Num}`);
                     }
-                    // Format hasil menjadi 2 angka desimal agar rapi
-                    hasilPerHari = result.toFixed(2);
+                    
+                    console.log(`[DEBUG] HASIL MENTAH | ${result}`);
+
+                    // Pembulatan ke bawah menjadi integer (20.25 menjadi 20)
+                    hasilPerHari = Math.floor(result);
+                    console.log(`[DEBUG] HASIL FINAL | ${hasilPerHari}`);
+                    
+                } else {
+                    console.log('[DEBUG] PENCEGAHAN | Input tidak valid atau nol.');
+                    hasilPerHari = '-';
                 }
                 
                 // Kembalikan HTML untuk baris, termasuk kolom baru
@@ -686,8 +749,8 @@
                                 <th scope="col" class="text-center">Control Key</th>
                                 <th scope="col" class="text-center">Description</th>
                                 <th scope="col" class="text-center">Work Center</th>
-                                <th scope="col" class="text-center">Kapasitas (Jam)</th>
-                                <th scope="col" class="text-center">Hasil per Hari</th>
+                                <th scope="col" class="text-center">Time Capacity(Hours)</th>
+                                <th scope="col" class="text-center">Item/Day</th>
                                 <th scope="col" class="text-center">PV 1</th>
                                 <th scope="col" class="text-center">PV 2</th>
                                 <th scope="col" class="text-center">PV 3</th>
@@ -828,7 +891,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="12" class="text-center p-5 text-muted">Belum ada komponen. Klik 'Add Component' untuk menambahkan.</td></tr>`}
+                            ${rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="13" class="text-center p-5 text-muted">Belum ada komponen. Klik 'Add Component' untuk menambahkan.</td></tr>`}
                         </tbody>
                     </table>
                 </div>
@@ -940,16 +1003,22 @@
         
         function handleClickTData2Row(key, tr) {
             const t3Container = document.getElementById('tdata3-container');
-            // Ambil semua baris dari TData2 untuk dimanipulasi
-            const allT2Rows = document.querySelectorAll('#tdata2-section .t2-row'); 
+            const allT2Rows = document.querySelectorAll('#tdata2-section .t2-row');
+        
+            const searchContainer = document.getElementById('tdata2-search-wrapper'); 
 
             // KASUS 1: Klik baris yang sama untuk MENUTUP detail (collapse)
             if (t2CurrentKey === key && t2CurrentSelectedRow === tr && !t3Container.classList.contains('d-none')) {
                 
-                // [PERUBAHAN] Tampilkan kembali SEMUA baris di TData2
-                allT2Rows.forEach(row => row.style.display = ''); // Menghapus style 'display: none'
+                // [PERBAIKAN] Tampilkan kembali searchbar
+                if (searchContainer) {
+                    searchContainer.style.display = ''; 
+                }
 
-                // Logika lama Anda untuk menutup detail (sudah benar)
+                // [PERUBAHAN] Tampilkan kembali SEMUA baris di TData2
+                allT2Rows.forEach(row => row.style.display = '');
+
+                // Logika penutupan
                 t2CurrentSelectedRow.classList.remove('table-active');
                 t3Container.classList.add('d-none');
                 document.getElementById('additional-data-container').innerHTML = '';
@@ -958,14 +1027,27 @@
                 // Reset state
                 t2CurrentKey = null;
                 t2CurrentSelectedRow = null;
-                // ... reset lainnya seperti pagination jika ada ...
                 return;
             }
+
+            // KASUS 2: Klik baris baru atau membuka detail
+
+            // [PERBAIKAN] Sembunyikan searchbar
+            if (searchContainer) {
+                searchContainer.style.display = 'none'; 
+            }
+            
+            // Logika untuk menyembunyikan baris lain (sudah ada)
             allT2Rows.forEach(row => {
-                row.style.display = (row === tr) ? '' : 'none'; // Tampil jika baris ini adalah yg diklik, selain itu sembunyikan
+                row.style.display = (row === tr) ? '' : 'none';
             });
 
-            // Logika lama Anda untuk membuka detail (sudah benar)
+            // Logika pembukaan detail
+            // Hapus active dari baris sebelumnya jika ada
+            if (t2CurrentSelectedRow) {
+                t2CurrentSelectedRow.classList.remove('table-active');
+            }
+            
             tr.classList.add('table-active');
             t2CurrentSelectedRow = tr;
             t2CurrentKey = key;
@@ -1029,16 +1111,31 @@
             currentFilterName = status;
 
             let filteredData = allRowsData;
-            if (status === 'plo') filteredData = allRowsData.filter(d3 => d3.PLNUM && !d3.AUFNR);
-            else if (status === 'crtd') filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.STATS === 'CRTD');
-            else if (status === 'released') filteredData = allRowsData.filter(d3 => d3.AUFNR && ['PCNF','REL','CNF REL'].includes(d3.STATS));
-            else if (status === 'outgoing') {
+            
+            // Logika Filtering Data
+            if (status === 'plo') {
+                filteredData = allRowsData.filter(d3 => d3.PLNUM && !d3.AUFNR);
+            } else if (status === 'crtd') {
+                filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.STATS === 'CRTD');
+            } else if (status === 'released') {
+                // Filter 'released' (sama seperti perbaikan sebelumnya)
+                // Mencakup semua status yang mengandung 'REL'
+                filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.STATS.includes('REL'));
+            } else if (status === 'outgoing') {
+                // Tentukan tanggal hari ini
                 const today = new Date();
                 const year = today.getFullYear();
                 const month = String(today.getMonth() + 1).padStart(2, '0');
                 const day = String(today.getDate()).padStart(2, '0');
                 const todayString = `${year}-${month}-${day}`;
-                filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.GSTRP === todayString && d3.STATS === 'REL');
+                
+                // PERBAIKAN DI SINI:
+                // Filter 'outgoing' sekarang mencari AUFNR, GSTRP hari ini, dan STATS yang mengandung 'REL'.
+                filteredData = allRowsData.filter(d3 => 
+                    d3.AUFNR && 
+                    d3.GSTRP === todayString && 
+                    d3.STATS.includes('REL') // Perubahan: menggunakan .includes('REL')
+                );
             }
 
             renderT3Page(filteredData);
@@ -1046,21 +1143,44 @@
         
         function renderT3Page(filteredData) {
             const tbody = document.getElementById('tdata3-body');
+            // Cari elemen table-responsive yang mengelilingi tabel.
+            const tableWrapper = document.querySelector('#tdata3-container .table-responsive'); 
+            
             tbody.innerHTML = '';
 
+            // Definisikan batas baris dan tinggi untuk scroll
+            const MAX_ROWS = 8;
+            const MAX_HEIGHT_PX = '400px'; 
+            const NO_RESULTS_COLSPAN = 13; // Sesuai dengan total kolom header Anda
+
+            // 1. Hapus style scroll sebelumnya
+            if (tableWrapper) {
+                tableWrapper.style.maxHeight = '';
+                tableWrapper.style.overflowY = '';
+            }
+
             if (filteredData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="13" class="text-center p-4 text-muted">Tidak ada data untuk filter ini.</td></tr>`;
+                // Tampilkan pesan kosong dengan colspan yang benar
+                tbody.innerHTML = `<tr><td colspan="${NO_RESULTS_COLSPAN}" class="text-center p-4 text-muted">Tidak ada data untuk filter ini.</td></tr>`;
             } else {
                 filteredData.forEach((d3, i) => {
-                const row = createTableRow(d3, i + 1); // urutan 1..N
-                tbody.appendChild(row);
+                    const row = createTableRow(d3, i + 1);
+                    tbody.appendChild(row);
                 });
+
+                // 2. LOGIKA SCROLL DINAMIS: Terapkan scroll jika data melebihi batas
+                if (filteredData.length > MAX_ROWS && tableWrapper) {
+                    tableWrapper.style.maxHeight = MAX_HEIGHT_PX;
+                    tableWrapper.style.overflowY = 'auto';
+                }
             }
 
             // kosongkan area pagination (atau bisa disembunyikan via CSS)
             const pg = document.getElementById('tdata3-pagination');
             if (pg) pg.innerHTML = '';
-            clearAllSelections();
+            
+            // Ini penting agar tombol Bulk Actions disembunyikan jika tidak ada yang terpilih
+            clearAllSelections(); 
         }
 
         const ltrim0 = (s) => String(s ?? '').replace(/^0+/, '');
@@ -1074,9 +1194,19 @@
             const canSelectForPRO = !!d3.AUFNR;
             const canSelect = canSelectForPLO || canSelectForPRO;
 
-            let statusBadgeClass = 'badge-status-other';
-            if (d3.STATS === 'CRTD') statusBadgeClass = 'badge-status-crtd';
-            if (['PCNF','REL','CNF REL'].includes(d3.STATS)) statusBadgeClass = 'badge-status-rel';
+            // Logika Perhitungan Baru: PSMNG - WEMNG
+            const psmng = parseFloat(d3.PSMNG) || 0;
+            const wemng = parseFloat(d3.WEMNG) || 0;
+            const remainingQty = psmng - wemng;
+
+            let statusBadgeClass = 'bg-secondary'; // Default: Secondary (abu-abu netral)
+            if (d3.STATS === 'CRTD') {
+                statusBadgeClass = 'bg-secondary'; // CRTD: Abu-abu (sekunder)
+            } else if (d3.STATS && d3.STATS.includes('TECO')) {
+                statusBadgeClass = 'bg-danger'; // TECO: Merah (bahaya). Dicek sebelum REL.
+            } else if (d3.STATS && d3.STATS.includes('REL')) {
+                statusBadgeClass = 'bg-success'; // REL: Hijau (sukses)
+            }
 
             // Tombol Route dan Comp di samping AUFNR sudah ada di sini dan dipertahankan.
             row.innerHTML = `
@@ -1106,7 +1236,7 @@
                 <td class="text-center">
                     <div class="d-flex justify-content-center align-items-center gap-2">
                         ${d3.AUFNR ? `
-                        <button type="button" title="Reschedule" class="btn btn-schedule btn-sm"
+                        <button type="button" title="Reschedule" class="btn btn-warning btn-sm"
                             onclick="openSchedule(
                                 '${encodeURIComponent(padAufnr(d3.AUFNR))}',
                                 '${formatDate(d3.SSAVD)}'
@@ -1114,17 +1244,7 @@
                             <i class="fas fa-clock-rotate-left"></i>
                         </button>` : ''}
                         ${d3.AUFNR ? `
-                        <button type="button" title="Read PP" class="btn btn-readpp btn-sm"
-                            onclick="openReadPP('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
-                            <i class="fas fa-book-open"></i>
-                        </button>` : ''}
-                        ${d3.AUFNR ? `
-                        <button type="button" title="TECO" class="btn btn-teco btn-sm"
-                            onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
-                            <i class="fas fa-circle-check"></i>
-                        </button>` : ''}
-                        ${d3.AUFNR ? `
-                        <button type="button" title="Refresh PRO" class="btn btn-primary btn-sm"
+                        <button type="button" title="Refresh PRO" class="btn btn-info btn-sm"
                             onclick="openRefresh('${d3.AUFNR}', '${d3.WERKSX}')">
                             <i class="fa-solid fa-arrows-rotate"></i>
                         </button>` : ''}
@@ -1133,14 +1253,26 @@
                             onclick="openChangePvModal('${d3.AUFNR}', '${d3.VERID}', '${d3.WERKSX}')">
                             <i class="fa-solid fa-code-compare"></i>
                         </button>` : ''}
+                        ${d3.AUFNR ? `
+                        <button type="button" title="Read PP" class="btn btn-info btn-sm"
+                            onclick="openReadPP('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
+                            <i class="fas fa-book-open"></i>
+                        </button>` : ''}
+                        ${d3.AUFNR ? `
+                        <button type="button" title="TECO" class="btn btn-danger btn-sm"
+                            onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
+                            <i class="fas fa-trash"></i>
+                        </button>` : ''}
                     </div>
                 </td>
                 <td class="text-center">${d3.DISPO || '-'}</td>
                 <td class="text-center">${d3.MATNR ? ltrim(d3.MATNR, '0') : '-'}</td>
                 <td class="text-center">${sanitize(d3.MAKTX) || '-'}</td>
                 <td class="text-center">${d3.PSMNG || '-'}</td>
-                <td class="text-center">${d3.WEMNG || '-'}</td>
-                <td class="text-center">${d3.MENG2 || '-'}</td>
+                <td class="text-center">${d3.WEMNG}</td>
+                
+                <td class="text-center">${remainingQty}</td>
+                
                 <td class="text-center">${formatDate(d3.GSTRP)}</td>
                 <td class="text-center">${formatDate(d3.GLTRP)}</td>
             `;
@@ -1308,38 +1440,27 @@
             if (!row || !row.dataset.rowData) return;
 
             const rowData = JSON.parse(row.dataset.rowData);
-            const id = rowData.AUFNR; 
-            if (!id) return; 
+            
+            // Tentukan ID yang sebenarnya (dari data-id checkbox: PLNUM atau AUFNR)
+            const id = checkbox.dataset.id; 
+            
+            if (!id) return;
 
             if (checkbox.checked) {
-                if (mappedPRO.size > 0 && rowData.WERKSX !== bulkActionPlantCode) {
-                    Swal.fire(
-                        'Aksi Diblokir',
-                        'Anda hanya dapat memilih PRO dari plant yang sama (' + bulkActionPlantCode + ').',
-                        'warning'
-                    );
-                    checkbox.checked = false; // Batalkan centang secara otomatis
-                    return; // Hentikan fungsi
-                }
-
+                // Hanya tambahkan ke Set dan Map
                 selectedPRO.add(id);
                 mappedPRO.set(id, rowData);
-
-                // Atur plant code hanya pada pilihan pertama
-                if (mappedPRO.size === 1) { 
-                    bulkActionPlantCode = rowData.WERKSX;
-                }
+                
+                // Catatan: Variabel bulkActionPlantCode tidak lagi diset/digunakan di sini.
 
             } else { // Jika tidak dicentang
                 selectedPRO.delete(id);
                 mappedPRO.delete(id);
 
-                // Reset plant code jika tidak ada lagi yang dipilih
-                if (mappedPRO.size === 0) {
-                    bulkActionPlantCode = null;
-                }
+                // Catatan: Tidak perlu mereset bulkActionPlantCode karena tidak digunakan.
             }
             
+            // Panggil updateBulkControls untuk memperbarui tampilan tombol
             updateBulkControls();
         }
         function toggleSelectAll() { 
