@@ -247,8 +247,14 @@ class Data4Controller extends Controller
                     $insertData = array_map(function($row) use ($plant) {
                         $row['created_at'] = now();
                         $row['updated_at'] = now();
-                        // Pastikan field WERKS ada, ambil dari plant jika tidak ada di response SAP
-                        $row['WERKS'] = $row['WERKS'] ?? $plant; 
+                    
+                        // BENAR: 
+                        // 1. Pastikan kolom WERKS (kode plant) diisi dengan variabel $plant.
+                        $row['WERKS'] = $plant; 
+                        
+                        // 2. Pastikan WERKSX (deskripsi plant) ada, jika tidak ada dari SAP, biarkan kosong.
+                        $row['WERKSX'] = $row['WERKSX'] ?? ''; 
+                    
                         return $row;
                     }, $T4);
                     

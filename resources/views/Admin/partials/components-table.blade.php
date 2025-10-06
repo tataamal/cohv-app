@@ -70,21 +70,6 @@
                                     onclick="handleEditClick(this)">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </button>
-                            
-                            {{-- Tombol Delete --}}
-                            <button type="button" 
-                                    title="Delete Component" 
-                                    class="btn btn-danger btn-sm py-1 px-2 delete-component-btn"
-                                    data-aufnr="{{ $comp->AUFNR ?? '' }}"
-                                    data-rspos="{{ $comp->RSPOS ?? '' }}"
-                                    data-matnr="{{ $comp->MATNR ?? '' }}"
-                                    data-bdmng="{{ $comp->BDMNG ?? '' }}"
-                                    data-lgort="{{ $comp->LGORT ?? '' }}"
-                                    data-sobkz="{{ $comp->SOBKZ ?? '' }}"
-                                    data-plant="{{ $comp->WERKSX ?? 'default_plant' }}"
-                                    onclick="handleDeleteClick(this)">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
                         </td>
                     </tr>
                 @endforeach
@@ -145,4 +130,109 @@
         // ... logika untuk mengisi dan membuka modal edit
         console.log(`Mengedit Komponen PRO: ${aufnr}, Item: ${rspos}`);
     }
+
+    function handleEditClick(buttonElement) {
+        // 'buttonElement' adalah tombol yang baru saja Anda klik
+
+        // Ambil data dari atribut data-* menggunakan 'dataset'
+        const aufnr = buttonElement.dataset.aufnr;
+        const rspos = buttonElement.dataset.rspos;
+        const matnr = buttonElement.dataset.matnr;
+        const bdmng = buttonElement.dataset.bdmng;
+        const lgort = buttonElement.dataset.lgort;
+        const sobkz = buttonElement.dataset.sobkz;
+        const plant = buttonElement.dataset.plant;
+
+        // Sekarang Anda bisa menggunakan semua variabel ini
+        console.log('✅ Tombol Edit Diklik via onclick!');
+        console.log('AUFNR:', aufnr);
+        console.log('RSPOS:', rspos);
+        console.log('MATNR:', matnr);
+        console.log('PLANT:', plant);
+
+        // ✨ CONTOH: Langsung panggil logika untuk menampilkan modal di sini
+        // (Ini adalah kode dari pembahasan modal kita sebelumnya)
+        
+        // Isi nilai-nilai ke dalam field form di modal
+        document.getElementById('formPro').value = aufnr;
+        document.getElementById('formRspos').value = rspos;
+        document.getElementById('formMatnr').value = matnr;
+        document.getElementById('formBdmng').value = bdmng;
+        document.getElementById('formLgort').value = lgort;
+        document.getElementById('formSobkz').value = sobkz;
+        document.getElementById('formPlant').value = plant;
+
+        // Tampilkan modal
+        const dataModal = new bootstrap.Modal(document.getElementById('dataEntryModal'));
+        dataModal.show();
+    }
+
+    async function handleUpdateComponent(event) {
+        event.preventDefault(); // Mencegah form submit secara normal
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const payload = Object.fromEntries(formData.entries());
+
+        // Tampilkan notifikasi loading
+        Swal.fire({
+            title: 'Menyimpan Perubahan...',
+            text: 'Mohon tunggu, sedang menghubungi SAP.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            const response = await fetch(form.action, { // 'form.action' mengambil URL dari atribut action form
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                // Cek apakah ada peringatan sinkronisasi dari backend
+                if (result.sync_warning) {
+                    await Swal.fire({
+                        title: 'Sebagian Berhasil',
+                        icon: 'warning',
+                        html: `<b>Transaksi SAP Berhasil.</b><br><br>Namun, terjadi masalah saat sinkronisasi data lokal:<br><i>${result.sync_warning}</i><br><br>Data di halaman ini mungkin belum update.`
+                    });
+                } else {
+                    await Swal.fire({
+                        title: 'Berhasil!',
+                        text: result.message || 'Komponen berhasil diubah.',
+                        icon: 'success'
+                    });
+                }
+                location.reload(); // Muat ulang halaman untuk melihat data terbaru
+            } else {
+                // Handle error dari server (4xx, 5xx)
+                Swal.fire({
+                    title: 'Gagal!',
+                    text: result.message || 'Terjadi kesalahan saat memproses permintaan.',
+                    icon: 'error'
+                });
+            }
+
+        } catch (error) {
+            console.error('Update Component Error:', error);
+            Swal.fire('Error Jaringan', 'Tidak dapat terhubung ke server. Silakan coba lagi.', 'error');
+        }
+    }
+
+    // Pastikan Anda menambahkan event listener ke form modal edit Anda
+    document.addEventListener('DOMContentLoaded', () => {
+        const editForm = document.getElementById('entryForm'); // Ganti dengan ID form Anda
+        if (editForm) {
+            editForm.addEventListener('submit', handleUpdateComponent);
+        }
+    });
 </script>

@@ -22,6 +22,7 @@ class ProductionTData4 extends Model
             'MEINS',
             'BAUGR',
             'WERKSX',
+            'WERKS',
             'BDMNG',
             'KALAB',
             'SOBSL',

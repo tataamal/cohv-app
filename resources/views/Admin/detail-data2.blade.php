@@ -2193,6 +2193,92 @@
             });
         })();
 
+        async function bulkDeleteComponents(aufnr, kode) {
+            const selectedCheckboxes = document.querySelectorAll(`.component-select-${aufnr}:checked`);
+
+            const payload = {
+                aufnr: aufnr,
+                components: Array.from(selectedCheckboxes).map(cb => {
+                    return { rspos: cb.dataset.rspos };
+                }),
+                plant: kode
+            };
+
+            if (payload.components.length === 0) {
+                Swal.fire('Tidak Ada yang Dipilih', 'Silakan pilih komponen yang ingin dihapus terlebih dahulu.', 'info');
+                return;
+            }
+
+            // Membuat daftar RSPOS di dalam sebuah kotak yang bisa di-scroll
+            const rsposListHtml =
+                `<div style="max-height: 150px; overflow-y: auto; background: #f9f9f9; border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                    <ul style="text-align: left; margin: 0; padding: 0; list-style-position: inside;">` +
+                    payload.components.map(comp => `<li>RSPOS: <strong>${comp.rspos}</strong></li>`).join('') +
+                    `</ul>
+                </div>`;
+
+            const result = await Swal.fire({
+                title: 'Konfirmasi Hapus',
+                icon: 'warning',
+                html:
+                    `Anda yakin ingin menghapus <strong>${payload.components.length} komponen</strong> berikut?` +
+                    rsposListHtml,
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            });
+
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Menghapus...',
+                    text: 'Harap tunggu, sedang memproses permintaan.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                try {
+                    const response = await fetch('/component/delete-bulk', { // Pastikan URL ini benar
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const responseData = await response.json();
+
+                    if (response.ok) {
+                        await Swal.fire({
+                            title: 'Berhasil, Refresh PRO Agar Data yang tampil Update',
+                            text: responseData.message,
+                            icon: 'success'
+                        });
+                        location.reload();
+                    } else {
+                        let errorText = responseData.message;
+                        if (responseData.errors && responseData.errors.length > 0) {
+                            errorText += '<br><br><strong>Detail:</strong><br>' + responseData.errors.join('<br>');
+                        }
+                        Swal.fire({
+                            title: 'Gagal!',
+                            html: errorText,
+                            icon: 'error'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Fetch Error:', error);
+                    Swal.fire('Error Jaringan', 'Tidak dapat terhubung ke server. Silakan coba lagi.', 'error');
+                }
+            }
+        }
+
     </script>
 @endpush
 </x-layouts.app>

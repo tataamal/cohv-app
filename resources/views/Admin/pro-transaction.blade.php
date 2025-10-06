@@ -179,18 +179,23 @@
                                     
                                     {{-- Tombol ADD Component (Selalu terlihat) --}}
                                     <button type="button" class="btn btn-sm btn-success text-white" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#addComponentModal">
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#addComponentModal"
+                                        data-aufnr="{{ $proData->AUFNR ?? '' }}"
+                                        data-vornr="{{ $proData->VORNR ?? '' }}"
+                                        data-arbpl="{{ $proData->ARBPL ?? '' }}"
+                                        data-pwwrk="{{ $proData->PWWRK ?? '' }}">
                                         <i class="fas fa-plus me-1"></i> Add Component
                                     </button>
                             
                                     {{-- Tombol BULK ACTION (Disembunyikan secara default) --}}
                                     <div id="bulk-action-controls" class="d-none gap-2">
-                                        <button type="button" class="btn btn-sm btn-warning">
+                                        {{-- <button type="button" class="btn btn-sm btn-warning">
                                             <i class="fas fa-edit me-1"></i> Edit Selected (0)
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-danger">
-                                            <i class="fas fa-trash me-1"></i> Remove Selected (0)
+                                        </button> --}}
+                                        <button type="button" class="btn btn-sm btn-danger"
+                                                onclick="bulkDeleteComponents('{{ $proData->AUFNR ?? '' }}', '{{ $proData->WERKSX ?? '' }}')">
+                                            <i class="fas fa-trash me-1"></i> Hapus Komponen Terpilih
                                         </button>
                                     </div>
                                 </div>
@@ -355,10 +360,46 @@
                 });
             }
             // ====================== END SCRIPT RESCHEDULE =======================
+            const addComponentModal = document.getElementById('addComponentModal');
+        
+            if (addComponentModal) {
+                // Listener ini akan berjalan SETIAP KALI modal akan ditampilkan
+                addComponentModal.addEventListener('show.bs.modal', function (event) {
+                    // event.relatedTarget adalah tombol yang memicu modal
+                    const button = event.relatedTarget;
+                    if (!button) return; // Keluar jika modal tidak dipicu oleh tombol
+
+                    // Ambil semua data dari atribut data-* tombol
+                    const aufnr = button.dataset.aufnr;
+                    const vornr = button.dataset.vornr;
+                    const pwwrk = button.dataset.pwwrk;
+
+                    console.log('Passing data to Add Component Modal:', { aufnr, vornr, pwwrk });
+
+                    // Temukan input di dalam modal dan isi nilainya
+                    // Pastikan ID input di modal Anda sudah benar
+                    const aufnrInput = addComponentModal.querySelector('#addComponentAufnr');
+                    const vornrInput = addComponentModal.querySelector('#addComponentVornr');
+                    const plantInput = addComponentModal.querySelector('#addComponentPlant');
+
+                    if (aufnrInput) aufnrInput.value = aufnr || '';
+                    if (vornrInput) vornrInput.value = vornr || '';
+                    if (plantInput) plantInput.value = pwwrk || '';
+                    
+                    // Jika Anda punya display field (bukan input)
+                    const displayField = addComponentModal.querySelector('#displayAufnr');
+                    if (displayField) {
+                        displayField.textContent = aufnr || '';
+                    }
+                });
+            }
         });
         document.addEventListener('DOMContentLoaded', () => {
             const confirmBtn = document.getElementById('confirmScheduleBtn');
             const form = document.getElementById('scheduleForm');
+            const searchInput = document.getElementById('proSearchInput');
+            const tableBody = document.getElementById('tdata3-body');
+            const noResultsRow = document.getElementById('tdata3-no-results');
 
             // ======================= START SCRIPT RESCHEDULE =========================
 
@@ -412,6 +453,418 @@
             }
             // ======================= END SCRIPT RESCHEDULE =========================
         });
+
+        function openReadPP(aufnr) {
+        Swal.fire({
+            title: 'Konfirmasi Read PP',
+            text: `Anda yakin ingin melakukan Read PP (Re-explode BOM) untuk order ${aufnr}? Proses ini akan memperbarui komponen di production order.`,
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, Lanjutkan!',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Tampilkan loading spinner
+                Swal.fire({
+                    title: 'Memproses Read PP...',
+                    text: 'Mohon tunggu, sedang menghubungi SAP.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Kirim request ke Controller Laravel
+                fetch("{{ route('order.readpp') }}", { // Menggunakan route name baru
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ aufnr: aufnr })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: data.message,
+                        });
+                        // Opsional: Muat ulang data tabel jika perlu untuk melihat perubahan
+                        // location.reload(); 
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            // Menampilkan pesan error yang lebih detail dari SAP jika ada
+                            html: data.message + (data.errors ? `<br><br><strong>Detail:</strong><br><pre style="text-align:center; font-size: 0.8em;">${data.errors.join('<br>')}</pre>` : ''),
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: 'Terjadi kesalahan saat mengirim permintaan!',
+                    });
+                });
+            }
+        });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            // Pastikan elemennya ada
+            if (searchInput && tableBody && noResultsRow) {
+                
+                // Gunakan event 'input' agar lebih responsif daripada 'keyup'
+                searchInput.addEventListener('input', function() {
+                    
+                    const filterText = searchInput.value.toUpperCase().trim();
+                    const tableRows = tableBody.getElementsByTagName('tr');
+                    let visibleRowsCount = 0;
+
+                    // Loop melalui setiap baris (kecuali baris "no-results")
+                    for (let i = 0; i < tableRows.length; i++) {
+                        const row = tableRows[i];
+                        
+                        // Lewati baris "no-results" dalam loop
+                        if (row.id === 'tdata3-no-results') continue;
+
+                        const cells = row.getElementsByTagName('td');
+                        let rowText = '';
+
+                        // ✨ PERUBAHAN UTAMA: Gabungkan teks dari semua sel (td) dalam satu baris
+                        for (let j = 0; j < cells.length; j++) {
+                            rowText += (cells[j].textContent || cells[j].innerText) + ' ';
+                        }
+                        
+                        // Cek apakah gabungan teks baris mengandung teks pencarian
+                        if (rowText.toUpperCase().indexOf(filterText) > -1) {
+                            row.style.display = ""; // Tampilkan baris
+                            visibleRowsCount++;
+                        } else {
+                            row.style.display = "none"; // Sembunyikan baris
+                        }
+                    }
+
+                    // ✨ BARU: Tampilkan atau sembunyikan pesan "tidak ada hasil"
+                    if (visibleRowsCount === 0) {
+                        noResultsRow.style.display = ''; // Tampilkan pesan jika tidak ada baris yang terlihat
+                    } else {
+                        noResultsRow.style.display = 'none'; // Sembunyikan pesan jika ada hasil
+                    }
+                });
+            }
+        });
+        function openTeco(aufnr) {
+            Swal.fire({
+                title: 'Konfirmasi TECO',
+                text: `Anda yakin ingin melakukan TECO untuk order ${aufnr}?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ya, Lanjutkan!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Tampilkan loading spinner
+                    Swal.fire({
+                        title: 'Memproses TECO...',
+                        text: 'Mohon tunggu, sedang menghubungi SAP.',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Kirim request ke Controller Laravel
+                    fetch("{{ route('order.teco') }}", { // Gunakan route name agar lebih aman
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({ aufnr: aufnr })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: data.message,
+                            }).then(() => { // <-- TAMBAHKAN .then() DI SINI
+                                // Periksa apakah backend mengirim sinyal 'refresh'
+                                if (data.action === 'refresh') {
+                                    location.reload(); // Muat ulang halaman
+                                }
+                            });;
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal!',
+                                text: data.message,
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Oops...',
+                            text: 'Terjadi kesalahan saat mengirim permintaan!',
+                        });
+                    });
+                }
+            });
+        }
+        function openChangePvModal(aufnr, currentPV = '', plantVal = null) {
+            const defaultPlant = @json($plant);
+
+            // isi hidden form
+            document.getElementById('changePvAufnr').value = (aufnr || '').trim();
+            document.getElementById('changePvWerks').value = (plantVal || defaultPlant || '').trim();
+
+            // set select (opsional)
+            const sel = document.getElementById('changePvInput');
+            sel.value = (currentPV || '').trim();               // kalau '0001' dsb
+            document.getElementById('changePvCurrent').textContent =
+            currentPV ? `Current PV: ${currentPV}` : '';
+
+            // tampilkan modal
+            (bootstrap.Modal.getOrCreateInstance(document.getElementById('changePvModal'))).show();
+        }       
+        document.addEventListener('DOMContentLoaded', () => {
+            // Pastikan tombol "Simpan" di modal Change PV Anda memiliki id="changePvSubmitBtn"
+            const confirmChangePvBtn = document.getElementById('changePvSubmitBtn');
+
+            if (confirmChangePvBtn) {
+                confirmChangePvBtn.addEventListener('click', function() {
+                    const button = this;
+                    const originalText = button.innerHTML;
+                    
+                    // Pastikan form di modal Anda memiliki id="changePvForm"
+                    const form = document.getElementById('changePvForm');
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
+
+                    // 1. Validasi Sederhana
+                    if (!data.AUFNR) {
+                        return showSwal('AUFNR tidak ditemukan di form.', 'error');
+                    }
+                    if (!data.PROD_VERSION) {
+                        return showSwal('Isi Production Version (PV) dahulu.', 'error');
+                    }
+                    if (!data.plant) {
+                        return showSwal('Plant (WERKS) tidak ditemukan di form.', 'error');
+                    }
+
+                    // Tampilkan status loading
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+                    
+                    // Kirim request ke endpoint Laravel
+                    fetch("{{ route('change-pv') }}", { 
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => {
+                        // Menggunakan pola yang sama untuk menangani respons
+                        return response.json().then(resData => ({ status: response.status, body: resData }));
+                    })
+                    .then(({ status, body }) => {
+                        if (status >= 400) { 
+                            // Jika ada error dari server, lempar pesan errornya
+                            throw new Error(body.error || body.message || 'Terjadi kesalahan di server.'); 
+                        }
+                        
+                        // Logika sukses dibuat sama persis dengan change WC
+                        const modalElement = document.getElementById('changePvModal'); // Pastikan ID modal Anda benar
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+
+                        showSwal(body.message, 'success');
+
+                        // Tunggu sejenak, lalu reload halaman
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    })
+                    .catch(error => {
+                        // Menampilkan error menggunakan SweetAlert
+                        showSwal(error.message, 'error');
+                    })
+                    .finally(() => {
+                        // Mengembalikan tombol ke keadaan semula
+                        button.disabled = false;
+                        button.innerHTML = originalText;
+                    });
+                });
+            }
+        });
+        const materialInput = document.getElementById('materialInput');
+        // Pastikan elemennya ada untuk menghindari error
+        if (materialInput) {
+            // 2. Tambahkan event listener 'blur'. 
+            //    Kode ini akan berjalan saat pengguna mengklik di luar input field.
+            materialInput.addEventListener('blur', function() {
+                
+                // Ambil nilai input saat ini dan hapus spasi di awal/akhir
+                const currentValue = this.value.trim();
+
+                // 3. Buat regular expression untuk mengecek apakah SEMUA karakter adalah angka
+                const isOnlyNumbers = /^\d+$/.test(currentValue);
+
+                // 4. Jika semua karakter adalah angka dan input tidak kosong
+                if (isOnlyNumbers && currentValue.length > 0) {
+                    
+                    // Tambahkan angka '0' di depan hingga total panjangnya 18 karakter
+                    this.value = currentValue.padStart(18, '0');
+                }
+                
+                // Jika input berisi huruf atau karakter lain, tidak ada yang terjadi.
+            });
+        }
+        const submitBtn = document.getElementById('confirmAddComponentBtn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function() {
+                const button = this;
+                const originalText = button.innerHTML;
+                const form = document.getElementById('addComponentForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+
+                // Validasi sederhana
+                if (!data.iv_matnr || !data.iv_bdmng || !data.iv_meins || !data.iv_lgort) {
+                    // Ganti 'showSwal' dengan fungsi notifikasi Anda
+                    return showSwal('Harap isi semua field yang wajib diisi (*).', 'error');
+                }
+
+                button.disabled = true;
+                button.innerHTML = 'Menyimpan...'; // Tampilan loading sederhana
+
+                fetch("{{ route('component.add') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json().then(resData => ({ status: response.status, body: resData })))
+                .then(({ status, body }) => {
+                    if (status >= 400) { throw new Error(body.message || 'Gagal menambahkan komponen.'); }
+                    showSwal(body.message, 'success'); // Tampilkan notifikasi
+                    setTimeout(() => location.reload(), 1500);
+                })
+                .catch(error => {
+                    showSwal(error.message, 'error');
+                })
+                .finally(() => {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                });
+            });
+        }
+        async function bulkDeleteComponents(aufnr, kode) {
+            const selectedCheckboxes = document.querySelectorAll(`.component-select-${aufnr}:checked`);
+
+            const payload = {
+                aufnr: aufnr,
+                components: Array.from(selectedCheckboxes).map(cb => {
+                    return { rspos: cb.dataset.rspos };
+                }),
+                plant: kode
+            };
+
+            if (payload.components.length === 0) {
+                Swal.fire('Tidak Ada yang Dipilih', 'Silakan pilih komponen yang ingin dihapus terlebih dahulu.', 'info');
+                return;
+            }
+
+            // Membuat daftar RSPOS di dalam sebuah kotak yang bisa di-scroll
+            const rsposListHtml =
+                `<div style="max-height: 150px; overflow-y: auto; background: #f9f9f9; border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                    <ul style="text-align: left; margin: 0; padding: 0; list-style-position: inside;">` +
+                    payload.components.map(comp => `<li>RSPOS: <strong>${comp.rspos}</strong></li>`).join('') +
+                    `</ul>
+                </div>`;
+
+            const result = await Swal.fire({
+                title: 'Konfirmasi Hapus',
+                icon: 'warning',
+                html:
+                    `Anda yakin ingin menghapus <strong>${payload.components.length} komponen</strong> berikut?` +
+                    rsposListHtml,
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            });
+
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Menghapus...',
+                    text: 'Harap tunggu, sedang memproses permintaan.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                try {
+                    const response = await fetch('/component/delete-bulk', { // Pastikan URL ini benar
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const responseData = await response.json();
+
+                    if (response.ok) {
+                        await Swal.fire({
+                            title: 'Berhasil, Refresh PRO Agar Data yang tampil Update',
+                            text: responseData.message,
+                            icon: 'success'
+                        });
+                        location.reload();
+                    } else {
+                        let errorText = responseData.message;
+                        if (responseData.errors && responseData.errors.length > 0) {
+                            errorText += '<br><br><strong>Detail:</strong><br>' + responseData.errors.join('<br>');
+                        }
+                        Swal.fire({
+                            title: 'Gagal!',
+                            html: errorText,
+                            icon: 'error'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Fetch Error:', error);
+                    Swal.fire('Error Jaringan', 'Tidak dapat terhubung ke server. Silakan coba lagi.', 'error');
+                }
+            }
+        }
     </script>
     @endpush
 </x-layouts.app>
