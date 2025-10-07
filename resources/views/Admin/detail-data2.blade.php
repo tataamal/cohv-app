@@ -1440,27 +1440,50 @@
             if (!row || !row.dataset.rowData) return;
 
             const rowData = JSON.parse(row.dataset.rowData);
-            
-            // Tentukan ID yang sebenarnya (dari data-id checkbox: PLNUM atau AUFNR)
-            const id = checkbox.dataset.id; 
-            
-            if (!id) return;
+            const id = checkbox.dataset.id;
+
+            // [BARU] Ekstrak plant code dari rowData. Pastikan propertinya benar ('WERKSX').
+            const plantCode = rowData.WERKSX || null;
+
+            // [PENCEGAHAN] Hentikan jika ID atau Plant Code tidak ada di data.
+            if (!id || !plantCode) {
+                console.error("Gagal mendapatkan ID atau Plant Code dari data baris.", rowData);
+                toast('error', 'Data Tidak Lengkap', 'Tidak dapat memproses item tanpa ID atau Plant Code.');
+                checkbox.checked = false; // Batalkan centang
+                return;
+            }
 
             if (checkbox.checked) {
-                // Hanya tambahkan ke Set dan Map
+                // [LOGIKA UTAMA] Jika ini adalah item PERTAMA yang dipilih
+                if (selectedPRO.size === 0) {
+                    // Tetapkan plant code untuk sesi bulk transaction ini.
+                    bulkActionPlantCode = plantCode;
+                    console.log(`Plant Code untuk sesi bulk diatur ke: ${bulkActionPlantCode}`);
+                }
+                // [VALIDASI] Jika item berikutnya dipilih, cek apakah plant code-nya sama.
+                else if (plantCode !== bulkActionPlantCode) {
+                    // Jika berbeda, tolak pemilihan.
+                    toast('error', 'Gagal Memilih', 'Hanya bisa memilih PRO dari Plant yang sama dalam satu transaksi bulk.');
+                    checkbox.checked = false; // Batalkan centang yang baru saja dilakukan pengguna
+                    return; // Hentikan eksekusi fungsi
+                }
+
+                // Jika lolos validasi (atau ini item pertama), tambahkan ke daftar.
                 selectedPRO.add(id);
                 mappedPRO.set(id, rowData);
-                
-                // Catatan: Variabel bulkActionPlantCode tidak lagi diset/digunakan di sini.
 
-            } else { // Jika tidak dicentang
+            } else { // Jika checkbox sedang di-uncheck
                 selectedPRO.delete(id);
                 mappedPRO.delete(id);
 
-                // Catatan: Tidak perlu mereset bulkActionPlantCode karena tidak digunakan.
+                // [RESET] Jika tidak ada lagi item yang terpilih, reset plant code sesi bulk.
+                if (selectedPRO.size === 0) {
+                    bulkActionPlantCode = null;
+                    console.log('Plant Code sesi bulk telah di-reset.');
+                }
             }
-            
-            // Panggil updateBulkControls untuk memperbarui tampilan tombol
+
+            // Panggil updateBulkControls untuk memperbarui tampilan tombol dan counter
             updateBulkControls();
         }
         function toggleSelectAll() { 
