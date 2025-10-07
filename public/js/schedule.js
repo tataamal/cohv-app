@@ -1,5 +1,5 @@
 const confirmBulkScheduleBtn = document.getElementById('confirmBulkScheduleBtn');
-const scheduleDateInput = document.getElementById('bulkScheduleDate');
+const scheduleDateInput = document.getElementById('bulkVisibleDate');
 const scheduleTimeInput = document.getElementById('bulkScheduleTime');
 
 confirmBulkScheduleBtn.addEventListener('click', function() {
