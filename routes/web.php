@@ -11,6 +11,7 @@ use App\Http\Controllers\ManufactController;
 use App\Http\Controllers\WcCompatibilityController;
 use App\Http\Controllers\MonitoringProController;
 use App\Http\Controllers\ProTransactionController;
+use App\Http\Controllers\CogiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,7 +27,7 @@ Route::middleware('guest')->group(function (){
 
 Route::middleware('auth')->group(function (){
 
-    
+
     Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
         Route::get('/dashboard/{kode}', [AdminController::class, 'index'])->name('dashboard.show');
         Route::get('data2/{kode}', [ManufactController::class, 'DetailData2'])->name('detail.data2');
@@ -83,5 +84,10 @@ Route::middleware('auth')->group(function (){
 
     // Routing untunk PRO Transaction
     Route::post('/pro/reschedule', [ProTransactionController::class, 'reschedule'])->name('api.pro.reschedule');
+
+    // Cogi Routing
+    Route::get('/monitoring/cogi/{kode}', [CogiController::class, 'index'])->name('cogi.report');
+
+
 
 });

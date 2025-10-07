@@ -1,19 +1,20 @@
 @props([
     'navigation' => [
         [
-            'name' => 'Dashboard', 
+            'name' => 'Dashboard',
             'route_name' => 'manufaktur.dashboard.show',
             // Gunakan nama rute lengkap
-            'active_on' => ['manufaktur.dashboard.show', 'manufaktur.pro.transaction.detail*'] 
+            'active_on' => ['manufaktur.dashboard.show', 'manufaktur.pro.transaction.detail*']
         ],
         [
-            'name' => 'Monitoring PRO', 
+            'name' => 'Monitoring PRO',
             'route_name' => 'monitoring-pro.index',
             // Diasumsikan rute ini TIDAK memiliki prefix 'manufaktur.'
             'active_on' => ['monitoring-pro.index*', 'pro.detail.buyer*']
         ],
         ['name' => 'Data COHV', 'route_name' => 'manufaktur.show.detail.data2'],
-        // ['name' => 'List GR', 'route_name' => 'list.gr'],
+        ['name' => 'Monitoring COGI', 'route_name' => 'cogi.report'],
+        ['name' => 'Monitoring GR', 'route_name' => 'list.gr'],
     ],
 ])
 
@@ -21,15 +22,15 @@
     $user = Auth::user();
 
     // 1. Logika untuk mendapatkan KODE AKTIF
-    $kodeAktif = request()->route('kode'); 
-    
+    $kodeAktif = request()->route('kode');
+
     // Jika tidak ada 'kode', cek rute detail transaksi dan ambil 'werksCode'
     if (!$kodeAktif) {
         if (request()->routeIs('manufaktur.pro.transaction.detail*')) {
             $kodeAktif = request()->route('werksCode');
         }
     }
-    
+
     // Defaultkan ke null jika tidak ditemukan
     $kodeAktif = $kodeAktif ?? null;
 
@@ -41,16 +42,16 @@
         $href = '#';
 
         if (isset($item['route_name']) && $kodeAktif && Route::has($item['route_name'])) {
-            
+
             // Perbaikan: Pastikan parameter 'kode' selalu dilewatkan saat memanggil route()
             $params = array_merge(['kode' => $kodeAktif], $item['params'] ?? []);
             $href = route($item['route_name'], $params);
-            
+
             // Logika Aktivasi
             $activePattern = $item['active_on'] ?? $item['route_name'].'*';
             $active = request()->routeIs($activePattern);
         }
-        
+
         return compact('name','href','active');
     })->all();
 @endphp
@@ -77,7 +78,7 @@
 
             <div class="dropdown d-md-none">
                 <button class="btn btn-light" type="button" id="topbar-menu-mobile" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa-solid fa-ellipsis-vertical"></i> 
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
                 </button>
                 <ul class="dropdown-menu" aria-labelledby="topbar-menu-mobile">
                     @foreach($normalizedNav as $item)
@@ -89,7 +90,7 @@
                     @endforeach
                 </ul>
             </div>
-            
+
         </div>
 
         <div class="ms-auto d-flex align-items-center">
