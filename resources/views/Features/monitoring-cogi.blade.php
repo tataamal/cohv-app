@@ -5,7 +5,7 @@
     @push('styles')
     <link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css">
     <style>
-        /* ... CSS sebelumnya tidak berubah ... */
+        /* ... CSS tidak ada perubahan ... */
         .stat-card-modern { background-color: #fff; border-radius: 0.75rem; padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); transition: all 0.3s ease-in-out; }
         .stat-card-modern:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1); }
         .stat-card-modern .info h3 { font-size: 1.75rem; font-weight: 700; color: #344767; }
@@ -18,124 +18,154 @@
         .datatable-search { display: none; }
         .datatable-container { max-height: 60vh; overflow-y: auto; }
         #cogiTable thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; vertical-align: middle; padding-top: 1rem; padding-bottom: 1rem; }
-        
-        /* [BARU] CSS untuk Tabel Responsif & Modal */
-        #cogiTable tbody tr {
-            cursor: pointer; /* Tambahkan cursor pointer pada baris tabel */
-        }
-
-        /* Sembunyikan kolom di layar kecil (lebar di bawah 768px) */
-        @media (max-width: 767.98px) {
-            .mobile-hidden {
-                display: none;
-            }
-        }
+        #cogiTable tbody tr { cursor: pointer; }
+        @media (max-width: 767.98px) { .mobile-hidden { display: none; } }
     </style>
     @endpush
 
-    <div class="container-fluid py-4">
-        {{-- BAGIAN HEADER HALAMAN --}}
-        <div class="page-header mb-4">
-            <div class="row align-items-center">
-                <div class="col"><h4 class="page-title">Laporan COGI - Plant {{ $kode }}</h4><p class="page-subtitle text-muted">Menampilkan daftar COGI untuk plant terkait.</p></div>
-                <div class="col-auto"><span class="page-date text-muted"><i class="fas fa-calendar-alt me-1"></i>{{ now()->format('l, d F Y') }}</span></div>
+    {{-- [DIUBAH] Hapus padding dari container utama dan tambahkan div pembungkus --}}
+    <div class="container-fluid p-0">
+        <div class="p-4">
+            {{-- BAGIAN HEADER HALAMAN --}}
+            <div class="page-header mb-4">
+                <div class="row align-items-center">
+                    <div class="col"><h4 class="page-title">Laporan COGI - Plant {{ $kode }}</h4><p class="page-subtitle text-muted">Menampilkan daftar COGI untuk plant terkait.</p></div>
+                    <div class="col-auto"><span class="page-date text-muted"><i class="fas fa-calendar-alt me-1"></i>{{ now()->format('l, d F Y') }}</span></div>
+                </div>
             </div>
-        </div>
 
-        {{-- BARIS KARTU STATISTIK --}}
-        <div class="row">
-            <div class="col-lg-4 col-md-6 mb-4">
-                <a href="{{ route('cogi.report', ['kode' => $kode]) }}" class="stat-card-link">
-                    <div class="stat-card-modern @if(!$filter) active-filter @endif">
-                        <div class="info"><p>Total COGI</p><h3>{{ number_format($totalError) }}</h3></div><div class="icon text-danger"><i class="fas fa-triangle-exclamation"></i></div>
-                    </div>
-                </a>
+            {{-- BARIS KARTU STATISTIK --}}
+            <div class="row">
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <a href="{{ route('cogi.report', ['kode' => $kode]) }}" class="stat-card-link">
+                        <div class="stat-card-modern @if(!$filter) active-filter @endif">
+                            <div class="info"><p>Total COGI</p><h3>{{ number_format($totalError) }}</h3></div><div class="icon text-danger"><i class="fas fa-triangle-exclamation"></i></div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <a href="{{ route('cogi.report', ['kode' => $kode, 'filter' => 'baru']) }}" class="stat-card-link">
+                        <div class="stat-card-modern @if($filter === 'baru') active-filter @endif">
+                            <div class="info"><p>COGI Baru (Hari Ini)</p><h3>{{ number_format($errorBaru) }}</h3></div><div class="icon text-primary"><i class="fas fa-bolt"></i></div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-lg-4 col-md-12 mb-4">
+                    <a href="{{ route('cogi.report', ['kode' => $kode, 'filter' => 'lama']) }}" class="stat-card-link">
+                        <div class="stat-card-modern @if($filter === 'lama') active-filter @endif">
+                            <div class="info"><p>COGI Lama (> 7 Hari)</p><h3>{{ number_format($errorLama) }}</h3></div><div class="icon text-warning"><i class="fas fa-history"></i></div>
+                        </div>
+                    </a>
+                </div>
             </div>
-            <div class="col-lg-4 col-md-6 mb-4">
-                <a href="{{ route('cogi.report', ['kode' => $kode, 'filter' => 'baru']) }}" class="stat-card-link">
-                    <div class="stat-card-modern @if($filter === 'baru') active-filter @endif">
-                        <div class="info"><p>COGI Baru (Hari Ini)</p><h3>{{ number_format($errorBaru) }}</h3></div><div class="icon text-primary"><i class="fas fa-bolt"></i></div>
-                    </div>
-                </a>
-            </div>
-            <div class="col-lg-4 col-md-12 mb-4">
-                <a href="{{ route('cogi.report', ['kode' => $kode, 'filter' => 'lama']) }}" class="stat-card-link">
-                    <div class="stat-card-modern @if($filter === 'lama') active-filter @endif">
-                        <div class="info"><p>COGI Lama (> 7 Hari)</p><h3>{{ number_format($errorLama) }}</h3></div><div class="icon text-warning"><i class="fas fa-history"></i></div>
-                    </div>
-                </a>
-            </div>
-        </div>
 
-        {{-- Tabel Data COGI --}}
-        <div class="card">
-            <div class="card-header card-header-flex">
-                <h5 class="card-title mb-0">Detail COGI</h5>
-                <div class="search-box-minimalist"><input type="text" id="customSearchBox" class="form-control" placeholder="Cari di hasil ini..."></div>
-            </div>
-            <div class="card-body">
-                <table id="cogiTable" class="table table-hover">
-                    <thead>
-                        <tr class="align-middle">
-                            <th class="text-center">No</th>
-                            <th class="text-center">PRO</th>
-                            {{-- [DIUBAH] Tambahkan class 'mobile-hidden' pada kolom yang ingin disembunyikan --}}
-                            <th class="text-center mobile-hidden">Reservasi Number</th>
-                            <th class="text-center">Material Number</th>
-                            <th class="text-center mobile-hidden">Description</th>
-                            <th class="text-center mobile-hidden">Plant</th>
-                            <th class="text-center mobile-hidden">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($cogiData as $item)
-                            {{-- [DIUBAH] Tambahkan data-* attributes untuk menyimpan semua informasi per baris --}}
-                            <tr class="align-middle text-center" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#detailModal"
-                                data-pro="{{ $item->AUFNR }}"
-                                data-reservasi="{{ $item->RSNUM }}"
-                                data-material="{{ $item->MATNR }}"
-                                data-deskripsi="{{ $item->MAKTX }}"
-                                data-plant="{{ $item->DWERK }}"
-                                data-tanggal="{{ $item->BUDAT ? $item->BUDAT->format('d F Y') : '-' }}">
-                                <td>{{ $loop->iteration }}</td>
-                                <td>{{ $item->AUFNR }}</td>
-                                <td class="mobile-hidden">{{ $item->RSNUM }}</td>
-                                <td>{{ $item->MATNR }}</td>
-                                <td class="mobile-hidden">{{ $item->MAKTX }}</td>
-                                <td class="mobile-hidden">{{ $item->DWERK }}</td>
-                                <td class="mobile-hidden">{{ $item->BUDAT ? $item->BUDAT->format('d-m-Y') : '-' }}</td>
+            {{-- Tabel Data COGI --}}
+            <div class="card">
+                <div class="card-header card-header-flex">
+                    <h5 class="card-title mb-0">Detail COGI</h5>
+                    <div class="search-box-minimalist"><input type="text" id="customSearchBox" class="form-control" placeholder="Cari di hasil ini..."></div>
+                </div>
+                <div class="card-body">
+                    <table id="cogiTable" class="table table-hover">
+                        <thead>
+                            <tr class="align-middle">
+                                <th class="text-center">No</th>
+                                <th class="text-center">PRO</th>
+                                <th class="text-center mobile-hidden">Reservasi Number</th>
+                                <th class="text-center">Material Number</th>
+                                <th class="text-center mobile-hidden">Description</th>
+                                <th class="text-center mobile-hidden">MRP</th>
+                                <th class="text-center mobile-hidden">Date</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="7" class="text-center text-muted py-5">
-                                    <p>Tidak ada data COGI yang cocok dengan filter yang dipilih.</p>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse ($cogiData as $item)
+                                <tr class="align-middle text-center" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#detailModal"
+                                    data-pro="{{ $item->AUFNR }}"
+                                    data-posting-date="{{ $item->BUDAT ? $item->BUDAT->format('d F Y') : '-' }}"
+                                    data-reservation="{{ $item->RSNUM }}"
+                                    data-sales-order="{{ $item->KDAUF }}"
+                                    data-item="{{ $item->KDPOS }}"
+                                    data-plant="{{ $item->DWERK }}"
+                                    data-sloc-header="{{ $item->LGORTH }}"
+                                    data-material-header="{{ is_numeric($item->MATNRH) ? ltrim($item->MATNRH, '0') : $item->MATNRH }}"
+                                    data-desc-header="{{ $item->MAKTXH }}"
+                                    data-mrp-header="{{ $item->DISPOH }}"
+                                    data-qty-pro="{{ number_format($item->PSMNG, 3, ',', '.') }}"
+                                    data-qty-dlv="{{ number_format($item->WEMNG, 3, ',', '.') }}"
+                                    data-sloc-comp="{{ $item->LGORT }}"
+                                    data-material-comp="{{ is_numeric($item->MATNR) ? ltrim($item->MATNR, '0') : $item->MATNR }}"
+                                    data-desc-comp="{{ $item->MAKTX }}"
+                                    data-mrp-comp="{{ $item->DISPO }}"
+                                    data-qty-cogi="{{ number_format($item->ERFMG, 3, ',', '.') }}"
+                                    data-stock="{{ number_format($item->MENGE, 3, ',', '.') }}"
+                                    data-uom="{{ $item->MEINS === 'ST' ? 'PC' : $item->MEINS }}"
+                                    data-pro-cogi="{{ $item->AUFNRX }}">
+                                    <td>{{ $loop->iteration }}</td>
+                                    <td>{{ $item->AUFNR }}</td>
+                                    <td class="mobile-hidden">{{ $item->RSNUM }}</td>
+                                    <td>{{ is_numeric($item->MATNR) ? ltrim($item->MATNR, '0') : $item->MATNR }}</td>
+                                    <td class="mobile-hidden">{{ $item->MAKTX }}</td>
+                                    <td class="mobile-hidden">{{ $item->DISPOH }}</td>
+                                    <td class="mobile-hidden">{{ $item->BUDAT ? $item->BUDAT->format('d-m-Y') : '-' }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-5">
+                                        <p>Tidak ada data COGI yang cocok dengan filter yang dipilih.</p>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
+</div> {{-- Tutup div pembungkus p-4 --}}
 
     <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="detailModalLabel">Detail Data COGI</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between"><strong>PRO:</strong> <span id="modal-pro"></span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Reservasi Number:</strong> <span id="modal-reservasi"></span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Material Number:</strong> <span id="modal-material"></span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Description:</strong> <span id="modal-deskripsi"></span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Plant:</strong> <span id="modal-plant"></span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Date:</strong> <span id="modal-tanggal"></span></li>
-                    </ul>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Header Information</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between"><strong>Production Order:</strong> <span id="modal-pro"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Posting Date COGI:</strong> <span id="modal-posting-date"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Reservation:</strong> <span id="modal-reservation"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Sales Order:</strong> <span id="modal-sales-order"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Item:</strong> <span id="modal-item"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Plant:</strong> <span id="modal-plant"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>SLoc:</strong> <span id="modal-sloc-header"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Material:</strong> <span id="modal-material-header"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Description:</strong> <span id="modal-desc-header"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>MRP:</strong> <span id="modal-mrp-header"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Qty PRO:</strong> <span id="modal-qty-pro"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Qty Dlv:</strong> <span id="modal-qty-dlv"></span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Component Information</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between"><strong>SLoc:</strong> <span id="modal-sloc-comp"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Component:</strong> <span id="modal-material-comp"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Description:</strong> <span id="modal-desc-comp"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>MRP:</strong> <span id="modal-mrp-comp"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Qty COGI:</strong> <span id="modal-qty-cogi"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Pro Cogi:</strong> <span id="modal-pro-cogi"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>Stock:</strong> <span id="modal-stock"></span></li>
+                                <li class="list-group-item d-flex justify-content-between"><strong>UoM:</strong> <span id="modal-uom"></span></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -148,39 +178,42 @@
     <script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest" type="text/javascript"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Inisialisasi DataTable
-            const dataTable = new simpleDatatables.DataTable("#cogiTable", {
-                paging: false,
-                info: false,
-            });
+            const dataTable = new simpleDatatables.DataTable("#cogiTable", { paging: false, info: false });
 
-            // Hubungkan search box untuk memfilter hasil yang sudah ada
             const customSearch = document.getElementById('customSearchBox');
-            customSearch.addEventListener('keyup', function() {
-                dataTable.search(this.value);
-            });
+            customSearch.addEventListener('keyup', function() { dataTable.search(this.value); });
 
-            // [BARU] Logika untuk mengisi dan menampilkan modal
             const detailModal = document.getElementById('detailModal');
             detailModal.addEventListener('show.bs.modal', function (event) {
-                // Tombol/baris yang di-klik
                 const row = event.relatedTarget;
+                
+                const setData = (id, attribute) => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = row.getAttribute(attribute) || '-';
+                    }
+                };
 
-                // Ambil data dari atribut data-*
-                const pro = row.getAttribute('data-pro');
-                const reservasi = row.getAttribute('data-reservasi');
-                const material = row.getAttribute('data-material');
-                const deskripsi = row.getAttribute('data-deskripsi');
-                const plant = row.getAttribute('data-plant');
-                const tanggal = row.getAttribute('data-tanggal');
-
-                // Cari elemen di dalam modal dan isi dengan data
-                document.getElementById('modal-pro').textContent = pro;
-                document.getElementById('modal-reservasi').textContent = reservasi;
-                document.getElementById('modal-material').textContent = material;
-                document.getElementById('modal-deskripsi').textContent = deskripsi;
-                document.getElementById('modal-plant').textContent = plant;
-                document.getElementById('modal-tanggal').textContent = tanggal;
+                setData('modal-pro', 'data-pro');
+                setData('modal-posting-date', 'data-posting-date');
+                setData('modal-reservation', 'data-reservation');
+                setData('modal-sales-order', 'data-sales-order');
+                setData('modal-item', 'data-item');
+                setData('modal-plant', 'data-plant');
+                setData('modal-sloc-header', 'data-sloc-header');
+                setData('modal-material-header', 'data-material-header');
+                setData('modal-desc-header', 'data-desc-header');
+                setData('modal-mrp-header', 'data-mrp-header');
+                setData('modal-qty-pro', 'data-qty-pro');
+                setData('modal-qty-dlv', 'data-qty-dlv');
+                setData('modal-sloc-comp', 'data-sloc-comp');
+                setData('modal-material-comp', 'data-material-comp');
+                setData('modal-desc-comp', 'data-desc-comp');
+                setData('modal-mrp-comp', 'data-mrp-comp');
+                setData('modal-qty-cogi', 'data-qty-cogi');
+                setData('modal-pro-cogi', 'data-pro-cogi');
+                setData('modal-stock', 'data-stock');
+                setData('modal-uom', 'data-uom');
             });
         });
     </script>

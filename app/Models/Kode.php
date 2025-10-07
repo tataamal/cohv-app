@@ -15,4 +15,9 @@ class Kode extends Model
     {
         return $this->belongsTo(SapUser::class, 'sap_user_id');
     }
+    public function mrps()
+    {
+        // Argumen kedua ('kode_id') adalah nama foreign key di tabel 'mrps'.
+        return $this->hasMany(MRP::class, 'kode_id');
+    }
 }
