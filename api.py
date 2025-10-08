@@ -873,7 +873,7 @@ def schedule_order():
 
         result = conn.call(
             'BAPI_PRODORD_SCHEDULE',
-            SCHED_TYPE='1',
+            SCHED_TYPE='5',
             FWD_BEG_ORIGIN='1',
             FWD_BEG_DATE=date,
             FWD_BEG_TIME=time_obj,
