@@ -23,37 +23,45 @@
     </style>
     @endpush
 
-    {{-- [DIUBAH] Hapus padding dari container utama dan tambahkan div pembungkus --}}
     <div class="container-fluid p-0">
         <div class="p-4">
             {{-- BAGIAN HEADER HALAMAN --}}
-            <div class="page-header mb-4">
-                <div class="row align-items-center">
-                    <div class="col"><h4 class="page-title">Laporan COGI - Plant {{ $kode }}</h4><p class="page-subtitle text-muted">Menampilkan daftar COGI untuk plant terkait.</p></div>
-                    <div class="col-auto"><span class="page-date text-muted"><i class="fas fa-calendar-alt me-1"></i>{{ now()->format('l, d F Y') }}</span></div>
+            {{-- [PERBAIKAN] Menggunakan class flexbox responsif agar rapi di mobile --}}
+            <div class="page-header mb-4 d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-3">
+                <div class="text-center text-sm-start">
+                    <h4 class="page-title">Laporan COGI - Plant {{ $kode }}</h4>
+                    <p class="page-subtitle text-muted mb-0">Menampilkan daftar COGI untuk plant terkait.</p>
+                </div>
+                <div class="text-center text-sm-end">
+                    <span class="page-date text-muted">
+                        <i class="fas fa-calendar-alt me-1"></i>{{ now()->format('l, d F Y') }}
+                    </span>
                 </div>
             </div>
 
-            {{-- BARIS KARTU STATISTIK --}}
+            {{-- BARIS KARTU STATISTIK (Tidak diubah, sudah rapi) --}}
             <div class="row">
-                <div class="col-lg-4 col-md-6 mb-4">
+                <div class="col-12 col-md-6 col-lg-4 mb-4">
                     <a href="{{ route('cogi.report', ['kode' => $kode]) }}" class="stat-card-link">
-                        <div class="stat-card-modern @if(!$filter) active-filter @endif">
-                            <div class="info"><p>Total COGI</p><h3>{{ number_format($totalError) }}</h3></div><div class="icon text-danger"><i class="fas fa-triangle-exclamation"></i></div>
+                        <div class="stat-card-modern @if(!$filter) active-filter @endif d-flex flex-column flex-sm-row align-items-sm-center text-center text-sm-start">
+                            <div class="info flex-grow-1"><p>Total COGI</p><h3>{{ number_format($totalError) }}</h3></div>
+                            <div class="icon text-danger mt-3 mt-sm-0"><i class="fas fa-triangle-exclamation"></i></div>
                         </div>
                     </a>
                 </div>
-                <div class="col-lg-4 col-md-6 mb-4">
+                <div class="col-12 col-md-6 col-lg-4 mb-4">
                     <a href="{{ route('cogi.report', ['kode' => $kode, 'filter' => 'baru']) }}" class="stat-card-link">
-                        <div class="stat-card-modern @if($filter === 'baru') active-filter @endif">
-                            <div class="info"><p>COGI Baru (Hari Ini)</p><h3>{{ number_format($errorBaru) }}</h3></div><div class="icon text-primary"><i class="fas fa-bolt"></i></div>
+                        <div class="stat-card-modern @if($filter === 'baru') active-filter @endif d-flex flex-column flex-sm-row align-items-sm-center text-center text-sm-start">
+                            <div class="info flex-grow-1"><p>COGI Baru (Hari Ini)</p><h3>{{ number_format($errorBaru) }}</h3></div>
+                            <div class="icon text-primary mt-3 mt-sm-0"><i class="fas fa-bolt"></i></div>
                         </div>
                     </a>
                 </div>
-                <div class="col-lg-4 col-md-12 mb-4">
+                <div class="col-12 col-md-6 col-lg-4 mb-4">
                     <a href="{{ route('cogi.report', ['kode' => $kode, 'filter' => 'lama']) }}" class="stat-card-link">
-                        <div class="stat-card-modern @if($filter === 'lama') active-filter @endif">
-                            <div class="info"><p>COGI Lama (> 7 Hari)</p><h3>{{ number_format($errorLama) }}</h3></div><div class="icon text-warning"><i class="fas fa-history"></i></div>
+                        <div class="stat-card-modern @if($filter === 'lama') active-filter @endif d-flex flex-column flex-sm-row align-items-sm-center text-center text-sm-start">
+                            <div class="info flex-grow-1"><p>COGI Lama (> 7 Hari)</p><h3>{{ number_format($errorLama) }}</h3></div>
+                            <div class="icon text-warning mt-3 mt-sm-0"><i class="fas fa-history"></i></div>
                         </div>
                     </a>
                 </div>

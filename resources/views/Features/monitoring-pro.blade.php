@@ -4,30 +4,28 @@
 
     <div class="container-fluid py-4">
         {{-- BAGIAN HEADER HALAMAN --}}
-        <div class="page-header mb-4">
-            <div class="row align-items-center">
-                <div class="col">
-                    <h4 class="page-title">
-                        Monitoring PRO - Plant {{ $activeKode }}
-                    </h4>
-                    <p class="page-subtitle text-muted">
-                        Welcome, here is the COHV data information and visualization.
-                    </p>
-                </div>
-                <div class="col-auto">
-                    <span class="page-date text-muted">
-                        <i class="fas fa-calendar-alt me-1"></i>
-                        {{ now()->format('l, d F Y') }}
-                    </span>
-                </div>
+        {{-- [PERBAIKAN] Mengubah struktur flex menjadi block di mobile agar rapi --}}
+        <div class="page-header mb-4 d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-3">
+            <div class="text-center text-sm-start">
+                <h4 class="page-title">
+                    Monitoring PRO - Plant {{ $activeKode }}
+                </h4>
+                <p class="page-subtitle text-muted mb-0">
+                    Welcome, here is the COHV data information and visualization.
+                </p>
+            </div>
+            <div class="text-center text-sm-end">
+                <span class="page-date text-muted">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    {{ now()->format('l, d F Y') }}
+                </span>
             </div>
         </div>
 
         {{-- BARIS KARTU STATISTIK --}}
         <div class="row">
-            {{-- Kartu 1: On Scheduling --}}
-            <div class="col-xl-3 col-md-6 mb-4">
-                {{-- [DIPERBAIKI] Bungkus kartu dengan tag <a> dengan class dan data-filter --}}
+            {{-- [PERBAIKAN] Menambahkan 'col-12' agar selalu 1 kolom di layar terkecil --}}
+            <div class="col-12 col-md-6 col-xl-3 mb-4">
                 <a href="#" class="stat-card-link" data-filter="on-schedule">
                     <div class="stat-card">
                         <div class="stat-card-header">
@@ -46,9 +44,7 @@
                 </a>
             </div>
 
-            {{-- Kartu 2: Overdue --}}
-            <div class="col-xl-3 col-md-6 mb-4">
-                {{-- [DIPERBAIKI] Bungkus kartu dengan tag <a> dengan class dan data-filter --}}
+            <div class="col-12 col-md-6 col-xl-3 mb-4">
                 <a href="#" class="stat-card-link" data-filter="overdue">
                     <div class="stat-card card-bg-danger-soft">
                         <div class="stat-card-header">
@@ -67,9 +63,7 @@
                 </a>
             </div>
             
-            {{-- Kartu 3: Outgoing --}}
-            <div class="col-xl-3 col-md-6 mb-4">
-                {{-- [DIPERBAIKI] Bungkus kartu dengan tag <a> dengan class dan data-filter --}}
+            <div class="col-12 col-md-6 col-xl-3 mb-4">
                 <a href="#" class="stat-card-link" data-filter="outgoing">
                     <div class="stat-card">
                         <div class="stat-card-header">
@@ -88,9 +82,7 @@
                 </a>
             </div>
 
-            {{-- Kartu 4: Created (CRTD) --}}
-            <div class="col-xl-3 col-md-6 mb-4">
-                {{-- [DIPERBAIKI] Bungkus kartu dengan tag <a> dengan class dan data-filter --}}
+            <div class="col-12 col-md-6 col-xl-3 mb-4">
                 <a href="#" class="stat-card-link" data-filter="created">
                     <div class="stat-card">
                         <div class="stat-card-header">
@@ -112,9 +104,9 @@
 
         {{-- Tabel Data PRO --}}
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            {{-- [PERBAIKAN] Header dibuat bertumpuk di mobile menggunakan flex-column --}}
+            <div class="card-header d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-2">
                 <h5 class="card-title mb-0">Production Order List</h5>
-                {{-- [BONUS] Tombol untuk menampilkan semua data kembali --}}
                 <a href="#" class="btn btn-sm btn-outline-secondary stat-card-link" data-filter="all">
                     Show All
                 </a>
@@ -127,7 +119,6 @@
         </div>
     </div>
 
-    {{-- Jangan lupa push script Anda --}}
     @push('scripts')
         {{-- File _monitoring-pro.js akan menangani klik di sini --}}
     @endpush
