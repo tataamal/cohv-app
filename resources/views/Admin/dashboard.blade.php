@@ -292,7 +292,7 @@
         </div>
 
 
-        <div id="outstandingReservasiSection">
+        <div id="outstandingReservasiSection" style="display: none;">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
     
@@ -370,7 +370,7 @@
             </div>
         </div>
 
-        <div id="ongoingProSection">
+        <div id="ongoingProSection" style="display: none;>
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
     
@@ -477,7 +477,7 @@
 
         {{-- [BARU] Seksi Tabel untuk Total PRO --}}
         
-        <div id="totalProSection">
+        <div id="totalProSection" style="display: none;">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
     
