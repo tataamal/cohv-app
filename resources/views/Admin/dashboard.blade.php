@@ -220,6 +220,8 @@
         <div id="outstandingSoSection" style="display: none;">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
+    
+                    {{-- Header Card --}}
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
                             <h3 class="h5 fw-semibold text-dark mb-1">List of Outstanding Sales Orders (SO)</h3>
@@ -229,47 +231,72 @@
                             <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
                         </button>
                     </div>
+    
+                    {{-- Kolom Pencarian --}}
                     <div class="mb-3" style="max-width: 320px;">
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
                             <input type="text" id="realtimeSearchInputSo" placeholder="Search Order, Material..." class="form-control border-start-0">
                         </div>
                     </div>
+    
+                    {{-- Tabel Responsif --}}
                     <div class="table-container-scroll">
-                        <table class="table table-hover table-striped table-sm align-middle mb-0">
+                        <table class="table table-hover table-striped table-sm align-middle mb-0 responsive-so-table">
                             <thead class="table-light">
                                 <tr class="small text-uppercase align-middle">
-                                    <th class="text-center">No.</th>
-                                    <th class="text-center">Order</th>
-                                    <th class="text-center">Item</th>
-                                    <th class="text-center">Material FG</th>
-                                    <th class="text-center">Description</th>
+                                    <th class="text-center d-none d-md-table-cell">No.</th>
+                                    <th class="text-center sortable-header" data-sort-column="order">
+                                        Order <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
+                                    <th class="text-center sortable-header" data-sort-column="item">
+                                        Item <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="material">
+                                        Material FG <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
+                                    <th class="d-none d-md-table-cell sortable-header" data-sort-column="description">
+                                        Description <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody id="outstandingSoTableBody">
                                 @forelse($salesOrderData ?? [] as $item)
-                                    <tr data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->MATFG ?? '') . ' ' . ($item->MAKFG ?? '')) }}">
-                                        <td class="text-center small">{{ $loop->iteration }}</td>
-                                        <td class="text-center" mall">{{ $item->KDAUF ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->KDPOS ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->MATFG ? ltrim((string)$item->MATFG, '0') : '-' }}</td>
-                                        <td class="small text-center">{{ $item->MAKFG ?? '-' }}</td>
-                                    </tr>
+                                <tr 
+                                    class="clickable-row"
+                                    data-order="{{ $item->KDAUF ?? '-' }}"
+                                    data-item="{{ $item->KDPOS ?? '-' }}"
+                                    data-material="{{ $item->MATFG ? ltrim((string)$item->MATFG, '0') : '-' }}"
+                                    data-description="{{ $item->MAKFG ?? '-' }}"
+                                    data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->MATFG ?? '') . ' ' . ($item->MAKFG ?? '')) }}"> 
+                                    <td class="text-center small d-none d-md-table-cell">{{ $loop->iteration }}</td>
+                                    <td class="text-center small" data-col="order">{{ $item->KDAUF ?? '-' }}</td>
+                                    <td class="small text-center" data-col="item">{{ $item->KDPOS ?? '-' }}</td>
+                                    <td class="small text-center d-none d-md-table-cell" data-col="material">{{ $item->MATFG ? ltrim((string)$item->MATFG, '0') : '-' }}</td>
+                                    <td class="small d-none d-md-table-cell" data-col="description">{{ $item->MAKFG ?? '-' }}</td>
+                                </tr>
                                 @empty
-                                    <tr><td colspan="5" class="text-center p-5 text-muted">Tidak ada data Sales Order yang ditemukan.</td></tr>
+                                    <tr>
+                                        <td colspan="5" class="text-center p-5 text-muted">Tidak ada data Sales Order.</td>
+                                    </tr>
                                 @endforelse
-                                <tr id="noResultsSoRow" style="display: none;"><td colspan="5" class="text-center p-5 text-muted"><i class="fas fa-search fs-4 d-block mb-2"></i>Tidak ada data yang cocok dengan pencarian Anda.</td></tr>
+                                <tr id="noResultsSoRow" style="display: none;">
+                                    <td colspan="5" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
+    
                 </div>
             </div>
         </div>
 
 
-        <div id="outstandingReservasiSection" style="display: none;">
+        <div id="outstandingReservasiSection">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
+    
+                    {{-- Header Card & Search --}}
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
                             <h3 class="h5 fw-semibold text-dark mb-1">List Item of Outstanding Reservasi</h3>
@@ -285,45 +312,72 @@
                             <input type="text" id="realtimeSearchInput" placeholder="Search Reservasi...." class="form-control border-start-0">
                         </div>
                     </div>
+    
+                    {{-- Tabel Responsif --}}
                     <div class="table-container-scroll">
-                        <table class="table table-hover table-striped align-middle mb-0">
+                        {{-- [UBAH] Tambahkan class unik 'reservasi-responsive-table' --}}
+                        <table class="table table-hover table-striped align-middle mb-0 reservasi-responsive-table">
                             <thead class="table-light">
                                 <tr class="small text-uppercase">
-                                    <th class="text-center">No.</th>
-                                    <th>No. Reservasi</th>
-                                    <th>Material Code</th>
-                                    <th>Material Description</th>
-                                    <th class="text-center">Req. Qty</th>
-                                    <th class="text-center">Stock</th>
+                                    {{-- [UBAH] Tambahkan class responsif dan sorting --}}
+                                    <th class="text-center d-none d-md-table-cell">No.</th>
+                                    <th class="sortable-header" data-sort-column="reservasi" data-sort-type="text">
+                                        No. Reservasi <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
+                                    <th class="sortable-header" data-sort-column="material_code" data-sort-type="text">
+                                        Material Code <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
+                                    <th class="d-none d-md-table-cell sortable-header" data-sort-column="description" data-sort-type="text">
+                                        Material Description <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="req_qty" data-sort-type="number">
+                                        Req. Qty <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="stock" data-sort-type="number">
+                                        Stock <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody id="reservasiTableBody">
                                 @forelse($TData4 as $item)
-                                    <tr data-searchable-text="{{ strtolower(($item->RSNUM ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
-                                        <td class="text-center">{{ $loop->iteration }}</td>
-                                        <td cclass="text-center">{{ $item->RSNUM ?? '-' }}</td>
-                                        <td class="text-center">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}</td>
-                                        <td class="text-center">{{ $item->MAKTX ?? '-' }}</td>
-                                        <td class="text-center">{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="text-center">{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}</td>
+                                    {{-- [UBAH] Tambahkan class dan semua atribut data-* untuk modal --}}
+                                    <tr class="clickable-row"
+                                        data-no="{{ $loop->iteration }}"
+                                        data-reservasi="{{ $item->RSNUM ?? '-' }}"
+                                        data-material-code="{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}"
+                                        data-description="{{ $item->MAKTX ?? '-' }}"
+                                        data-req-qty="{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}"
+                                        data-stock="{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}"
+                                        data-searchable-text="{{ strtolower(($item->RSNUM ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
+    
+                                        {{-- [UBAH] Tambahkan class responsif dan atribut data-col untuk sorting --}}
+                                        <td class="text-center d-none d-md-table-cell">{{ $loop->iteration }}</td>
+                                        <td data-col="reservasi">{{ $item->RSNUM ?? '-' }}</td>
+                                        <td data-col="material_code">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}</td>
+                                        <td class="d-none d-md-table-cell" data-col="description">{{ $item->MAKTX ?? '-' }}</td>
+                                        <td class="text-center d-none d-md-table-cell" data-col="req_qty">{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="text-center d-none d-md-table-cell" data-col="stock">{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}</td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="6" class="text-center p-5 text-muted">Tidak ada data reservasi ditemukan.</td></tr>
                                 @endforelse
-                                <tr id="noResultsRow" style="display: none;"><td colspan="6" class="text-center p-5 text-muted"><i class="fas fa-search fs-4 d-block mb-2"></i>Tidak ada data yang cocok dengan pencarian Anda.</td></tr>
+                                <tr id="noResultsRow" style="display: none;"><td colspan="6" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td></tr>
                             </tbody>
                         </table>
                     </div>
+    
                 </div>
             </div>
         </div>
 
-        <div id="ongoingProSection" style="display: none;">
+        <div id="ongoingProSection">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
+    
+                    {{-- Header Card & Kolom Pencarian --}}
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
-                            <h3 class="h5 fw-semibold text-dark mb-1">List of Outgoing PRO</h3>
+                            <h3 class="h5 fw-semibold text-dark mb-1">List of Ongoing PRO</h3>
                             <p class="small text-muted mb-0">Daftar Production Order yang sedang berjalan.</p>
                         </div>
                         <button id="backToDashboardBtnPro" class="btn btn-outline-secondary flex-shrink-0">
@@ -333,58 +387,87 @@
                     <div class="mb-3" style="max-width: 320px;">
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                            <input type="text" id="realtimeSearchInputPro" placeholder="Search  SO, PRO, Material..." class="form-control border-start-0">
+                            <input type="text" id="realtimeSearchInputPro" placeholder="Search SO, PRO, Material..." class="form-control border-start-0">
                         </div>
                     </div>
+    
+                    {{-- Tabel Responsif --}}
                     <div class="table-container-scroll">
-                        <table class="table table-hover table-striped table-sm align-middle mb-0">
+                        <table class="table table-hover table-striped table-sm align-middle mb-0 pro-responsive-table">
                             <thead class="table-light">
                                 <tr class="small text-uppercase align-middle">
-                                    <th class="text-center">No.</th>
-                                    <th class="text-center">SO</th>
-                                    <th class="text-center">SO. Item</th>
-                                    <th class="text-center">PRO</th>
-                                    <th class="text-center">Status</th>
-                                    <th class="text-center">Material Codel</th>
-                                    <th class="text-center">Material Description</th>
-                                    <th class="text-center">Plant</th>
-                                    <th class="text-center">MRP</th>
-                                    <th cclass="text-center">Qty. ORDER</th>
-                                    <th cclass="text-center">Qty. GR</th>
-                                    <th class="text-center">Outs. GR</th>
-                                    <th class="text-center">Start Date</th>
-                                    <th class="text-center">End Date</th>
+                                    {{-- [DISEMBUNYIKAN DI MOBILE] --}}
+                                    <th class="text-center d-none d-md-table-cell">No.</th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="so" data-sort-type="text">SO <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="so_item" data-sort-type="text">SO. Item <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    
+                                    {{-- [TETAP TAMPIL DI MOBILE] --}}
+                                    <th class="text-center sortable-header" data-sort-column="pro" data-sort-type="text">PRO <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable-header" data-sort-column="status" data-sort-type="text">Status <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    
+                                    {{-- [DISEMBUNYIKAN DI MOBILE] --}}
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="material_code" data-sort-type="text">Material Code <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="description" data-sort-type="text">Material Description <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="plant" data-sort-type="text">Plant <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="mrp" data-sort-type="text">MRP <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="qty_order" data-sort-type="number">Qty. ORDER <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="qty_gr" data-sort-type="number">Qty. GR <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="outs_gr" data-sort-type="number">Outs. GR <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="start_date" data-sort-type="date">Start Date <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="end_date" data-sort-type="date">End Date <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                 </tr>
                             </thead>
                             <tbody id="ongoingProTableBody">
                                 @forelse($ongoingProData ?? [] as $item)
                                     @php
                                         $status = strtoupper($item->STATS ?? '');
-                                        $badgeClass = 'bg-secondary-subtle text-secondary-emphasis'; // Default
+                                        $badgeClass = 'bg-secondary-subtle text-secondary-emphasis';
                                         if (in_array($status, ['REL', 'PCNF', 'CNF'])) $badgeClass = 'bg-success-subtle text-success-emphasis';
                                         elseif ($status === 'CRTD') $badgeClass = 'bg-info-subtle text-info-emphasis';
                                         elseif ($status === 'TECO') $badgeClass = 'bg-dark-subtle text-dark-emphasis';
                                     @endphp
-                                    <tr data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->AUFNR ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
-                                        <td class="text-center small">{{ $loop->iteration }}</td>
-                                        <td class=text-center small">{{ $item->KDAUF ?? '-' }}</td>
-                                        <td class="text-center small">{{ $item->KDPOS ?? '-' }}</td>
-                                        <td class="text-center small">{{ $item->AUFNR ?? '-' }}</td>
-                                        <td class="text-center"><span class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span></td>
-                                        <td class="text-center small">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}</td>
-                                        <td class="text-center small">{{ $item->MAKTX ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->PWWRK ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->DISPO ?? '-' }}</td>
-                                        <td class="small text-center">{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="small text-center">{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="small text-center fw-bold">{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}</td>
-                                        <td class="small text-center">{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}</td>
-                                        <td class="small text-center">{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}</td>
+                                    <tr class="clickable-row"
+                                        data-no="{{ $loop->iteration }}"
+                                        data-pro="{{ $item->AUFNR ?? '-' }}"
+                                        data-status="{{ $status ?: '-' }}"
+                                        data-status-class="{{ $badgeClass }}"
+                                        data-so="{{ $item->KDAUF ?? '-' }}"
+                                        data-so-item="{{ $item->KDPOS ?? '-' }}"
+                                        data-material-code="{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}"
+                                        data-description="{{ $item->MAKTX ?? '-' }}"
+                                        data-plant="{{ $item->PWWRK ?? '-' }}"
+                                        data-mrp="{{ $item->DISPO ?? '-' }}"
+                                        data-qty-order="{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}"
+                                        data-qty-gr="{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}"
+                                        data-outs-gr="{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}"
+                                        data-start-date="{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}"
+                                        data-end-date="{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}"
+                                        data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->AUFNR ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
+                        
+                                        {{-- [DISEMBUNYIKAN DI MOBILE] --}}
+                                        <td class="text-center small d-none d-md-table-cell">{{ $loop->iteration }}</td>
+                                        <td class="text-center small d-none d-md-table-cell" data-col="so">{{ $item->KDAUF ?? '-' }}</td>
+                                        <td class="text-center small d-none d-md-table-cell" data-col="so_item">{{ $item->KDPOS ?? '-' }}</td>
+                                        
+                                        {{-- [TETAP TAMPIL DI MOBILE] --}}
+                                        <td class="text-center small" data-col="pro">{{ $item->AUFNR ?? '-' }}</td>
+                                        <td class="text-center" data-col="status"><span class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span></td>
+                                        
+                                        {{-- [DISEMBUNYIKAN DI MOBILE] --}}
+                                        <td class="text-center small d-none d-md-table-cell" data-col="material_code">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}</td>
+                                        <td class="text-center small d-none d-md-table-cell" data-col="description">{{ $item->MAKTX ?? '-' }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="plant">{{ $item->PWWRK ?? '-' }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="mrp">{{ $item->DISPO ?? '-' }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="qty_order">{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="qty_gr">{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="small text-center fw-bold d-none d-md-table-cell" data-col="outs_gr">{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="start_date" data-sort-value="{{ $item->GSTRP ?? '0' }}">{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="end_date" data-sort-value="{{ $item->GLTRP ?? '0' }}">{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="14" class="text-center p-5 text-muted">Tidak ada data Ongoing PRO yang ditemukan.</td></tr>
+                                    <tr><td colspan="14" class="text-center p-5 text-muted">Tidak ada data Ongoing PRO.</td></tr>
                                 @endforelse
-                                <tr id="noResultsProRow" style="display: none;"><td colspan="14" class="text-center p-5 text-muted"><i class="fas fa-search fs-4 d-block mb-2"></i>Tidak ada data yang cocok dengan pencarian Anda.</td></tr>
+                                <tr id="noResultsProRow" style="display: none;"><td colspan="14" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -394,9 +477,11 @@
 
         {{-- [BARU] Seksi Tabel untuk Total PRO --}}
         
-        <div id="totalProSection" style="display: none;">
+        <div id="totalProSection">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
+    
+                    {{-- Header Card & Filter (Tidak Berubah) --}}
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
                             <h3 class="h5 fw-semibold text-dark mb-1">List of Production Order (PRO)</h3>
@@ -408,72 +493,91 @@
                                 <option value="REL">RELEASE</option>
                                 <option value="CRTD">CREATED</option>
                             </select>
-
                             <button id="backToDashboardBtnTotalPro" class="btn btn-outline-secondary flex-shrink-0">
                                 <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
                             </button>
                         </div>
-                        </div>
+                    </div>
                     <div class="mb-3" style="max-width: 320px;">
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
                             <input type="text" id="realtimeSearchInputTotalPro" placeholder="Cari SO, PRO, Material..." class="form-control border-start-0">
                         </div>
                     </div>
+    
+                    {{-- Tabel Responsif --}}
                     <div class="table-container-scroll">
-                        <table class="table table-hover table-striped table-sm align-middle mb-0">
-                            <thead class="table-ligh text-centert">
+                        {{-- [UBAH] Tambahkan class unik 'total-pro-responsive-table' --}}
+                        <table class="table table-hover table-striped table-sm align-middle mb-0 total-pro-responsive-table">
+                            <thead class="table-light">
                                 <tr class="small text-uppercase align-middle">
-                                    <th class="text-center">No.</th>
-                                    <th class="text-center">SO</th>
-                                    <th class="text-center">SO. Item</th>
-                                    <th class="text-center">PRO</th>
-                                    <th class="text-center">Status</th>
-                                    <th class="text-center">Material Code</th>
-                                    <th class="text-center">Deskripsi</th>
-                                    <th class="text-center">Plant</th>
-                                    <th class="text-center">MRP</th>
-                                    <th class="text-center"">Qty. ORDER</th>
-                                    <th class="text-center"">Qty. GR</th>
-                                    <th class="text-center"">Outs. GR</th>
-                                    <th class="text-center">Start Date</th>
-                                    <th class="text-center">End Date</th>
+                                    {{-- [UBAH] Sembunyikan semua kolom di mobile kecuali PRO dan Status --}}
+                                    <th class="text-center d-none d-md-table-cell">No.</th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="so" data-sort-type="text">SO <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="so_item" data-sort-type="text">SO. Item <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    
+                                    {{-- Kolom yang TERLIHAT di mobile --}}
+                                    <th class="text-center sortable-header" data-sort-column="pro" data-sort-type="text">PRO <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable-header" data-sort-column="status" data-sort-type="text">Status <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="material_code" data-sort-type="text">Material Code <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="description" data-sort-type="text">Deskripsi <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="plant" data-sort-type="text">Plant <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="mrp" data-sort-type="text">MRP <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="qty_order" data-sort-type="number">Qty. ORDER <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="qty_gr" data-sort-type="number">Qty. GR <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="outs_gr" data-sort-type="number">Outs. GR <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="start_date" data-sort-type="date">Start Date <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="end_date" data-sort-type="date">End Date <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                 </tr>
                             </thead>
                             <tbody id="totalProTableBody">
                                 @forelse($allProData ?? [] as $item)
                                     @php
                                         $status = strtoupper($item->STATS ?? '');
-                                        $badgeClass = 'bg-secondary-subtle text-secondary-emphasis'; // Default
+                                        $badgeClass = 'bg-secondary-subtle text-secondary-emphasis';
                                         if (in_array($status, ['REL', 'PCNF', 'CNF'])) $badgeClass = 'bg-success-subtle text-success-emphasis';
                                         elseif ($status === 'CRTD') $badgeClass = 'bg-info-subtle text-info-emphasis';
                                         elseif ($status === 'TECO') $badgeClass = 'bg-dark-subtle text-dark-emphasis';
-
-                                        // Tentukan nilai data-status yang akan digunakan di JS
                                         $dataStatus = in_array($status, ['REL', 'PCNF', 'CNF', 'CRTD', 'TECO']) ? $status : 'Lainnya';
                                     @endphp
-                                    <tr
-                                        data-status="{{ $dataStatus }}" {{-- Atribut data-status untuk filter status --}}
+                                    <tr class="clickable-row"
+                                        data-status="{{ $dataStatus }}"
+                                        data-no="{{ $loop->iteration }}"
+                                        data-so="{{ $item->KDAUF ?? '-' }}"
+                                        data-so-item="{{ $item->KDPOS ?? '-' }}"
+                                        data-pro="{{ $item->AUFNR ?? '-' }}"
+                                        data-status-text="{{ $status ?: '-' }}"
+                                        data-status-class="{{ $badgeClass }}"
+                                        data-material-code="{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}"
+                                        data-description="{{ $item->MAKTX ?? '-' }}"
+                                        data-plant="{{ $item->PWWRK ?? '-' }}"
+                                        data-mrp="{{ $item->DISPO ?? '-' }}"
+                                        data-qty-order="{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}"
+                                        data-qty-gr="{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}"
+                                        data-outs-gr="{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}"
+                                        data-start-date="{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}"
+                                        data-end-date="{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}"
                                     >
-                                        <td class="text-center small">{{ $loop->iteration }}</td>
-                                        <td class="text-center small">{{ $item->KDAUF ?? '-' }}</td>
-                                        <td class="text-center small">{{ $item->KDPOS ?? '-' }}</td>
-                                        <td class="text-center small">{{ $item->AUFNR ?? '-' }}</td>
-                                        <td class="text-center"><span class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span></td>
-                                        <td class="text-center small">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}</td>
-                                        <td class="text-center small">{{ $item->MAKTX ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->PWWRK ?? '-' }}</td>
-                                        <td class="small text-center">{{ $item->DISPO ?? '-' }}</td>
-                                        <td class="small text-center">{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="small text-center">{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="small text-center">{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}</td>
-                                        <td class="small text-center">{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}</td>
-                                        <td class="small text-center">{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}</td>
+                                        <td class="text-center small d-none d-md-table-cell">{{ $loop->iteration }}</td>
+                                        <td class="text-center small d-none d-md-table-cell" data-col="so">{{ $item->KDAUF ?? '-' }}</td>
+                                        <td class="text-center small d-none d-md-table-cell" data-col="so_item">{{ $item->KDPOS ?? '-' }}</td>
+                                        <td class="text-center small" data-col="pro">{{ $item->AUFNR ?? '-' }}</td>
+                                        <td class="text-center" data-col="status"><span class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span></td>
+                                        <td class="text-center small d-none d-md-table-cell" data-col="material_code">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') : '-' }}</td>
+                                        <td class="text-center small d-none d-md-table-cell" data-col="description">{{ $item->MAKTX ?? '-' }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="plant">{{ $item->PWWRK ?? '-' }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="mrp">{{ $item->DISPO ?? '-' }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="qty_order">{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="qty_gr">{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="outs_gr">{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="start_date" data-sort-value="{{ $item->GSTRP ?? '0' }}">{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}</td>
+                                        <td class="small text-center d-none d-md-table-cell" data-col="end_date" data-sort-value="{{ $item->GLTRP ?? '0' }}">{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}</td>
                                     </tr>
-                                @empty
+                                    @empty
                                     <tr><td colspan="14" class="text-center p-5 text-muted">Tidak ada data PRO yang ditemukan.</td></tr>
                                 @endforelse
-                                <tr id="noResultsTotalProRow" style="display: none;"><td colspan="14" class="text-center p-5 text-muted"><i class="fas fa-search fs-4 d-block mb-2"></i>Tidak ada data yang cocok dengan pencarian Anda.</td></tr>
+                                <tr id="noResultsTotalProRow" style="display: none;"><td colspan="14" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -481,9 +585,428 @@
             </div>
         </div>
     </div>
-
+    @include('components.modals.dashboard-modal.so-detail')
+    @include('components.modals.dashboard-modal.reservasi-detail')
+    @include('components.modals.dashboard-modal.ongoing-detail')
+    @include('components.modals.dashboard-modal.pro-detail')
     @push('scripts')
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        {{-- JavaScript untuk mengontrol modal --}}
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const soDetailModalElement = document.getElementById('soDetailModal');
+                if (soDetailModalElement) {
+                    const soDetailModal = new bootstrap.Modal(soDetailModalElement);
+                    const tableRows = document.querySelectorAll('#outstandingSoTableBody .clickable-row');
+
+                    tableRows.forEach(row => {
+                        row.addEventListener('click', function () {
+                            if (window.innerWidth < 768) {
+                                const order = this.dataset.order;
+                                const item = this.dataset.item;
+                                const material = this.dataset.material;
+                                const description = this.dataset.description;
+
+                                document.getElementById('modalSoOrder').textContent = order;
+                                document.getElementById('modalSoItem').textContent = item;
+                                document.getElementById('modalSoMaterial').textContent = material;
+                                document.getElementById('modalSoDescription').textContent = description;
+
+                                soDetailModal.show();
+                            }
+                        });
+                    });
+                }
+                const table = document.querySelector('.responsive-so-table');
+                const headers = table.querySelectorAll('.sortable-header');
+                const tableBody = table.querySelector('#outstandingSoTableBody');
+
+                // Tambahkan event listener untuk setiap header yang bisa di-sort
+                headers.forEach(header => {
+                    header.addEventListener('click', () => {
+                        const column = header.dataset.sortColumn;
+                        const currentDirection = header.dataset.sortDirection || 'desc';
+                        const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+                        
+                        // Simpan arah sorting baru di header
+                        header.dataset.sortDirection = newDirection;
+
+                        // Dapatkan semua baris (tr) dari tbody untuk diurutkan
+                        const rows = Array.from(tableBody.querySelectorAll('tr.clickable-row'));
+
+                        // Lakukan proses sorting
+                        rows.sort((rowA, rowB) => {
+                            const valA = rowA.querySelector(`[data-col="${column}"]`).textContent.trim().toLowerCase();
+                            const valB = rowB.querySelector(`[data-col="${column}"]`).textContent.trim().toLowerCase();
+                            
+                            // Logika perbandingan string
+                            if (valA < valB) {
+                                return newDirection === 'asc' ? -1 : 1;
+                            }
+                            if (valA > valB) {
+                                return newDirection === 'asc' ? 1 : -1;
+                            }
+                            return 0;
+                        });
+
+                        // Hapus semua baris dari tabel
+                        tableBody.innerHTML = '';
+                        
+                        // Masukkan kembali baris yang sudah diurutkan
+                        rows.forEach(row => tableBody.appendChild(row));
+
+                        // Update ikon di semua header
+                        headers.forEach(h => {
+                            const icon = h.querySelector('.sort-icon i');
+                            if (h === header) {
+                                icon.className = newDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+                            } else {
+                                h.dataset.sortDirection = ''; // Reset arah sort header lain
+                                icon.className = 'fas fa-sort';
+                            }
+                        });
+                    });
+                });
+            });
+
+            document.addEventListener('DOMContentLoaded', function () {
+                const table = document.querySelector('.reservasi-responsive-table');
+                if (!table) return;
+
+                // ===================================================================
+                // LOGIKA MODAL UNTUK TABEL RESERVASI
+                // ===================================================================
+                const reservasiDetailModalElement = document.getElementById('reservasiDetailModal');
+                if (reservasiDetailModalElement) {
+                    const reservasiDetailModal = new bootstrap.Modal(reservasiDetailModalElement);
+                    const tableRows = table.querySelectorAll('#reservasiTableBody .clickable-row');
+
+                    tableRows.forEach(row => {
+                        row.addEventListener('click', function () {
+                            if (window.innerWidth < 768) {
+                                // Ambil data dari atribut `data-*`
+                                document.getElementById('modalReservasiNo').textContent = this.dataset.no;
+                                document.getElementById('modalReservasiRsv').textContent = this.dataset.reservasi;
+                                document.getElementById('modalReservasiMatCode').textContent = this.dataset.materialCode;
+                                document.getElementById('modalReservasiDesc').textContent = this.dataset.description;
+                                document.getElementById('modalReservasiReqQty').textContent = this.dataset.reqQty;
+                                document.getElementById('modalReservasiStock').textContent = this.dataset.stock;
+                                reservasiDetailModal.show();
+                            }
+                        });
+                    });
+                }
+
+                // ===================================================================
+                // LOGIKA SORTING UNTUK TABEL RESERVASI
+                // ===================================================================
+                const headers = table.querySelectorAll('.sortable-header');
+                const tableBody = table.querySelector('#reservasiTableBody');
+
+                headers.forEach(header => {
+                    header.addEventListener('click', () => {
+                        const column = header.dataset.sortColumn;
+                        const type = header.dataset.sortType || 'text';
+                        const currentDirection = header.dataset.sortDirection || 'desc';
+                        const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+                        
+                        header.dataset.sortDirection = newDirection;
+                        const rows = Array.from(tableBody.querySelectorAll('tr.clickable-row'));
+
+                        rows.sort((rowA, rowB) => {
+                            let valA = rowA.querySelector(`[data-col="${column}"]`).textContent.trim();
+                            let valB = rowB.querySelector(`[data-col="${column}"]`).textContent.trim();
+                            
+                            if (type === 'number') {
+                                // Hapus titik ribuan, lalu ubah jadi angka
+                                valA = parseFloat(valA.replace(/\./g, '').replace(',', '.')) || 0;
+                                valB = parseFloat(valB.replace(/\./g, '').replace(',', '.')) || 0;
+                                return newDirection === 'asc' ? valA - valB : valB - valA;
+                            } else {
+                                // Urutkan sebagai teks biasa
+                                valA = valA.toLowerCase();
+                                valB = valB.toLowerCase();
+                                if (valA < valB) return newDirection === 'asc' ? -1 : 1;
+                                if (valA > valB) return newDirection === 'asc' ? 1 : -1;
+                                return 0;
+                            }
+                        });
+
+                        tableBody.innerHTML = '';
+                        rows.forEach(row => tableBody.appendChild(row));
+
+                        headers.forEach(h => {
+                            const icon = h.querySelector('.sort-icon i');
+                            if (h === header) {
+                                icon.className = newDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+                            } else {
+                                h.dataset.sortDirection = '';
+                                icon.className = 'fas fa-sort';
+                            }
+                        });
+                    });
+                });
+            });
+            document.addEventListener('DOMContentLoaded', function () {
+                const table = document.querySelector('.pro-responsive-table');
+                if (!table) return;
+
+                // LOGIKA MODAL
+                const proDetailModalElement = document.getElementById('proDetailModal');
+                if (proDetailModalElement) {
+                    const proDetailModal = new bootstrap.Modal(proDetailModalElement);
+                    const tableRows = table.querySelectorAll('#ongoingProTableBody .clickable-row');
+                    tableRows.forEach(row => {
+                        row.addEventListener('click', function () {
+                            if (window.innerWidth < 768) {
+                                // Memasukkan semua data dari atribut data-* ke modal
+                                document.getElementById('modalProNo').textContent = this.dataset.no;
+                                document.getElementById('modalProSo').textContent = this.dataset.so;
+                                document.getElementById('modalProSoItem').textContent = this.dataset.soItem;
+                                document.getElementById('modalProPro').textContent = this.dataset.pro;
+                                document.getElementById('modalProStatus').innerHTML = `<span class="badge rounded-pill ${this.dataset.statusClass}">${this.dataset.status}</span>`;
+                                document.getElementById('modalProMaterialCode').textContent = this.dataset.materialCode;
+                                document.getElementById('modalProDescription').textContent = this.dataset.description;
+                                document.getElementById('modalProPlant').textContent = this.dataset.plant;
+                                document.getElementById('modalProMrp').textContent = this.dataset.mrp;
+                                document.getElementById('modalProQtyOrder').textContent = this.dataset.qtyOrder;
+                                document.getElementById('modalProQtyGr').textContent = this.dataset.qtyGr;
+                                document.getElementById('modalProOutsGr').textContent = this.dataset.outsGr;
+                                document.getElementById('modalProStartDate').textContent = this.dataset.startDate;
+                                document.getElementById('modalProEndDate').textContent = this.dataset.endDate;
+                                proDetailModal.show();
+                            }
+                        });
+                    });
+                }
+
+                // LOGIKA SORTING
+                const headers = table.querySelectorAll('.sortable-header');
+                const tableBody = table.querySelector('#ongoingProTableBody');
+                headers.forEach(header => {
+                    header.addEventListener('click', () => {
+                        const column = header.dataset.sortColumn;
+                        const type = header.dataset.sortType || 'text';
+                        const currentDirection = header.dataset.sortDirection || 'desc';
+                        const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+                        
+                        header.dataset.sortDirection = newDirection;
+                        const rows = Array.from(tableBody.querySelectorAll('tr.clickable-row'));
+
+                        rows.sort((rowA, rowB) => {
+                            const cellA = rowA.querySelector(`[data-col="${column}"]`);
+                            const cellB = rowB.querySelector(`[data-col="${column}"]`);
+                            let valA, valB;
+
+                            if (type === 'date') {
+                                valA = cellA.dataset.sortValue || '0';
+                                valB = cellB.dataset.sortValue || '0';
+                            } else {
+                                valA = cellA.textContent.trim();
+                                valB = cellB.textContent.trim();
+                            }
+                            
+                            if (type === 'number') {
+                                valA = parseFloat(valA.replace(/\./g, '').replace(',', '.')) || 0;
+                                valB = parseFloat(valB.replace(/\./g, '').replace(',', '.')) || 0;
+                                return newDirection === 'asc' ? valA - valB : valB - valA;
+                            } else { // Termasuk untuk tipe 'date' dan 'text'
+                                valA = valA.toLowerCase();
+                                valB = valB.toLowerCase();
+                                if (valA < valB) return newDirection === 'asc' ? -1 : 1;
+                                if (valA > valB) return newDirection === 'asc' ? 1 : -1;
+                                return 0;
+                            }
+                        });
+
+                        tableBody.innerHTML = '';
+                        rows.forEach(row => tableBody.appendChild(row));
+
+                        headers.forEach(h => {
+                            const icon = h.querySelector('.sort-icon i');
+                            if (h === header) {
+                                icon.className = newDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+                            } else {
+                                h.dataset.sortDirection = '';
+                                icon.className = 'fas fa-sort';
+                            }
+                        });
+                    });
+                });
+            });
+            document.addEventListener('DOMContentLoaded', function () {
+                const table = document.querySelector('.pro-responsive-table');
+                if (!table) return;
+
+                // LOGIKA MODAL
+                const proDetailModalElement = document.getElementById('proDetailModal');
+                if (proDetailModalElement) {
+                    const proDetailModal = new bootstrap.Modal(proDetailModalElement);
+                    const tableRows = table.querySelectorAll('#ongoingProTableBody .clickable-row');
+                    tableRows.forEach(row => {
+                        row.addEventListener('click', function () {
+                            if (window.innerWidth < 768) {
+                                document.getElementById('modalProNo').textContent = this.dataset.no;
+                                document.getElementById('modalProSo').textContent = this.dataset.so;
+                                document.getElementById('modalProSoItem').textContent = this.dataset.soItem;
+                                document.getElementById('modalProPro').textContent = this.dataset.pro;
+                                document.getElementById('modalProStatus').innerHTML = `<span class="badge rounded-pill ${this.dataset.statusClass}">${this.dataset.status}</span>`;
+                                document.getElementById('modalProMaterialCode').textContent = this.dataset.materialCode;
+                                document.getElementById('modalProDescription').textContent = this.dataset.description;
+                                document.getElementById('modalProPlant').textContent = this.dataset.plant;
+                                document.getElementById('modalProMrp').textContent = this.dataset.mrp;
+                                document.getElementById('modalProQtyOrder').textContent = this.dataset.qtyOrder;
+                                document.getElementById('modalProQtyGr').textContent = this.dataset.qtyGr;
+                                document.getElementById('modalProOutsGr').textContent = this.dataset.outsGr;
+                                document.getElementById('modalProStartDate').textContent = this.dataset.startDate;
+                                document.getElementById('modalProEndDate').textContent = this.dataset.endDate;
+                                proDetailModal.show();
+                            }
+                        });
+                    });
+                }
+
+                // LOGIKA SORTING
+                const headers = table.querySelectorAll('.sortable-header');
+                const tableBody = table.querySelector('#ongoingProTableBody');
+                headers.forEach(header => {
+                    header.addEventListener('click', () => {
+                        const column = header.dataset.sortColumn;
+                        const type = header.dataset.sortType || 'text';
+                        const currentDirection = header.dataset.sortDirection || 'desc';
+                        const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+                        
+                        header.dataset.sortDirection = newDirection;
+                        const rows = Array.from(tableBody.querySelectorAll('tr.clickable-row'));
+
+                        rows.sort((rowA, rowB) => {
+                            const cellA = rowA.querySelector(`[data-col="${column}"]`);
+                            const cellB = rowB.querySelector(`[data-col="${column}"]`);
+                            let valA, valB;
+
+                            if (type === 'date') {
+                                valA = cellA.dataset.sortValue || '0';
+                                valB = cellB.dataset.sortValue || '0';
+                            } else {
+                                valA = cellA.textContent.trim();
+                                valB = cellB.textContent.trim();
+                            }
+                            
+                            if (type === 'number') {
+                                valA = parseFloat(valA.replace(/\./g, '').replace(',', '.')) || 0;
+                                valB = parseFloat(valB.replace(/\./g, '').replace(',', '.')) || 0;
+                                return newDirection === 'asc' ? valA - valB : valB - valA;
+                            } else {
+                                valA = valA.toLowerCase();
+                                valB = valB.toLowerCase();
+                                if (valA < valB) return newDirection === 'asc' ? -1 : 1;
+                                if (valA > valB) return newDirection === 'asc' ? 1 : -1;
+                                return 0;
+                            }
+                        });
+
+                        tableBody.innerHTML = '';
+                        rows.forEach(row => tableBody.appendChild(row));
+
+                        headers.forEach(h => {
+                            const icon = h.querySelector('.sort-icon i');
+                            if (h === header) {
+                                icon.className = newDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+                            } else {
+                                h.dataset.sortDirection = '';
+                                icon.className = 'fas fa-sort';
+                            }
+                        });
+                    });
+                });
+            });
+            document.addEventListener('DOMContentLoaded', function () {
+                const table = document.querySelector('.total-pro-responsive-table');
+                if (!table) return;
+
+                // LOGIKA MODAL
+                const modalElement = document.getElementById('totalProDetailModal');
+                if (modalElement) {
+                    const proModal = new bootstrap.Modal(modalElement);
+                    const tableRows = table.querySelectorAll('#totalProTableBody .clickable-row');
+                    tableRows.forEach(row => {
+                        row.addEventListener('click', function () {
+                            if (window.innerWidth < 768) {
+                                document.getElementById('modalTotalProNo').textContent = this.dataset.no;
+                                document.getElementById('modalTotalProSo').textContent = this.dataset.so;
+                                document.getElementById('modalTotalProSoItem').textContent = this.dataset.soItem;
+                                document.getElementById('modalTotalProPro').textContent = this.dataset.pro;
+                                document.getElementById('modalTotalProStatus').innerHTML = `<span class="badge rounded-pill ${this.dataset.statusClass}">${this.dataset.statusText}</span>`;
+                                document.getElementById('modalTotalProMaterialCode').textContent = this.dataset.materialCode;
+                                document.getElementById('modalTotalProDescription').textContent = this.dataset.description;
+                                document.getElementById('modalTotalProPlant').textContent = this.dataset.plant;
+                                document.getElementById('modalTotalProMrp').textContent = this.dataset.mrp;
+                                document.getElementById('modalTotalProQtyOrder').textContent = this.dataset.qtyOrder;
+                                document.getElementById('modalTotalProQtyGr').textContent = this.dataset.qtyGr;
+                                document.getElementById('modalTotalProOutsGr').textContent = this.dataset.outsGr;
+                                document.getElementById('modalTotalProStartDate').textContent = this.dataset.startDate;
+                                document.getElementById('modalTotalProEndDate').textContent = this.dataset.endDate;
+                                proModal.show();
+                            }
+                        });
+                    });
+                }
+
+                // LOGIKA SORTING (sama seperti sebelumnya, disesuaikan untuk tabel ini)
+                const headers = table.querySelectorAll('.sortable-header');
+                const tableBody = table.querySelector('#totalProTableBody');
+                headers.forEach(header => {
+                    header.addEventListener('click', () => {
+                        const column = header.dataset.sortColumn;
+                        const type = header.dataset.sortType || 'text';
+                        const currentDirection = header.dataset.sortDirection || 'desc';
+                        const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+                        
+                        header.dataset.sortDirection = newDirection;
+                        const rows = Array.from(tableBody.querySelectorAll('tr[data-status]')); // Ambil semua baris yang punya data-status
+
+                        rows.sort((rowA, rowB) => {
+                            const cellA = rowA.querySelector(`[data-col="${column}"]`);
+                            const cellB = rowB.querySelector(`[data-col="${column}"]`);
+                            let valA, valB;
+
+                            if (type === 'date') {
+                                valA = cellA.dataset.sortValue || '0';
+                                valB = cellB.dataset.sortValue || '0';
+                            } else {
+                                valA = cellA.textContent.trim();
+                                valB = cellB.textContent.trim();
+                            }
+                            
+                            if (type === 'number') {
+                                valA = parseFloat(valA.replace(/\./g, '').replace(',', '.')) || 0;
+                                valB = parseFloat(valB.replace(/\./g, '').replace(',', '.')) || 0;
+                                return newDirection === 'asc' ? valA - valB : valB - valA;
+                            } else {
+                                valA = valA.toLowerCase();
+                                valB = valB.toLowerCase();
+                                if (valA < valB) return newDirection === 'asc' ? -1 : 1;
+                                if (valA > valB) return newDirection === 'asc' ? 1 : -1;
+                                return 0;
+                            }
+                        });
+
+                        tableBody.innerHTML = '';
+                        rows.forEach(row => tableBody.appendChild(row));
+
+                        headers.forEach(h => {
+                            const icon = h.querySelector('.sort-icon i');
+                            if (h === header) {
+                                icon.className = newDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+                            } else {
+                                h.dataset.sortDirection = '';
+                                icon.className = 'fas fa-sort';
+                            }
+                        });
+                    });
+                });
+            });
+        </script>
     @endpush
 
 </x-layouts.app>

@@ -14,20 +14,17 @@
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.css' rel='stylesheet' />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
-    {{-- PASTIKAN PATH INI BENAR --}}
-    {{-- <link rel="stylesheet" href="{{ asset('css/sidenav.css') }}">  --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     
     @stack('styles')
 </head>
 <body class="h-100 bg-light">
 
-    {{-- Sidebar dipanggil langsung di dalam body --}}
     <x-navigation.sidebar />
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
     
-    {{-- Wrapper konten juga langsung di dalam body --}}
     <div id="content-wrapper" class="d-flex flex-column flex-grow-1">
         <x-navigation.topbar />
         <main class="flex-grow-1" style="overflow-y: auto;">
@@ -37,11 +34,11 @@
         </main>
     </div>
     
-    {{-- Overlay dipindah ke sini agar berada di atas segalanya --}}
     <div id="sidebar-overlay" class="sidebar-overlay d-lg-none"></div>
 
     @stack('scripts')
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.js'></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
 </body>
 </html>

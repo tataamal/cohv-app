@@ -36,7 +36,7 @@
             <div class="w-100 mx-auto text-center py-5" style="max-width: 1140px;">
                 <h1 class="display-4 fw-bold">Selamat Datang!</h1>
                 <p class="lead text-white-75 mt-2" style="min-height: 28px;">
-                    <span id="typing-effect"></span>
+                    <span id="typing-effect">Bagian mana yang ingin anda kerjakan ?</span>
                     <span id="typing-cursor" class="d-inline-block bg-white" style="width: 2px; height: 1.5rem; animation: pulse 1s infinite; margin-bottom: -4px;"></span>
                 </p>
             </div>
@@ -44,7 +44,8 @@
         
         {{-- Konten Utama (Kartu dan Kalender) --}}
         <main class="w-100 mx-auto p-3 p-md-4 flex-grow-1 main-content" style="max-width: 1140px;">
-            <div class="row g-4">
+            {{-- [UBAH] Tambahkan class 'justify-content-center' untuk membuat baris card selalu di tengah --}}
+            <div class="row g-4 justify-content-center"> 
                 @php
                     $colorClasses = [
                         ['bg' => 'bg-primary-subtle', 'text' => 'text-primary-emphasis'],
@@ -52,21 +53,21 @@
                         ['bg' => 'bg-info-subtle', 'text' => 'text-info-emphasis'],
                     ];
                 @endphp
-
+        
                 @forelse ($plants as $plant)
                     @php
                         $colors = $colorClasses[$loop->index % count($colorClasses)];
                     @endphp
                     
-                    {{-- [DIUBAH] Grid classes diubah untuk menampung lebih banyak card per baris --}}
+                    {{-- Grid classes diubah untuk menampung lebih banyak card per baris --}}
                     <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
                         <a href="{{ route('manufaktur.dashboard.show', [$plant->kode]) }}"
                             onclick="event.preventDefault(); appLoader.show(); setTimeout(() => { window.location.href = this.href }, 150)"
                             class="card w-100 text-decoration-none text-center p-3 rounded-4 shadow-sm plant-card">
                             <div class="card-body">
-                                {{-- [DIUBAH] Ukuran container ikon diubah dari 64px menjadi 56px --}}
+                                {{-- Ukuran container ikon diubah dari 64px menjadi 56px --}}
                                 <div class="d-inline-flex align-items-center justify-content-center rounded-circle mx-auto mb-3 {{ $colors['bg'] }}" style="width: 56px; height: 56px;">
-                                    {{-- [DIUBAH] Ukuran SVG diubah dari 32 menjadi 28 --}}
+                                    {{-- Ukuran SVG diubah dari 32 menjadi 28 --}}
                                     <svg class="{{ $colors['text'] }}" width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                                 </div>
                                 <h3 class="card-title h5 fw-bold text-dark">{{ $plant->nama_bagian }}</h3>
@@ -83,13 +84,6 @@
                     </div>
                 @endforelse
             </div>
-
-            <footer class="mt-5">
-                <div id="calendar-container" class="card shadow-sm rounded-4 border-0">
-                    {{-- Konten kalender tetap sama --}}
-                </div>
-            </footer>
         </main>
     </div>
-    
 </x-layouts.landing>
