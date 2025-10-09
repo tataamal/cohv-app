@@ -377,4 +377,10 @@ body.sidebar-open .sidebar-overlay {
     .sidebar-collapse-toggle {
         display: none !important;
     }
+
+    .modal-dialog-custom {
+        max-width: 420px;
+        margin-left: 1rem;
+        margin-right: 1rem;
+    }    
 }

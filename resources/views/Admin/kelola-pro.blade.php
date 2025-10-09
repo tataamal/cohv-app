@@ -73,23 +73,27 @@
                         </div>
                     </div>
                     <div class="card-body p-0">
-                        <div class="p-3">
-                            <input type="search" id="proSearchInput" class="form-control" placeholder="🔍 Cari berdasarkan Kode PRO (AUFNR)...">
-                        </div>
-
-                        <div id="bulk-action-bar" class="d-none align-items-center justify-content-between p-2 mx-3 mb-3 rounded-3">
+            
+                        {{-- [PERUBAHAN 1] Lokasi baru untuk bulk-action-bar --}}
+                        <div id="bulk-action-bar" class="d-none align-items-center justify-content-between p-2 mx-3 mt-3 rounded-3">
                             <div class="d-flex align-items-center">
-                                <span id="bulk-drag-handle" class="px-2" draggable="true" title="Drag to move selected items">
-                                    <i class="fa-solid fa-grip-vertical fs-5"></i>
+                                {{-- [PERUBAHAN 2] Handle diperbesar dengan padding (px-3 py-2) dan ukuran ikon (fs-4) --}}
+                                <span id="bulk-drag-handle" class="px-3 py-2" draggable="true" title="Drag to move selected items">
+                                    <i class="fa-solid fa-grip-vertical fs-4"></i>
                                 </span>
                                 <span class="fw-semibold text-primary" id="selection-count">0 PRO Selected</span>
                             </div>
                             <button class="btn btn-sm btn-outline-secondary" onclick="clearBulkSelection()">Remove Selected</button>
                         </div>
                         
+                        <div class="p-3">
+                            <input type="search" id="proSearchInput" class="form-control" placeholder="🔍 Cari berdasarkan Kode PRO (AUFNR)...">
+                        </div>
+            
                         <div class="table-container-scroll">
                             <table class="table table-hover table-striped mb-0 table-sticky align-middle">
                                 <thead>
+                                    {{-- ... Konten thead tidak berubah ... --}}
                                     <tr class="small text-uppercase align-middle">
                                         <th class="text-center" style="width: 50px;"><input class="form-check-input" type="checkbox" id="select-all-pro" title="Pilih semua yang terlihat"></th>
                                         <th class="text-center" scope="col">No</th>
@@ -97,19 +101,25 @@
                                         <th class="text-center d-none-mobile" scope="col">SO</th>
                                         <th class="text-center d-none-mobile" scope="col">SO Item</th>
                                         <th class="text-center d-none-mobile" scope="col">Workcenter</th>
-                                        <th class="text-left" scope="col">Material Description</th> <th class="text-center d-none-mobile" scope="col">Operation Key</th>
+                                        <th class="text-left" scope="col">Material Description</th>
+                                        <th class="text-center d-none-mobile" scope="col">Operation Key</th>
+                                        <th class="text-center d-none-mobile" scope="col">Qty Order</th>
+                                        <th class="text-center d-none-mobile" scope="col">Qty GR</th>
                                         <th class="text-center d-none-mobile" scope="col">PV1</th>
                                         <th class="text-center d-none-mobile" scope="col">PV2</th>
                                         <th class="text-center d-none-mobile" scope="col">PV3</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proTableBody">
+                                    {{-- ... Konten tbody tidak berubah ... --}}
                                     @forelse ($pros as $pro)
                                         <tr class="pro-row" 
                                             data-pro-code="{{ $pro->AUFNR }}" 
                                             data-wc-asal="{{ $pro->ARBPL }}"
                                             data-oper="{{ $pro->VORNR }}"
-                                            data-pwwrk="{{ $pro->PWWRK }}">
+                                            data-pwwrk="{{ $pro->PWWRK }}"
+                                            data-psmng="{{ $pro->PSMNG }}"
+                                            data-wemng="{{ $pro->WEMNG }}">
                                             <td class="text-center"><input class="form-check-input pro-select-checkbox" type="checkbox"></td>
                                             <td class="text-center">{{ $loop->iteration }}</td>
                                             <td class="text-center">{{ $pro->AUFNR }}</td>
@@ -118,6 +128,8 @@
                                             <td class="text-center d-none-mobile">{{ $pro->ARBPL }}</td>
                                             <td class="text-center">{{ $pro->MAKTX }}</td>
                                             <td class="text-center d-none-mobile">{{ $pro->STEUS }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->PSMNG }}</td>
+                                            <td class="text-center d-none-mobile">{{ $pro->WEMNG }}</td>
                                             <td class="text-center d-none-mobile">{{ $pro->PV1 }}</td>
                                             <td class="text-center d-none-mobile">{{ $pro->PV2 }}</td>
                                             <td class="text-center d-none-mobile">{{ $pro->PV3 }}</td>

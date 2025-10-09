@@ -273,16 +273,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('#proTableBody .pro-row').forEach(row => {
         row.addEventListener('click', function(event) {
-            
-            // =================================================================
-            // INI BAGIAN YANG DITAMBAHKAN
-            // Hentikan fungsi jika elemen yang diklik memiliki class 'pro-select-checkbox'
             if (event.target.matches('.pro-select-checkbox')) {
                 return; 
             }
-            // =================================================================
-
-            // Logika lama tetap berjalan jika bukan checkbox yang diklik
             if (window.innerWidth <= 768) {
                 const cells = this.getElementsByTagName('td');
                 const proCode = cells[2].textContent.trim();
@@ -294,9 +287,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('modalWc').textContent = cells[5].textContent.trim();
                 document.getElementById('modalMaterial').textContent = cells[6].textContent.trim();
                 document.getElementById('modalOperKey').textContent = cells[7].textContent.trim();
-                document.getElementById('modalPv1').textContent = cells[8].textContent.trim();
-                document.getElementById('modalPv2').textContent = cells[9].textContent.trim();
-                document.getElementById('modalPv3').textContent = cells[10].textContent.trim();
+                document.getElementById('modalPsmng').textContent = cells[8].textContent.trim();
+                document.getElementById('modalWemng').textContent = cells[9].textContent.trim();
+                document.getElementById('modalPv1').textContent = cells[10].textContent.trim();
+                document.getElementById('modalPv2').textContent = cells[11].textContent.trim();
+                document.getElementById('modalPv3').textContent = cells[12].textContent.trim();
                 
                 proDetailModal.show();
             }
