@@ -1,9 +1,35 @@
 <x-layouts.app title="List GR - PT. Kayu Mebel Indonesia">
     @push('styles')
     <style>
-        /* Gaya tambahan untuk memastikan sticky header di tabel scroll tidak tembus pandang */
-        .table-responsive thead.sticky-top th {
-            background-color: var(--bs-table-bg);
+        /* ✨ [PERBAIKAN 2] Memberi warna merah pada hari Minggu */
+        .fc-day-sun .fc-daygrid-day-number {
+            color: #dc3545; /* Warna merah Bootstrap */
+            font-weight: 600;
+        }
+    
+        /* ✨ [PERBAIKAN 3] Sentuhan gaya modern & minimalis */
+        #calendar {
+            /* Memberi border yang lebih lembut */
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            background-color: #fff;
+        }
+        
+        /* Menghilangkan border default dari FullCalendar agar lebih bersih */
+        .fc-theme-bootstrap5 .fc-scrollgrid {
+            border: none;
+        }
+    
+        /* Membuat event tidak menutupi seluruh kotak tanggal, memberi ruang napas */
+        .fc .fc-daygrid-day-events {
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+    
+        /* Memastikan tampilan list di mobile lebih rapi */
+        .fc-list-event-title {
+            font-weight: 600;
         }
     </style>
     @endpush
@@ -152,12 +178,4 @@
             </div>
         </div>
     </div>
-
-    @push('scripts')
-    {{-- Script Vanilla JS kita untuk fungsionalitas kalender dan modal --}}
-    <script>
-        // Pastikan script berjalan setelah semua elemen halaman dimuat
-         window.processedCalendarData = @json($processedData ?? []);
-    </script>
-    @endpush
 </x-layouts.app>

@@ -167,26 +167,40 @@ function initializeGoodReceiptCalendar() {
 
         const isMobile = window.innerWidth < 768;
 
+        // Helper function (tidak berubah)
+        const formatNumber = (num) => new Intl.NumberFormat('id-ID').format(num || 0);
+        const formatDate = (dateStr) => {
+            if (!dateStr || dateStr === '0000-00-00') return '-';
+            return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        };
+
         const calendar = new Calendar(calendarEl, {
-            plugins: [dayGridPlugin, interactionPlugin, listPlugin], // Pastikan listPlugin ada
+            // ✨ [PERBAIKAN 1] Menggunakan Tema Bootstrap 5
+            themeSystem: 'bootstrap5',
+            
+            plugins: [dayGridPlugin, interactionPlugin, listPlugin],
             initialView: isMobile ? 'listWeek' : 'dayGridMonth',
+            
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
                 right: 'dayGridMonth,listWeek'
             },
+            
             events: window.processedCalendarData || [],
-            eventContent: function(arg) {
-                // ... (Logika eventContent responsif Anda tidak perlu diubah) ...
-                let container = document.createElement('div');
-                const { totalGrCount, dispoBreakdown } = arg.event.extendedProps;
 
+            // Logika eventContent, eventDidMount, dateClick, dan eventClick Anda
+            // sudah sangat baik dan tidak perlu diubah. Kita salin kembali.
+            eventContent: function(arg) {
+                // ... (Seluruh logika eventContent Anda yang sudah ada) ...
+                 let container = document.createElement('div');
+                const { totalGrCount, dispoBreakdown } = arg.event.extendedProps;
                 if (isMobile) {
                     container.classList.add('d-flex', 'justify-content-between', 'align-items-center', 'w-100', 'p-2');
                     let titleEl = document.createElement('div');
                     titleEl.innerHTML = `<strong>Total Good Receipt:</strong>`;
                     let valueEl = document.createElement('div');
-                    valueEl.innerHTML = `<span class="badge bg-success">${new Intl.NumberFormat().format(totalGrCount || 0)}</span>`;
+                    valueEl.innerHTML = `<span class="badge bg-success">${formatNumber(totalGrCount || 0)}</span>`;
                     container.appendChild(titleEl);
                     container.appendChild(valueEl);
                 } else {
@@ -201,10 +215,7 @@ function initializeGoodReceiptCalendar() {
                         dispoList.classList.add('list-unstyled', 'mb-1', 'small');
                         dispoBreakdown.forEach(item => {
                             let listItem = document.createElement('li');
-                            listItem.innerHTML = `<span class="text-black">
-                            <i class="bi bi-dot me-1"></i>
-                            MRP <strong>${item.dispo || '-'}</strong>: ${formatNumber(item.gr_count || 0)}
-                            </span>`;
+                            listItem.innerHTML = `<span class="text-black"><i class="bi bi-dot me-1"></i> MRP <strong>${item.dispo || '-'}</strong>: ${formatNumber(item.gr_count || 0)}</span>`;
                             dispoList.appendChild(listItem);
                         });
                         container.appendChild(dispoList);
@@ -212,51 +223,34 @@ function initializeGoodReceiptCalendar() {
                 }
                 return { domNodes: [container] };
             },
-
-            // ✨ REVISI 1: Tambahkan cursor pointer untuk menandakan bisa di-klik
             eventDidMount: function(info) {
                 info.el.style.backgroundColor = 'transparent';
                 info.el.style.borderColor = 'transparent';
-                info.el.style.cursor = 'pointer'; // Menambahkan ikon tangan saat hover
+                info.el.style.cursor = 'pointer';
             },
-            
-            // ✨ REVISI 2: Hapus dateClick atau kosongkan isinya
             dateClick: function(info) {
-                // Dikosongkan agar klik pada area kosong tanggal tidak melakukan apa-apa
+                // Dikosongkan
             },
-
-            // ✨ REVISI 3: Pindahkan semua logika modal ke eventClick
             eventClick: function(info) {
-                // Ambil data detail langsung dari event yang di-klik
+                // ... (Seluruh logika eventClick Anda yang sudah ada) ...
                 const eventDetails = info.event.extendedProps.details;
-
                 if (eventDetails && eventDetails.length > 0) {
                     const eventDate = info.event.start;
-                    const formattedDate = eventDate.toLocaleDateString('id-ID', {
-                        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-                    });
-                    
-                    // Isi judul modal
+                    const formattedDate = eventDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
                     modalTitle.textContent = 'Detail Good Receipt untuk: ' + formattedDate;
-
-                    // Kosongkan dan isi tabel modal
                     modalTableBody.innerHTML = ''; 
                     eventDetails.forEach(item => {
-                        const row = `
-                            <tr>
-                                <td class="text-center align-middle small fw-medium">${item.AUFNR || '-'}</td>
-                                <td class="align-middle small">${item.MAKTX || '-'}</td>
-                                <td class="text-center align-middle"><span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">${item.KDAUF || '-'}</span></td>
-                                <td class="text-center align-middle"><span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">${item.KDPOS || '-'}</span></td>
-                                <td class="text-center align-middle small">${formatNumber(item.PSMNG)}</td>
-                                <td class="text-center align-middle small fw-bold text-success">${formatNumber(item.MENGE)}</td>
-                                <td class="text-center align-middle"><span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">${formatDate(item.BUDAT_MKPF)}</span></td>
-                            </tr>
-                        `;
+                        const row = `<tr>
+                            <td class="text-center align-middle small fw-medium">${item.AUFNR || '-'}</td>
+                            <td class="align-middle small">${item.MAKTX || '-'}</td>
+                            <td class="text-center align-middle"><span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">${item.KDAUF || '-'}</span></td>
+                            <td class="text-center align-middle"><span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">${item.KDPOS || '-'}</span></td>
+                            <td class="text-center align-middle small">${formatNumber(item.PSMNG)}</td>
+                            <td class="text-center align-middle small fw-bold text-success">${formatNumber(item.MENGE)}</td>
+                            <td class="text-center align-middle"><span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">${formatDate(item.BUDAT_MKPF)}</span></td>
+                        </tr>`;
                         modalTableBody.insertAdjacentHTML('beforeend', row);
                     });
-
-                    // Tampilkan modal
                     detailModal.show();
                 }
             }
@@ -273,7 +267,6 @@ function initializeGoodReceiptCalendar() {
         }
     }
 }
-
 // Fungsi Bantuan
 function formatNumber(num) {
     if (num === null || num === undefined) return '0';
