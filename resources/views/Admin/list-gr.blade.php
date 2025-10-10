@@ -90,6 +90,42 @@
             padding: 4px; /* Memberi jarak dari tepian */
             float: right; /* Memastikan posisi tetap di kanan */
         }
+        /* [BARU] CSS untuk Tampilan Kartu di Modal Mobile */
+        .modal-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            margin: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .modal-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            background-color: #fff;
+            border-bottom: 1px solid #dee2e6;
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
+        }
+
+        .modal-card-body {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .modal-card-body p {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #343a40;
+        }
+
+        .modal-card-grid {
+            display: grid;
+            grid-template-columns: 100px 1fr; /* Kolom label dan kolom nilai */
+            gap: 0.5rem;
+        }
     </style>
     @endpush
     <div class="mb-4">
@@ -148,46 +184,44 @@
 
         <div class="col-12">
             <div class="card shadow-sm">
-                 <div class="card-header bg-light-subtle d-flex justify-content-between align-items-center">
+                <div class="card-header bg-light-subtle d-flex justify-content-between align-items-center">
                     <div>
                         <h3 class="h6 card-title mb-1">Detail Semua Data</h3>
                         <p class="card-subtitle text-muted small">Rincian lengkap semua item material yang diterima</p>
                     </div>
-                     <div class="d-flex align-items-center justify-content-center text-info-emphasis bg-info-subtle border border-info-subtle" style="width: 32px; height: 32px; border-radius: 0.5rem;">
+                    <div class="d-flex align-items-center justify-content-center text-info-emphasis bg-info-subtle border border-info-subtle" style="width: 32px; height: 32px; border-radius: 0.5rem;">
                         <i class="bi bi-list-ul"></i>
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="table table-hover table-striped mb-0">
+                    <table class="table table-hover table-striped mb-0" id="main-detail-table">
                         <thead class="table-light sticky-top">
-                            <tr>
-                                <th class="text-center small text-uppercase">PRO</th>
-                                <th class="text-center small text-uppercase">Material Description</th>
-                                <th class="text-center small text-uppercase">Sales Order</th>
-                                <th class="text-center small text-uppercase">SO Item</th>
-                                <th class="text-center small text-uppercase">Quantity PRO</th>
-                                <th class="text-center small text-uppercase">Quantity GR</th>
-                                <th class="text-center small text-uppercase">Tgl. Posting</th>
+                            <tr class="align-middle">
+                                <th class="text-center small text-uppercase" data-sort-key="AUFNR" style="cursor: pointer;">PRO</th>
+                                <th class="small text-uppercase d-none d-md-table-cell">Material Description</th>
+                                <th class="text-center small text-uppercase d-none d-md-table-cell" data-sort-key="KDAUF" style="cursor: pointer;">Sales Order</th>
+                                <th class="text-center small text-uppercase d-none d-md-table-cell" data-sort-key="KDPOS" style="cursor: pointer;">SO Item</th>
+                                <th class="text-center small text-uppercase" data-sort-key="PSMNG" style="cursor: pointer;">Quantity PRO</th>
+                                <th class="text-center small text-uppercase" data-sort-key="MENGE" style="cursor: pointer;">Quantity GR</th>
+                                <th class="text-center small text-uppercase d-none d-md-table-cell" data-sort-key="BUDAT_MKPF" style="cursor: pointer;">Tgl. Posting</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($dataGr as $item)
-                                <tr>
+                                <tr class="detail-row"
+                                    data-material="{{ $item->MAKTX ?? '-' }}"
+                                    data-so="{{ $item->KDAUF ?? '-' }}"
+                                    data-so-item="{{ $item->KDPOS ?? '-' }}"
+                                    data-posting-date="{{ \Carbon\Carbon::parse($item->BUDAT_MKPF)->format('d M Y') }}"
+                                    style="cursor: pointer;"
+                                >
                                     <td class="text-center align-middle small fw-medium">{{ $item->AUFNR ?? '-' }}</td>
-                                    <td class="align-middle small">{{ $item->MAKTX ?? '-' }}</td>
-                                    <td class="text-center align-middle">
-                                        <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ $item->KDAUF ?? '-' }}</span>
-                                    </td>
-                                    <td class="text-center align-middle">
-                                         <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ $item->KDPOS ?? '-' }}</span>
-                                    </td>
+                                    <td class="align-middle small d-none d-md-table-cell">{{ $item->MAKTX ?? '-' }}</td>
+                                    <td class="text-center align-middle d-none d-md-table-cell"><span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ $item->KDAUF ?? '-' }}</span></td>
+                                    <td class="text-center align-middle d-none d-md-table-cell"><span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">{{ $item->KDPOS ?? '-' }}</span></td>
                                     <td class="text-center align-middle small">{{ number_format($item->PSMNG ?? 0) }}</td>
                                     <td class="text-center align-middle small fw-bold text-success">{{ number_format($item->MENGE ?? 0) }}</td>
-                                    <td class="text-center align-middle">
-                                        <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
-                                            {{ \Carbon\Carbon::parse($item->BUDAT_MKPF)->format('d M Y') }}
-                                        </span>
-                                    </td>
+                                    <td class="text-center align-middle d-none d-md-table-cell"><span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ \Carbon\Carbon::parse($item->BUDAT_MKPF)->format('d M Y') }}</span></td>
                                 </tr>
                             @empty
                                 <tr>
@@ -203,27 +237,44 @@
                 </div>
             </div>
         </div>
+        
+        <!-- [BARU] MODAL UNTUK POPUP DETAIL ITEM DI MOBILE -->
+        <div class="modal fade" id="itemDetailModal" tabindex="-1" aria-labelledby="itemDetailModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header border-0">
+                        <h1 class="modal-title fs-5" id="itemDetailModalLabel">Detail Item</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body pt-0">
+                        <div id="itemDetailContent">
+                            <!-- Konten akan diisi oleh JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                     <h1 class="modal-title fs-5" id="modalTitle">Detail Tanggal:</h1>
+                    <h1 class="modal-title fs-5" id="modalTitle">Detail Tanggal:</h1>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-0">
                     <div class="table-responsive">
-                         <table class="table table-striped mb-0">
+                        <table class="table table-hover table-striped mb-0">
                             <thead class="table-light sticky-top">
                                 <tr>
-                                    <th class="text-center small text-uppercase">PRO</th>
-                                    <th class="text-center small text-uppercase">Material Description</th>
-                                    <th class="text-center small text-uppercase">Sales Order</th>
-                                    <th class="text-center small text-uppercase">SO Item</th>
-                                    <th class="text-center small text-uppercase">Quantity PRO</th>
-                                    <th class="text-center small text-uppercase">Quantity GR</th>
-                                    <th class="text-center small text-uppercase">Posting Date</th>
+                                    <th class="text-center small text-uppercase" data-sort-key="AUFNR" style="cursor: pointer;">PRO</th>
+                                    <th class="small text-uppercase">Material Description</th>
+                                    <th class="text-center small text-uppercase" data-sort-key="KDAUF" style="cursor: pointer;">Sales Order</th>
+                                    <th class="text-center small text-uppercase" data-sort-key="KDPOS" style="cursor: pointer;">SO Item</th>
+                                    <th class="text-center small text-uppercase" data-sort-key="PSMNG" style="cursor: pointer;">Quantity PRO</th>
+                                    <th class="text-center small text-uppercase" data-sort-key="MENGE" style="cursor: pointer;">Quantity GR</th>
+                                    <th class="text-center small text-uppercase" data-sort-key="BUDAT_MKPF" style="cursor: pointer;">Posting Date</th>
                                 </tr>
                             </thead>
                             <tbody id="modal-table-body">
@@ -231,7 +282,7 @@
                         </table>
                     </div>
                 </div>
-                 <div class="modal-footer">
+                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
                 </div>
             </div>
