@@ -155,90 +155,70 @@ function animateCountUp(element) {
     }
     window.requestAnimationFrame(step);
 }
-
 function initializeGoodReceiptCalendar() {
     const calendarEl = document.getElementById('calendar');
     if (calendarEl) {
-        // --- Inisialisasi Modal (tidak berubah) ---
         const modalElement = document.getElementById('detailModal');
+        if (!modalElement) {
+            console.error('Modal #detailModal tidak ditemukan.');
+            return;
+        }
         const detailModal = new bootstrap.Modal(modalElement);
         const modalTitle = document.getElementById('modalTitle');
         const modalTableBody = document.getElementById('modal-table-body');
 
-        const isMobile = window.innerWidth < 768;
-
-        // Helper function (tidak berubah)
+        // Helper functions
         const formatNumber = (num) => new Intl.NumberFormat('id-ID').format(num || 0);
         const formatDate = (dateStr) => {
             if (!dateStr || dateStr === '0000-00-00') return '-';
-            return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            // Menambahkan timezone UTC untuk konsistensi
+            return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
         };
 
         const calendar = new Calendar(calendarEl, {
-            // ✨ [PERBAIKAN 1] Menggunakan Tema Bootstrap 5
-            themeSystem: 'bootstrap5',
-            
-            plugins: [dayGridPlugin, interactionPlugin, listPlugin],
-            initialView: isMobile ? 'listWeek' : 'dayGridMonth',
-            
+            plugins: [dayGridPlugin, interactionPlugin],
+            initialView: 'dayGridMonth',
             headerToolbar: {
-                left: 'prev,next today',
+                left: 'prev',
                 center: 'title',
-                right: 'dayGridMonth,listWeek'
+                right: 'next today'
             },
-            
+            dayHeaderFormat: {
+                weekday: 'narrow'
+            },
             events: window.processedCalendarData || [],
 
-            // Logika eventContent, eventDidMount, dateClick, dan eventClick Anda
-            // sudah sangat baik dan tidak perlu diubah. Kita salin kembali.
             eventContent: function(arg) {
-                // ... (Seluruh logika eventContent Anda yang sudah ada) ...
-                 let container = document.createElement('div');
-                const { totalGrCount, dispoBreakdown } = arg.event.extendedProps;
-                if (isMobile) {
-                    container.classList.add('d-flex', 'justify-content-between', 'align-items-center', 'w-100', 'p-2');
-                    let titleEl = document.createElement('div');
-                    titleEl.innerHTML = `<strong>Total Good Receipt:</strong>`;
-                    let valueEl = document.createElement('div');
-                    valueEl.innerHTML = `<span class="badge bg-success">${formatNumber(totalGrCount || 0)}</span>`;
-                    container.appendChild(titleEl);
-                    container.appendChild(valueEl);
-                } else {
-                    container.classList.add('fc-event-main-content', 'p-1', 'small');
-                    let totalGrHighlight = document.createElement('div');
-                    totalGrHighlight.classList.add('badge', 'bg-success', 'text-white', 'text-start', 'w-100', 'py-2', 'mb-1');
-                    totalGrHighlight.style.whiteSpace = 'normal';
-                    totalGrHighlight.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Total GR Hari ini: <strong>${formatNumber(totalGrCount || 0)}</strong>`;
-                    container.appendChild(totalGrHighlight);
-                    if (dispoBreakdown && dispoBreakdown.length > 0) {
-                        let dispoList = document.createElement('ul');
-                        dispoList.classList.add('list-unstyled', 'mb-1', 'small');
-                        dispoBreakdown.forEach(item => {
-                            let listItem = document.createElement('li');
-                            listItem.innerHTML = `<span class="text-black"><i class="bi bi-dot me-1"></i> MRP <strong>${item.dispo || '-'}</strong>: ${formatNumber(item.gr_count || 0)}</span>`;
-                            dispoList.appendChild(listItem);
-                        });
-                        container.appendChild(dispoList);
-                    }
-                }
-                return { domNodes: [container] };
+                // Ambil jumlah GR dari extendedProps
+                const grCount = arg.event.extendedProps.totalGrCount;
+                const formattedGrCount = new Intl.NumberFormat('id-ID').format(grCount || 0);
+            
+                // Buat elemen HTML untuk kartu event
+                let eventCardEl = document.createElement('div');
+                eventCardEl.classList.add('fc-event-card-gr');
+                eventCardEl.innerHTML = `GR: <span class="fw-bold">${formattedGrCount}</span>`;
+            
+                return { domNodes: [eventCardEl] };
             },
-            eventDidMount: function(info) {
-                info.el.style.backgroundColor = 'transparent';
-                info.el.style.borderColor = 'transparent';
-                info.el.style.cursor = 'pointer';
-            },
-            dateClick: function(info) {
-                // Dikosongkan
-            },
-            eventClick: function(info) {
-                // ... (Seluruh logika eventClick Anda yang sudah ada) ...
+
+            eventClick: function (info) {
                 const eventDetails = info.event.extendedProps.details;
                 if (eventDetails && eventDetails.length > 0) {
                     const eventDate = info.event.start;
-                    const formattedDate = eventDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                    const formattedDate = eventDate.toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                    });
+
                     modalTitle.textContent = 'Detail Good Receipt untuk: ' + formattedDate;
-                    modalTableBody.innerHTML = ''; 
+                    modalTableBody.innerHTML = '';
+
                     eventDetails.forEach(item => {
                         const row = `<tr>
                             <td class="text-center align-middle small fw-medium">${item.AUFNR || '-'}</td>
@@ -251,22 +231,74 @@ function initializeGoodReceiptCalendar() {
                         </tr>`;
                         modalTableBody.insertAdjacentHTML('beforeend', row);
                     });
+
                     detailModal.show();
                 }
-            }
+            },
+
+            eventDidMount: function (info) {
+                info.el.style.cursor = 'pointer';
+                const props = info.event.extendedProps;
+
+                // Memastikan props dan dispoBreakdown ada sebelum diakses
+                if (!props || !props.dispoBreakdown) return;
+
+                const dispoBreakdownHtml = props.dispoBreakdown.map(item =>
+                    `<div class="d-flex justify-content-between">
+                        <span>• MRP ${item.dispo}:</span>
+                        <span class="fw-bold">${formatNumber(item.gr_count)}</span>
+                    </div>`
+                ).join('');
+
+                const popoverContent = `
+                    <div class="popover-summary">
+                        <div class="d-flex justify-content-between">
+                            <span>Total PRO:</span>
+                            <span class="fw-bold">${formatNumber(props.totalPro)}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Total GR:</span>
+                            <span class="fw-bold text-success">${formatNumber(props.totalGrCount)}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total Value:</span>
+                            <span class="fw-bold">${formatNumber(props.totalValue)}</span>
+                        </div>
+                        <hr class="my-1">
+                        <div class="fw-semibold small mb-1">Breakdown per MRP:</div>
+                        ${dispoBreakdownHtml}
+                    </div>
+                `;
+
+                new bootstrap.Popover(info.el, {
+                    title: `Ringkasan GR - ${formatDate(info.event.startStr)}`,
+                    content: popoverContent,
+                    trigger: 'hover',
+                    placement: 'top',
+                    html: true,
+                    container: 'body',
+                    sanitize: false
+                });
+            },
         });
 
         calendar.render();
 
-        // Fitur resize saat sidebar di-toggle (tidak berubah)
         const sidebarToggle = document.querySelector('#sidebar-collapse-toggle');
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', () => {
-                setTimeout(() => { calendar.updateSize(); }, 350);
+                setTimeout(() => {
+                    calendar.updateSize();
+                }, 350);
             });
         }
     }
 }
+
+// Panggil fungsi ini setelah halaman selesai dimuat
+document.addEventListener('DOMContentLoaded', function() {
+    initializeGoodReceiptCalendar();
+});
 // Fungsi Bantuan
 function formatNumber(num) {
     if (num === null || num === undefined) return '0';
