@@ -40,7 +40,6 @@ class WcCompatibilityController extends Controller
                 'tujuan.description as wc_tujuan_description',
                 'rel.status'
             )
-            ->where('asal.werksx', $kode)
             ->get()
             ->groupBy('wc_asal_code');
 
@@ -58,13 +57,11 @@ class WcCompatibilityController extends Controller
         // =================================================================
         $filteredWcs = DB::table('workcenters')
             ->select('kode_wc as ARBPL', 'description')
-            ->where('werksx', $kode)
             ->whereIn('kode_wc', $targetWcCodes)
             ->distinct()
             ->get();
 
         $pros = DB::table('production_t_data1')
-            ->where('WERKSX', $kode)
             ->where('ARBPL', $wc)
             ->whereRaw("NULLIF(TRIM(AUFNR), '') IS NOT NULL")
             ->orderBy('AUFNR', 'asc')
@@ -75,14 +72,14 @@ class WcCompatibilityController extends Controller
         // =================================================================
         $proDensity = DB::table('production_t_data1')
             ->select('ARBPL', DB::raw('COUNT(*) as pro_count'))
-            ->where('WERKSX', $kode)
+            // ->where('WERKSX', $kode)
             ->groupBy('ARBPL')
             ->get()
             ->keyBy('ARBPL');
 
         $capacityDensity = DB::table('production_t_data3')
             ->select('ARBPL', DB::raw('SUM(CPCTYX) as capacity_sum'))
-            ->where('WERKSX', $kode)
+            // ->where('WERKSX', $kode)
             ->groupBy('ARBPL')
             ->get()
             ->keyBy('ARBPL');
@@ -306,15 +303,5 @@ class WcCompatibilityController extends Controller
             Log::error("Gagal memindahkan PRO {$proCode}: " . $e->getMessage());
             return redirect()->back()->with('error', "Gagal! Terjadi kesalahan: " . $e->getMessage());
         }
-    }
-
-    /**
-     * Memproses pemindahan workcenter via Change PV.
-     */
-    public function changePv(Request $request)
-    {
-        // Logika untuk validasi dan memindahkan PRO via Change PV
-        // ...
-        return back()->with('success', 'Perubahan melalui PV berhasil diajukan.');
     }
 }
