@@ -25,6 +25,7 @@ class ProductionTData4 extends Model
             'WERKS',
             'BDMNG',
             'KALAB',
+            'VMENG',
             'SOBSL',
             'BESKZ',
             'LTEXT',

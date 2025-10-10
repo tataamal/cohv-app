@@ -1,5 +1,39 @@
 <x-layouts.app title="Dashboard Plant">
 
+    @push('styles')
+    <style>
+        .table-container-scroll {
+            max-height: 60vh; /* Atur tinggi maksimal sesuai kebutuhan */
+            overflow-y: auto;
+        }
+
+
+        /* 2. ATUR SEMUA HEADER (th) AGAR STICKY */
+        thead.table-light th {
+            /* --- Properti untuk STICKY --- */
+            position: sticky;
+            top: 0;
+            z-index: 10; /* Pastikan header selalu di lapisan teratas */
+
+            /* Beri warna latar belakang agar tidak transparan saat scroll */
+            background-color: #f8f9fa; 
+        }
+         /* 3. ATUR POSISI IKON AGAR TEKS RATA TENGAH */
+        /* Targetkan hanya header yang bisa di-sort */
+        thead.table-light th.sortable-header {
+        /* Beri ruang di kanan agar teks tidak tertimpa ikon */
+            padding-right: 25px; 
+        }
+
+        /* Posisikan ikonnya secara absolut di sebelah kanan */
+        thead.table-light th.sortable-header .sort-icon {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+    </style>
+    @endpush
     <div class="container-fluid p-3 p-lg-4">
         <div class="mb-4">
             <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-sm-between">
@@ -295,7 +329,7 @@
         <div id="outstandingReservasiSection" style="display: none;">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
-    
+        
                     {{-- Header Card & Search --}}
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
@@ -312,26 +346,28 @@
                             <input type="text" id="realtimeSearchInput" placeholder="Search Reservasi...." class="form-control border-start-0">
                         </div>
                     </div>
-    
+        
                     {{-- Tabel Responsif --}}
                     <div class="table-container-scroll">
-                        {{-- [UBAH] Tambahkan class unik 'reservasi-responsive-table' --}}
                         <table class="table table-hover table-striped align-middle mb-0 reservasi-responsive-table">
                             <thead class="table-light">
                                 <tr class="small text-uppercase">
-                                    {{-- [UBAH] Tambahkan class responsif dan sorting --}}
                                     <th class="text-center d-none d-md-table-cell">No.</th>
                                     <th class="sortable-header" data-sort-column="reservasi" data-sort-type="text">
                                         No. Reservasi <span class="sort-icon"><i class="fas fa-sort"></i></span>
                                     </th>
-                                    <th class="sortable-header" data-sort-column="material_code" data-sort-type="text">
+                                    <th class=" text-center sortable-header" data-sort-column="material_code" data-sort-type="text">
                                         Material Code <span class="sort-icon"><i class="fas fa-sort"></i></span>
                                     </th>
-                                    <th class="d-none d-md-table-cell sortable-header" data-sort-column="description" data-sort-type="text">
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="description" data-sort-type="text">
                                         Material Description <span class="sort-icon"><i class="fas fa-sort"></i></span>
                                     </th>
                                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="req_qty" data-sort-type="number">
                                         Req. Qty <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    </th>
+                                    {{-- [UBAH] Menambahkan header kolom baru "Req. Commited" --}}
+                                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="vmeng" data-sort-type="number">
+                                        Req. Commited <span class="sort-icon"><i class="fas fa-sort"></i></span>
                                     </th>
                                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="stock" data-sort-type="number">
                                         Stock <span class="sort-icon"><i class="fas fa-sort"></i></span>
@@ -340,32 +376,36 @@
                             </thead>
                             <tbody id="reservasiTableBody">
                                 @forelse($TData4 as $item)
-                                    {{-- [UBAH] Tambahkan class dan semua atribut data-* untuk modal --}}
                                     <tr class="clickable-row"
                                         data-no="{{ $loop->iteration }}"
                                         data-reservasi="{{ $item->RSNUM ?? '-' }}"
                                         data-material-code="{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}"
                                         data-description="{{ $item->MAKTX ?? '-' }}"
                                         data-req-qty="{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}"
+                                        {{-- [UBAH] Menambahkan atribut data untuk field VMENG --}}
+                                        data-req-commited="{{ number_format($item->VMENG ?? 0, 0, ',', '.') }}"
                                         data-stock="{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}"
                                         data-searchable-text="{{ strtolower(($item->RSNUM ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
-    
-                                        {{-- [UBAH] Tambahkan class responsif dan atribut data-col untuk sorting --}}
+        
                                         <td class="text-center d-none d-md-table-cell">{{ $loop->iteration }}</td>
                                         <td data-col="reservasi">{{ $item->RSNUM ?? '-' }}</td>
                                         <td data-col="material_code">{{ $item->MATNR ? ltrim((string)$item->MATNR, '0') ?: '0' : '-' }}</td>
                                         <td class="d-none d-md-table-cell" data-col="description">{{ $item->MAKTX ?? '-' }}</td>
                                         <td class="text-center d-none d-md-table-cell" data-col="req_qty">{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}</td>
+                                        {{-- [UBAH] Menambahkan sel data baru untuk field VMENG --}}
+                                        <td class="text-center d-none d-md-table-cell" data-col="vmeng">{{ number_format($item->VMENG ?? 0, 0, ',', '.') }}</td>
                                         <td class="text-center d-none d-md-table-cell" data-col="stock">{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="text-center p-5 text-muted">Tidak ada data reservasi ditemukan.</td></tr>
+                                    {{-- [UBAH] Mengubah colspan dari 6 menjadi 7 --}}
+                                    <tr><td colspan="7" class="text-center p-5 text-muted">Tidak ada data reservasi ditemukan.</td></tr>
                                 @endforelse
-                                <tr id="noResultsRow" style="display: none;"><td colspan="6" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td></tr>
+                                {{-- [UBAH] Mengubah colspan dari 6 menjadi 7 --}}
+                                <tr id="noResultsRow" style="display: none;"><td colspan="7" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td></tr>
                             </tbody>
                         </table>
                     </div>
-    
+        
                 </div>
             </div>
         </div>
@@ -690,6 +730,7 @@
                                 document.getElementById('modalReservasiMatCode').textContent = this.dataset.materialCode;
                                 document.getElementById('modalReservasiDesc').textContent = this.dataset.description;
                                 document.getElementById('modalReservasiReqQty').textContent = this.dataset.reqQty;
+                                document.getElementById('modalReservasiReqCommited').textContent = this.dataset.reqCommited;
                                 document.getElementById('modalReservasiStock').textContent = this.dataset.stock;
                                 reservasiDetailModal.show();
                             }

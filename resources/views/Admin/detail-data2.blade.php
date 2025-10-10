@@ -1,19 +1,21 @@
 
 <x-layouts.app>
-    <div class="container-fluid">
+    <div class="container-fluid px-2">
         {{-- Header Halaman --}}
         <x-notification.notification />
-        <div class="card shadow-sm border-0 mb-4">
+        <div class="card shadow-sm border-0 mb-3">
             <div class="card-body p-3">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
+                    {{-- Info Utama --}}
                     <div>
-                        <h1 class="h5 fw-semibold text-dark mb-1">Kode Plant: {{ $WERKS }}</h1>
+                        <h1 class="h6 fw-semibold text-dark mb-1">Plant Code: {{ $WERKS }}</h1>
                         <p class="small text-muted mb-0">
-                            <span class="fw-medium text-body-secondary">Nama Bagian : </span> {{ $bagian }} |
-                            <span class="fw-medium text-body-secondary">Kategori : </span> {{ $categories }} | 
-                            <span class="fw-medium text-body-secondary">Kode Laravel : </span> {{ $plant }}
+                            <span class="fw-medium text-body-secondary">Section:</span> {{ $bagian }} |
+                            <span class="fw-medium text-body-secondary">Category:</span> {{ $categories }} | 
+                            <span class="fw-medium text-body-secondary">Laravel Code:</span> {{ $plant }}
                         </p>
                     </div>
+                    {{-- Tombol Aksi --}}
                     <div class="d-flex align-items-center gap-2 flex-shrink-0">
                         <a href="{{ route('manufaktur.detail.data2', $plant) }}" class="btn btn-primary btn-sm nav-loader-link">
                             <i class="fas fa-sync-alt me-1"></i> Sync
@@ -22,40 +24,36 @@
                             Hide All
                         </button>
                         <a href="{{ route('manufaktur.dashboard.show', $plant) }}" class="btn btn-secondary btn-sm nav-loader-link">
-                            &larr; Back To Dashboard
+                            &larr; Back
                         </a>
                     </div>
                 </div>
             </div>
         </div>
-
+    
         {{-- Kontainer Utama --}}
         <div class="card shadow-sm border-0">
-            <div class="card-body p-4">
-                {{-- Container untuk Tabel Utama dan Paginasi --}}
+            <div class="card-body p-3">
+                {{-- Tabel Sales Order --}}
                 <div id="outstanding-order-container" class="card shadow-sm border-0">
-                    <div class="card-body">
-                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 gap-3">
-                            <h3 class="h5 fw-semibold text-dark mb-0">Sales Order Table</h3>
+                    <div class="card-body p-3">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
+                            <h3 class="h6 fw-semibold text-dark mb-0">Sales Order</h3>
                             <form method="GET" class="w-100" style="max-width: 320px;">
-                                <div class="input-group">
+                                <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Mau Cari Buyer Siapa ?"
-                                        class="form-control border-start-0" id="searchInput">
+                                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search Buyer..." class="form-control border-start-0" id="searchInput">
                                 </div>
                             </form>
                         </div>
-                
+    
                         {{-- Logika Max Height untuk Scroll --}}
                         @php
                             $maxRows = 8;
                             $totalRows = count($tdata);
-                            
-                            // Tentukan tinggi baris (misalnya 48px per baris) dan padding. 
-                            // 8 baris * 48px = 384px. Kita gunakan sekitar 400px untuk aman.
                             $scrollStyle = ($totalRows > $maxRows) ? 'style="max-height: 400px; overflow-y: auto;"' : '';
                         @endphp
-                
+    
                         <div class="table-responsive" {!! $scrollStyle !!}>
                             <table class="table table-hover align-middle mb-0">
                                 <thead>
@@ -68,35 +66,33 @@
                                 <tbody id="salesOrderTableBody"> 
                                     @forelse($tdata as $item)
                                         @php $key = ($item->KUNNR ?? '') . '-' . ($item->NAME1 ?? ''); @endphp
-                                        
                                         <tr class="cursor-pointer" 
                                             data-key="{{ $key }}" 
                                             onclick="openSalesItem(this)" 
                                             data-searchable-text="{{ strtolower($item->NAME1 ?? '') }}">
                                             
-                                            <td class="text-center text-muted">{{ $loop->iteration }}</td>
+                                            <td class="text-center text-muted small">{{ $loop->iteration }}</td>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle rounded-circle me-3" style="width: 32px; height: 32px;">
-                                                        <span class="fw-bold text-primary">{{ substr($item->NAME1 ?? 'N/A', 0, 1) }}</span>
+                                                    <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle rounded-circle me-2" style="width: 28px; height: 28px;">
+                                                        <span class="fw-bold small text-primary">{{ substr($item->NAME1 ?? 'N/A', 0, 1) }}</span>
                                                     </div>
-                                                    <span class="fw-semibold text-dark">{{ $item->NAME1 ?? '-' }}</span>
+                                                    <span class="fw-semibold text-dark small">{{ $item->NAME1 ?? '-' }}</span>
                                                 </div>
                                             </td>
                                             <td class="text-center text-muted">
-                                                <i class="fas fa-chevron-right"></i>
+                                                <i class="fas fa-chevron-right small"></i>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="3" class="text-center p-5 text-muted">Tidak ada data ditemukan.</td>
+                                            <td colspan="3" class="text-center p-4 text-muted small">No data found.</td>
                                         </tr>
                                     @endforelse
-                
                                     <tr id="noResultsRow" style="display: none;">
-                                        <td colspan="3" class="text-center p-5 text-muted">
-                                            <i class="fas fa-search fs-4 d-block mb-2"></i>
-                                            Tidak ada data yang cocok dengan pencarian Anda.
+                                        <td colspan="3" class="text-center p-4 text-muted small">
+                                            <i class="fas fa-search fs-5 d-block mb-2"></i>
+                                            No data matching your search.
                                         </td>
                                     </tr>
                                 </tbody>
@@ -104,91 +100,71 @@
                         </div>
                     </div>
                 </div>
-
-                <div id="tdata2-section" class="mt-4 d-none"></div>
-
-                <div id="tdata3-container" class="mt-4 d-none">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
-                        <h3 class="h5 fw-semibold text-dark">Order Overview</h3>
+    
+                <div id="tdata2-section" class="mt-3 d-none"></div>
+    
+                {{-- Order Overview Section --}}
+                <div id="tdata3-container" class="mt-3 d-none">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
+                        <h3 class="h6 fw-semibold text-dark mb-0">Order Overview</h3>
                         <div class="btn-group btn-group-sm" role="group" id="status-filter">
                             <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus(this, 'all')">All</button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'crtd')">PRO (CRTD)</button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'released')">PRO (Released)</button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'outgoing')">PRO (Outgoing)</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'crtd')">CRTD</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'released')">Released</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'outgoing')">Outgoing</button>
                         </div>
                     </div>
                     
                     <div id="bulk-actions-wrapper" data-refresh-url="{{ route('bulk-refresh.store') }}" 
-                        class="d-flex flex-wrap align-items-center gap-3 mt-4 mb-3 d-none p-3 border rounded-3 bg-light">
+                        class="d-flex flex-column flex-sm-row align-items-sm-center gap-3 mb-3 d-none p-2 border rounded-3 bg-light">
                         
-                        {{-- 1. SELECTION COUNTER (Lebih Menonjol) --}}
                         <div id="selection-counter" class="d-flex align-items-center">
-                            <span class="fw-semibold text-dark me-2">PRO Terpilih:</span>
-                            <span class="count-badge fw-bold badge bg-primary fs-6" id="selection-count-badge">0</span>
+                            <span class="fw-semibold text-dark me-2 small">Selected:</span>
+                            <span class="count-badge fw-bold badge bg-primary" id="selection-count-badge">0</span>
                         </div>
                         
-                        {{-- 2. BULK CONTROLS --}}
                         <div id="bulk-controls" class="d-flex align-items-center gap-2 ms-sm-auto">
-                            
-                            {{-- Bulk Schedule: Kuning (Warning) --}}
-                            <button class="btn btn-warning btn-sm" id="bulk-schedule-btn" style="display: none;" onclick="openBulkScheduleModal()">
-                                <i class="fas fa-calendar-alt me-1"></i> Bulk Reschedule
-                            </button>
-
-                            {{-- Bulk Refresh: Hijau (Success/Positive) --}}
-                            <button class="btn btn-info btn-sm" id="bulk-refresh-btn" style="display: none;" onclick="openBulkRefreshModal()">
-                                <i class="fa-solid fa-arrows-rotate me-1"></i> Bulk Refresh PRO
-                            </button>
-
-                            {{-- Bulk Change PV: Kuning (Warning) --}}
-                            <button class="btn btn-warning btn-sm" id="bulk-changePv-btn" style="display: none;" onclick="openBulkChangePvModal()">
-                                <i class="fa-solid fa-code-compare me-1"></i> Bulk Change PV
-                            </button>
-                            
-                            {{-- Bulk Read PP: Biru Muda (Info) --}}
-                            <button class="btn btn-info btn-sm" id="bulk-readpp-btn" style="display: none;" onclick="openBulkReadPpModal()">
-                                <i class="fas fa-book-open me-1"></i> Bulk Read PP
-                            </button>
-                            
-                            {{-- Bulk TECO: Merah/Bahaya (Primary Action) --}}
-                            <button class="btn btn-danger btn-sm" id="bulk-teco-btn" style="display: none;" onclick="openBulkTecoModal()">
-                                <i class="fas fa-trash me-1"></i> Bulk TECO
-                            </button>
-
-                            {{-- Clear All (Netral) --}}
-                            <button class="btn btn-outline-secondary btn-sm" onclick="clearAllSelections()">Clear All</button>
+                            <button class="btn btn-warning btn-sm" id="bulk-schedule-btn" style="display: none;" onclick="openBulkScheduleModal()"><i class="fas fa-calendar-alt"></i></button>
+                            <button class="btn btn-info btn-sm" id="bulk-refresh-btn" style="display: none;" onclick="openBulkRefreshModal()"><i class="fa-solid fa-arrows-rotate"></i></button>
+                            <button class="btn btn-warning btn-sm" id="bulk-changePv-btn" style="display: none;" onclick="openBulkChangePvModal()"><i class="fa-solid fa-code-compare"></i></button>
+                            <button class="btn btn-info btn-sm" id="bulk-readpp-btn" style="display: none;" onclick="openBulkReadPpModal()"><i class="fas fa-book-open"></i></button>
+                            <button class="btn btn-danger btn-sm" id="bulk-teco-btn" style="display: none;" onclick="openBulkTecoModal()"><i class="fas fa-trash"></i></button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="clearAllSelections()">Clear</button>
                         </div>
                     </div>
-                
+    
                     <div class="mb-3">
-                        <input type="search" id="proSearchInput" class="form-control" placeholder="Silahkan cari data menggunakan PRO, MRP, atau Start Date nya...">
+                        <input type="search" id="proSearchInput" class="form-control form-control-sm" placeholder="Search by PRO, MRP, or Start Date...">
                     </div>
                     
                     <div class="table-responsive border rounded-3">
                         <table id="tdata3-table" class="table table-hover table-bordered align-middle mb-0 small">
                             <thead class="table-primary sticky-header-js">
-                                <tr class="text-uppercase align-middle" style="font-size: 0.75rem;">
-                                    <th class="text-center"><input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()"></th>
-                                    <th class="text-center">No.</th>
-                                    <th class="text-center">PRO</th>
-                                    <th class="text-center">Status</th>
-                                    <th class="text-center">Action</th>
-                                    <th class="text-center">MRP</th>
-                                    <th class="text-center">Material</th>
-                                    <th class="text-center">Description</th>
-                                    <th class="text-center">Qty Order</th>
-                                    <th class="text-center">Qty GR</th>
-                                    <th class="text-center">Outs GR</th>
-                                    <th class="text-center">Start Date</th>
-                                    <th class="text-center">Finish Date</th>
+                                <tr class="text-uppercase align-middle" style="font-size: 0.7rem;">
+                                    <th class="text-center p-2"><input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()"></th>
+                                    {{-- Kolom Desktop --}}
+                                    <th class="text-center p-2 d-none d-md-table-cell">No.</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">PRO</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Status</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Action</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">MRP</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Material</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Description</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Qty Order</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Qty GR</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Outs GR</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Start Date</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Finish Date</th>
+                                    {{-- Kolom Mobile --}}
+                                    <th class="p-2 d-md-none" colspan="2">Production Order Details</th>
                                 </tr>
                             </thead>
                             <tbody id="tdata3-body">
-                                
+                                {{-- Rows will be populated by JavaScript --}}
                                 <tr id="tdata3-no-results" style="display: none;">
-                                    <td colspan="13" class="text-center p-5 text-muted"> 
-                                        <i class="fas fa-search fs-4 d-block mb-2"></i>
-                                        Tidak ada data yang cocok dengan pencarian Anda.
+                                    <td colspan="13" class="text-center p-4 text-muted small"> 
+                                        <i class="fas fa-search fs-5 d-block mb-2"></i>
+                                        No data matching your search.
                                     </td>
                                 </tr>
                             </tbody>
@@ -196,11 +172,46 @@
                     </div>
                     <div id="tdata3-pagination" class="mt-3 d-flex justify-content-between align-items-center d-none"></div>
                 </div>
-
-                <div id="additional-data-container" class="mt-4"></div>
+    
+                <div id="additional-data-container" class="mt-3"></div>
             </div>
         </div>
     </div>
+
+    <!-- Modal untuk Detail Outstanding Order -->
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-sm">
+            <div class="modal-header border-bottom p-3">
+            <h6 class="modal-title fw-semibold" id="detailModalLabel">Order Detail</h6>
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3" id="detailModalBody">
+            {{-- Konten detail akan dimasukkan di sini oleh JavaScript --}}
+            </div>
+            <div class="modal-footer bg-light border-top p-2">
+            <button type="button" class="btn btn-primary btn-sm w-100" id="modalViewDetailsBtn">View Order Overview</button>
+            </div>
+        </div>
+        </div>
+    </div>
+    <div class="modal fade" id="tdata3DetailModal" tabindex="-1" aria-labelledby="tdata3DetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content border-0 shadow-sm">
+            <div class="modal-header border-bottom p-3">
+              <h6 class="modal-title fw-semibold" id="tdata3DetailModalLabel">PRO Detail</h6>
+              <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3" id="tdata3DetailModalBody">
+              {{-- Konten detail TData3 akan dimasukkan di sini oleh JavaScript --}}
+            </div>
+            <div class="modal-footer bg-light border-top p-2" id="tdata3DetailModalFooter">
+               {{-- Tombol aksi khusus TData3 akan dimasukkan di sini oleh JavaScript --}}
+            </div>
+          </div>
+        </div>
+    </div>
+    
     @include('components.modals.schedule-modal')
     @include('components.modals.resultModal')
     @include('components.modals.refreshModal')
@@ -228,6 +239,19 @@
         let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal, bulkChangePvModal, editComponentModal;
         let bulkActionPlantCode = null;
         let bulkActionVerid = null;
+        let t3ModalInstance;
+        let detailModalInstance;
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalEl = document.getElementById('detailModal');
+            if (modalEl) {
+                detailModalInstance = new bootstrap.Modal(modalEl);
+            }
+
+            const t3ModalEl = document.getElementById('tdata3DetailModal');
+            if (t3ModalEl) {
+                t3ModalInstance = new bootstrap.Modal(t3ModalEl);
+            }
+        });
         const addComponentModal = document.getElementById('addComponentModal');
         document.addEventListener('DOMContentLoaded', () => {
             // Sukses dari controller
@@ -489,49 +513,32 @@
             cardWrapper.className = 'card shadow-sm border-0';
             
             if (!rows.length){
-                cardWrapper.innerHTML = `<div class="card-body text-center p-5 text-muted">Tidak ada data Outstanding Order untuk item ini.</div>`;
+                cardWrapper.innerHTML = `<div class="card-body text-center p-4 text-muted small">No Outstanding Order data for this item.</div>`;
             } else {
-                let scrollStyle = '';
-                if (rows.length > 8) {
-                    scrollStyle = 'style="max-height: 400px; overflow-y: auto;"';
-                }
+                let scrollStyle = rows.length > 8 ? 'style="max-height: 400px; overflow-y: auto;"' : '';
 
                 let tableHtml = `
-                    <style>
-                        /* Gaya sticky header tetap dipertahankan */
-                        .sticky-header th {
-                            position: -webkit-sticky;
-                            position: sticky;
-                            top: 0;
-                            z-index: 1;
-                            background-color: #f8f9fa;
-                            box-shadow: inset 0 -2px 0 #dee2e6;
-                        }
-                    </style>
-                    <div class="card-body">
-                        <div id="tdata2-header" class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 gap-3">
-                            <h3 id="tdata2-title" class="h5 fw-semibold text-dark mb-0">Outstanding Order</h3>
-                            <div id="tdata2-search-wrapper" class="input-group" style="max-width: 320px;">
+                    <div class="card-body p-3">
+                        <div id="tdata2-header" class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
+                            <h3 id="tdata2-title" class="h6 fw-semibold text-dark mb-0">Outstanding Order</h3>
+                            <div id="tdata2-search-wrapper" class="input-group input-group-sm" style="max-width: 320px;">
                                 <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                                <input type="text" id="tdata2-search" oninput="filterTData2Table()" placeholder="Cari SO, Material..." class="form-control border-start-0">
+                                <input type="text" id="tdata2-search" oninput="filterTData2Table()" placeholder="Search SO, Material..." class="form-control form-control-sm border-start-0">
                             </div>
                         </div>
 
                         <div class="table-responsive" ${scrollStyle}>
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="sticky-header">
-                                    <tr class="small align-middle">
-                                        <th class="text-center" style="width: 5%;">No.</th>
-                                        <th class="text-center" style="width: 15%;">Sales Order</th>
-                                        <th class="text-center" style="width: 10%;">Sales Order Item</th>
-                                        <th class="text-center" style="width: 15%;">Material FG</th>
-                                        <th class="text-center">Description</th>
-                                        
-                                        <th class="text-center" style="width: 12%;">PO Date</th> 
-                                        
-                                        <th class="text-center" style="width: 6%;">PRO (CRTD)</th> 
-                                        <th class="text-center" style="width: 6%;">PRO (Released)</th>
-                                        <th style="width: 3%;"></th>
+                            <table class="table table-hover align-middle mb-0 small">
+                                <thead class="table-light sticky-header-js">
+                                    <tr class="align-middle" style="font-size: 0.7rem;">
+                                        <th class="text-center p-2" style="width: 5%;">No.</th>
+                                        <th class="p-2" style="min-width: 120px;">Sales Order</th>
+                                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 15%;">Material FG</th>
+                                        <th class="p-2 d-none d-md-table-cell">Description</th>
+                                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 12%;">PO Date</th> 
+                                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 6%;">PRO (CRTD)</th> 
+                                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 6%;">PRO (Released)</th>
+                                        <th class="p-2" style="width: 3%;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="tdata2-body">`;
@@ -539,55 +546,49 @@
                 rows.forEach((r, i) => {
                     const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
                     const t3 = allTData3[soKey] || [];
-                    let ploCount = 0, proCrt = 0, proRel = 0;
+                    let proCrt = 0, proRel = 0;
                     
                     t3.forEach(d3 => {
-                        if (d3.PLNUM && !d3.AUFNR) ploCount++;
                         if (d3.AUFNR){
-                            // Perbaikan logika status yang konsisten: mencakup semua yang mengandung 'REL'
                             const stats = d3.STATS ? d3.STATS.toUpperCase() : '';
-                            
-                            if (stats === 'CRTD') {
-                                proCrt++;
-                            } 
-                            // Menggunakan includes() atau pengecekan substring untuk konsistensi
-                            else if (stats.includes('REL') || stats === 'PCNF') {
-                                proRel++;
-                            }
+                            if (stats === 'CRTD') proCrt++;
+                            else if (stats.includes('REL') || stats === 'PCNF') proRel++;
                         }
                     });
 
-                    const searchableText = [
-                        r.KDAUF,
-                        ltrim(r.KDPOS, '0'),
-                        ltrim(r.MATFG, '0'),
-                        r.MAKFG
-                    ].join(' ').toLowerCase();
+                    const searchableText = [r.KDAUF, ltrim(r.KDPOS, '0'), ltrim(r.MATFG, '0'), r.MAKFG].join(' ').toLowerCase();
 
+                    // [PERBAIKAN] Menambahkan data-buyer-key
                     tableHtml += `
-                        <tr class="t2-row cursor-pointer" data-key="${soKey}" data-index="${i}" data-searchable-text="${sanitize(searchableText)}">
-                            <td class="text-center text-muted small">${i + 1}</td>
-                            <td class="fw-semibold text-dark text-center">${sanitize(r.KDAUF || '-')}</td>
-                            <td class="text-muted text-center">${ltrim(r.KDPOS, '0')}</td>
-                            <td class="text-muted text-center">${ltrim(r.MATFG, '0') || '-'}</td>
-                            <td class="text-center">${sanitize(r.MAKFG || '-')}</td>
-                            <td class="text-center">${formatDate(r.EDATU)}</td>
-                            <td class="text-center fw-medium">${proCrt}</td>
-                            <td class="text-center fw-medium">${proRel}</td>
-                            <td class="text-center text-muted"><i class="fas fa-chevron-right"></i></td>
+                        <tr class="t2-row cursor-pointer" 
+                            data-buyer-key="${key}" 
+                            data-key="${soKey}" 
+                            data-index="${i}" 
+                            data-searchable-text="${sanitize(searchableText)}">
+                            <td class="text-center text-muted">${i + 1}</td>
+                            <td>
+                                <div class="fw-semibold text-dark">${sanitize(r.KDAUF || '-')}</div>
+                                <div class="text-muted" style="font-size: 0.9em;">Item: ${ltrim(r.KDPOS, '0')}</div>
+                            </td>
+                            <td class="text-muted text-center d-none d-md-table-cell">${ltrim(r.MATFG, '0') || '-'}</td>
+                            <td class="d-none d-md-table-cell">${sanitize(r.MAKFG || '-')}</td>
+                            <td class="text-center d-none d-md-table-cell">${formatDate(r.EDATU)}</td>
+                            <td class="text-center fw-medium d-none d-md-table-cell">${proCrt}</td>
+                            <td class="text-center fw-medium d-none d-md-table-cell">${proRel}</td>
+                            <td class="text-center text-muted"><i class="fas fa-chevron-right small"></i></td>
                         </tr>`;
                 });
 
                 tableHtml += `
                     <tr id="tdata2-no-results" style="display: none;">
-                        <td colspan="10" class="text-center p-5 text-muted">
-                            <i class="fas fa-search fs-4 d-block mb-2"></i>
-                            Tidak ada data yang cocok dengan pencarian Anda.
+                        <td colspan="8" class="text-center p-4 text-muted small">
+                            <i class="fas fa-search fs-5 d-block mb-2"></i>
+                            No data matching your search.
                         </td>
                     </tr>
                 </tbody></table></div>
-                        <p class="mt-3 small text-muted">Click On a Row to View the Order Overview Table.</p>
-                        </div>`;
+                <p class="mt-3 small text-muted">Click a row to view the Order Overview table.</p>
+                </div>`;
                 cardWrapper.innerHTML = tableHtml;
             }
             
@@ -596,8 +597,69 @@
             box.classList.remove('d-none');
             
             box.querySelectorAll('.t2-row').forEach(tr => {
-                tr.addEventListener('click', () => handleClickTData2Row(tr.dataset.key, tr));
+                tr.addEventListener('click', () => handleRowClick(tr));
             });
+        }
+
+        function handleRowClick(element) {
+            if (window.innerWidth < 768) { // Breakpoint 'md' Bootstrap
+                const buyerKey = element.dataset.buyerKey;
+                const soKey = element.dataset.key;
+                const index = parseInt(element.dataset.index, 10);
+                showDetailModal(buyerKey, soKey, index, element);
+            } else {
+                handleClickTData2Row(element.dataset.key, element);
+            }
+        }
+
+        // [PERBAIKAN] Menggunakan buyerKey untuk mencari data
+        function showDetailModal(buyerKey, soKey, index, rowElement) {
+            const data = allTData2[buyerKey][index]; // Menggunakan buyerKey yang benar
+            if (!data || !detailModalInstance) return;
+
+            const t3 = allTData3[soKey] || [];
+            let proCrt = 0, proRel = 0;
+            t3.forEach(d3 => {
+                if (d3.AUFNR){
+                    const stats = d3.STATS ? d3.STATS.toUpperCase() : '';
+                    if (stats === 'CRTD') proCrt++;
+                    else if (stats.includes('REL') || stats === 'PCNF') proRel++;
+                }
+            });
+
+            const modalBody = document.getElementById('detailModalBody');
+            modalBody.innerHTML = `
+                <div class="list-group list-group-flush small">
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                        <span class="text-muted">Material FG</span>
+                        <strong class="text-dark text-end">${ltrim(data.MATFG, '0') || '-'}</strong>
+                    </div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                        <span class="text-muted">Description</span>
+                        <strong class="text-dark text-end">${sanitize(data.MAKFG || '-')}</strong>
+                    </div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                        <span class="text-muted">PO Date</span>
+                        <strong class="text-dark text-end">${formatDate(data.EDATU)}</strong>
+                    </div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                        <span class="text-muted">PRO (CRTD)</span>
+                        <span class="badge bg-secondary rounded-pill">${proCrt}</span>
+                    </div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                        <span class="text-muted">PRO (Released)</span>
+                        <span class="badge bg-success rounded-pill">${proRel}</span>
+                    </div>
+                </div>
+            `;
+
+            const viewDetailsBtn = document.getElementById('modalViewDetailsBtn');
+            viewDetailsBtn.onclick = () => {
+                detailModalInstance.hide();
+                handleClickTData2Row(soKey, rowElement);
+            };
+
+            detailModalInstance.show();
         }
 
         function filterTData2Table() {
@@ -834,6 +896,7 @@
                     <td class="px-4 py-3 text-center">${c.BDMNG ?? c.MENGE ?? '-'}</td>
                     <td class="px-4 py-3 text-center">${c.KALAB ?? '-'}</td>
                     <td class="px-4 py-3 text-center">${c.OUTSREQ ?? '-'}</td>
+                    <td class="px-4 py-3 text-center">${c.VMENG ?? '-'}</td>
                     <td class="px-4 py-3 text-center">${c.LGORT ?? '-'}</td>
                     <td class="px-4 py-3 text-center">${sanitize(c.MEINS === 'ST' ? 'PC' : (c.MEINS || '-'))}</td>
                     <td class="px-4 py-3 text-center">${c.LTEXT ?? '-'}</td>
@@ -885,6 +948,7 @@
                                 <th class="text-center">Req. Qty</th>
                                 <th class="text-center">Stock</th>
                                 <th class="text-center">Outs. Req</th>
+                                <th class="text-center">Qty. Commited</th>
                                 <th class="text-center">S.Log</th>
                                 <th class="text-center">UOM</th>
                                 <th class="text-center">Spec. Procurement</th>
@@ -1143,43 +1207,36 @@
         
         function renderT3Page(filteredData) {
             const tbody = document.getElementById('tdata3-body');
-            // Cari elemen table-responsive yang mengelilingi tabel.
             const tableWrapper = document.querySelector('#tdata3-container .table-responsive'); 
             
             tbody.innerHTML = '';
 
-            // Definisikan batas baris dan tinggi untuk scroll
             const MAX_ROWS = 8;
             const MAX_HEIGHT_PX = '400px'; 
-            const NO_RESULTS_COLSPAN = 13; // Sesuai dengan total kolom header Anda
+            const NO_RESULTS_COLSPAN = 13;
 
-            // 1. Hapus style scroll sebelumnya
             if (tableWrapper) {
                 tableWrapper.style.maxHeight = '';
                 tableWrapper.style.overflowY = '';
             }
 
             if (filteredData.length === 0) {
-                // Tampilkan pesan kosong dengan colspan yang benar
-                tbody.innerHTML = `<tr><td colspan="${NO_RESULTS_COLSPAN}" class="text-center p-4 text-muted">Tidak ada data untuk filter ini.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${NO_RESULTS_COLSPAN}" class="text-center p-4 text-muted">No data for this filter.</td></tr>`;
             } else {
                 filteredData.forEach((d3, i) => {
                     const row = createTableRow(d3, i + 1);
                     tbody.appendChild(row);
                 });
 
-                // 2. LOGIKA SCROLL DINAMIS: Terapkan scroll jika data melebihi batas
                 if (filteredData.length > MAX_ROWS && tableWrapper) {
                     tableWrapper.style.maxHeight = MAX_HEIGHT_PX;
                     tableWrapper.style.overflowY = 'auto';
                 }
             }
 
-            // kosongkan area pagination (atau bisa disembunyikan via CSS)
             const pg = document.getElementById('tdata3-pagination');
             if (pg) pg.innerHTML = '';
             
-            // Ini penting agar tombol Bulk Actions disembunyikan jika tidak ada yang terpilih
             clearAllSelections(); 
         }
 
@@ -1187,98 +1244,148 @@
         
         function createTableRow(d3, index) {
             const row = document.createElement('tr');
+            row.dataset.rowData = JSON.stringify(d3);
+            row.className = 'cursor-pointer';
+            row.setAttribute('onclick', 'handleT3RowClick(this)');
 
-            row.dataset.aufnr = ltrim0(d3.AUFNR || '');
-
-            const canSelectForPLO = d3.PLNUM && !d3.AUFNR;
-            const canSelectForPRO = !!d3.AUFNR;
-            const canSelect = canSelectForPLO || canSelectForPRO;
-
-            // Logika Perhitungan Baru: PSMNG - WEMNG
+            const canSelect = d3.PLNUM || d3.AUFNR;
             const psmng = parseFloat(d3.PSMNG) || 0;
             const wemng = parseFloat(d3.WEMNG) || 0;
             const remainingQty = psmng - wemng;
 
-            let statusBadgeClass = 'bg-secondary'; // Default: Secondary (abu-abu netral)
-            if (d3.STATS === 'CRTD') {
-                statusBadgeClass = 'bg-secondary'; // CRTD: Abu-abu (sekunder)
-            } else if (d3.STATS && d3.STATS.includes('TECO')) {
-                statusBadgeClass = 'bg-danger'; // TECO: Merah (bahaya). Dicek sebelum REL.
-            } else if (d3.STATS && d3.STATS.includes('REL')) {
-                statusBadgeClass = 'bg-success'; // REL: Hijau (sukses)
-            }
+            let statusBadgeClass = 'bg-secondary';
+            if (d3.STATS === 'CRTD') statusBadgeClass = 'bg-secondary';
+            else if (d3.STATS && d3.STATS.includes('TECO')) statusBadgeClass = 'bg-danger';
+            else if (d3.STATS && d3.STATS.includes('REL')) statusBadgeClass = 'bg-success';
 
-            // Tombol Route dan Comp di samping AUFNR sudah ada di sini dan dipertahankan.
             row.innerHTML = `
-                <td class="text-center">
+                <td class="text-center" onclick="event.stopPropagation()">
                     <input type="checkbox" class="form-check-input bulk-select"
                         ${canSelect ? '' : 'disabled'}
-                        data-type="${canSelectForPLO ? 'PLO' : 'PRO'}"
-                        data-id="${canSelectForPLO ? d3.PLNUM : d3.AUFNR}"
+                        data-type="${d3.PLNUM && !d3.AUFNR ? 'PLO' : 'PRO'}"
+                        data-id="${d3.PLNUM && !d3.AUFNR ? d3.PLNUM : d3.AUFNR}"
                         data-auart="${d3.AUART || ''}"
                         onchange="handleBulkSelect(this)">
                 </td>
-                <td class="text-center">${index}</td>
-                <td class="text-center">
+                
+                {{-- Tampilan Desktop --}}
+                <td class="text-center d-none d-md-table-cell">${index}</td>
+                <td class="text-center d-none d-md-table-cell">
                     <div class="pro-cell-inner d-flex align-items-center justify-content-between">
                         <span class="fw-medium">${d3.AUFNR || '-'}</span>
                         ${d3.AUFNR ? `
                         <div class="pro-cell-actions d-flex align-items-center gap-2">
-                            <button class="btn btn-info btn-sm py-0 px-1" route-button onclick="showTData1ByAufnr('${d3.AUFNR}')">Route</button>
-                            <button class="btn btn-primary btn-sm py-0 px-1" onclick="showTData4ByAufnr('${d3.AUFNR}')">Comp</button>
+                            <button class="btn btn-info btn-sm py-0 px-1" onclick="event.stopPropagation(); showTData1ByAufnr('${d3.AUFNR}');">Route</button>
+                            <button class="btn btn-primary btn-sm py-0 px-1" onclick="event.stopPropagation(); showTData4ByAufnr('${d3.AUFNR}');">Comp</button>
                         </div>
                         ` : ''}
                     </div>
                 </td>
-                <td class="text-center">
-                    <span class="badge ${statusBadgeClass}">${d3.STATS || '-'}</span>
-                </td>
-                <td class="text-center">
+                <td class="text-center d-none d-md-table-cell"><span class="badge ${statusBadgeClass}">${d3.STATS || '-'}</span></td>
+                <td class="text-center d-none d-md-table-cell" onclick="event.stopPropagation();">
                     <div class="d-flex justify-content-center align-items-center gap-2">
-                        ${d3.AUFNR ? `
-                        <button type="button" title="Reschedule" class="btn btn-warning btn-sm"
-                            onclick="openSchedule(
-                                '${encodeURIComponent(padAufnr(d3.AUFNR))}',
-                                '${formatDate(d3.SSAVD)}'
-                            )">
-                            <i class="fas fa-clock-rotate-left"></i>
-                        </button>` : ''}
-                        ${d3.AUFNR ? `
-                        <button type="button" title="Refresh PRO" class="btn btn-info btn-sm"
-                            onclick="openRefresh('${d3.AUFNR}', '${d3.WERKSX}')">
-                            <i class="fa-solid fa-arrows-rotate"></i>
-                        </button>` : ''}
-                        ${d3.AUFNR ? `
-                        <button type="button" title="Change PV" class="btn btn-warning btn-sm"
-                            onclick="openChangePvModal('${d3.AUFNR}', '${d3.VERID}', '${d3.WERKSX}')">
-                            <i class="fa-solid fa-code-compare"></i>
-                        </button>` : ''}
-                        ${d3.AUFNR ? `
-                        <button type="button" title="Read PP" class="btn btn-info btn-sm"
-                            onclick="openReadPP('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
-                            <i class="fas fa-book-open"></i>
-                        </button>` : ''}
-                        ${d3.AUFNR ? `
-                        <button type="button" title="TECO" class="btn btn-danger btn-sm"
-                            onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')">
-                            <i class="fas fa-trash"></i>
-                        </button>` : ''}
+                        ${d3.AUFNR ? `<button type="button" title="Reschedule" class="btn btn-warning btn-sm" onclick="openSchedule('${encodeURIComponent(padAufnr(d3.AUFNR))}', '${formatDate(d3.SSAVD)}')"><i class="fas fa-clock-rotate-left"></i></button>` : ''}
+                        ${d3.AUFNR ? `<button type="button" title="Refresh PRO" class="btn btn-info btn-sm" onclick="openRefresh('${d3.AUFNR}', '${d3.WERKSX}')"><i class="fa-solid fa-arrows-rotate"></i></button>` : ''}
+                        ${d3.AUFNR ? `<button type="button" title="Change PV" class="btn btn-warning btn-sm" onclick="openChangePvModal('${d3.AUFNR}', '${d3.VERID}', '${d3.WERKSX}')"><i class="fa-solid fa-code-compare"></i></button>` : ''}
+                        ${d3.AUFNR ? `<button type="button" title="Read PP" class="btn btn-info btn-sm" onclick="openReadPP('${encodeURIComponent(padAufnr(d3.AUFNR))}')"><i class="fas fa-book-open"></i></button>` : ''}
+                        ${d3.AUFNR ? `<button type="button" title="TECO" class="btn btn-danger btn-sm" onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                 </td>
-                <td class="text-center">${d3.DISPO || '-'}</td>
-                <td class="text-center">${d3.MATNR ? ltrim(d3.MATNR, '0') : '-'}</td>
-                <td class="text-center">${sanitize(d3.MAKTX) || '-'}</td>
-                <td class="text-center">${d3.PSMNG || '-'}</td>
-                <td class="text-center">${d3.WEMNG}</td>
-                
-                <td class="text-center">${remainingQty}</td>
-                
-                <td class="text-center">${formatDate(d3.GSTRP)}</td>
-                <td class="text-center">${formatDate(d3.GLTRP)}</td>
-            `;
+                <td class="text-center d-none d-md-table-cell">${d3.DISPO || '-'}</td>
+                <td class="text-center d-none d-md-table-cell">${d3.MATNR ? ltrim(d3.MATNR, '0') : '-'}</td>
+                <td class="text-center d-none d-md-table-cell">${sanitize(d3.MAKTX) || '-'}</td>
+                <td class="text-center d-none d-md-table-cell">${d3.PSMNG || '-'}</td>
+                <td class="text-center d-none d-md-table-cell">${d3.WEMNG}</td>
+                <td class="text-center d-none d-md-table-cell">${remainingQty}</td>
+                <td class="text-center d-none d-md-table-cell">${formatDate(d3.GSTRP)}</td>
+                <td class="text-center d-none d-md-table-cell">${formatDate(d3.GLTRP)}</td>
 
-            row.dataset.rowData = JSON.stringify(d3);
+                {{-- Tampilan Mobile --}}
+                <td class="d-md-none" colspan="2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-bold text-dark">${d3.AUFNR || '-'} <span class="badge ${statusBadgeClass} ms-1">${d3.STATS || '-'}</span></div>
+                            <div class="text-muted" style="font-size: 0.9em;">${sanitize(d3.MAKTX) || '-'}</div>
+                            <div class="text-muted" style="font-size: 0.9em;">Qty: ${psmng} | Outs: ${remainingQty}</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted mt-1"></i>
+                    </div>
+                </td>
+            `;
             return row;
+        }
+
+        function handleT3RowClick(element) {
+            if (window.innerWidth < 768) {
+                showT3DetailModal(element);
+            }
+        }
+
+        // [PERBAIKAN] Fungsi showT3DetailModal kini menggunakan modal dan tombolnya sendiri
+        function showT3DetailModal(element) {
+            const data = JSON.parse(element.dataset.rowData);
+            // Gunakan instance modal T3 yang baru
+            if (!data || !t3ModalInstance) return;
+
+            // Dapatkan elemen dari modal T3 yang baru
+            const modalLabel = document.getElementById('tdata3DetailModalLabel');
+            const modalBody = document.getElementById('tdata3DetailModalBody');
+            const modalFooter = document.getElementById('tdata3DetailModalFooter');
+            
+            if (!modalLabel || !modalBody || !modalFooter) {
+                console.error("Elemen untuk modal TData3 tidak ditemukan di DOM.");
+                return;
+            }
+            
+            modalLabel.textContent = `PRO Detail: ${data.AUFNR || data.PLNUM}`;
+
+            const psmng = parseFloat(data.PSMNG) || 0;
+            const wemng = parseFloat(data.WEMNG) || 0;
+            const remainingQty = psmng - wemng;
+            
+            // Isi body modal dengan detail seperti sebelumnya, namun juga menyertakan tombol aksi inline
+            const actionButtonsHtml = data.AUFNR ? `
+                <div class="d-flex flex-wrap justify-content-center gap-2 mt-3 pt-3 border-top">
+                    <button type="button" title="Reschedule" class="btn btn-warning btn-sm" onclick="openSchedule('${encodeURIComponent(padAufnr(data.AUFNR))}', '${formatDate(data.SSAVD)}')"><i class="fas fa-clock-rotate-left me-1"></i> Reschedule</button>
+                    <button type="button" title="Refresh PRO" class="btn btn-info btn-sm" onclick="openRefresh('${data.AUFNR}', '${data.WERKSX}')"><i class="fa-solid fa-arrows-rotate me-1"></i> Refresh</button>
+                    <button type="button" title="Change PV" class="btn btn-warning btn-sm" onclick="openChangePvModal('${data.AUFNR}', '${data.VERID}', '${data.WERKSX}')"><i class="fa-solid fa-code-compare me-1"></i> Change PV</button>
+                    <button type="button" title="Read PP" class="btn btn-info btn-sm" onclick="openReadPP('${encodeURIComponent(padAufnr(data.AUFNR))}')"><i class="fas fa-book-open me-1"></i> Read PP</button>
+                    <button type="button" title="TECO" class="btn btn-danger btn-sm" onclick="openTeco('${encodeURIComponent(padAufnr(data.AUFNR))}')"><i class="fas fa-trash me-1"></i> TECO</button>
+                </div>
+            ` : '';
+
+            modalBody.innerHTML = `
+                <div class="list-group list-group-flush small">
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">MRP</span><strong class="text-dark text-end">${data.DISPO || '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Material</span><strong class="text-dark text-end">${data.MATNR ? ltrim(data.MATNR, '0') : '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Qty Order</span><strong class="text-dark text-end">${psmng}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Qty GR</span><strong class="text-dark text-end">${wemng}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Outs GR</span><strong class="text-dark text-end">${remainingQty}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Start Date</span><strong class="text-dark text-end">${formatDate(data.GSTRP)}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Finish Date</span><strong class="text-dark text-end">${formatDate(data.GLTRP)}</strong></div>
+                </div>
+                ${actionButtonsHtml}
+            `;
+            
+            // [PERBAIKAN] Buat tombol Comp dan Route di footer
+            let footerHtml = '';
+            if (data.AUFNR) {
+                footerHtml = `
+                    <div class="w-100 d-flex flex-column flex-sm-row gap-2">
+                        <button type="button" class="btn btn-primary btn-sm flex-grow-1" onclick="showTData4ByAufnr('${data.AUFNR}'); t3ModalInstance.hide();">
+                            <i class="fas fa-cogs me-1"></i> View Comp
+                        </button>
+                        <button type="button" class="btn btn-info btn-sm flex-grow-1 text-white" onclick="showTData1ByAufnr('${data.AUFNR}'); t3ModalInstance.hide();">
+                            <i class="fas fa-route me-1"></i> View Route
+                        </button>
+                    </div>`;
+            } else {
+                footerHtml = `<button type="button" class="btn btn-secondary btn-sm w-100" data-bs-dismiss="modal">Close</button>`;
+            }
+            modalFooter.innerHTML = footerHtml;
+
+            // Tampilkan modal T3 yang baru
+            t3ModalInstance.show();
         }
         // =================================================================
         // 3. SEMUA FUNGSI AKSI (MODALS, BULK, API)

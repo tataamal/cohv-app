@@ -153,25 +153,21 @@ def process_plant_data(plant_code, config):
 
     logging.info("[Langkah 2/5] Mengelompokkan data anak berdasarkan kunci relasi...")
     
-    # Kunci T2: KUNNR-NAME1 (Sesuai Controller)
     t2_grouped = defaultdict(list)
     for row in t2:
         key = f"{safe_get_value(row, 'KUNNR')}-{safe_get_value(row, 'NAME1')}"
         t2_grouped[key].append(row)
     
-    # Kunci T3: KDAUF-KDPOS (Sesuai Controller)
     t3_grouped = defaultdict(list)
     for row in t3:
         key = f"{safe_get_value(row, 'KDAUF')}-{safe_get_value(row, 'KDPOS')}"
         t3_grouped[key].append(row)
 
-    # Kunci T1: AUFNR (Sesuai Controller BARU)
     t1_grouped = defaultdict(list)
     for row in t1:
         key = safe_get_value(row, 'AUFNR')
         if key: t1_grouped[key].append(row)
 
-    # Kunci T4: AUFNR (Sesuai Controller BARU)
     t4_grouped = defaultdict(list)
     for row in t4:
         key = safe_get_value(row, 'AUFNR')
@@ -186,9 +182,8 @@ def process_plant_data(plant_code, config):
     try:
         logging.info("[Langkah 3/5] Memulai transaksi dan menghapus data lama...")
         db_conn.begin()
-        # Menghapus data dengan mencocokkan plant_code secara tepat
         cursor.execute("DELETE FROM production_t_data4 WHERE WERKSX = %s", (plant_code,))
-        cursor.execute("DELETE FROM production_t_data1 WHERE WERKSX = %s", (plant_code,)) # DIUBAH DARI LIKE
+        cursor.execute("DELETE FROM production_t_data1 WHERE WERKSX = %s", (plant_code,))
         cursor.execute("DELETE FROM production_t_data3 WHERE WERKSX = %s", (plant_code,))
         cursor.execute("DELETE FROM production_t_data2 WHERE WERKSX = %s", (plant_code,))
         cursor.execute("DELETE FROM production_t_data WHERE WERKSX = %s", (plant_code,))
@@ -229,7 +224,6 @@ def process_plant_data(plant_code, config):
                     children_t4 = t4_grouped.get(key_t1_t4, [])
                     
                     for t1_row in children_t1:
-                        # --- [LOGIKA BARU SESUAI CONTROLLER] ---
                         sssl1 = format_display_date(t1_row.get('SSSLDPV1'))
                         sssl2 = format_display_date(t1_row.get('SSSLDPV2'))
                         sssl3 = format_display_date(t1_row.get('SSSLDPV3'))
@@ -251,7 +245,6 @@ def process_plant_data(plant_code, config):
                         if arbpl3: parts_pv3.append(arbpl3.upper())
                         if sssl3: parts_pv3.append(sssl3)
                         pv3 = ' - '.join(parts_pv3) if parts_pv3 else None
-                        # --- [PERUBAHAN SELESAI] ---
                         
                         sql = "INSERT INTO production_t_data1 (MANDT, ARBPL, PWWRK, KTEXT, WERKSX, ARBID, KAPID, KAPAZ, VERID, KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MTART, MAKTX, VORNR, STEUS, AUART, MEINS, MATKL, PSMNG, WEMNG, MGVRG2, LMNGA, P1, MENG2, VGW01, VGE01, CPCTYX, DTIME, DDAY, SSSLD, SSAVD, MATFG, MAKFG, CATEGORY, ORDERX, STATS2, PV1, PV2, PV3) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
                         vals = (safe_get_value(t1_row, 'MANDT'), 
@@ -260,12 +253,8 @@ def process_plant_data(plant_code, config):
                                 safe_get_value(t1_row, 'KTEXT'), 
                                 plant_code, 
                                 safe_get_value(t1_row, 'ARBID'), 
-                                
-                                # --- TAMBAHKAN DUA BARIS INI ---
                                 safe_get_value(t1_row, 'KAPID'), 
                                 safe_get_value(t1_row, 'KAPAZ'), 
-                                # ---------------------------------
-
                                 safe_get_value(t1_row, 'VERID'), 
                                 safe_get_value(t1_row, 'KDAUF'), 
                                 safe_get_value(t1_row, 'KDPOS'), 
@@ -302,11 +291,12 @@ def process_plant_data(plant_code, config):
                                 pv1, 
                                 pv2, 
                                 pv3)
-
                         cursor.execute(sql, vals)
 
                     for t4_row in children_t4:
-                        sql = "INSERT INTO production_t_data4 (MANDT, RSNUM, RSPOS, VORNR,  KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MAKTX, MEINS, BAUGR, WERKSX, BDMNG, KALAB, SOBSL, BESKZ, LTEXT, LGORT, OUTSREQ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" # <-- FIX: Tambahkan satu %s, total menjadi 21
+                        # --- PERBAIKAN DI SINI ---
+                        # Menambahkan satu '%s' agar jumlahnya menjadi 23
+                        sql = "INSERT INTO production_t_data4 (MANDT, RSNUM, RSPOS, VORNR, KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MAKTX, MEINS, BAUGR, WERKSX, BDMNG, KALAB, VMENG, SOBSL, BESKZ, LTEXT, LGORT, OUTSREQ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
                         vals = (
                             safe_get_value(t4_row, 'MANDT'), safe_get_value(t4_row, 'RSNUM'), 
                             safe_get_value(t4_row, 'RSPOS'), safe_get_value(t4_row, 'VORNR'), 
@@ -315,7 +305,7 @@ def process_plant_data(plant_code, config):
                             safe_get_value(t4_row, 'STATS'), safe_get_value(t4_row, 'DISPO'), 
                             safe_get_value(t4_row, 'MATNR'), safe_get_value(t4_row, 'MAKTX'), 
                             safe_get_value(t4_row, 'MEINS'), safe_get_value(t4_row, 'BAUGR'), 
-                            plant_code, t4_row.get('BDMNG'), t4_row.get('KALAB'), 
+                            plant_code, t4_row.get('BDMNG'), t4_row.get('KALAB'), t4_row.get('VMENG'),
                             safe_get_value(t4_row, 'SOBSL'), safe_get_value(t4_row, 'BESKZ'), 
                             safe_get_value(t4_row, 'LTEXT'), safe_get_value(t4_row, 'LGORT'),
                             safe_get_value(t4_row, 'OUTSREQ')

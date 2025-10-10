@@ -4,7 +4,6 @@ import logging
 import schedule
 import time
 import sys
-import pprint
 from datetime import datetime, timedelta
 from pyrfc import Connection, ABAPApplicationError, CommunicationError
 from dotenv import load_dotenv
@@ -94,12 +93,12 @@ def connect_mysql():
         cnx = pymysql.connect(
             host=os.getenv('DB_HOST', '127.0.0.1'),
             user=os.getenv('DB_USERNAME', 'root'),
-            password=os.getenv('DB_PASSWORD', 'root'),
-            database=os.getenv('DB_DATABASE', 'cohv_app'),
+            password=os.getenv('DB_PASSWORD', ''),
+            database=os.getenv('DB_DATABASE', 'cohv'),
             charset='utf8mb4',
             autocommit=False
         )
-        logger.info("Berhasil terhubung ke database MySQL dengan PyMySQL.")
+        logger.info("Berhasil terhubung ke database MySQL.")
         return cnx
     except pymysql.Error as err:
         logger.error(f"Gagal terhubung ke database MySQL: {err}")
@@ -121,16 +120,13 @@ def sync_data_for_date(target_date):
         sap_conn = connect_sap()
         if not sap_conn: return False
 
-        # Looping per Plant, kirim semua MRP sekaligus untuk efisiensi
         all_sap_data = []
-        logger.info("Memulai pengambilan data dari SAP (per Plant)...")
+        logger.info("Memulai proses penarikan data dari SAP...")
 
         for mapped_plant, dispo_list in MRP_MAPPING.items():
             try:
-                # Siapkan tabel parameter T_DISPO dengan semua MRP untuk plant ini
                 dispo_table_param = [{'DISPO': code} for code in dispo_list]
                 
-                logger.info(f"--> Mengambil data untuk Plant: {mapped_plant} dengan {len(dispo_list)} MRP...")
                 result = sap_conn.call(
                     'Z_FM_YPPR009',
                     IV_BUDAT=sync_date_sap,
@@ -138,20 +134,15 @@ def sync_data_for_date(target_date):
                     T_DISPO=dispo_table_param
                 )
                 
-                logger.info(f"    Respons mentah dari SAP untuk Plant {mapped_plant}:\n{pprint.pformat(result)}")
-
                 plant_data = result.get('T_DATA1', [])
                 if plant_data:
                     all_sap_data.extend(plant_data)
-                    logger.info(f"    Ditemukan {len(plant_data)} record.")
-                else:
-                    logger.info(f"    Tidak ada data yang dikembalikan di tabel T_DATA1 untuk kombinasi ini.")
 
             except (CommunicationError, ABAPApplicationError) as e:
-                logger.error(f"    Gagal mengambil data untuk Plant: {mapped_plant}. Error: {e}")
+                logger.error(f"Gagal mengambil data untuk Plant: {mapped_plant}. Error: {e}")
         
         sap_data = all_sap_data
-        logger.info(f"Total {len(sap_data)} record mentah berhasil diambil dari semua iterasi SAP.")
+        logger.info(f"Proses penarikan data SAP selesai, ditemukan total {len(sap_data)} record.")
         
         records_to_insert = []
         if sap_data:
@@ -194,21 +185,20 @@ def sync_data_for_date(target_date):
                     }
                     records_to_insert.append(record)
                 except Exception as e:
-                    logger.warning(f"Melewati baris data #{i+1} karena error tak terduga: {e} - Data: {row}")
+                    logger.warning(f"Melewati baris data #{i+1} karena error parsing: {e} - Data: {row}")
 
         db_conn = connect_mysql()
         if not db_conn: return False
         cursor = db_conn.cursor()
 
         try:
-            logger.info(f"Memulai transaksi. Menghapus data lama di MySQL untuk tanggal {sync_date_mysql}...")
+            logger.info(f"Memulai transaksi database untuk tanggal {sync_date_mysql}...")
             cursor.execute("DELETE FROM gr WHERE BUDAT_MKPF = %s", (sync_date_mysql,))
             deleted_count = cursor.rowcount
-            logger.info(f"{deleted_count} record lama telah dihapus.")
 
             if records_to_insert:
                 inserted_count = len(records_to_insert)
-                logger.info(f"Menjalankan INSERT untuk {inserted_count} record baru...")
+                logger.info(f"Menghapus {deleted_count} record lama dan memasukkan {inserted_count} record baru...")
 
                 cols = '`, `'.join(records_to_insert[0].keys())
                 cols = f"`{cols}`"
@@ -219,10 +209,10 @@ def sync_data_for_date(target_date):
                 cursor.executemany(insert_query, values_to_insert)
                 
                 db_conn.commit()
-                logger.info(f"Transaksi berhasil di-commit. {deleted_count} dihapus, {inserted_count} dimasukkan.")
+                logger.info(f"Transaksi berhasil di-commit.")
             else:
                 db_conn.commit()
-                logger.info("Tidak ada data baru atau valid dari SAP. Transaksi penghapusan di-commit.")
+                logger.info("Tidak ada data baru dari SAP. Transaksi penghapusan di-commit.")
         
         except pymysql.Error as db_err:
             logger.error(f"Database error terjadi: {db_err}. Melakukan rollback...")
@@ -246,7 +236,7 @@ def run_sync_for_today():
     sync_data_for_date(datetime.now())
 
 def run_historical_sync():
-    """PERUBAHAN: Menjalankan sinkronisasi untuk SETIAP HARI dari September 2025 s.d. hari ini."""
+    """Menjalankan sinkronisasi untuk SETIAP HARI dari September 2025 s.d. hari ini."""
     logger.info("===== MEMULAI SINKRONISASI DATA HISTORIS (SETIAP HARI) =====")
     start_date = datetime(2025, 9, 1)
     end_date = datetime.now()
@@ -305,9 +295,6 @@ if __name__ == '__main__':
                     sync_data_for_date(target_date)
                 except ValueError:
                     logger.error(f"Format tanggal salah: '{date_str}'. Gunakan format YYYY-MM-DD.")
-        else:
-            logger.warning(f"Mode tidak dikenal: '{mode}'. Gunakan 'run_now', 'run_historical', atau 'run_for_date'.")
     else:
         logger.info("Mode: Menjalankan Scheduler Service (untuk data harian).")
         start_scheduler()
-

@@ -26,21 +26,27 @@
                         <span id="modalReservasiDesc" class="fw-medium">-</span>
                     </li>
                     
-                    {{-- Mengelompokkan Qty & Stock dengan flexbox --}}
+                    {{-- [UBAH] Mengelompokkan Qty, Commited & Stock dengan flexbox (row) --}}
                     <li class="list-group-item px-4 py-3">
                         <div class="row">
-                            <div class="col-6">
+                            {{-- [UBAH] Mengubah class dari col-6 menjadi col-4 --}}
+                            <div class="col-4">
                                 <small class="text-muted d-block">Req. Qty</small>
                                 <span id="modalReservasiReqQty" class="fw-medium">-</span>
                             </div>
-                            <div class="col-6">
+                            {{-- [UBAH] Menambahkan kolom baru untuk Req. Commited --}}
+                            <div class="col-4">
+                                <small class="text-muted d-block">Req. Commited</small>
+                                <span id="modalReservasiReqCommited" class="fw-medium">-</span>
+                            </div>
+                            {{-- [UBAH] Mengubah class dari col-6 menjadi col-4 --}}
+                            <div class="col-4">
                                 <small class="text-muted d-block">Stock</small>
                                 <span id="modalReservasiStock" class="fw-medium">-</span>
                             </div>
                         </div>
                     </li>
                     
-                    {{-- Kolom 'No.' mungkin tidak terlalu penting, tapi tetap bisa ditampilkan --}}
                     <li class="list-group-item px-4 py-3 bg-light">
                         <small class="text-muted d-block">No. Urut Data</small>
                         <span id="modalReservasiNo" class="fw-medium">-</span>
