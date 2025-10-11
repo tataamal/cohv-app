@@ -180,7 +180,7 @@ class bulkController extends Controller
         if ($successCount === 0 && count($failedPros) > 0) {
             return "Semua PRO yang dipilih gagal disinkronkan. Mohon periksa detailnya.";
         }
-        return "Tidak ada data yang diproses.";
+        return "Tidak ada data yang dusingkronkan.";
     }
 
     public function processBulkTeco(Request $request)
