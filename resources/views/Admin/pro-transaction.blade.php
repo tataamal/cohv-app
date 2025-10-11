@@ -3,61 +3,49 @@
         
         <div class="row mb-4">
             <div class="col-12">
-                {{-- PERUBAHAN DI SINI: Menggunakan d-flex untuk menyejajarkan judul dan tombol --}}
                 <div class="d-flex justify-content-between align-items-center">
                     <h3 class="fw-bold text-primary mb-0">
                         PRO Transaction Detail
                     </h3>
     
-                    {{-- TOMBOL BACK BARU --}}
                     <a href="{{ route('manufaktur.dashboard.show', ['kode' => request()->route('werksCode') ?? request()->route('kode')]) }}" 
-                       class="btn btn-sm btn-outline-secondary">
+                        class="btn btn-sm btn-outline-secondary">
                         <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
                     </a>
                 </div>
-                {{-- End of d-flex --}}
     
                 <p class="text-muted">Production Order: {{ $proData->AUFNR ?? 'N/A' }} (Bagian: {{ $bagian ?? 'N/A' }})</p>
             </div>
         </div>
     
-        {{-- --- BAGIAN I: DATA HEADER DAN BADGE (T1, T2, T3 Shortcut) --- --}}
+        {{-- --- BAGIAN I: DATA HEADER DAN BADGE --- --}}
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-light">
                 <h5 class="mb-0">Production Order Overview</h5>
             </div>
             <div class="card-body">
                 <div class="row g-3">
-                    
-                    {{-- Data Buyer (T1) --}}
                     <div class="col-md-4">
                         <p class="mb-1 text-muted small">Buyer Name</p>
                         <span class="badge bg-success fs-6 p-2 w-100 text-start">
                             <i class="fas fa-user me-2"></i> {{ $buyerData->NAME1 ?? 'N/A' }}
                         </span>
                     </div>
-    
-                    {{-- Sales Order (T2 KDAUF) --}}
                     <div class="col-md-3">
                         <p class="mb-1 text-muted small">SO</p>
                         <span class="badge bg-primary fs-6 p-2 w-100 text-start">
                             <i class="fas fa-receipt me-2"></i> {{ $proData->KDAUF ?? 'N/A' }}
                         </span>
                     </div>
-                    
-                    {{-- Sales Order Item (T2 KDPOS) --}}
                     <div class="col-md-2">
                         <p class="mb-1 text-muted small">SO Item</p>
                         <span class="badge bg-info text-dark fs-6 p-2 w-100 text-start">
                             {{ $proData->KDPOS ?? 'N/A' }}
                         </span>
                     </div>
-    
-                    {{-- Status PRO (T3) --}}
                     <div class="col-md-3">
                         <p class="mb-1 text-muted small">PRO Status</p>
                         @php
-                            // Logika status yang diperbaiki (jika mengandung REL)
                             $stats = strtoupper($proData->STATS ?? '');
                             $statusClass = 'bg-secondary'; 
                             if (str_contains($stats, 'REL') || $stats === 'PCNF') {
@@ -70,12 +58,8 @@
                             {{ $proData->STATS ?? 'N/A' }}
                         </span>
                     </div>
-                    
                 </div>
-                
                 <hr>
-    
-                {{-- Informasi Detail Tambahan PRO --}}
                 <div class="row small text-muted g-1">
                     <div class="col-md-3 text-center">Material: <strong>{{ $proData->MAKTX ?? '-' }}</strong></div>
                     <div class="col-md-3 text-center">Start Date: 
@@ -98,18 +82,14 @@
                     </div>
                     <div class="col-md-3 text-center">GR Quantity: <strong>{{ $proData->WEMNG ?? '0' }}</strong></div>
                 </div>
-                
             </div>
         </div>
-        {{-- -------------------------------------------------------------------------- --}}
     
-        {{-- --- BAGIAN II: ACTION BUTTONS (Transaksi) --- --}}
+        {{-- --- BAGIAN II: ACTION BUTTONS --- --}}
         <div class="card shadow-sm mb-4">
             <div class="card-body">
                 <h6 class="mb-3 text-primary"><i class="fas fa-cogs me-2"></i> Transaction Actions</h6>
                 <div class="d-flex flex-wrap gap-2">
-                    
-                    {{-- Scheduling & Refresh --}}
                     <button type="button" class="btn btn-sm btn-warning" 
                         onclick="openSchedule(
                             '{{ $proData->AUFNR ?? '' }}', 
@@ -118,7 +98,6 @@
                         @if(empty($proData->AUFNR)) disabled @endif>
                         <i class="fas fa-clock-rotate-left me-1"></i> Reschedule
                     </button>
-    
                     <button type="button" class="btn btn-sm btn-info" onclick="openRefresh('{{ $proData->AUFNR ?? '' }}', '{{ $proData->WERKSX ?? '' }}')"
                         @if(empty($proData->AUFNR)) disabled @endif>
                         <i class="fa-solid fa-arrows-rotate me-1"></i> Refresh PRO
@@ -127,8 +106,6 @@
                         @if(empty($proData->AUFNR)) disabled @endif>
                         <i class="fa-solid fa-code-compare me-1"></i> Change PV
                     </button>
-                    
-                    {{-- Documents & Status --}}
                     <button type="button" class="btn btn-sm btn-info" onclick="openReadPP('{{ $proData->AUFNR ?? '' }}')"
                         @if(empty($proData->AUFNR)) disabled @endif>
                         <i class="fas fa-book-open me-1"></i> READ PP
@@ -137,13 +114,11 @@
                         @if(empty($proData->AUFNR)) disabled @endif>
                         <i class="fas fa-circle-check me-1"></i> TECO
                     </button>
-                    
                 </div>
             </div>
         </div>
-        {{-- -------------------------------------------------------------------------- --}}
     
-        {{-- --- BAGIAN III: TABEL DETAIL (T3, T1 Routing, T4 Component) --- --}}
+        {{-- --- BAGIAN III: TABEL DETAIL --- --}}
         <div class="row">
             <div class="col-12">
                 <div class="card shadow-sm">
@@ -161,45 +136,45 @@
                         </ul>
     
                         <div class="tab-content pt-3" id="proTabsContent">
-                            
-                            {{-- TAB 1: ORDER OVERVIEW (T3) --}}
                             <div class="tab-pane fade show active" id="overview" role="tabpanel">
                                 @include('Admin.partials.pro-overview-table', ['proOrders' => $allTData3])
                             </div>
-    
-                            {{-- TAB 2: ROUTING DETAIL (T1) --}}
                             <div class="tab-pane fade" id="routing" role="tabpanel">
                                 @include('Admin.partials.routing-table', ['routingData' => $allTData1])
                             </div>
     
-                            {{-- TAB 3: COMPONENTS (T4) --}}
                             <div class="tab-pane fade" id="components" role="tabpanel">
-                                {{-- Container untuk tombol BULK ACTION --}}
-                                <div id="component-bulk-actions" class="d-flex justify-content-end mb-3 gap-2">
-                                    
-                                    {{-- Tombol ADD Component (Selalu terlihat) --}}
-                                    <button type="button" class="btn btn-sm btn-success text-white" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#addComponentModal"
-                                        data-aufnr="{{ $proData->AUFNR ?? '' }}"
-                                        data-vornr="{{ $proData->VORNR ?? '' }}"
-                                        data-arbpl="{{ $proData->ARBPL ?? '' }}"
-                                        data-pwwrk="{{ $proData->PWWRK ?? '' }}">
-                                        <i class="fas fa-plus me-1"></i> Add Component
-                                    </button>
-                            
-                                    {{-- Tombol BULK ACTION (Disembunyikan secara default) --}}
-                                    <div id="bulk-action-controls" class="d-none gap-2">
-                                        {{-- <button type="button" class="btn btn-sm btn-warning">
-                                            <i class="fas fa-edit me-1"></i> Edit Selected (0)
-                                        </button> --}}
+                                {{-- PERBAIKAN 2: Toolbar diperbaiki agar tidak menggeser tombol lain --}}
+                                <div id="component-actions-toolbar" class="d-flex justify-content-between align-items-center mb-3 gap-3">
+                                    <div id="bulk-actions-container" class="d-none align-items-center gap-2 p-2 border rounded bg-light shadow-sm">
+                                        <span id="selection-count" class="fw-bold text-primary small me-2"></span>
                                         <button type="button" class="btn btn-sm btn-danger"
-                                                onclick="bulkDeleteComponents('{{ $proData->AUFNR ?? '' }}', '{{ $proData->WERKSX ?? '' }}')">
-                                            <i class="fas fa-trash me-1"></i> Hapus Komponen Terpilih
+                                                onclick="bulkDeleteComponents('{{ $proData->AUFNR ?? '' }}', '{{ request()->route('werksCode') ?? request()->route('kode') }}')">
+                                            <i class="fas fa-trash me-1"></i> Hapus
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection('{{ $proData->AUFNR ?? '' }}')">
+                                            <i class="fas fa-times me-1"></i> Batal
+                                        </button>
+                                    </div>
+
+                                    <div id="add-component-container" class="d-flex gap-2 ms-auto">
+                                        {{-- PERBAIKAN 2: Tombol Select All untuk Mobile dengan fungsi toggle --}}
+                                        <button type="button" class="btn btn-sm btn-outline-primary d-block d-md-none" 
+                                                onclick="toggleSelectAllComponents('{{ $proData->AUFNR ?? '' }}')">
+                                            <i class="fas fa-check-double"></i> Select / Unselect All
+                                        </button>
+
+                                        <button type="button" class="btn btn-sm btn-success text-white" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#addComponentModal"
+                                                data-aufnr="{{ $proData->AUFNR ?? '' }}"
+                                                data-vornr="{{ $proData->VORNR ?? '' }}"
+                                                data-arbpl="{{ $proData->ARBPL ?? '' }}"
+                                                data-pwwrk="{{ $proData->PWWRK ?? '' }}">
+                                            <i class="fas fa-plus me-1"></i> Add Component
                                         </button>
                                     </div>
                                 </div>
-                                
                                 @include('Admin.partials.components-table', ['componentData' => $allTData4ByAufnr])
                             </div>
                         </div>
@@ -729,7 +704,7 @@
                 const isOnlyNumbers = /^\d+$/.test(currentValue);
 
                 // 4. Jika semua karakter adalah angka dan input tidak kosong
-                if (isOnlyNumbers && currentValue.length > 0) {
+                if (isOnlyNumbers && currentValue.length > 0) { 
                     
                     // Tambahkan angka '0' di depan hingga total panjangnya 18 karakter
                     this.value = currentValue.padStart(18, '0');
@@ -858,6 +833,109 @@
                             html: errorText,
                             icon: 'error'
                         });
+                    }
+                } catch (error) {
+                    console.error('Fetch Error:', error);
+                    Swal.fire('Error Jaringan', 'Tidak dapat terhubung ke server. Silakan coba lagi.', 'error');
+                }
+            }
+        }
+        function handleComponentSelect(aufnr) {
+            if (!aufnr) return;
+            const allCheckboxes = document.querySelectorAll(`.component-select-${aufnr}`);
+            const selectedCheckboxes = document.querySelectorAll(`.component-select-${aufnr}:checked`);
+            const selectAllTableCheckbox = document.getElementById(`select-all-components-${aufnr}`);
+            const bulkContainer = document.getElementById('bulk-actions-container');
+            const selectionCountSpan = document.getElementById('selection-count');
+
+            if (selectedCheckboxes.length > 0) {
+                selectionCountSpan.textContent = `${selectedCheckboxes.length} item dipilih`;
+                bulkContainer.classList.remove('d-none');
+                bulkContainer.classList.add('d-flex');
+            } else {
+                bulkContainer.classList.add('d-none');
+                bulkContainer.classList.remove('d-flex');
+            }
+
+            if (selectAllTableCheckbox) {
+                if (selectedCheckboxes.length === allCheckboxes.length && allCheckboxes.length > 0) {
+                    selectAllTableCheckbox.checked = true;
+                    selectAllTableCheckbox.indeterminate = false;
+                } else if (selectedCheckboxes.length > 0) {
+                    selectAllTableCheckbox.checked = false;
+                    selectAllTableCheckbox.indeterminate = true;
+                } else {
+                    selectAllTableCheckbox.checked = false;
+                    selectAllTableCheckbox.indeterminate = false;
+                }
+            }
+        }
+        
+        /* PERBAIKAN 2: Fungsi toggle yang lebih cerdas untuk desktop dan mobile */
+        function toggleSelectAllComponents(aufnr) {
+            if (!aufnr) return;
+            const allCheckboxes = document.querySelectorAll(`.component-select-${aufnr}`);
+            const selectedCheckboxes = document.querySelectorAll(`.component-select-${aufnr}:checked`);
+            const selectAllHeaderCheckbox = document.getElementById(`select-all-components-${aufnr}`);
+
+            // Tentukan state berikutnya: jika belum semua terpilih, maka targetnya adalah memilih semua.
+            // Jika sudah semua terpilih, maka targetnya adalah membatalkan semua pilihan.
+            const newCheckedState = allCheckboxes.length !== selectedCheckboxes.length;
+
+            allCheckboxes.forEach(checkbox => {
+                checkbox.checked = newCheckedState;
+            });
+
+            // Update juga state checkbox di header tabel jika ada
+            if (selectAllHeaderCheckbox) {
+                selectAllHeaderCheckbox.checked = newCheckedState;
+            }
+
+            // Panggil handler utama untuk memperbarui UI toolbar
+            handleComponentSelect(aufnr);
+        }
+
+        function clearSelection(aufnr) {
+            if (!aufnr) return;
+            const allCheckboxes = document.querySelectorAll(`.component-select-${aufnr}`);
+            allCheckboxes.forEach(checkbox => { checkbox.checked = false; });
+            handleComponentSelect(aufnr);
+        }
+
+        async function bulkDeleteComponents(aufnr, plant) {
+            const selectedCheckboxes = document.querySelectorAll(`.component-select-${aufnr}:checked`);
+            if (selectedCheckboxes.length === 0) {
+                Swal.fire('Tidak Ada yang Dipilih', 'Silakan pilih komponen yang ingin dihapus terlebih dahulu.', 'info');
+                return;
+            }
+            const payload = { aufnr: aufnr, plant: plant, components: Array.from(selectedCheckboxes).map(cb => ({ rspos: cb.dataset.rspos })) };
+            const rsposListHtml = `<div style="max-height: 150px; overflow-y: auto; background: #f9f9f9; border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-top: 10px;"><ul style="text-align: left; margin: 0; padding: 0; list-style-position: inside;">` + payload.components.map(comp => `<li>RSPOS: <strong>${comp.rspos}</strong></li>`).join('') + `</ul></div>`;
+            const result = await Swal.fire({
+                title: 'Konfirmasi Hapus',
+                icon: 'warning',
+                html: `Anda yakin ingin menghapus <strong>${payload.components.length} komponen</strong> berikut?` + rsposListHtml,
+                showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal'
+            });
+
+            if (result.isConfirmed) {
+                Swal.fire({ title: 'Menghapus...', text: 'Harap tunggu, sedang memproses permintaan.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                try {
+                    const response = await fetch("{{ route('component.delete.bulk') }}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                        body: JSON.stringify(payload)
+                    });
+                    const responseData = await response.json();
+                    if (response.ok && responseData.success) {
+                        await Swal.fire({ title: 'Berhasil!', text: responseData.message, icon: 'success' });
+                        location.reload();
+                    } else {
+                        let errorText = responseData.message || 'Terjadi kesalahan.';
+                        if (responseData.errors && responseData.errors.length > 0) {
+                            errorText += '<br><br><strong>Detail:</strong><br>' + responseData.errors.join('<br>');
+                        }
+                        Swal.fire({ title: 'Gagal!', html: errorText, icon: 'error' });
                     }
                 } catch (error) {
                     console.error('Fetch Error:', error);
