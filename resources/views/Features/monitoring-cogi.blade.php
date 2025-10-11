@@ -52,7 +52,7 @@
                 <div class="col-12 col-md-6 col-lg-4 mb-4">
                     <a href="{{ route('cogi.report', ['kode' => $kode, 'filter' => 'baru']) }}" class="stat-card-link">
                         <div class="stat-card-modern @if($filter === 'baru') active-filter @endif d-flex flex-column flex-sm-row align-items-sm-center text-center text-sm-start">
-                            <div class="info flex-grow-1"><p>COGI Baru (Hari Ini)</p><h3>{{ number_format($errorBaru) }}</h3></div>
+                            <div class="info flex-grow-1"><p>COGI Baru (Kurang dari 7 Hari)</p><h3>{{ number_format($errorBaru) }}</h3></div>
                             <div class="icon text-primary mt-3 mt-sm-0"><i class="fas fa-bolt"></i></div>
                         </div>
                     </a>
@@ -60,7 +60,7 @@
                 <div class="col-12 col-md-6 col-lg-4 mb-4">
                     <a href="{{ route('cogi.report', ['kode' => $kode, 'filter' => 'lama']) }}" class="stat-card-link">
                         <div class="stat-card-modern @if($filter === 'lama') active-filter @endif d-flex flex-column flex-sm-row align-items-sm-center text-center text-sm-start">
-                            <div class="info flex-grow-1"><p>COGI Lama (> 7 Hari)</p><h3>{{ number_format($errorLama) }}</h3></div>
+                            <div class="info flex-grow-1"><p>COGI Lama (Lebih dari 7 Hari)</p><h3>{{ number_format($errorLama) }}</h3></div>
                             <div class="icon text-warning mt-3 mt-sm-0"><i class="fas fa-history"></i></div>
                         </div>
                     </a>
