@@ -211,6 +211,33 @@
           </div>
         </div>
     </div>
+
+    <div class="modal fade" id="tdata4DetailModal" tabindex="-1" aria-labelledby="tdata4DetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-sm">
+                <div class="modal-header border-bottom p-3">
+                    <h6 class="modal-title fw-semibold" id="tdata4DetailModalLabel">Component Detail</h6>
+                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3" id="tdata4DetailModalBody"></div>
+                <div class="modal-footer bg-light border-top p-2" id="tdata4DetailModalFooter"></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="tdata1DetailModal" tabindex="-1" aria-labelledby="tdata1DetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-sm">
+                <div class="modal-header border-bottom p-3">
+                    <h6 class="modal-title fw-semibold" id="tdata1DetailModalLabel">Routing Detail</h6>
+                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3" id="tdata1DetailModalBody"></div>
+                <div class="modal-footer bg-light border-top p-2">
+                    <button type="button" class="btn btn-secondary btn-sm w-100" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     @include('components.modals.schedule-modal')
     @include('components.modals.resultModal')
@@ -241,6 +268,8 @@
         let bulkActionVerid = null;
         let t3ModalInstance;
         let detailModalInstance;
+        let t4ModalInstance;
+        let t1ModalInstance;
         document.addEventListener('DOMContentLoaded', function() {
             const modalEl = document.getElementById('detailModal');
             if (modalEl) {
@@ -251,6 +280,10 @@
             if (t3ModalEl) {
                 t3ModalInstance = new bootstrap.Modal(t3ModalEl);
             }
+            const t4ModalEl = document.getElementById('tdata4DetailModal');
+            if (t4ModalEl) t4ModalInstance = new bootstrap.Modal(t4ModalEl);
+            const t1ModalEl = document.getElementById('tdata1DetailModal');
+            if (t1ModalEl) t1ModalInstance = new bootstrap.Modal(t1ModalEl);
         });
         const addComponentModal = document.getElementById('addComponentModal');
         document.addEventListener('DOMContentLoaded', () => {
@@ -703,267 +736,372 @@
             const container = document.getElementById('additional-data-container');
             const divId = `tdata1-${aufnr}`;
             const existing = document.getElementById(divId);
-
-            // BLOK LOGIKA UNTUK MENUTUP (COLLAPSE)
             if (existing) {
                 existing.remove();
                 document.querySelectorAll('#tdata3-body tr').forEach(row => row.classList.remove('d-none'));
                 togglePaginationDisabled(false);
                 sessionStorage.removeItem('activeT3Aufnr');
                 sessionStorage.removeItem('activeT3Type');
-                console.log(`State T3 untuk AUFNR ${aufnr} dihapus.`);
                 return;
             }
-
-            // BLOK LOGIKA UNTUK MEMBUKA (EXPAND)
             const data = (tdata1ByAufnr && tdata1ByAufnr[aufnr]) ? tdata1ByAufnr[aufnr] : [];
             if (!Array.isArray(data) || data.length === 0) {
-                toast('info', 'Routing kosong', 'Tidak ada data routing ditemukan.');
+                toast('info', 'Routing Empty', 'No routing data found.');
                 return;
             }
-            
             sessionStorage.setItem('activeT3Aufnr', aufnr);
             sessionStorage.setItem('activeT3Type', 'route');
-            console.log(`State T3 disimpan: AUFNR=${aufnr}, Tipe=route`);
-
             togglePaginationDisabled(true);
             document.querySelectorAll('#tdata3-body tr').forEach(row => {
-                if (!row.textContent.includes(aufnr)) row.classList.add('d-none');
-                else row.classList.remove('d-none');
-            });
-
-            const rowsHtml = data.map((t1, i) => {
-                // Siapkan variabel untuk hasil kalkulasi
-                let hasilPerHari = '-'; 
-                const kapazStr = t1.KAPAZ ? String(t1.KAPAZ) : '0';
-                const vgw01Str = t1.VGW01 ? String(t1.VGW01) : '0';
-
-                console.log(`[DEBUG] MENTAH | KAPAZ: ${kapazStr}, VGW01: ${vgw01Str}, VGE01: ${t1.VGE01}`);
-
-                // 1. Pembersihan dan Konversi KAPAZ
-                // Perbaikan: Ganti koma (,) menjadi titik (.) agar menjadi desimal yang dikenali JS.
-                const cleanedKapazStr = kapazStr.replace(/,/g, '.');
-                const kapazNum = parseFloat(cleanedKapazStr) || 0; // Seharusnya 6.75
-
-                // 2. Pembersihan dan Konversi VGW01
-                // Perbaikan: Hapus titik (pemisah ribuan) DAN ganti koma (pemisah desimal) menjadi titik.
-                // VGW01 (1.200,000) harus menjadi 1200.000
-                const cleanedVgw01Str = vgw01Str.replace(/\./g, '').replace(/,/g, '.'); 
-                const vgw01Num = parseFloat(cleanedVgw01Str) || 0; // Seharusnya 1200
-
-                console.log(`[DEBUG] BERSIH | kapazNum: ${kapazNum} (Tipe: ${typeof kapazNum})`);
-                console.log(`[DEBUG] BERSIH | vgw01Num: ${vgw01Num} (Tipe: ${typeof vgw01Num})`);
-
-
-                // 3. Kalkulasi dan Pembulatan
-                if (kapazNum > 0 && vgw01Num > 0) {
-                    let result;
-                    
-                    if (t1.VGE01 === 'S') {
-                        // (KAPAZ * 3600) / VGW01
-                        result = (kapazNum * 3600) / vgw01Num;
-                        console.log(`[DEBUG] RUMUS | (KAPAZ * 3600) / VGW01 = (${kapazNum} * 3600) / ${vgw01Num}`);
-                    } else {
-                        // (KAPAZ * 60) / VGW01
-                        result = (kapazNum * 60) / vgw01Num;
-                        console.log(`[DEBUG] RUMUS | (KAPAZ * 60) / VGW01 = (${kapazNum} * 60) / ${vgw01Num}`);
-                    }
-                    
-                    console.log(`[DEBUG] HASIL MENTAH | ${result}`);
-
-                    // Pembulatan ke bawah menjadi integer (20.25 menjadi 20)
-                    hasilPerHari = Math.floor(result);
-                    console.log(`[DEBUG] HASIL FINAL | ${hasilPerHari}`);
-                    
+                if (!row.dataset.rowData || !JSON.parse(row.dataset.rowData).AUFNR.includes(aufnr)) {
+                    row.classList.add('d-none');
                 } else {
-                    console.log('[DEBUG] PENCEGAHAN | Input tidak valid atau nol.');
-                    hasilPerHari = '-';
+                    row.classList.remove('d-none');
                 }
-                
-                // Kembalikan HTML untuk baris, termasuk kolom baru
+            });
+            const rowsHtml = data.map((t1, i) => {
+                let hasilPerHari = '-'; 
+                const kapazStr = String(t1.KAPAZ || '0').replace(/,/g, '.');
+                const vgw01Str = String(t1.VGW01 || '0').replace(/\./g, '').replace(/,/g, '.');
+                const kapazNum = parseFloat(kapazStr) || 0;
+                const vgw01Num = parseFloat(vgw01Str) || 0;
+                if (kapazNum > 0 && vgw01Num > 0) {
+                    let result = (t1.VGE01 === 'S') ? (kapazNum * 3600) / vgw01Num : (kapazNum * 60) / vgw01Num;
+                    hasilPerHari = Math.floor(result);
+                }
+                const rowData = encodeURIComponent(JSON.stringify(t1));
                 return `
-                    <tr class="bg-white">
-                        <td class="text-center fs-6">${i + 1}</td>
-                        <td class="text-center">${t1.VORNR || '-'}</td>
-                        <td class="text-center">${t1.STEUS || '-'}</td>
-                        <td class="text-center">${t1.KTEXT || '-'}</td>
-                        <td class="text-center">${t1.ARBPL || '-'}</td>
-                        <td class="text-center">${t1.KAPAZ || '-'}</td>
-                        <td class="text-center">${hasilPerHari}</td>
-                        <td class="text-center">${t1.PV1 || '-'}</td>
-                        <td class="text-center">${t1.PV2 || '-'}</td>
-                        <td class="text-center">${t1.PV3 || '-'}</td>
-                    </tr>
-                `;
+                    <tr class="t1-row cursor-pointer" data-row-data="${rowData}" onclick="handleT1RowClick(this)">
+                        <td class="text-center d-none d-md-table-cell">${i + 1}</td>
+                        <td class="text-center d-none d-md-table-cell">${t1.VORNR || '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${t1.STEUS || '-'}</td>
+                        <td class="d-none d-md-table-cell">${t1.KTEXT || '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${t1.ARBPL || '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${t1.KAPAZ || '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${hasilPerHari}</td>
+                        <td class="text-center d-none d-md-table-cell">${t1.PV1 || '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${t1.PV2 || '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${t1.PV3 || '-'}</td>
+                        
+                        <td class="d-md-none" colspan="10" style="padding: 4px; background-color: #f8f9fa;">
+                            <div class="bg-white border rounded-3 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                                    <div>
+                                        <div class="fw-bold text-dark">${t1.KTEXT || 'No Description'}</div>
+                                        <div class="text-muted small">Activity: ${t1.VORNR || '-'} | Work Ctr: ${t1.ARBPL || '-'}</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-primary"></i>
+                                </div>
+                                <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
+                                    <div>
+                                        <div class="small text-muted">Time (H)</div>
+                                        <div class="fw-semibold">${t1.KAPAZ || '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Item/Day</div>
+                                        <div class="fw-semibold">${hasilPerHari}</div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Ctrl Key</div>
+                                        <div class="fw-semibold">${t1.STEUS || '-'}</div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 pt-2 border-top">
+                                    <div class="small text-muted mb-1">Production Version:</div>
+                                    <div class="d-grid gap-1" style="grid-template-columns: 1fr 1fr 1fr;">
+                                        <div class="bg-light p-2 rounded-2 text-center"><div class="text-muted small">PV 1</div><div class="fw-medium">${t1.PV1 || '-'}</div></div>
+                                        <div class="bg-light p-2 rounded-2 text-center"><div class="text-muted small">PV 2</div><div class="fw-medium">${t1.PV2 || '-'}</div></div>
+                                        <div class="bg-light p-2 rounded-2 text-center"><div class="text-muted small">PV 3</div><div class="fw-medium">${t1.PV3 || '-'}</div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>`;
             }).join('');
-
+            const scrollClass = data.length > 2 ? 'table-responsive-custom-scroll' : '';
             const block = document.createElement('div');
             block.id = divId;
-            block.className = 'mt-4';
+            block.className = 'mt-4 card shadow-sm border-0';
             block.innerHTML = `
-                <h4 class="mb-2">Routing Overview</h4>
-                <div class="table-responsive border rounded-lg">
-                    <table class="table table-striped table-hover table-sm">
-                        <thead class="bg-purple-light text-purple-dark">
-                            <tr class="align-middle">
-                                <th scope="col" class="text-center fs-6">No.</th>
-                                <th scope="col" class="text-center">Activity</th>
-                                <th scope="col" class="text-center">Control Key</th>
-                                <th scope="col" class="text-center">Description</th>
-                                <th scope="col" class="text-center">Work Center</th>
-                                <th scope="col" class="text-center">Time Capacity(Hours)</th>
-                                <th scope="col" class="text-center">Item/Day</th>
-                                <th scope="col" class="text-center">PV 1</th>
-                                <th scope="col" class="text-center">PV 2</th>
-                                <th scope="col" class="text-center">PV 3</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rowsHtml}</tbody>
-                    </table>
+                <div class="card-body p-0">
+                    <div class="p-3 bg-white border-bottom">
+                        <h6 class="fw-semibold mb-0 text-dark">Routing for PRO ${aufnr}</h6>
+                    </div>
+                    <div class="table-responsive ${scrollClass}">
+                        <table class="table table-hover table-sm mb-0 small">
+                            <thead class="table-light sticky-header-custom">
+                                <tr>
+                                    <th class="text-center p-2 d-none d-md-table-cell" style="width: 5%;">No.</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Activity</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Ctrl Key</th>
+                                    <th class="p-2 d-none d-md-table-cell">Description</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Work Ctr</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Time (H)</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Item/Day</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">PV 1</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">PV 2</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">PV 3</th>
+                                    <th class="p-2 d-md-none" colspan="10">Routing Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
                 </div>`;
-            
             container.innerHTML = '';
             container.appendChild(block);
+        }
+
+        function handleT1RowClick(element) {
+            if (window.innerWidth < 768) {
+                try {
+                    const data = JSON.parse(decodeURIComponent(element.dataset.rowData));
+                    showT1DetailModal(data);
+                } catch (e) {
+                    console.error("Gagal memproses data baris untuk modal routing:", e);
+                }
+            }
+        }
+
+        function showT1DetailModal(data) {
+            if (!data || !t1ModalInstance) return;
+
+            const modalLabel = document.getElementById('tdata1DetailModalLabel');
+            const modalBody = document.getElementById('tdata1DetailModalBody');
+
+            if (!modalLabel || !modalBody) {
+                console.error("Elemen untuk modal TData1 tidak ditemukan.");
+                return;
+            }
+
+            modalLabel.textContent = `Routing: ${data.KTEXT || 'Detail'}`;
+
+            let hasilPerHari = '-'; 
+            const kapazStr = String(data.KAPAZ || '0').replace(/,/g, '.');
+            const vgw01Str = String(data.VGW01 || '0').replace(/\./g, '').replace(/,/g, '.');
+            const kapazNum = parseFloat(kapazStr) || 0;
+            const vgw01Num = parseFloat(vgw01Str) || 0;
+            if (kapazNum > 0 && vgw01Num > 0) {
+                let result = (data.VGE01 === 'S') ? (kapazNum * 3600) / vgw01Num : (kapazNum * 60) / vgw01Num;
+                hasilPerHari = Math.floor(result);
+            }
+
+            modalBody.innerHTML = `
+                <div class="list-group list-group-flush small">
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Activity</span><strong>${data.VORNR || '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Control Key</span><strong>${data.STEUS || '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Work Center</span><strong>${data.ARBPL || '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Time Capacity (H)</span><strong>${data.KAPAZ || '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Item/Day</span><strong>${hasilPerHari}</strong></div>
+                </div>
+            `;
+            
+            t1ModalInstance.show();
         }
         
         function showTData4ByAufnr(aufnr) {
             const container = document.getElementById('additional-data-container');
             const blockId = `tdata4-${aufnr}`;
             const existing = document.getElementById(blockId);
-
-            // BLOK LOGIKA UNTUK MENUTUP (COLLAPSE)
             if (existing) {
                 existing.remove();
                 document.querySelectorAll('#tdata3-body tr').forEach(row => row.classList.remove('d-none'));
                 togglePaginationDisabled(false);
-
-                // >> BARU: Hapus state dari session saat detail ditutup
                 sessionStorage.removeItem('activeT3Aufnr');
                 sessionStorage.removeItem('activeT3Type');
-                console.log(`State T3 untuk komponen AUFNR ${aufnr} dihapus.`);
-                
                 return;
             }
-
-            // BLOK LOGIKA UNTUK MEMBUKA (EXPAND)
-            // >> BARU: Simpan state ke session saat detail dibuka
-            // Karena fungsi ini untuk menampilkan komponen, kita set tipenya 'component'
             sessionStorage.setItem('activeT3Aufnr', aufnr);
             sessionStorage.setItem('activeT3Type', 'component');
-            console.log(`State T3 disimpan: AUFNR=${aufnr}, Tipe=component`);
-
             togglePaginationDisabled(true);
             const data = (allTData4ByAufnr && allTData4ByAufnr[aufnr]) ? allTData4ByAufnr[aufnr] : [];
             const plantCode = data.length > 0 && data[0].WERKSX ? data[0].WERKSX : '{{ $kode ?? $plant }}';
             document.querySelectorAll('#tdata3-body tr').forEach(row => {
-                if (!row.textContent.includes(aufnr)) row.classList.add('d-none');
-                else row.classList.remove('d-none');
+                if (!row.dataset.rowData || !JSON.parse(row.dataset.rowData).AUFNR.includes(aufnr)) {
+                    row.classList.add('d-none');
+                } else {
+                    row.classList.remove('d-none');
+                }
             });
-            
-            // 1. Ambil data routing dan objek pertamanya dengan aman
             const routingData = (tdata1ByAufnr && tdata1ByAufnr[aufnr]) ? tdata1ByAufnr[aufnr] : [];
             const firstRouting = routingData.length > 0 ? routingData[0] : {};
-
-            // 2. Siapkan variabel dari objek firstRouting
             const vornr = firstRouting.VORNR || '0010';
-            const arbpl = firstRouting.ARBPL || ''; // Ambil ARBPL dari objek
-            const pwwrk = firstRouting.PWWRK || '{{ $plant }}'; // Ambil WERKS dari objek, fallback ke plant
-
+            const arbpl = firstRouting.ARBPL || '';
+            const pwwrk = firstRouting.PWWRK || '{{ $plant }}';
             const ltrim0 = (s) => String(s ?? '').replace(/^0+/, '');
-
-            const rowsHtml = data.map((c, i) => `
-                <tr class="bg-white">
-                    <td class="px-4 py-3 text-center">
-                        <input type="checkbox" class="component-select-${aufnr} form-check-input" data-aufnr="${aufnr}" data-rspos="${c.RSPOS || i}" data-material="${ltrim0(c.MATNR)}" onchange="handleComponentSelect('${aufnr}')">
-                    </td>
-                    <td class="px-4 py-3 text-center">${i + 1}</td>
-                    <td class="px-4 py-3 text-center">${c.RSNUM ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${c.RSPOS ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${ltrim0(c.MATNR)}</td>
-                    <td class="px-18 py-3 text-center">${sanitize(c.MAKTX)}</td>
-                    <td class="px-4 py-3 text-center">
-                        <button type="button" class="btn btn-warning font-bold btn-sm edit-component-btn"
-                                data-aufnr="${c.AUFNR ?? ''}"
-                                data-rspos="${c.RSPOS ?? ''}"
-                                data-matnr="${c.MATNR ?? ''}"
-                                data-bdmng="${c.BDMNG ?? ''}"
-                                data-lgort="${c.LGORT ?? ''}"
-                                data-sobkz="${c.SOBKZ ?? ''}"
-                                data-plant="${plantCode}"
-                                onclick="handleEditClick(this)"> <i class="fa-solid fa-pen-to-square"></i>
-                        </button>
-                    </td>
-                    <td class="px-4 py-3 text-center">${c.BDMNG ?? c.MENGE ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${c.KALAB ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${c.OUTSREQ ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${c.VMENG ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${c.LGORT ?? '-'}</td>
-                    <td class="px-4 py-3 text-center">${sanitize(c.MEINS === 'ST' ? 'PC' : (c.MEINS || '-'))}</td>
-                    <td class="px-4 py-3 text-center">${c.LTEXT ?? '-'}</td>
-                </tr>
-            `).join('');
-
-            const block = document.createElement('div');
-
-            block.id = blockId;
-            block.className = 'mt-4';
-            block.innerHTML = `
-            <div class="component-table-wrapper">
-            
-                <div class="d-flex justify-content-between align-items-center p-3 bg-light">
-                    <div class="d-flex gap-2" id="bulk-delete-controls-${aufnr}" style="display: none;">
-                        <button type="button" id="bulk-delete-btn-${aufnr}" class="btn btn-danger btn-sm" onclick="bulkDeleteComponents('${aufnr}','${plantCode}')">
-                            <i class="fas fa-trash-alt me-1"></i> Delete Selected (0)
-                        </button>
+            const rowsHtml = data.map((c, i) => {
+                const rowData = encodeURIComponent(JSON.stringify(c));
+                return `
+                    <tr class="t4-row cursor-pointer" data-row-data="${rowData}" onclick="handleT4RowClick(this)">
+                        <td class="text-center" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="component-select-${aufnr} form-check-input" data-aufnr="${aufnr}" data-rspos="${c.RSPOS || i}" data-material="${ltrim0(c.MATNR)}" onchange="handleComponentSelect('${aufnr}')">
+                        </td>
+                        <td class="text-center d-none d-md-table-cell">${i + 1}</td>
+                        <td class="text-center d-none d-md-table-cell">${c.RSNUM ?? '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${c.RSPOS ?? '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${ltrim0(c.MATNR)}</td>
+                        <td class="d-none d-md-table-cell">${sanitize(c.MAKTX)}</td>
+                        <td class="text-center d-none d-md-table-cell" onclick="event.stopPropagation()">
+                            <button type="button" class="btn btn-warning btn-sm edit-component-btn"
+                                    data-aufnr="${c.AUFNR ?? ''}" data-rspos="${c.RSPOS ?? ''}" data-matnr="${c.MATNR ?? ''}"
+                                    data-bdmng="${c.BDMNG ?? ''}" data-lgort="${c.LGORT ?? ''}" data-sobkz="${c.SOBKZ ?? ''}"
+                                    data-plant="${plantCode}"
+                                    onclick="handleEditClick(this)"><i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                        </td>
+                        <td class="text-center d-none d-md-table-cell">${c.BDMNG ?? c.MENGE ?? '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${c.KALAB ?? '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${c.OUTSREQ ?? '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${c.VMENG ?? '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${c.LGORT ?? '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${sanitize(c.MEINS === 'ST' ? 'PC' : (c.MEINS || '-'))}</td>
+                        <td class="text-center d-none d-md-table-cell">${c.LTEXT ?? '-'}</td>
                         
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="clearComponentSelections('${aufnr}')">
-                            <i class="fas fa-times me-1"></i> Clear All
-                        </button>
+                        <td class="d-md-none" colspan="13" style="padding: 4px; background-color: #f8f9fa;">
+                            <div class="bg-white border rounded-3 shadow-sm p-3">
+                                <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+                                    <div>
+                                        <div class="fw-bold text-dark">${c.RSNUM ?? '-'} / ${c.RSPOS ?? '-'}</div>
+                                        <div class="text-muted small">${sanitize(c.MAKTX)}</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-primary"></i>
+                                </div>
+                                <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
+                                    <div>
+                                        <div class="small text-muted">Req. Qty</div>
+                                        <div class="fw-semibold">${c.BDMNG ?? c.MENGE ?? '-'} <span class="text-muted small">${sanitize(c.MEINS === 'ST' ? 'PC' : (c.MEINS || '-'))}</span></div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Stock</div>
+                                        <div class="fw-semibold text-success">${c.KALAB ?? '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Outs. Req</div>
+                                        <div class="fw-semibold text-danger">${c.OUTSREQ ?? '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Committed</div>
+                                        <div class="fw-semibold">${c.VMENG ?? '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">S.Loc</div>
+                                        <div class="fw-semibold">${c.LGORT ?? '-'}</div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 pt-2 border-top">
+                                    <div class="small text-muted">Spec. Procurement</div>
+                                    <div class="fw-semibold small">${c.LTEXT ?? '-'}</div>
+                                </div>
+                                <div class="mt-2 text-end">
+                                    <button type="button" class="btn btn-warning btn-sm edit-component-btn py-1 px-2"
+                                            data-aufnr="${c.AUFNR ?? ''}" data-rspos="${c.RSPOS ?? ''}" data-matnr="${c.MATNR ?? ''}"
+                                            data-bdmng="${c.BDMNG ?? ''}" data-lgort="${c.LGORT ?? ''}" data-sobkz="${c.SOBKZ ?? ''}"
+                                            data-plant="${plantCode}"
+                                            onclick="event.stopPropagation(); handleEditClick(this);">
+                                        <i class="fa-solid fa-pen-to-square me-1"></i> Edit
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>`;
+            }).join('');
+            const scrollClass = data.length > 2 ? 'table-responsive-custom-scroll' : '';
+            const block = document.createElement('div');
+            block.id = blockId;
+            block.className = 'mt-4 card shadow-sm border-0';
+            block.innerHTML = `
+                <div class="card-body p-0">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center p-3 bg-white border-bottom gap-2">
+                        <div class="fw-semibold text-dark">Component List for PRO ${aufnr}</div>
+                        <div class="d-flex gap-2 ms-sm-auto" id="component-actions-${aufnr}">
+                            <div id="bulk-delete-controls-${aufnr}" class="d-none">
+                                <div class="d-flex gap-2">
+                                    <button type="button" id="bulk-delete-btn-${aufnr}" class="btn btn-danger btn-sm" onclick="bulkDeleteComponents('${aufnr}','${plantCode}')"><i class="fas fa-trash-alt me-1"></i> Delete (0)</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearComponentSelections('${aufnr}')">Clear</button>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm btn-add-component" data-bs-toggle="modal" data-bs-target="#addComponentModal" data-aufnr="${aufnr}" data-vornr="${vornr}" data-arbpl="${arbpl}" data-pwwrk="${pwwrk}"><i class="fas fa-plus me-1"></i> Add</button>
+                        </div>
                     </div>
-
-                    <button class="btn btn-primary btn-sm btn-add-component ms-auto" 
-                            data-bs-toggle="modal" 
-                            data-bs-target="#addComponentModal"
-                            data-aufnr="${aufnr}"
-                            data-vornr="${vornr}"
-                            data-arbpl="${arbpl}"
-                            data-pwwrk="${pwwrk}">
-                        <i class="fas fa-plus me-1"></i> Add Component
-                    </button>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table table-hover table-sm mb-0">
-                        <thead>
-                            <tr>
-                                <th class="text-center" style="width: 5%;">
-                                    <input type="checkbox" id="select-all-components-${aufnr}" class="form-check-input" onchange="toggleSelectAllComponents('${aufnr}')">
-                                </th>
-                                <th class="text-center" style="width: 5%;">No.</th>
-                                <th class="text-center">Number Reservasi</th>
-                                <th class="text-center">Item Reservasi</th>
-                                <th class="text-center">Material</th>
-                                <th class="text-center">Description</th>
-                                <th class="text-center" >Action</th>
-                                <th class="text-center">Req. Qty</th>
-                                <th class="text-center">Stock</th>
-                                <th class="text-center">Outs. Req</th>
-                                <th class="text-center">Qty. Commited</th>
-                                <th class="text-center">S.Log</th>
-                                <th class="text-center">UOM</th>
-                                <th class="text-center">Spec. Procurement</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="13" class="text-center p-5 text-muted">Belum ada komponen. Klik 'Add Component' untuk menambahkan.</td></tr>`}
-                        </tbody>
-                    </table>
-                </div>
-            </div>`;
+                    <div class="table-responsive ${scrollClass}">
+                        <table class="table table-hover table-sm mb-0 small">
+                            <thead class="table-light sticky-header-custom">
+                                <tr>
+                                    <th class="text-center p-2" style="width: 5%;"><input type="checkbox" id="select-all-components-${aufnr}" class="form-check-input" onchange="toggleSelectAllComponents('${aufnr}')"></th>
+                                    <th class="text-center p-2 d-none d-md-table-cell" style="width: 5%;">No.</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Reservation No.</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Item</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Material</th>
+                                    <th class="p-2 d-none d-md-table-cell">Description</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Action</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Req. Qty</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Stock</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Outs. Req</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Committed</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">S.Loc</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">UOM</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Spec. Proc.</th>
+                                    <th class="p-2 d-md-none" colspan="13">Component Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml.length > 0 ? rowsHtml : `<tr><td colspan="15" class="text-center p-4 text-muted">No components found. Click 'Add' to add new one.</td></tr>`}</tbody>
+                        </table>
+                    </div>
+                </div>`;
             container.innerHTML = '';
             container.appendChild(block);
         }
 
+        function handleT4RowClick(element) {
+            if (window.innerWidth < 768) {
+                try {
+                    const data = JSON.parse(decodeURIComponent(element.dataset.rowData));
+                    const plantCode = '{{ $kode ?? $plant }}';
+                    showT4DetailModal(data, plantCode);
+                } catch (e) {
+                    console.error("Gagal memproses data baris untuk modal komponen:", e, element.dataset.rowData);
+                }
+            }
+        }
+
+        function showT4DetailModal(data, plantCode) {
+            if (!data || !t4ModalInstance) return;
+
+            const modalLabel = document.getElementById('tdata4DetailModalLabel');
+            const modalBody = document.getElementById('tdata4DetailModalBody');
+            const modalFooter = document.getElementById('tdata4DetailModalFooter');
+
+            if (!modalLabel || !modalBody || !modalFooter) {
+                console.error("Elemen untuk modal TData4 tidak ditemukan.");
+                return;
+            }
+
+            modalLabel.textContent = `Component: ${ltrim(data.MATNR, '0')}`;
+            modalBody.innerHTML = `
+                <div class="list-group list-group-flush small">
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Reservation</span><strong>${data.RSNUM ?? '-'} / ${data.RSPOS ?? '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Req. Qty</span><strong>${data.BDMNG ?? data.MENGE ?? '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Stock</span><strong>${data.KALAB ?? '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Outs. Req</span><strong>${data.OUTSREQ ?? '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Committed</span><strong>${data.VMENG ?? '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Storage Loc.</span><strong>${data.LGORT ?? '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">UOM</span><strong>${sanitize(data.MEINS === 'ST' ? 'PC' : (data.MEINS || '-'))}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Spec. Procurement</span><strong>${data.LTEXT ?? '-'}</strong></div>
+                </div>
+            `;
+            
+            modalFooter.innerHTML = `
+                <button type="button" class="btn btn-warning btn-sm w-100 edit-component-btn"
+                        data-aufnr="${data.AUFNR ?? ''}" data-rspos="${data.RSPOS ?? ''}" data-matnr="${data.MATNR ?? ''}"
+                        data-bdmng="${data.BDMNG ?? ''}" data-lgort="${data.LGORT ?? ''}" data-sobkz="${data.SOBKZ ?? ''}"
+                        data-plant="${plantCode}"
+                        onclick="handleEditClick(this); t4ModalInstance.hide();">
+                    <i class="fa-solid fa-pen-to-square me-1"></i> Edit Component
+                </button>
+            `;
+
+            t4ModalInstance.show();
+        }
         // ---------------------------------------------------------------
         // PENGELOLA MODAL ADD COMPONENT (BUKA & TUTUP)
         // ---------------------------------------------------------------
