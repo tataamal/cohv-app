@@ -384,3 +384,38 @@ body.sidebar-open .sidebar-overlay {
     color: white; /* Karena thead Anda table-primary */
 }
 
+#global-loader {
+    position: fixed;
+    z-index: 99999;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); // Background abu-abu gelap semi-transparan
+    display: flex;
+    flex-direction: column; // Agar spinner dan teks berbaris vertikal
+    justify-content: center;
+    align-items: center;
+    gap: 15px; // Jarak antara spinner dan teks
+    display: none; // Sembunyikan secara default
+}
+
+.spinner {
+    border: 8px solid rgba(255, 255, 255, 0.3); /* Abu-abu muda untuk bagian belakang spinner */
+    border-top: 8px solid #28a745; /* Hijau Bootstrap */
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loader-text {
+    color: #ffffff; // Warna teks putih
+    font-size: 1.2rem;
+    font-weight: bold;
+}

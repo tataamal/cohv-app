@@ -22,7 +22,10 @@
     @stack('styles')
 </head>
 <body class="h-100 bg-light">
-
+    <div id="global-loader">
+        <div class="spinner"></div>
+        <span class="loader-text">Processing your request, please wait a moment...</span>
+    </div>
     {{-- Sidebar dipanggil langsung di dalam body --}}
     <x-navigation.sidebar />
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
@@ -42,6 +45,33 @@
 
     @stack('scripts')
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.js'></script>
+    <script>
+        // Ambil waktu lifetime session dari konfigurasi Laravel (dalam menit) dan ubah ke milidetik
+        const sessionLifetime = {{ config('session.lifetime') }} * 60 * 1000;
+    
+        // Tambahkan sedikit waktu buffer, misalnya 5 detik setelah session berakhir
+        const redirectTime = sessionLifetime + 5000; 
+    
+        setTimeout(function() {
+            // Alihkan ke halaman login
+            window.location.href = '{{ route('login') }}'; 
+        }, redirectTime);
+    </script>
+    <script>
+        // Logika untuk Global Loader
+        document.addEventListener("DOMContentLoaded", function() {
+            const links = document.querySelectorAll('a[href]:not([target="_blank"]):not([href^="#"])');
+            const loader = document.getElementById('global-loader');
+
+            if (loader) {
+                links.forEach(link => {
+                    link.addEventListener('click', function() {
+                        loader.style.display = 'flex';
+                    });
+                });
+            }
+        });
+    </script>
     
 </body>
 </html>
