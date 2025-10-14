@@ -142,7 +142,7 @@
                             <thead class="table-light sticky-header-js">
                                 <tr style="font-size: 0.7rem;">
                                     <th class="text-center" style="width: 3%;">
-                                        <input type="checkbox" class="form-check-input" onchange="handleBulkSelectAll(this)">
+                                        <input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()">
                                     </th>
                                     
                                     <th class="text-center d-none d-md-table-cell" style="width: 3%;">No.</th>
