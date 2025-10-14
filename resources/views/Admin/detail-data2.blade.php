@@ -111,7 +111,7 @@
                             <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus(this, 'all')">All</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'crtd')">CRTD</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'released')">Released</button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'outgoing')">Outgoing</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="filterByStatus(this, 'onprocess')">On Process</button>
                         </div>
                     </div>
                     
@@ -137,26 +137,51 @@
                         <input type="search" id="proSearchInput" class="form-control form-control-sm" placeholder="Search by PRO, MRP, or Start Date...">
                     </div>
                     
-                    <div class="table-responsive border rounded-3">
+                    <div id="tdata3-table-wrapper" class="table-responsive border rounded-3">
                         <table id="tdata3-table" class="table table-hover table-bordered align-middle mb-0 small">
-                            <thead class="table-primary sticky-header-js">
-                                <tr class="text-uppercase align-middle" style="font-size: 0.7rem;">
-                                    <th class="text-center p-2"><input type="checkbox" class="form-check-input" id="select-all" onchange="toggleSelectAll()"></th>
-                                    {{-- Kolom Desktop --}}
-                                    <th class="text-center p-2 d-none d-md-table-cell">No.</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">PRO</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Status</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Action</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">MRP</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Material</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Description</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Qty Order</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Qty GR</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Outs GR</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Start Date</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Finish Date</th>
-                                    {{-- Kolom Mobile --}}
-                                    <th class="p-2 d-md-none" colspan="2">Production Order Details</th>
+                            <thead class="table-light sticky-header-js">
+                                <tr style="font-size: 0.7rem;">
+                                    <th class="text-center" style="width: 3%;">
+                                        <input type="checkbox" class="form-check-input" onchange="handleBulkSelectAll(this)">
+                                    </th>
+                                    
+                                    <th class="text-center d-none d-md-table-cell" style="width: 3%;">No.</th>
+                                    
+                                    <th class="text-center d-none d-md-table-cell sortable-header" style="width: 12%;" onclick="sortT3Table('AUFNR')">
+                                        <span>PRO <i class="${getT3SortIconClass('AUFNR')}"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" style="width: 6%;" onclick="sortT3Table('STATS')">
+                                        <span>Status <i class="${getT3SortIconClass('STATS')}"></i></span>
+                                    </th>
+                            
+                                    <th class="text-center d-none d-md-table-cell" style="width: 15%;">Action</th>
+                                    
+                                    <th class="text-center d-none d-md-table-cell sortable-header" style="width: 5%;" onclick="sortT3Table('DISPO')">
+                                        <span>MRP <i class="${getT3SortIconClass('DISPO')}"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" style="width: 10%;" onclick="sortT3Table('MATNR')">
+                                        <span>Material <i class="${getT3SortIconClass('MATNR')}"></i></span>
+                                    </th>
+                            
+                                    <th class="d-none d-md-table-cell">Description</th>
+                                    
+                                    <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('PSMNG')">
+                                        <span>Qty <i class="${getT3SortIconClass('PSMNG')}"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('WEMNG')">
+                                        <span>GR <i class="${getT3SortIconClass('WEMNG')}"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('remainingQty')">
+                                        <span>Outs <i class="${getT3SortIconClass('remainingQty')}"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('GSTRP')">
+                                        <span>Start <i class="${getT3SortIconClass('GSTRP')}"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('GLTRP')">
+                                        <span>Finish <i class="${getT3SortIconClass('GLTRP')}"></i></span>
+                                    </th>
+                                
+                                    <th class="d-md-none" colspan="2">Order Details</th>
                                 </tr>
                             </thead>
                             <tbody id="tdata3-body">
@@ -170,7 +195,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <div id="tdata3-pagination" class="mt-3 d-flex justify-content-between align-items-center d-none"></div>
+                    {{-- <div id="tdata3-pagination" class="mt-3 d-flex justify-content-between align-items-center d-none"></div> --}}
                 </div>
     
                 <div id="additional-data-container" class="mt-3"></div>
@@ -264,12 +289,8 @@
     <script>
         // --- [BARU] Inisialisasi semua Modal Bootstrap ---
         let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal, bulkChangePvModal, editComponentModal;
-        let bulkActionPlantCode = null;
-        let bulkActionVerid = null;
-        let t3ModalInstance;
-        let detailModalInstance;
-        let t4ModalInstance;
-        let t1ModalInstance;
+        let bulkActionPlantCode = null;let bulkActionVerid = null;let t3ModalInstance;let detailModalInstance;let t4ModalInstance;let t1ModalInstance;let currentSortKey = null;
+        let currentT3SortKey = null;let currentT3SortDirection = 'asc';let currentSearchTerm = '';
         document.addEventListener('DOMContentLoaded', function() {
             const modalEl = document.getElementById('detailModal');
             if (modalEl) {
@@ -318,6 +339,68 @@
             @endif
         });
 
+        function sortTable(sortKey) {
+            if (sortKey === currentSortKey) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                // Jika klik kolom baru, set default ke ascending
+                currentSortKey = sortKey;
+                currentSortDirection = 'asc';
+            }
+            renderTData2Table(currentActiveBuyerKey);
+        }
+        function getSortIconClass(key) {
+            if (key !== currentSortKey) {
+                return 'fas fa-sort text-black-50';
+            }
+            if (currentSortDirection === 'asc') {
+                return 'fas fa-sort-up';
+            }
+            return 'fas fa-sort-down';
+        }
+
+        function getT3SortIconClass(key) {
+            if (key !== currentT3SortKey) {
+                return 'fas fa-sort text-black-50'; // Ikon netral
+            }
+            return currentT3SortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        }
+
+        function sortT3Table(sortKey) {
+            if (sortKey === currentT3SortKey) {
+                // Jika kolom yang sama diklik, balik arah sorting
+                currentT3SortDirection = currentT3SortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                // Jika kolom baru diklik, set sebagai kolom aktif dengan arah 'asc'
+                currentT3SortKey = sortKey;
+                currentT3SortDirection = 'asc';
+            }
+
+            // Perbarui ikon di header secara langsung
+            updateT3TableHeader();
+
+            // Render ulang tabel dengan menggunakan filter status yang sedang aktif
+            const activeButton = document.querySelector('#status-filter button.active');
+            filterByStatus(activeButton, currentT3StatusFilter);
+        }
+
+        function updateT3TableHeader() {
+            const headers = document.querySelectorAll('#tdata3-table .sortable-header');
+            headers.forEach(th => {
+                const key = th.getAttribute('data-sort-key');
+                const icon = th.querySelector('i');
+                if (icon) {
+                    let iconClass = 'fas fa-sort text-black-50'; // Ikon default
+                    if (key === currentT3SortKey) {
+                        // Ganti ikon sesuai arah sorting yang aktif
+                        iconClass = currentT3SortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+                    }
+                    icon.className = iconClass;
+                }
+            });
+        }
+
+
         document.addEventListener('DOMContentLoaded', function() {
             // Inisialisasi modal setelah DOM siap
             resultModal = new bootstrap.Modal(document.getElementById('resultModal'));
@@ -339,7 +422,7 @@
         // --- Variabel State & Data (Tidak Berubah) ---
         let t2CurrentSelectedRow = null, t2CurrentKey = null;
         let currentSelectedRow = null, selectedPLO = new Set(), selectedPRO = new Set(), mappedPRO = new Map();
-        let allRowsData = [], currentFilterName = 'all';
+        let allRowsData = [], currentFilterName = 'all';let currentT3StatusFilter = 'all';
         const allTData2 = @json($allTData2, JSON_HEX_TAG), allTData3 = @json($allTData3, JSON_HEX_TAG);
         const allTData1 = @json($allTData1, JSON_HEX_TAG), allTData4ByAufnr = @json($allTData4ByAufnr, JSON_HEX_TAG);
         const tdata1ByAufnr = (() => {
@@ -539,65 +622,114 @@
         window.deleteAllStorage = deleteAllStorage;
 
         function renderTData2Table(key) {
+            // Menyimpan key yang sedang aktif untuk digunakan oleh fungsi lain (seperti sort/filter)
+            currentActiveBuyerKey = key; 
             const box = document.getElementById('tdata2-section');
             const rows = allTData2[key] || [];
 
             const cardWrapper = document.createElement('div');
             cardWrapper.className = 'card shadow-sm border-0';
-            
-            if (!rows.length){
-                cardWrapper.innerHTML = `<div class="card-body text-center p-4 text-muted small">No Outstanding Order data for this item.</div>`;
-            } else {
-                let scrollStyle = rows.length > 8 ? 'style="max-height: 400px; overflow-y: auto;"' : '';
 
-                let tableHtml = `
-                    <div class="card-body p-3">
-                        <div id="tdata2-header" class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
-                            <h3 id="tdata2-title" class="h6 fw-semibold text-dark mb-0">Outstanding Order</h3>
-                            <div id="tdata2-search-wrapper" class="input-group input-group-sm" style="max-width: 320px;">
-                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                                <input type="text" id="tdata2-search" oninput="filterTData2Table()" placeholder="Search SO, Material..." class="form-control form-control-sm border-start-0">
-                            </div>
-                        </div>
-
-                        <div class="table-responsive" ${scrollStyle}>
-                            <table class="table table-hover align-middle mb-0 small">
-                                <thead class="table-light sticky-header-js">
-                                    <tr class="align-middle" style="font-size: 0.7rem;">
-                                        <th class="text-center p-2" style="width: 5%;">No.</th>
-                                        <th class="p-2" style="min-width: 120px;">Sales Order</th>
-                                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 15%;">Material FG</th>
-                                        <th class="p-2 d-none d-md-table-cell">Description</th>
-                                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 12%;">PO Date</th> 
-                                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 6%;">PRO (CRTD)</th> 
-                                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 6%;">PRO (Released)</th>
-                                        <th class="p-2" style="width: 3%;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tdata2-body">`;
+            // 1. Pra-pemrosesan data: Menambahkan properti kalkulasi (proCrt, proRel) dan teks pencarian
+            const processedRows = rows.map(r => {
+                const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
+                const t3 = allTData3[soKey] || [];
+                let proCrt = 0, proRel = 0;
                 
-                rows.forEach((r, i) => {
+                t3.forEach(d3 => {
+                    if (d3.AUFNR){
+                        const stats = d3.STATS ? d3.STATS.toUpperCase() : '';
+                        if (stats === 'CRTD') proCrt++;
+                        else if (stats.includes('REL') || stats === 'PCNF') proRel++;
+                    }
+                });
+
+                const searchableText = [r.KDAUF, ltrim(r.KDPOS, '0'), ltrim(r.MATFG, '0'), r.MAKFG].join(' ').toLowerCase();
+
+                return { ...r, proCrt, proRel, searchableText };
+            });
+
+            // Mulai dengan semua data yang sudah diproses
+            let displayRows = processedRows;
+
+            // 2. Terapkan filter PENCARIAN jika ada `currentSearchTerm`
+            if (currentSearchTerm) {
+                displayRows = displayRows.filter(row => {
+                    return row.searchableText.includes(currentSearchTerm);
+                });
+            }
+
+            // 3. Terapkan SORTING pada data yang SUDAH DIFILTER
+            if (currentSortKey) {
+                displayRows.sort((a, b) => {
+                    const valA = a[currentSortKey];
+                    const valB = b[currentSortKey];
+                    let comparison = 0;
+                    if (valA > valB) comparison = 1;
+                    else if (valA < valB) comparison = -1;
+                    return currentSortDirection === 'desc' ? comparison * -1 : comparison;
+                });
+            }
+            
+            // 4. Render HTML berdasarkan `displayRows` (data final)
+            if (!displayRows.length){
+                // Menampilkan pesan jika tidak ada data sama sekali atau tidak ada hasil pencarian
+                const message = currentSearchTerm 
+                    ? `<i class="fas fa-search fs-5 d-block mb-2"></i> No data matching your search.`
+                    : 'No Outstanding Order data for this item.';
+                cardWrapper.innerHTML = `<div class="card-body text-center p-4 text-muted small">${message}</div>`;
+            } else {
+                let scrollStyle = displayRows.length > 8 ? 'style="max-height: 400px; overflow-y: auto;"' : '';
+                
+                // =====================================================================
+                // [AWAL] BAGIAN HTML YANG SEBELUMNYA `...`
+                // =====================================================================
+                let tableHtml = `
+                <div class="card-body p-3">
+                    <div id="tdata2-header" class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
+                        <h3 id="tdata2-title" class="h6 fw-semibold text-dark mb-0">Outstanding Order</h3>
+                        <div id="tdata2-search-wrapper" class="input-group input-group-sm" style="max-width: 320px;">
+                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
+                            <input type="text" id="tdata2-search" placeholder="Search SO, Material..." class="form-control form-control-sm border-start-0">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive" ${scrollStyle}>
+                        <table class="table table-hover align-middle mb-0 small">
+                            <thead class="table-light sticky-header-js">
+                                <tr class="align-middle" style="font-size: 0.7rem;">
+                                    <th class="text-center p-2" style="width: 5%;">No.</th>
+                                    <th class="p-2 sortable-header" style="min-width: 120px;" onclick="sortTable('KDAUF')">
+                                        <span>Sales Order</span> <i class="${getSortIconClass('KDAUF')}"></i>
+                                    </th>
+                                    <th class="text-center p-2 d-none d-md-table-cell sortable-header" style="width: 15%;" onclick="sortTable('MATFG')">
+                                        <span>Material FG</span> <i class="${getSortIconClass('MATFG')}"></i>
+                                    </th>
+                                    <th class="p-2 d-none d-md-table-cell">Description</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell sortable-header" style="width: 12%;" onclick="sortTable('EDATU')">
+                                        <span>PO Date</span> <i class="${getSortIconClass('EDATU')}"></i>
+                                    </th> 
+                                    <th class="text-center p-2 d-none d-md-table-cell sortable-header" style="width: 8%;" onclick="sortTable('proCrt')">
+                                        <span>PRO (CRTD)</span> <i class="${getSortIconClass('proCrt')}"></i>
+                                    </th> 
+                                    <th class="text-center p-2 d-none d-md-table-cell sortable-header" style="width: 8%;" onclick="sortTable('proRel')">
+                                        <span>PRO (REL)</span> <i class="${getSortIconClass('proRel')}"></i>
+                                    </th>
+                                    <th class="p-2" style="width: 3%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tdata2-body">`;
+                
+                // Looping menggunakan `displayRows` untuk membuat setiap baris tabel
+                displayRows.forEach((r, i) => {
                     const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
-                    const t3 = allTData3[soKey] || [];
-                    let proCrt = 0, proRel = 0;
-                    
-                    t3.forEach(d3 => {
-                        if (d3.AUFNR){
-                            const stats = d3.STATS ? d3.STATS.toUpperCase() : '';
-                            if (stats === 'CRTD') proCrt++;
-                            else if (stats.includes('REL') || stats === 'PCNF') proRel++;
-                        }
-                    });
-
-                    const searchableText = [r.KDAUF, ltrim(r.KDPOS, '0'), ltrim(r.MATFG, '0'), r.MAKFG].join(' ').toLowerCase();
-
-                    // [PERBAIKAN] Menambahkan data-buyer-key
                     tableHtml += `
                         <tr class="t2-row cursor-pointer" 
                             data-buyer-key="${key}" 
                             data-key="${soKey}" 
                             data-index="${i}" 
-                            data-searchable-text="${sanitize(searchableText)}">
+                            data-searchable-text="${sanitize(r.searchableText)}">
+                            
                             <td class="text-center text-muted">${i + 1}</td>
                             <td>
                                 <div class="fw-semibold text-dark">${sanitize(r.KDAUF || '-')}</div>
@@ -606,31 +738,44 @@
                             <td class="text-muted text-center d-none d-md-table-cell">${ltrim(r.MATFG, '0') || '-'}</td>
                             <td class="d-none d-md-table-cell">${sanitize(r.MAKFG || '-')}</td>
                             <td class="text-center d-none d-md-table-cell">${formatDate(r.EDATU)}</td>
-                            <td class="text-center fw-medium d-none d-md-table-cell">${proCrt}</td>
-                            <td class="text-center fw-medium d-none d-md-table-cell">${proRel}</td>
+                            <td class="text-center fw-medium d-none d-md-table-cell">${r.proCrt}</td>
+                            <td class="text-center fw-medium d-none d-md-table-cell">${r.proRel}</td>
                             <td class="text-center text-muted"><i class="fas fa-chevron-right small"></i></td>
                         </tr>`;
                 });
 
+                // Menutup tag <tbody> dan <table> serta menambahkan footer
                 tableHtml += `
-                    <tr id="tdata2-no-results" style="display: none;">
-                        <td colspan="8" class="text-center p-4 text-muted small">
-                            <i class="fas fa-search fs-5 d-block mb-2"></i>
-                            No data matching your search.
-                        </td>
-                    </tr>
-                </tbody></table></div>
-                <p class="mt-3 small text-muted">Click a row to view the Order Overview table.</p>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mt-3 small text-muted">Click a row to view the Order Overview table.</p>
                 </div>`;
+                
+                // =====================================================================
+                // [AKHIR] BAGIAN HTML YANG SEBELUMNYA `...`
+                // =====================================================================
+                
                 cardWrapper.innerHTML = tableHtml;
             }
             
+            // 5. Menampilkan hasil render ke halaman dan memasang ulang event listener
             box.innerHTML = '';
             box.appendChild(cardWrapper);
+
+            // Setel kembali nilai input search agar tidak hilang setelah render ulang
+            const searchInput = document.getElementById('tdata2-search');
+            if (searchInput) {
+                searchInput.value = currentSearchTerm;
+                // Pastikan event listener input selalu terpasang
+                searchInput.oninput = filterTData2Table;
+            }
+            
             box.classList.remove('d-none');
             
             box.querySelectorAll('.t2-row').forEach(tr => {
-                tr.addEventListener('click', () => handleRowClick(tr));
+                // Ganti 'handleRowClick' dengan nama fungsi yang Anda gunakan untuk menangani klik baris
+                tr.addEventListener('click', () => handleClickTData2Row(tr.dataset.key, tr)); 
             });
         }
 
@@ -699,6 +844,7 @@
             // 1. Ambil elemen yang diperlukan dari dalam tabel yang sudah dirender
             const searchInput = document.getElementById('tdata2-search');
             const tableBody = document.getElementById('tdata2-body');
+            currentSearchTerm = document.getElementById('tdata2-search').value.toLowerCase();
             
             // Pastikan elemen ada sebelum melanjutkan
             if (!searchInput || !tableBody) return;
@@ -730,6 +876,7 @@
                     noResultsRow.style.display = 'none'; // Sembunyikan pesan
                 }
             }
+            renderTData2Table(currentActiveBuyerKey);
         }
 
         function showTData1ByAufnr(aufnr) {
@@ -1263,19 +1410,24 @@
             const t3Container = document.getElementById('tdata3-container');
             const rows = allTData3[key] || [];
             allRowsData = rows;
+            currentT3SortKey = null;
+            currentT3StatusFilter = 'all';
+            
+            updateT3TableHeader();
 
-            if (rows.length) {
-                // [PERBAIKAN] Cari tombol 'All' terlebih dahulu, baru panggil fungsinya
-                const allButton = document.querySelector('#status-filter button'); // Tombol pertama di grup adalah 'All'
-                filterByStatus(allButton, 'all');
-                
-                t3Container.classList.remove('d-none');
+            if (allRowsData.length > 0) {
+                const allButton = document.querySelector('#status-filter button');
+                if (allButton) {
+                    filterByStatus(allButton, 'all');
+                }
             } else {
+                // Tangani jika tidak ada data sama sekali untuk key ini
                 const tbody = document.getElementById('tdata3-body');
-                tbody.innerHTML = `<tr><td colspan="13" class="text-center p-4 text-muted">Tidak ada order overview (T_DATA3) untuk item ini.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="15" class="text-center p-4 text-muted">Tidak ada data order overview untuk item ini.</td></tr>`;
                 document.getElementById('tdata3-pagination').innerHTML = '';
-                t3Container.classList.remove('d-none');
             }
+            
+            t3Container.classList.remove('d-none');
         }
         
         function hideAllDetails() {
@@ -1305,77 +1457,95 @@
             clearAllSelections();
             togglePaginationDisabled(false);
         }
-
-        function filterByStatus(button, status) {
-            document.querySelectorAll('#status-filter button').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-
-            currentFilterName = status;
-
-            let filteredData = allRowsData;
-            
-            // Logika Filtering Data
-            if (status === 'plo') {
-                filteredData = allRowsData.filter(d3 => d3.PLNUM && !d3.AUFNR);
-            } else if (status === 'crtd') {
-                filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.STATS === 'CRTD');
-            } else if (status === 'released') {
-                // Filter 'released' (sama seperti perbaikan sebelumnya)
-                // Mencakup semua status yang mengandung 'REL'
-                filteredData = allRowsData.filter(d3 => d3.AUFNR && d3.STATS.includes('REL'));
-            } else if (status === 'outgoing') {
-                // Tentukan tanggal hari ini
-                const today = new Date();
-                const year = today.getFullYear();
-                const month = String(today.getMonth() + 1).padStart(2, '0');
-                const day = String(today.getDate()).padStart(2, '0');
-                const todayString = `${year}-${month}-${day}`;
-                
-                // PERBAIKAN DI SINI:
-                // Filter 'outgoing' sekarang mencari AUFNR, GSTRP hari ini, dan STATS yang mengandung 'REL'.
-                filteredData = allRowsData.filter(d3 => 
-                    d3.AUFNR && 
-                    d3.GSTRP === todayString && 
-                    d3.STATS.includes('REL') // Perubahan: menggunakan .includes('REL')
-                );
-            }
-
-            renderT3Page(filteredData);
-        }
         
-        function renderT3Page(filteredData) {
-            const tbody = document.getElementById('tdata3-body');
-            const tableWrapper = document.querySelector('#tdata3-container .table-responsive'); 
-            
-            tbody.innerHTML = '';
-
-            const MAX_ROWS = 8;
-            const MAX_HEIGHT_PX = '400px'; 
-            const NO_RESULTS_COLSPAN = 13;
-
-            if (tableWrapper) {
-                tableWrapper.style.maxHeight = '';
-                tableWrapper.style.overflowY = '';
+        function filterByStatus(buttonElement, status) {
+            // Bagian ini sudah benar: Mengatur status aktif pada tombol filter
+            document.querySelectorAll('#status-filter button').forEach(btn => btn.classList.remove('active'));
+            if (buttonElement) {
+                buttonElement.classList.add('active');
             }
 
-            if (filteredData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${NO_RESULTS_COLSPAN}" class="text-center p-4 text-muted">No data for this filter.</td></tr>`;
-            } else {
-                filteredData.forEach((d3, i) => {
-                    const row = createTableRow(d3, i + 1);
-                    tbody.appendChild(row);
-                });
+            currentT3StatusFilter = status;
 
-                if (filteredData.length > MAX_ROWS && tableWrapper) {
-                    tableWrapper.style.maxHeight = MAX_HEIGHT_PX;
-                    tableWrapper.style.overflowY = 'auto';
+            const tbody = document.getElementById('tdata3-body');
+            let dataToRender = [...allRowsData];
+
+            if (status !== 'all') {
+                // 
+                if (status === 'onprocess') {
+                    const today = new Date();
+                    const year = today.getFullYear();
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    const day = String(today.getDate()).padStart(2, '0');
+                    const todayString = `${year}-${month}-${day}`;
+                    
+                    dataToRender = allRowsData.filter(d3 => 
+                        d3.AUFNR && 
+                        d3.GSTRP === todayString && 
+                        d3.STATS && d3.STATS.includes('REL')
+                    );
+                } 
+                // Logika untuk filter lainnya
+                else {
+                    dataToRender = allRowsData.filter(d3 => {
+                        if (status === 'plo') {
+                            return d3.PLNUM && !d3.AUFNR;
+                        }
+                        if (status === 'crtd') {
+                            return d3.AUFNR && d3.STATS === 'CRTD';
+                        }
+                        if (status === 'released') {
+                            return d3.AUFNR && d3.STATS && d3.STATS.includes('REL');
+                        }
+                        // Anda bisa menambahkan kembali filter TECO jika diperlukan
+                        if (status === 'teco') {
+                            return d3.STATS && d3.STATS.includes('TECO');
+                        }
+                        return false; // Jika status tidak cocok
+                    });
                 }
             }
 
-            const pg = document.getElementById('tdata3-pagination');
-            if (pg) pg.innerHTML = '';
-            
-            clearAllSelections(); 
+            // Pra-pemrosesan dan Sorting (logika ini tetap sama dan sudah benar)
+            const processedData = dataToRender.map(d => ({
+                ...d,
+                remainingQty: (parseFloat(d.PSMNG) || 0) - (parseFloat(d.WEMNG) || 0)
+            }));
+
+            if (currentT3SortKey) {
+                processedData.sort((a, b) => {
+                    const valA = a[currentT3SortKey];
+                    const valB = b[currentT3SortKey];
+                    let comparison = 0;
+                    if (typeof valA === 'number' && typeof valB === 'number') {
+                        comparison = valA - valB;
+                    } else {
+                        comparison = String(valA).localeCompare(String(valB));
+                    }
+                    return currentT3SortDirection === 'desc' ? comparison * -1 : comparison;
+                });
+            }
+
+            // Logika untuk menambahkan scroll vertikal (tetap sama dan sudah benar)
+            const tableWrapper = document.getElementById('tdata3-table-wrapper');
+            if (processedData.length > 5) {
+                tableWrapper.style.maxHeight = '400px';
+                tableWrapper.style.overflowY = 'auto';
+            } else {
+                tableWrapper.style.maxHeight = null;
+                tableWrapper.style.overflowY = null;
+            }
+
+            // Render data final ke dalam tabel (tetap sama dan sudah benar)
+            tbody.innerHTML = '';
+            if (processedData.length > 0) {
+                processedData.forEach((item, index) => {
+                    const rowElement = createTableRow(item, index + 1);
+                    tbody.appendChild(rowElement);
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="15" class="text-center p-4 text-muted">Tidak ada data yang cocok dengan filter yang dipilih.</td></tr>`;
+            }
         }
 
         const ltrim0 = (s) => String(s ?? '').replace(/^0+/, '');

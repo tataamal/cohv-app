@@ -419,3 +419,50 @@ body.sidebar-open .sidebar-overlay {
     font-size: 1.2rem;
     font-weight: bold;
 }
+
+.sortable-header {
+    cursor: pointer; /* Memberi tahu user bahwa header ini bisa diklik */
+    user-select: none; /* Mencegah teks terseleksi saat diklik berulang */
+}
+
+.sortable-header:hover {
+    background-color: rgba(0, 0, 0, 0.05); /* Efek hover ringan */
+}
+
+/* Kunci utama untuk alignment */
+.sortable-header span {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.sortable-header i {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 6px; /* Jarak antara teks dan ikon */
+    width: 1em; /* Memberi ruang agar layout tidak bergeser saat ikon berubah */
+}
+
+.sortable-header {
+    cursor: pointer;
+    user-select: none; /* Mencegah teks terseleksi saat diklik berulang */
+}
+
+.sortable-header:hover {
+    background-color: rgba(0, 0, 0, 0.05); /* Efek hover ringan */
+}
+
+/* KUNCI UTAMA UNTUK PERATAAN */
+.sortable-header > span, .sortable-header > div {
+    /* Mengubah <th> menjadi flex container untuk mengatur isinya.
+      Ini adalah cara paling modern dan andal untuk perataan.
+    */
+    display: flex;
+    align-items: center;      /* Menyelaraskan teks dan ikon secara vertikal (sumbu y) */
+    justify-content: center;  /* Menyelaraskan teks dan ikon secara horizontal (sumbu x) */
+    gap: 0.5rem;              /* Memberi jarak yang konsisten antara teks dan ikon */
+}
+
+/* Opsional: Jika Anda punya header yang rata kiri */
+.sortable-header.text-start > span, .sortable-header.text-start > div {
+    justify-content: flex-start;
+}
