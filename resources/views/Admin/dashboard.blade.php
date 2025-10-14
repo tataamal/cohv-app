@@ -127,7 +127,7 @@
                                 <div class="d-inline-flex align-items-center justify-content-center bg-success-subtle rounded-3 me-3 p-2">
                                      <svg class="text-success-emphasis" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 </div>
-                                <p class="text-muted mb-0">Outgoing PRO</p>
+                                <p class="text-muted mb-0">On Process PRO</p>
                             </div>
                             <p class="stat-value h2 fw-bold text-dark mt-3 mb-0" data-target="{{ $ongoingPRO ?? 0 }}">0</p>
                         </div>
@@ -417,7 +417,7 @@
                     {{-- Header Card & Kolom Pencarian --}}
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
-                            <h3 class="h5 fw-semibold text-dark mb-1">List of Ongoing PRO</h3>
+                            <h3 class="h5 fw-semibold text-dark mb-1">List of On Process PRO</h3>
                             <p class="small text-muted mb-0">Daftar Production Order yang sedang berjalan.</p>
                         </div>
                         <button id="backToDashboardBtnPro" class="btn btn-outline-secondary flex-shrink-0">

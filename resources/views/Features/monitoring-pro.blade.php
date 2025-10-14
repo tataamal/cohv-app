@@ -107,14 +107,14 @@
                     </a>
                 </div>
                 <div class="col-12 col-md-6 col-xl-3 mb-4">
-                    <a href="#" class="stat-card-link" data-filter="outgoing">
+                    <a href="#" class="stat-card-link" data-filter="On Process">
                         <div class="stat-card">
                             <div class="stat-card-header">
                                 <div class="stat-card-icon bg-info-soft"><i class="fas fa-arrow-right-from-bracket"></i></div>
                                 <button class="stat-card-info" title="Info"><i class="fas fa-info-circle"></i></button>
                             </div>
                             <div class="stat-card-body">
-                                <p class="stat-card-title">Outgoing PRO</p>
+                                <p class="stat-card-title">On Proccess PRO</p>
                                 <h3 class="stat-card-value">{{ number_format($outgoingProCount, 0, ',', '.') }}</h3>
                             </div>
                         </div>
