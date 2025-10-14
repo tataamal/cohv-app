@@ -70,7 +70,8 @@ class UserandKodeSeeder extends Seeder
                         'kode' => $kode_val,
                         'sap_user_id' => $sapUser->id,
                         'nama_bagian' => trim($data['Nama Bagian'] ?? null),
-                        'kategori' => trim($data['Kategori'] ?? null)
+                        'kategori' => trim($data['Kategori'] ?? null),
+                        'sub_kategori' => trim($data['Sub Kategori'] ?? null),
                     ]);
                     
                     // Hanya buat MRP jika nilainya tidak kosong
