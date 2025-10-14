@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 class CogiController extends Controller
 {
     public function index(Request $request, $kode)
-    {-
+    {
         $targetWerk = match (true) {
             in_array($kode, ['1001', '1002', '1003']) => '1001',
             $kode == '1200' => '1200',
@@ -44,6 +44,10 @@ class CogiController extends Controller
         }
 
         $cogiData = $queryForTable->latest('BUDAT')->get();
+        
+        $kategori = Kode::where('kode', $kode)->value('kategori');
+        $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
+        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
 
         return view('Features.monitoring-cogi', compact(
             'kode',
@@ -51,7 +55,10 @@ class CogiController extends Controller
             'totalError',
             'errorBaru',
             'errorLama',
-            'filter'
+            'filter',
+            'nama_bagian',
+            'sub_kategori',
+            'kategori',
         ));
     }
 }

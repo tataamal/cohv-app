@@ -68,8 +68,8 @@
             {{-- BAGIAN HEADER HALAMAN --}}
             <div class="page-header mb-4 d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-3">
                 <div class="text-center text-sm-start">
-                    <h4 class="page-title">Monitoring PRO - Plant {{ $activeKode }}</h4>
-                    <p class="page-subtitle text-muted mb-0">Welcome, here is the COHV data information and visualization.</p>
+                    <h4 class="page-title">Monitoring PRO -{{ $nama_bagian }} - {{ $sub_kategori }}</h4>
+                    <p class="page-subtitle text-muted mb-0">Welcome, here is the COHV data in {{ $kategori }}</p>
                 </div>
                 <div class="text-center text-sm-end">
                     <span class="page-date text-muted"><i class="fas fa-calendar-alt me-1"></i> {{ now()->format('l, d F Y') }}</span>

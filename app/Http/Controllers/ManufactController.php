@@ -283,8 +283,10 @@ class ManufactController extends Controller
 
     public function list_gr($kode)
     {
-        // ... (Logika untuk mencari $kodeModel dan $mrpList tetap sama) ...
         $kodeModel = Kode::where('kode', $kode)->first();
+        $kategori = Kode::where('kode', $kode)->value('kategori');
+        $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
+        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
         if (!$kodeModel) {
             return view('Admin.list-gr', [
                 'kode' => $kode,
@@ -351,7 +353,10 @@ class ManufactController extends Controller
         return view('Admin.list-gr', [
             'kode'          => $kode,
             'dataGr'        => $dataGr,
-            'processedData' => $calendarEvents
+            'processedData' => $calendarEvents,
+            'nama_bagian'   => $nama_bagian,
+            'sub_kategori'  => $sub_kategori,
+            'kategori'      => $kategori
         ]);
     }
 

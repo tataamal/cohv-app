@@ -29,8 +29,8 @@
             {{-- [PERBAIKAN] Menggunakan class flexbox responsif agar rapi di mobile --}}
             <div class="page-header mb-4 d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center gap-3">
                 <div class="text-center text-sm-start">
-                    <h4 class="page-title">Laporan COGI - Plant {{ $kode }}</h4>
-                    <p class="page-subtitle text-muted mb-0">Menampilkan daftar COGI untuk plant terkait.</p>
+                    <h4 class="page-title">Laporan COGI - {{ $nama_bagian }} - {{ $sub_kategori }}</h4>
+                    <p class="page-subtitle text-muted mb-0">Menampilkan daftar COGI untuk kategori {{ $kategori }}.</p>
                 </div>
                 <div class="text-center text-sm-end">
                     <span class="page-date text-muted">

@@ -136,7 +136,7 @@
                         <div class="d-flex align-items-center mb-2">
                             <div class="me-3" style="width: 6px; height: 24px; background-color: #28a745; border-radius: 3px;"></div>
                             <h1 class="h5 mb-0">
-                                Report untuk Kode: <span class="text-success fw-bold">{{ $kode }}</span>
+                                Report GR dari : <span class="text-success fw-bold">{{ $nama_bagian }} - {{ $sub_kategori }} - {{ $kategori }}</span>
                             </h1>
                         </div>
                         <p class="text-muted ms-4 ps-1">List Good Receipt (GR)</p>

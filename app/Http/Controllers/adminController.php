@@ -138,6 +138,7 @@ class adminController extends Controller
         // PENGAMBILAN DATA KARDINAL & TABEL
         // =================================================================
         $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
+        $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
         $kategori = Kode::where('kode', $kode)->value('kategori');
         
         $searchReservasi = $request->input('search_reservasi');
@@ -217,6 +218,7 @@ class adminController extends Controller
             'kode' => $kode,
             'kategori' => $kategori,
             'nama_bagian' => $nama_bagian,
+            'sub_kategori' => $sub_kategori,
         ]);  
     }
 

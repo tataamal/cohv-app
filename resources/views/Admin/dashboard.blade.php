@@ -38,8 +38,8 @@
         <div class="mb-4">
             <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-sm-between">
                 <div>
-                    <h1 class="h3 fw-bold text-dark">Dashboard - {{ $nama_bagian }} - {{ $kategori }} </h1>
-                    <p class="mt-1 text-muted">Welcome, here is the COHV data information and visualization.</p>
+                    <h1 class="h3 fw-bold text-dark">Dashboard - {{ $nama_bagian }} - {{ $sub_kategori }} </h1>
+                    <p class="mt-1 text-muted">Welcome, here is the COHV data information in {{ $kategori }}</p>
                 </div>
                 <div class="mt-3 mt-sm-0 small text-muted">
                     <i class="fas fa-calendar-alt me-2"></i>{{ now()->format('l, d F Y') }}
