@@ -2820,7 +2820,7 @@
                 const itemHTML = `
                     <div class="stock-item-card">
                         <div class="stock-main-quantity">
-                            <span class="location-text">${lgort}</span>
+                            <span class="location-text"> Storage Loc. : ${lgort}</span>
                             <span class="stock-quantity-badge"> Stock Amount : ${clabs}</span>
                         </div>
 
