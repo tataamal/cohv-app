@@ -277,6 +277,7 @@
     @include('components.modals.bulk-changepv-modal')
     @include('components.modals.edit-component')
     @include('components.modals.add-component-modal')
+    @include('components.modals.show-stock')
     @push('scripts')
     <script src="{{ asset('js/bulk-modal-handle.js') }}"></script>
     <script src="{{ asset('js/readpp.js') }}"></script>
@@ -706,7 +707,7 @@
                                         </div>
                                     </th>
 
-                                    <th class="p-2" style="width: 15%;">
+                                    <th class="p-2 text-center d-none d-md-table-cell" style="width: 15%;">
                                         <div class="sortable-header-data-cohv" onclick="sortTable('MATFG')">
                                             <span>Material FG</span> <i class="${getSortIconClass('MATFG')}"></i>
                                         </div>
@@ -714,19 +715,19 @@
 
                                     <th class="p-2 d-none d-md-table-cell">Description</th>
 
-                                    <th class="p-2" style="width: 12%;">
+                                    <th class="p-2 text-center d-none d-md-table-cell" style="width: 12%;">
                                         <div class="sortable-header-data-cohv" onclick="sortTable('EDATU')">
                                             <span>PO Date</span> <i class="${getSortIconClass('EDATU')}"></i>
                                         </div>
                                     </th> 
 
-                                    <th class="p-2" style="width: 8%;">
+                                    <th class="p-2 text-center d-none d-md-table-cell" style="width: 8%;">
                                         <div class="sortable-header-data-cohv" onclick="sortTable('proCrt')">
                                             <span>PRO (CRTD)</span> <i class="${getSortIconClass('proCrt')}"></i>
                                         </div>
                                     </th> 
 
-                                    <th class="p-2" style="width: 8%;">
+                                    <th class="p-2 text-center d-none d-md-table-cell" style="width: 8%;">
                                         <div class="sortable-header-data-cohv" onclick="sortTable('proRel')">
                                             <span>PRO (REL)</span> <i class="${getSortIconClass('proRel')}"></i>
                                         </div>
@@ -736,32 +737,28 @@
                                 </tr>
                             </thead>
                             <tbody id="tdata2-body">`;
-                
-                // Looping menggunakan `displayRows` untuk membuat setiap baris tabel
-                displayRows.forEach((r, i) => {
-                    const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
-                    tableHtml += `
-                        <tr class="t2-row cursor-pointer" 
-                            data-buyer-key="${key}" 
-                            data-key="${soKey}" 
-                            data-index="${i}" 
-                            data-searchable-text="${sanitize(r.searchableText)}">
-                            
-                            <td class="text-center text-muted">${i + 1}</td>
-                            <td>
-                                <div class="fw-semibold text-dark">${sanitize(r.KDAUF || '-')}</div>
-                                <div class="text-muted" style="font-size: 0.9em;">Item: ${ltrim(r.KDPOS, '0')}</div>
-                            </td>
-                            <td class="text-muted text-center d-none d-md-table-cell">${ltrim(r.MATFG, '0') || '-'}</td>
-                            <td class="d-none d-md-table-cell">${sanitize(r.MAKFG || '-')}</td>
-                            <td class="text-center d-none d-md-table-cell">${formatDate(r.EDATU)}</td>
-                            <td class="text-center fw-medium d-none d-md-table-cell">${r.proCrt}</td>
-                            <td class="text-center fw-medium d-none d-md-table-cell">${r.proRel}</td>
-                            <td class="text-center text-muted"><i class="fas fa-chevron-right small"></i></td>
-                        </tr>`;
-                });
-
-                // Menutup tag <tbody> dan <table> serta menambahkan footer
+                    displayRows.forEach((r, i) => {
+                        const soKey = `${r.KDAUF || ''}-${r.KDPOS || ''}`;
+                        tableHtml += `
+                                <tr class="t2-row cursor-pointer" 
+                                    data-buyer-key="${key}" 
+                                    data-key="${soKey}" 
+                                    data-index="${i}" 
+                                    data-searchable-text="${sanitize(r.searchableText)}">
+                                    
+                                    <td class="text-center text-muted">${i + 1}</td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">${sanitize(r.KDAUF || '-')}</div>
+                                        <div class="text-muted" style="font-size: 0.9em;">Item: ${ltrim(r.KDPOS, '0')}</div>
+                                    </td>
+                                    <td class="text-muted text-center d-none d-md-table-cell">${ltrim(r.MATFG, '0') || '-'}</td>
+                                    <td class="d-none d-md-table-cell">${sanitize(r.MAKFG || '-')}</td>
+                                    <td class="text-center d-none d-md-table-cell">${formatDate(r.EDATU)}</td>
+                                    <td class="text-center fw-medium d-none d-md-table-cell">${r.proCrt}</td>
+                                    <td class="text-center fw-medium d-none d-md-table-cell">${r.proRel}</td>
+                                    <td class="text-center text-muted"><i class="fas fa-chevron-right small"></i></td>
+                                </tr>`;
+                    });
                 tableHtml += `
                             </tbody>
                         </table>
@@ -769,14 +766,8 @@
                     <p class="mt-3 small text-muted">Click a row to view the Order Overview table.</p>
                 </div>`;
                 
-                // =====================================================================
-                // [AKHIR] BAGIAN HTML YANG SEBELUMNYA `...`
-                // =====================================================================
-                
                 cardWrapper.innerHTML = tableHtml;
             }
-            
-            // 5. Menampilkan hasil render ke halaman dan memasang ulang event listener
             box.innerHTML = '';
             box.appendChild(cardWrapper);
 
@@ -784,14 +775,12 @@
             const searchInput = document.getElementById('tdata2-search');
             if (searchInput) {
                 searchInput.value = currentSearchTerm;
-                // Pastikan event listener input selalu terpasang
                 searchInput.oninput = filterTData2Table;
             }
             
             box.classList.remove('d-none');
             
             box.querySelectorAll('.t2-row').forEach(tr => {
-                // Ganti 'handleRowClick' dengan nama fungsi yang Anda gunakan untuk menangani klik baris
                 tr.addEventListener('click', () => handleClickTData2Row(tr.dataset.key, tr)); 
             });
         }
@@ -1105,17 +1094,28 @@
                         <td class="text-center d-none d-md-table-cell">${c.RSPOS ?? '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${ltrim0(c.MATNR)}</td>
                         <td class="d-none d-md-table-cell">${sanitize(c.MAKTX)}</td>
-                        <td class="text-center d-none d-md-table-cell" onclick="event.stopPropagation()">
-                            <button type="button" class="btn btn-warning btn-sm edit-component-btn"
-                                    data-aufnr="${c.AUFNR ?? ''}" data-rspos="${c.RSPOS ?? ''}" data-matnr="${c.MATNR ?? ''}"
-                                    data-bdmng="${c.BDMNG ?? ''}" data-lgort="${c.LGORT ?? ''}" data-sobkz="${c.SOBKZ ?? ''}"
-                                    data-plant="${plantCode}"
-                                    onclick="handleEditClick(this)"><i class="fa-solid fa-pen-to-square"></i>
-                            </button>
+                        <td class="d-none d-md-table-cell" onclick="event.stopPropagation()">
+                            <div class="action-cell">
+                                <button type="button" class="btn btn-warning btn-sm edit-component-btn"
+                                        data-aufnr="${c.AUFNR ?? ''}" data-rspos="${c.RSPOS ?? ''}" data-matnr="${c.MATNR ?? ''}"
+                                        data-bdmng="${c.BDMNG ?? ''}" data-lgort="${c.LGORT ?? ''}" data-sobkz="${c.SOBKZ ?? ''}"
+                                        data-plant="${plantCode}"
+                                        onclick="handleEditClick(this)">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+
+                                <button type="button" class="btn btn-info btn-sm show-stock-btn"
+                                        data-matnr="${c.MATNR ?? ''}"
+                                        data-plant="${plantCode}"
+                                        onclick="handleShowStock(this)">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+
                         </td>
                         <td class="text-center d-none d-md-table-cell">${c.BDMNG ?? c.MENGE ?? '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${c.KALAB ?? '-'}</td>
-                        <td class="text-center d-none d-md-table-cell">${c.OUTSREQ ?? '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${c.OUTSREQ ? parseInt(c.OUTSREQ) : '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${c.VMENG ?? '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${c.LGORT ?? '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${sanitize(c.MEINS === 'ST' ? 'PC' : (c.MEINS || '-'))}</td>
@@ -1141,7 +1141,7 @@
                                     </div>
                                     <div>
                                         <div class="small text-muted">Outs. Req</div>
-                                        <div class="fw-semibold text-danger">${c.OUTSREQ ?? '-'}</div>
+                                        <div class="fw-semibold text-danger">${c.OUTSREQ ? parseInt(c.OUTSREQ) : '-'}</div>
                                     </div>
                                     <div>
                                         <div class="small text-muted">Committed</div>
@@ -1163,6 +1163,11 @@
                                             data-plant="${plantCode}"
                                             onclick="event.stopPropagation(); handleEditClick(this);">
                                         <i class="fa-solid fa-pen-to-square me-1"></i> Edit
+                                    </button>
+                                    <button type="button" class="btn btn-info btn-sm show-stock-btn py-1 px-2"
+                                            data-matnr="${c.MATNR ?? ''}"
+                                            data-plant="${plantCode}"
+                                            onclick="event.stopPropagation(); handleShowStock(this);"> <i class="fa-solid fa-eye"></i> Show Stock
                                     </button>
                                 </div>
                             </div>
@@ -1190,7 +1195,7 @@
                     <div class="table-responsive ${scrollClass}">
                         <table class="table table-hover table-v-bordered align-middle table-sm mb-0 small">
                             <thead class="table-light sticky-header-custom">
-                                <tr>
+                                <tr class="align-middle">
                                     <th class="text-center p-2" style="width: 5%;"><input type="checkbox" id="select-all-components-${aufnr}" class="form-check-input" onchange="toggleSelectAllComponents('${aufnr}')"></th>
                                     <th class="text-center p-2 d-none d-md-table-cell" style="width: 5%;">No.</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">Reservation Number</th>
@@ -2732,6 +2737,116 @@
                     Swal.fire('Error Jaringan', 'Tidak dapat terhubung ke server. Silakan coba lagi.', 'error');
                 }
             }
+        }
+        async function handleShowStock(element) {
+            const matnr = element.dataset.matnr;
+            const werks = element.dataset.plant;
+
+            if (!matnr || !werks) {
+                // GANTI alert DENGAN SweetAlert
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Input Tidak Lengkap',
+                    text: 'Informasi material atau plant tidak ditemukan pada tombol.'
+                });
+                return;
+            }
+
+            element.disabled = true;
+            element.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...`;
+
+            try {
+                const url = `/show-stock?matnr=${encodeURIComponent(matnr)}&werks=${encodeURIComponent(werks)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Terjadi kesalahan saat mengambil data stok.');
+                }
+
+                // --- BERHASIL ---
+                // HAPUS console.log dan alert, langsung panggil modal
+                showStockModal(data);
+
+            } catch (error) {
+                // --- GAGAL ---
+                // GANTI alert DENGAN SweetAlert
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Terjadi Kesalahan',
+                    text: error.message
+                });
+
+            } finally {
+                element.disabled = false;
+                if (element.textContent.includes('Show Stock')) {
+                    element.innerHTML = '<i class="fa-solid fa-eye"></i> Show Stock';
+                } else {
+                    element.innerHTML = '<i class="fa-solid fa-eye"></i>';
+                }
+            }
+        }
+
+        function showStockModal(stockData) {
+            if (!stockData || stockData.length === 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Informasi',
+                    text: 'Tidak ada data stok yang ditemukan untuk material ini.'
+                });
+                return;
+            }
+
+            const stockModalElement = document.getElementById('stockModal');
+            const stockModal = new bootstrap.Modal(stockModalElement);
+
+            const firstItem = stockData[0];
+            document.getElementById('modal-matnr').textContent = firstItem.MATNR || 'N/A';
+            document.getElementById('modal-maktx').textContent = firstItem.MAKTX || 'No description';
+
+            const locationsList = document.getElementById('stock-locations-list');
+            locationsList.innerHTML = ''; 
+
+            stockData.forEach(item => {
+                // Ambil dan format semua data
+                const lgort = item.LGORT || '-';
+                const charg = item.CHARG || '-';
+                const vbeln = item.VBELN || '-';
+                const posnr = item.POSNR ? ltrim(item.POSNR, '0') : '-'; // Hilangkan 0 di depan
+                const clabs = parseFloat(item.CLABS || 0).toLocaleString('de-DE');
+                const uom = (item.MEINS === 'ST') ? 'PC' : (item.MEINS || '-');
+
+                // Bangun HTML untuk setiap kartu dengan ikon
+                const itemHTML = `
+                    <div class="stock-item-card">
+                        <div class="stock-main-quantity">
+                            <span class="location-text">${lgort}</span>
+                            <span class="stock-quantity-badge"> Stock Amount : ${clabs}</span>
+                        </div>
+
+                        <i class="fa-solid fa-barcode stock-item-icon"></i>
+                        <div>
+                            <div class="small text-muted">BATCH NUMBER</div>
+                            <div class="fw-semibold">${charg}</div>
+                        </div>
+
+                        <i class="fa-solid fa-file-invoice stock-item-icon"></i>
+                        <div>
+                            <div class="small text-muted">SO / ITEM</div>
+                            <div class="fw-semibold">${vbeln} / ${posnr}</div>
+                        </div>
+                        
+                        <i class="fa-solid fa-box-open stock-item-icon"></i>
+                        <div>
+                            <div class="small text-muted">UOM</div>
+                            <div class="fw-semibold">${uom}</div>
+                        </div>
+                    </div>
+                `;
+                locationsList.innerHTML += itemHTML;
+            });
+            
+            stockModal.show();
         }
 
     </script>

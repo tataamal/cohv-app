@@ -81,4 +81,5 @@ Route::middleware('auth')->group(function (){
 
     // Cogi Routing
     Route::get('/monitoring/cogi/{kode}', [CogiController::class, 'index'])->name('cogi.report');
+    Route::get('/show-stock', [Data4Controller::class, 'show_stock']);
 });

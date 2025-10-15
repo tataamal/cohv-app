@@ -1790,6 +1790,49 @@ def edit_component():
             print("   -> Koneksi SAP ditutup.")
         print("--- [SELESAI] Proses Edit Komponen ---\n")
 
+@app.route('/api/get_stock', methods=['GET'])
+def get_material_stock():
+    try:
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
+
+        material_number = request.args.get('matnr')
+        plant_code = request.args.get('werks')
+
+        print(f"Menerima parameter untuk get_stock: matnr={material_number}, werks={plant_code}")
+
+        # 3. Validasi input
+        if not material_number:
+            return jsonify({'error': 'Missing required parameter: matnr'}), 400
+        if not plant_code:
+            return jsonify({'error': 'Missing required parameter: werks'}), 400
+        if material_number.isdigit():
+            formatted_matnr = material_number.zfill(18)
+            print(f"Material number is numeric. Padding to 18 chars: {formatted_matnr}")
+        else:
+            formatted_matnr = material_number
+            print(f"Material number is alphanumeric. Using as is: {formatted_matnr}")
+        print(f"Memanggil RFC Z_FM_YMMR006NX dengan P_MATNR={formatted_matnr} dan P_WERKS={plant_code}")
+        
+        result = conn.call(
+            'Z_FM_YMMR006NX',
+            P_MATNR=formatted_matnr
+        )
+
+        print("Hasil dari RFC diterima. Mengembalikan T_DATA.")
+        stock_data = result.get('T_DATA', [])
+        
+        return jsonify(stock_data)
+
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 401
+    except (CommunicationError, ABAPApplicationError) as e:
+        print(f"SAP Error: {e}")
+        return jsonify({'error': f"SAP Error: {e}"}), 500
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     os.environ['PYTHONHASHSEED'] = '0'

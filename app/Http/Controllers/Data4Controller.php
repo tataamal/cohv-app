@@ -5,11 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use App\Models\ProductionTData4;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Client\ConnectionException;
 
 class Data4Controller extends Controller
 {
@@ -267,6 +266,65 @@ class Data4Controller extends Controller
         } catch (\Throwable $e) {
             Log::error('refreshAndSyncOrderByAufnr exception', ['e' => $e]);
             return ['success' => false, 'error' => 'Exception: ' . $e->getMessage()];
+        }
+    }
+    public function show_stock(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'matnr' => 'required|string|max:18', // Nomor Material
+            'werks' => 'required|string|max:4',  // Plant
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 400);
+        }
+        $username = session('username') ?? session('sap_username');
+        $password = session('password') ?? session('sap_password');
+        if (!$username || !$password) {
+            return response()->json(['error' => 'Otentikasi SAP tidak ditemukan. Silakan login kembali.'], 401);
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'X-SAP-Username' => $username,
+                'X-SAP-Password' => $password,
+            ])->timeout(120)->get('http://127.0.0.1:8050/api/get_stock', [
+                'matnr' => $request->input('matnr'),
+                'werks' => $request->input('werks'),
+            ]);
+            if ($response->successful()) {
+                $sapData = $response->json();
+
+                if (!empty($sapData) && isset($sapData['MATNR'])) {
+                    $sapData = [$sapData];
+                }
+
+                $filteredData = array_map(function ($item) {
+                    return [
+                        'MATNR' => $item['MATNR'] ?? null,
+                        'MAKTX' => $item['MAKTX'] ?? null,
+                        'LGORT' => $item['LGORT'] ?? null,
+                        'CLABS' => $item['CLABS'] ?? 0,
+                        'CHARG' => $item['CHARG'] ?? null,
+                        'VBELN'=> $item['VBELN'] ?? null,
+                        'POSNR'=> $item['POSNR'] ?? null,
+                        'MEINS'=> $item['MEINS'] ?? null,
+                    ];
+                }, $sapData);
+
+                return response()->json($filteredData, 200);
+
+            } else {
+                Log::error('SAP API Error: ' . $response->body());
+                return response()->json([
+                    'error' => 'Gagal mengambil data stok dari SAP.',
+                    'details' => $response->json() ?? ['message' => $response->body()]
+                ], $response->status());
+            }
+
+        } catch (ConnectionException $e) {
+            Log::error('SAP API Connection Error: ' . $e->getMessage());
+            return response()->json(['error' => 'Tidak dapat terhubung ke layanan SAP.'], 503);
         }
     }
 }
