@@ -2801,7 +2801,7 @@
             const stockModal = new bootstrap.Modal(stockModalElement);
 
             const firstItem = stockData[0];
-            document.getElementById('modal-matnr').textContent = firstItem.MATNR || 'N/A';
+            document.getElementById('modal-matnr').textContent = (firstItem.MATNR || '').replace(/^0+/, '') || 'N/A';
             document.getElementById('modal-maktx').textContent = firstItem.MAKTX || 'No description';
 
             const locationsList = document.getElementById('stock-locations-list');

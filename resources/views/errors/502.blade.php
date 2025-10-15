@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>403 - Akses Ditolak</title>
+    <title>502 - Gangguan Server</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <style>
         html, body {
@@ -17,7 +17,7 @@
             justify-content: center;
             flex-direction: column;
             min-height: 100vh;
-            background: linear-gradient(135deg, #fffde7 0%, #fff9c4 100%);
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
             text-align: center;
             padding: 20px;
             box-sizing: border-box;
@@ -25,41 +25,41 @@
         h1 {
             font-size: 10rem;
             font-weight: 600;
-            color: #F57F17; /* Dark Amber */
+            color: #0D47A1; /* Dark Blue */
             margin: 0;
             line-height: 1;
         }
         h2 {
             font-size: 2rem;
-            color: #FBC02D; /* Medium Amber */
+            color: #1976D2; /* Medium Blue */
             margin: 10px 0 20px 0;
         }
         p {
-            color: #7a7049; /* Muted Amber */
+            color: #57647e; /* Muted Blue */
             max-width: 450px;
         }
         a {
             display: inline-block;
             margin-top: 30px;
             padding: 12px 25px;
-            background-color: #FFC107; /* Primary Amber */
-            color: #212529;
+            background-color: #2196F3; /* Primary Blue */
+            color: white;
             text-decoration: none;
             border-radius: 8px;
             font-weight: 600;
             transition: background-color 0.3s ease;
         }
         a:hover {
-            background-color: #FFA000; /* Darker Amber */
+            background-color: #1976D2; /* Darker Blue */
         }
     </style>
 </head>
 <body>
     <div class="error-wrapper">
-        <h1>403</h1>
-        <h2>Akses Ditolak</h2>
-        <p>Maaf, Anda tidak memiliki izin untuk mengakses halaman ini. Silakan hubungi administrator jika Anda merasa ini adalah sebuah kesalahan.</p>
-        <a href="{{ url('/dashboard-landing') }}">Kembali ke Beranda</a>
+        <h1>502</h1>
+        <h2>Gangguan Server</h2>
+        <p>Saat ini terjadi masalah komunikasi antar server kami. Tim kami sedang menanganinya. Silakan coba lagi dalam beberapa saat.</p>
+        <a href="{{ url('/login') }}">Kembali ke Beranda</a>
     </div>
 </body>
 </html>
