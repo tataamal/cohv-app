@@ -696,25 +696,42 @@
 
                     <div class="table-responsive" ${scrollStyle}>
                         <table class="table table-hover align-middle mb-0 small">
-                            <thead class="table-light sticky-header-js">
+                            <thead class="table-light-data-cohv sticky-header-js">
                                 <tr class="align-middle" style="font-size: 0.7rem;">
                                     <th class="text-center p-2" style="width: 5%;">No.</th>
-                                    <th class="p-2 sortable-header" style="min-width: 120px;" onclick="sortTable('KDAUF')">
-                                        <span>Sales Order</span> <i class="${getSortIconClass('KDAUF')}"></i>
+
+                                    <th class="p-2" style="min-width: 120px;">
+                                        <div class="sortable-header-data-cohv" onclick="sortTable('KDAUF')">
+                                            <span>Sales Order</span> <i class="${getSortIconClass('KDAUF')}"></i>
+                                        </div>
                                     </th>
-                                    <th class="text-center p-2 d-none d-md-table-cell sortable-header" style="width: 15%;" onclick="sortTable('MATFG')">
-                                        <span>Material FG</span> <i class="${getSortIconClass('MATFG')}"></i>
+
+                                    <th class="p-2" style="width: 15%;">
+                                        <div class="sortable-header-data-cohv" onclick="sortTable('MATFG')">
+                                            <span>Material FG</span> <i class="${getSortIconClass('MATFG')}"></i>
+                                        </div>
                                     </th>
+
                                     <th class="p-2 d-none d-md-table-cell">Description</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell sortable-header" style="width: 12%;" onclick="sortTable('EDATU')">
-                                        <span>PO Date</span> <i class="${getSortIconClass('EDATU')}"></i>
+
+                                    <th class="p-2" style="width: 12%;">
+                                        <div class="sortable-header-data-cohv" onclick="sortTable('EDATU')">
+                                            <span>PO Date</span> <i class="${getSortIconClass('EDATU')}"></i>
+                                        </div>
                                     </th> 
-                                    <th class="text-center p-2 d-none d-md-table-cell sortable-header" style="width: 8%;" onclick="sortTable('proCrt')">
-                                        <span>PRO (CRTD)</span> <i class="${getSortIconClass('proCrt')}"></i>
+
+                                    <th class="p-2" style="width: 8%;">
+                                        <div class="sortable-header-data-cohv" onclick="sortTable('proCrt')">
+                                            <span>PRO (CRTD)</span> <i class="${getSortIconClass('proCrt')}"></i>
+                                        </div>
                                     </th> 
-                                    <th class="text-center p-2 d-none d-md-table-cell sortable-header" style="width: 8%;" onclick="sortTable('proRel')">
-                                        <span>PRO (REL)</span> <i class="${getSortIconClass('proRel')}"></i>
+
+                                    <th class="p-2" style="width: 8%;">
+                                        <div class="sortable-header-data-cohv" onclick="sortTable('proRel')">
+                                            <span>PRO (REL)</span> <i class="${getSortIconClass('proRel')}"></i>
+                                        </div>
                                     </th>
+
                                     <th class="p-2" style="width: 3%;"></th>
                                 </tr>
                             </thead>
@@ -975,7 +992,7 @@
                         <h6 class="fw-semibold mb-0 text-dark">Routing for PRO ${aufnr}</h6>
                     </div>
                     <div class="table-responsive ${scrollClass}">
-                        <table class="table table-hover table-sm mb-0 small">
+                        <table class="table table-hover table-v-bordered table-sm mb-0 small">
                             <thead class="table-light sticky-header-custom">
                                 <tr>
                                     <th class="text-center p-2 d-none d-md-table-cell" style="width: 5%;">No.</th>
@@ -1081,7 +1098,7 @@
                 return `
                     <tr class="t4-row cursor-pointer" data-row-data="${rowData}" onclick="handleT4RowClick(this)">
                         <td class="text-center" onclick="event.stopPropagation()">
-                            <input type="checkbox" class="component-select-${aufnr} form-check-input" data-aufnr="${aufnr}" data-rspos="${c.RSPOS || i}" data-material="${ltrim0(c.MATNR)}" onchange="handleComponentSelect('${aufnr}')">
+                            <input type="checkbox" class="component-select-${aufnr} form-check-input checkbox-green-border" data-aufnr="${aufnr}" data-rspos="${c.RSPOS || i}" data-material="${ltrim0(c.MATNR)}" onchange="handleComponentSelect('${aufnr}')">
                         </td>
                         <td class="text-center d-none d-md-table-cell">${i + 1}</td>
                         <td class="text-center d-none d-md-table-cell">${c.RSNUM ?? '-'}</td>
@@ -1171,15 +1188,15 @@
                         </div>
                     </div>
                     <div class="table-responsive ${scrollClass}">
-                        <table class="table table-hover table-sm mb-0 small">
+                        <table class="table table-hover table-v-bordered align-middle table-sm mb-0 small">
                             <thead class="table-light sticky-header-custom">
                                 <tr>
                                     <th class="text-center p-2" style="width: 5%;"><input type="checkbox" id="select-all-components-${aufnr}" class="form-check-input" onchange="toggleSelectAllComponents('${aufnr}')"></th>
                                     <th class="text-center p-2 d-none d-md-table-cell" style="width: 5%;">No.</th>
-                                    <th class="text-center p-2 d-none d-md-table-cell">Reservation No.</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Reservation Number</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">Item</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">Material</th>
-                                    <th class="p-2 d-none d-md-table-cell">Description</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Description</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">Action</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">Req. Qty</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">Stock</th>
@@ -1568,8 +1585,8 @@
 
             row.innerHTML = `
                 <td class="text-center" onclick="event.stopPropagation()">
-                    <input type="checkbox" class="form-check-input bulk-select"
-                        ${canSelect ? '' : 'disabled'}
+                    <input type="checkbox" 
+                        class="form-check-input bulk-select checkbox-green-border" ${canSelect ? '' : 'disabled'}
                         data-type="${d3.PLNUM && !d3.AUFNR ? 'PLO' : 'PRO'}"
                         data-id="${d3.PLNUM && !d3.AUFNR ? d3.PLNUM : d3.AUFNR}"
                         data-auart="${d3.AUART || ''}"

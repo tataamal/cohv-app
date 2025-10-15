@@ -420,9 +420,17 @@ body.sidebar-open .sidebar-overlay {
     font-weight: bold;
 }
 
-.sortable-header {
+.sortable-header-data-cohv {
     cursor: pointer; /* Memberi tahu user bahwa header ini bisa diklik */
-    user-select: none; /* Mencegah teks terseleksi saat diklik berulang */
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.table-light-data-cohv th {
+    vertical-align: middle;
 }
 
 .sortable-header:hover {
@@ -453,16 +461,40 @@ body.sidebar-open .sidebar-overlay {
 
 /* KUNCI UTAMA UNTUK PERATAAN */
 .sortable-header > span, .sortable-header > div {
-    /* Mengubah <th> menjadi flex container untuk mengatur isinya.
-      Ini adalah cara paling modern dan andal untuk perataan.
-    */
     display: flex;
-    align-items: center;      /* Menyelaraskan teks dan ikon secara vertikal (sumbu y) */
-    justify-content: center;  /* Menyelaraskan teks dan ikon secara horizontal (sumbu x) */
-    gap: 0.5rem;              /* Memberi jarak yang konsisten antara teks dan ikon */
+    align-items: center;     
+    justify-content: center; 
+    gap: 0.5rem;
 }
 
 /* Opsional: Jika Anda punya header yang rata kiri */
 .sortable-header.text-start > span, .sortable-header.text-start > div {
     justify-content: flex-start;
+}
+.checkbox-green-border {
+    /* Sedikit memperbesar ukuran checkbox agar lebih mudah diklik */
+    width: 1.15em;
+    height: 1.15em;
+    
+    /* Memberi border hijau yang jelas */
+    border: 2px solid #28a745; /* Warna hijau success dari Bootstrap */
+    
+    /* Efek transisi agar perubahan warna lebih halus */
+    transition: all 0.2s ease-in-out;
+}
+
+/* Style saat checkbox di-fokus (untuk aksesibilitas) */
+.checkbox-green-border:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25); /* Efek glow hijau */
+}
+
+/* Style saat checkbox sudah dicentang */
+.checkbox-green-border:checked {
+    background-color: #28a745; /* Mengubah background menjadi hijau */
+    border-color: #28a745; /* Border tetap hijau */
+}
+.table-v-bordered tr > td:not(:first-child),
+.table-v-bordered tr > th:not(:first-child) {
+    border-left: 1px solid #dee2e6; /* Warna border standar Bootstrap */
 }
