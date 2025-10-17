@@ -136,12 +136,14 @@ def sap_detail():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# CANGE WC
 @app.route('/api/save_edit', methods=['POST'])
 def changewc():
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    #    Ini penting agar variabel 'conn' bisa diakses di blok 'finally'.
+    conn = None
     try:
         username, password = get_credentials()
-        conn = connect_sap(username, password)
+        conn = connect_sap(username, password) # Koneksi dibuat di sini
 
         data = request.get_json()
         print("Data diterima:", data)
@@ -179,8 +181,9 @@ def changewc():
             IV_COMMIT=commit,
             IT_OPERATION=it_operation_filtered
         )
-        import time
-        time.sleep(2) 
+        
+        # time.sleep(2) tidak terlalu diperlukan di sini, bisa dihapus jika untuk debugging
+        
         return jsonify(result)
 
     except ValueError as ve:
@@ -188,6 +191,14 @@ def changewc():
     except Exception as e:
         print("Exception:", str(e))
         return jsonify({'error': str(e)}), 500
+    finally:
+        # 2. Blok ini akan selalu dieksekusi.
+        #    Kita cek apakah koneksi berhasil dibuat ('conn' tidak lagi None)
+        #    sebelum mencoba menutupnya.
+        if conn:
+            print("Closing SAP connection...")
+            conn.close()
+            print("SAP connection closed.")
 
 @app.route('/api/sap_combined', methods=['GET'])
 def sap_combined():
@@ -196,13 +207,17 @@ def sap_combined():
     if not plant:
         return jsonify({'error': 'Missing plant parameter'}), 400
 
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
 
         # Panggil RFC hanya dengan parameter plant
+        print(f"Calling RFC Z_FM_YPPR074Z for plant: {plant}")
         result = conn.call('Z_FM_YPPR074Z', P_WERKS=plant)
 
+        # Mengembalikan data jika berhasil
         return jsonify({
             "T_DATA": result.get('T_DATA', []),
             "T_DATA1": result.get('T_DATA1', []),
@@ -214,11 +229,20 @@ def sap_combined():
     except ValueError as ve:
         return jsonify({'error': str(ve)}), 401
     except Exception as e:
+        print(f"Exception in sap_combined: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for sap_combined...")
+            conn.close()
+            print("SAP connection closed.")
 
 @app.route('/api/refresh-pro', methods=['GET'])
 def refresh_single_pro():
     
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
         plant = (request.args.get('plant') or request.args.get('WERKS') or '').strip()
         aufnr = (request.args.get('aufnr') or request.args.get('order') or '').strip()
@@ -239,6 +263,7 @@ def refresh_single_pro():
         username, password = get_credentials()
         conn = connect_sap(username, password)
 
+        print(f"Calling RFC Z_FM_YPPR074Z for plant={plant}, aufnr={a12}")
         res = conn.call('Z_FM_YPPR074Z', P_WERKS=plant, P_AUFNR=a12)
 
         # --- helpers ---
@@ -248,16 +273,11 @@ def refresh_single_pro():
             return x if isinstance(x, list) else [x]
 
         def map_werks(lst, fallback_plant):
-            """
-            Map field SAP 'WERK' -> 'WERKS' agar selaras dengan kolom MySQL.
-            Jika tidak ada keduanya, isi dengan fallback_plant.
-            """
             out = []
             for row in as_list(lst):
                 if isinstance(row, dict):
-                    row = dict(row)  # shallow copy
+                    row = dict(row)
                     row['WERKS'] = row.get('WERKS') or row.get('WERK') or fallback_plant
-                    # hapus WERK untuk hindari kebingungan di sisi Laravel/DB
                     row.pop('WERK', None)
                 out.append(row)
             return out
@@ -270,8 +290,8 @@ def refresh_single_pro():
         t_data4 = map_werks(res.get('T_DATA4', []), plant)
 
         return jsonify({
-            "plant":  plant,
-            "AUFNR":  a12,
+            "plant":   plant,
+            "AUFNR":   a12,
             "T_DATA":  t_data,
             "T_DATA1": t_data1,
             "T_DATA2": t_data2,
@@ -284,147 +304,12 @@ def refresh_single_pro():
     except Exception as e:
         print("[refresh-pro] exception:", repr(e))
         return jsonify({'error': str(e)}), 500
-    
-@app.route('/api/data_refresh', methods=['GET'])
-def sap_refresh():
-    """
-    GET  : /api/data_refresh?plant=A100&AUFNR=000000123456&AUFNR=000000123457
-           atau /api/data_refresh?plant=A100&AUFNR=000000123456,000000123457
-    POST : body {"plant":"A100","AUFNR":["000000123456","000000123457"]}
-    """
-    try:
-        # --- ambil input ---
-        if request.method == 'GET':
-            plant = request.args.get('plant') or request.args.get('WERKS')
-            aufnr_list = request.args.getlist('AUFNR')
-            if not aufnr_list:
-                s = (request.args.get('AUFNR') or '').strip()
-                if s:
-                    aufnr_list = [x.strip() for x in s.split(',') if x.strip()]
-        else:  # POST
-            data = request.get_json(silent=True) or {}
-            plant = data.get('plant') or data.get('WERKS')
-            tmp = data.get('AUFNR') or data.get('orders') or []
-            if isinstance(tmp, list):
-                aufnr_list = [str(x).strip() for x in tmp if str(x).strip()]
-            elif isinstance(tmp, str):
-                aufnr_list = [x.strip() for x in tmp.split(',') if x.strip()]
-            else:
-                aufnr_list = []
-
-        if not plant:
-            return jsonify({'error': 'Missing plant parameter'}), 400
-
-        # helper: pad AUFNR ke 12 digit
-        def pad12(v: str) -> str:
-            v = str(v or '')
-            return v if len(v) >= 12 else v.zfill(12)
-
-        username, password = get_credentials()
-        conn = connect_sap(username, password)
-
-        # --- SINGLE (atau tanpa AUFNR, tergantung RFC: berarti semua di plant) ---
-        if not aufnr_list or len(aufnr_list) == 1:
-            a = pad12(aufnr_list[0]) if aufnr_list else None
-            res = conn.call('Z_FM_YPPR074Z', P_WERKS=plant, AUFNR=a)
-            return jsonify({
-                "plant": plant,
-                "AUFNR": a,
-                "T_DATA": res.get('T_DATA', []),
-                "T_DATA1": res.get('T_DATA1', []),
-                "T_DATA2": res.get('T_DATA2', []),
-                "T_DATA3": res.get('T_DATA3', []),
-                "T_DATA4": res.get('T_DATA4', []),
-            }), 200
-
-        # --- MULTI: loop per AUFNR dalam 1 koneksi SAP ---
-        out = []
-        for a in aufnr_list:
-            a12 = pad12(a)
-            res = conn.call('Z_FM_YPPR074Z', P_WERKS=plant, AUFNR=a12)
-            out.append({
-                "plant": plant,
-                "AUFNR": a12,
-                "T_DATA": res.get('T_DATA', []),
-                "T_DATA1": res.get('T_DATA1', []),
-                "T_DATA2": res.get('T_DATA2', []),
-                "T_DATA3": res.get('T_DATA3', []),
-                "T_DATA4": res.get('T_DATA4', []),
-            })
-
-        return jsonify({"results": out}), 200
-
-    except ValueError as ve:
-        return jsonify({'error': str(ve)}), 401
-    except Exception as e:
-        print("[COHV] data_refresh exception:", repr(e))
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/sap_combined_multi', methods=['POST'])
-def sap_combined_multi():
-    data = request.get_json()
-    plant = data.get('plant')
-    aufnrs = data.get('aufnrs', [])
-
-    if not plant or not isinstance(aufnrs, list):
-        return jsonify({'error': 'Missing plant or aufnrs[]'}), 400
-
-    try:
-        username, password = get_credentials()
-        conn = connect_sap(username, password)
-        import time
-        time.sleep(2)
-        all_data1 = []
-        all_data4 = []
-
-        for aufnr in aufnrs:
-            result = conn.call('Z_FM_YPPR074Z', P_WERKS=plant, P_AUFNR=aufnr)
-            all_data1.extend(result.get('T_DATA1', []))
-            all_data4.extend(result.get('T_DATA4', []))
-
-        return jsonify({
-            'T_DATA1': all_data1,
-            'T_DATA4': all_data4,
-        })
-
-    except ValueError as ve:
-        return jsonify({'error': str(ve)}), 401
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# RELEASE PRO
-@app.route('/api/release_order', methods=['POST'])
-def release_order():
-    try:
-        username, password = get_credentials()
-        conn = connect_sap(username, password)
-
-        data = request.get_json()
-        print("Data diterima untuk release:", data)
-
-        aufnr = data.get('AUFNR')
-        if not aufnr:
-            return jsonify({'error': 'AUFNR is required'}), 400
-
-        print("Calling RFC BAPI_PRODORD_RELEASE...")
-
-        result = conn.call(
-            'BAPI_PRODORD_RELEASE',
-            RELEASE_CONTROL='1',
-            WORK_PROCESS_GROUP='COWORK_BAPI',
-            WORK_PROCESS_MAX=99,
-            ORDERS=[{'ORDER_NUMBER': aufnr}]
-        )
-
-        return jsonify(result)
-
-    except ValueError as ve:
-        return jsonify({'error': str(ve)}), 401
-    except Exception as e:
-        print("Exception saat release order:", str(e))
-        return jsonify({'error': str(e)}), 500
-
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for refresh-pro...")
+            conn.close()
+            print("SAP connection closed.")
 # TECO
 @app.route('/api/teco_order', methods=['POST'])
 def teco_order():
@@ -487,6 +372,9 @@ def teco_order():
 @app.route('/api/change_prod_version', methods=['POST'])
 def change_prod_version():
     import time
+    
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
@@ -516,19 +404,15 @@ def change_prod_version():
 
         # Ambil tabel RETURN
         sap_return = result_change.get('RETURN', [])
+        # Pastikan sap_return selalu berupa list
+        sap_return_list = sap_return if isinstance(sap_return, list) else [sap_return]
 
         # Cari pesan dengan tipe 'E' (Error) atau 'A' (Abort)
-        has_error = any(
-            msg.get('TYPE') in ['E', 'A']
-            for msg in (sap_return if isinstance(sap_return, list) else [sap_return])
-        )
+        has_error = any(msg.get('TYPE') in ['E', 'A'] for msg in sap_return_list)
 
         if has_error:
             # Jika ada error, kumpulkan pesannya dan kembalikan sebagai error server
-            error_messages = [
-                f"[{msg.get('TYPE')}] {msg.get('MESSAGE')}"
-                for msg in (sap_return if isinstance(sap_return, list) else [sap_return])
-            ]
+            error_messages = [f"[{msg.get('TYPE')}] {msg.get('MESSAGE')}" for msg in sap_return_list]
             error_string = "\n".join(error_messages)
             print("❌ BAPI Error:", error_string)
             # Jangan lanjutkan ke COMMIT jika BAPI gagal
@@ -545,13 +429,10 @@ def change_prod_version():
         after_detail = conn.call('BAPI_PRODORD_GET_DETAIL', NUMBER=aufnr)
         after_version = after_detail.get('ORDER_GENERAL_DETAIL', {}).get('PROD_VERSION', 'unknown')
 
-        # Ambil pesan dari RETURN
-        sap_return = result_change.get('RETURN', [])
-
         return jsonify({
             'before_version': before_version,
             'after_version': after_version,
-            'sap_return': sap_return
+            'sap_return': sap_return_list # Kembalikan list yang sudah dinormalisasi
         })
 
     except ValueError as ve:
@@ -559,297 +440,17 @@ def change_prod_version():
     except Exception as e:
         print("❌ Exception:", str(e))
         return jsonify({'error': str(e)}), 500
-
-# CONVERT 
-# @app.route('/api/create_prod_order', methods=['POST'])
-# def create_prod_order_from_plord():
-#     try:
-#         username, password = get_credentials()
-#         conn = connect_sap(username, password)
-
-#         data = request.get_json()
-#         plnum = data.get('PLANNED_ORDER')
-#         order_type = data.get('AUART')
-#         plant = data.get('PLANT')
-
-#         if not plnum or not order_type:
-#             return jsonify({'error': 'PLANNED_ORDER and AUART are required'}), 400
-
-#         print(f"Calling BAPI_PRODORD_CREATE_FROM_PLORD with PLANNED_ORDER: {plnum} and ORDER_TYPE: {order_type}")
-
-#         result = conn.call(
-#             'BAPI_PRODORD_CREATE_FROM_PLORD',
-#             PLANNED_ORDER=plnum,
-#             ORDER_TYPE=order_type
-#         )
-
-#         return_data = result.get('RETURN', {})
-#         order_number = result.get('PRODUCTION_ORDER', '')
-
-#         print("Result from BAPI_PRODORD_CREATE_FROM_PLORD:", result)
-
-#         # Commit jika tidak error
-#         if return_data.get('TYPE') != 'E':
-#             conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
-
-#         return jsonify({
-#             'success': return_data.get('TYPE') != 'E',
-#             'order_number': order_number,
-#             'return': return_data
-#         })
-
-#     except ValueError as ve:
-#         return jsonify({'error': str(ve)}), 401
-#     except Exception as e:
-#         print("Exception:", str(e))
-#         return jsonify({'error': str(e)}), 500
-
-@app.route('/api/create_prod_order', methods=['POST'])
-def create_prod_order_from_plord():
-    try:
-        username, password = get_credentials()
-        conn = connect_sap(username, password)
-
-        data = request.get_json() or {}
-
-        # --- helper untuk normalisasi RETURN ---
-        def normalize_return(ret):
-            if isinstance(ret, list):
-                msgs = ret
-            elif isinstance(ret, dict):
-                msgs = [ret] if ret else []
-            else:
-                msgs = []
-            has_error = any((m.get('TYPE') in ('E', 'A')) for m in msgs)
-            # minimal fields agar enak dipakai FE
-            msgs = [{
-                'type':    m.get('TYPE'),
-                'id':      m.get('ID'),
-                'number':  m.get('NUMBER'),
-                'message': m.get('MESSAGE'),
-                'log_no':  m.get('LOG_NO'),
-                'log_msg_no': m.get('LOG_MSG_NO')
-            } for m in msgs]
-            return msgs, has_error
-
-        # --- deteksi batch ---
-        items = data.get('ITEMS') or data.get('PLANNED_ORDERS')
-        if isinstance(items, list):
-            # Bisa list of dict atau list of string PLANNED_ORDER
-            def to_item(x):
-                if isinstance(x, dict):
-                    return x
-                return {
-                    'PLANNED_ORDER': x,
-                    'AUART': data.get('AUART'),
-                    'PLANT': data.get('PLANT')
-                }
-
-            results = []
-            for it in map(to_item, items):
-                plnum = it.get('PLANNED_ORDER')
-                auart = it.get('AUART') or data.get('AUART')
-                plant = it.get('PLANT') or data.get('PLANT')
-
-                if not plnum or not auart:
-                    results.append({
-                        'planned_order': plnum,
-                        'plant': plant,
-                        'production_orders': [],
-                        'success': False,
-                        'messages': [{'type': 'E', 'message': 'PLANNED_ORDER and AUART are required'}]
-                    })
-                    continue
-
-                print(f"[COHV] CREATE_FROM_PLORD: PLO={plnum} AUART={auart}")
-                res = conn.call('BAPI_PRODORD_CREATE_FROM_PLORD',
-                                PLANNED_ORDER=plnum,
-                                ORDER_TYPE=auart)
-
-                msgs, has_error = normalize_return(res.get('RETURN'))
-                aufnr = (res.get('PRODUCTION_ORDER') or '').zfill(12)
-                orders = [aufnr] if aufnr.strip('0') else []
-
-                results.append({
-                    'planned_order': plnum,
-                    'plant': plant,
-                    'production_orders': orders,   # <- satu atau lebih (saat ini 1 per PLO)
-                    'success': not has_error,
-                    'messages': msgs
-                })
-
-            return jsonify({'results': results}), 200
-
-        # --- single item ---
-        plnum = data.get('PLANNED_ORDER')
-        auart = data.get('AUART')
-        plant = data.get('PLANT')  # ini kita echo balik ke FE
-
-        if not plnum or not auart:
-            return jsonify({'error': 'PLANNED_ORDER and AUART are required'}), 400
-
-        print(f"[COHV] CREATE_FROM_PLORD: PLO={plnum} AUART={auart}")
-        result = conn.call('BAPI_PRODORD_CREATE_FROM_PLORD',
-                           PLANNED_ORDER=plnum,
-                           ORDER_TYPE=auart)
-
-        msgs, has_error = normalize_return(result.get('RETURN'))
-        aufnr = (result.get('PRODUCTION_ORDER') or '').zfill(12)
-        orders = [aufnr] if aufnr.strip('0') else []
-
-        return jsonify({
-            'planned_order': plnum,
-            'plant': plant,                 # <- dikembalikan sesuai request
-            'production_orders': orders,    # <- array; bisa 1 atau >1
-            'success': not has_error,
-            'messages': msgs
-        }), 200
-
-    except ValueError as ve:
-        return jsonify({'error': str(ve)}), 401
-    except Exception as e:
-        print("[COHV] Exception:", str(e))
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/sap-po', methods=['POST'])
-def fetch_purchase_orders():
-    try:
-        username, password = get_credentials()
-        plants = request.json.get('plants', [])
-
-        all_data1 = []
-        all_data2 = []
-        lock = threading.Lock()
-
-        def fetch_from_sap(plant):
-            try:
-                local_conn = connect_sap(username, password)
-                print(f"Fetching from plant: {plant}")
-                result = local_conn.call('Z_FM_YMMR068', P_WERKS=plant)
-
-                with lock:
-                    if 'T_DATA1' in result:
-                        all_data1.extend(result['T_DATA1'])
-                    if 'T_DATA2' in result:
-                        # PASTIKAN TIDAK ADA MANIPULASI TEXT DI SINI - BIARKAN ORIGINAL
-                        for row in result['T_DATA2']:
-                            # JANGAN TAMBAHKAN APAPUN KE TEXT FIELD
-                            # Biarkan kosong jika memang kosong dari SAP
-                            pass
-                        all_data2.extend(result['T_DATA2'])
-            except Exception as e:
-                print(f"[ERROR] Plant {plant}: {str(e)}")
-
-        with ThreadPoolExecutor(max_workers=min(5, len(plants))) as executor:
-            executor.map(fetch_from_sap, plants)
-
-        return jsonify({
-            'T_DATA1': all_data1,
-            'T_DATA2': all_data2,
-        })
-
-    except Exception as e:
-        print("Exception:", str(e))
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/reject_po', methods=['POST'])
-def reject_po():
-    try:
-        username, password = get_credentials()
-        data = request.json or {}
-        ebeln = data.get('EBELN')
-
-        if not ebeln:
-            return jsonify({'error': 'Parameter EBELN wajib diisi'}), 400
-
-        print("EBELN diterima:", ebeln)  # Debug
-
-        conn = connect_sap(username, password)
-        result = conn.call('Z_PO_REJECT', I_EBELN=ebeln)
-
-        return jsonify({'status': 'success', 'result': result}), 200
-
-    except Exception as e:
-        print("[ERROR] Reject PO:", str(e))
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/api/z_po_comment_update', methods=['POST'])
-def comment_update():
-    try:
-        username, password = get_credentials()
-        data = request.json or {}
-
-        ebeln = data.get('PURCHASEORDER')
-        comment = data.get('COMMENT_TEXT')
-
-        print(f"[DEBUG] Received Comment Update: EBELN={ebeln}, TEXT={comment}")
-
-        if not ebeln or not comment:
-            return jsonify({'status': 'error', 'message': 'PURCHASEORDER dan COMMENT_TEXT wajib diisi'}), 400
-
-        conn = connect_sap(username, password)
-
-        result = conn.call('Z_PO_COMMENT_UPDATE',
-            PURCHASEORDER=ebeln,
-            COMMENT_TEXT=comment,
-            TEXT_ID='F01',
-            TEXT_LANGU='EN',
-            HEADER_LEVEL='X',
-            ITEM_NUMBER='00000'
-        )
-
-        print("[DEBUG] SAP Response:", result)
-        return jsonify({'status': 'success', 'result': result}), 200
-
-    except Exception as e:
-        print("[ERROR] Z_PO_COMMENT_UPDATE:", str(e))
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-
-
-@app.route('/api/z_po_release2', methods=['POST'])
-def z_po_release2():
-    try:
-        username, password = get_credentials()
-        conn = connect_sap(username, password)
-
-        data = request.get_json()
-        ebeln = data.get('EBELN')
-        rel_code = data.get('REL_CODE')
-
-        if not ebeln or not rel_code:
-            return jsonify({'status': 'error', 'message': 'EBELN and REL_CODE are required'}), 400
-
-        result = conn.call('Z_PO_RELEASE2', PURCHASEORDER=ebeln, PO_REL_CODE=rel_code)
-        return_table = result.get('RETURN', [])
-        first_return = return_table[0] if return_table else {}
-
-        if first_return.get('TYPE') != 'E':
-            conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
-            return jsonify({
-                'status': 'success',
-                'message': first_return.get('MESSAGE', ''),
-                'details': return_table
-            }), 200
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': first_return.get('MESSAGE', ''),
-                'details': return_table
-            }), 200
-
-    except (ABAPApplicationError, ABAPRuntimeError, LogonError, CommunicationError) as sap_err:
-        return jsonify({
-            'status': 'sap_error',
-            'message': str(sap_err)
-        }), 200
-
-    except Exception as e:
-        print("Exception saat Z_PO_RELEASE2:", str(e))
-        return jsonify({'status': 'exception', 'error': str(e)}), 500
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for change_prod_version...")
+            conn.close()
+            print("SAP connection closed.")
 
 @app.route('/api/schedule_order', methods=['POST'])
 def schedule_order():
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
@@ -864,6 +465,8 @@ def schedule_order():
 
         # Konversi jam
         try:
+            # Diperlukan import 'time' dari modul 'datetime'
+            from datetime import time 
             time_parts = [int(x) for x in time_str.split(':')]
             time_obj = time(*time_parts)  # datetime.time
         except Exception:
@@ -883,19 +486,26 @@ def schedule_order():
         )
 
         # Commit
+        print("BAPI_TRANSACTION_COMMIT...")
         conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
 
         # Selalu kembalikan field ini supaya konsisten dengan Laravel
         return jsonify({
-            'sap_return':       result.get('RETURN', []),
-            'detail_return':    result.get('DETAIL_RETURN', []),
-            'application_log':  result.get('APPLICATION_LOG', []),
+            'sap_return':      result.get('RETURN', []),
+            'detail_return':   result.get('DETAIL_RETURN', []),
+            'application_log': result.get('APPLICATION_LOG', []),
         }), 200
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for schedule_order...")
+            conn.close()
+            print("SAP connection closed.")
     
 @app.route('/api/add_component', methods=['POST'])
 def add_component():
@@ -956,6 +566,12 @@ def add_component():
     except Exception as e:
         print("Exception saat add component:", str(e))
         return jsonify({'error': str(e)}), 500
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for add_component...")
+            conn.close()
+            print("SAP connection closed.")
     
 # DELETE COMPONENT
 @app.route('/api/delete_component', methods=['POST'])
@@ -1010,6 +626,12 @@ def delete_component():
     except Exception as e:
         print("Exception saat delete component:", str(e))
         return jsonify({'error': str(e)}), 500
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for add_component...")
+            conn.close()
+            print("SAP connection closed.")
     
 # READ PP 
 @app.route('/api/read-pp', methods=['POST'])
@@ -1144,6 +766,12 @@ def get_wc_description():
         # Error umum lainnya
         print("Exception:", str(e))
         return jsonify({'error': str(e)}), 500
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for add_component...")
+            conn.close()
+            print("SAP connection closed.")
     
 def json_decimal_converter(o):
     if isinstance(o, Decimal):
@@ -1156,146 +784,140 @@ def refresh_bulk_pro():
     Endpoint untuk me-refresh beberapa Production Order (PRO/AUFNR)
     dengan memprosesnya satu per satu.
     """
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
-        # 1. Autentikasi ke SAP
+        # 2. Semua logika, dari koneksi hingga return, sekarang ada di dalam blok try
+        
+        # 2a. Autentikasi dan Koneksi ke SAP
         username, password = get_credentials()
         conn = connect_sap(username, password)
-    except ValueError as ve:
-        # Gagal karena header tidak ada
-        return jsonify({"error": str(ve)}), 401
-    except Exception as auth_error:
-        # Gagal saat proses koneksi/autentikasi SAP
-        return jsonify({"error": f"Kesalahan autentikasi ke SAP: {str(auth_error)}"}), 500
 
-    # 2. Validasi Input JSON
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'Request body harus dalam format JSON yang valid.'}), 400
+        # 2b. Validasi Input JSON
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body harus dalam format JSON yang valid.'}), 400
 
-    plant = data.get('plant', '').strip()
-    aufnr_list = data.get('pros', [])
+        plant = data.get('plant', '').strip()
+        aufnr_list = data.get('pros', [])
 
-    if not plant:
-        return jsonify({'error': 'Parameter "plant" tidak ditemukan di body JSON'}), 400
-    if not aufnr_list or not isinstance(aufnr_list, list):
-        return jsonify({'error': 'Parameter "pros" harus berupa array/list yang tidak kosong.'}), 400
+        if not plant:
+            return jsonify({'error': 'Parameter "plant" tidak ditemukan di body JSON'}), 400
+        if not aufnr_list or not isinstance(aufnr_list, list):
+            return jsonify({'error': 'Parameter "pros" harus berupa array/list yang tidak kosong.'}), 400
 
-    print(f"\n--- Memulai Proses Refresh untuk Plant: {plant} ---")
-    
-    all_responses = []
-    any_failures = False # <-- TAMBAHAN: Flag untuk melacak kegagalan
-
-    # 3. Loop untuk setiap PRO dan panggil RFC
-    for aufnr in aufnr_list:
-        if not aufnr:
-            continue
+        print(f"\n--- Memulai Proses Refresh untuk Plant: {plant} ---")
         
-        # Pad PRO menjadi 12 digit jika perlu (praktik umum di SAP)
-        padded_aufnr = str(aufnr).zfill(12)
-        print(f"  -> Memproses PRO: {aufnr} ({padded_aufnr})")
+        all_responses = []
+        any_failures = False
 
-        try:
-            # Panggil RFC untuk satu PRO
-            res = conn.call('Z_FM_YPPR074Z', P_WERKS=plant, P_AUFNR=padded_aufnr)
+        # 2c. Loop untuk setiap PRO dan panggil RFC
+        for aufnr in aufnr_list:
+            if not aufnr:
+                continue
             
-            # <-- MODIFIKASI: Tambahkan log ini untuk melihat respons mentah dari SAP
-            print(f"     [DEBUG] Raw SAP Response: {res}")
+            padded_aufnr = str(aufnr).zfill(12)
+            print(f"  -> Memproses PRO: {aufnr} ({padded_aufnr})")
 
-            # --- PERBAIKAN LOGIKA ---
-            # 1. Dapatkan list dari key 'RETURN', bukan 'E_RETURN'
-            # 2. Ambil dictionary pertama dari list tersebut
-            sap_return_list = res.get('RETURN', [])
-            sap_return = sap_return_list[0] if sap_return_list else {}
-            # --- AKHIR PERBAIKAN ---
+            try:
+                res = conn.call('Z_FM_YPPR074Z', P_WERKS=plant, P_AUFNR=padded_aufnr)
+                print(f"     [DEBUG] Raw SAP Response: {res}")
 
-            # Tipe 'S' (Success) atau 'W' (Warning) dianggap berhasil
-            if sap_return.get('TYPE') in ['S', 'W', '']:
-                # Proses Berhasil
-                t_data  = res.get('T_DATA', [])
-                t_data1 = res.get('T_DATA1', [])
-                t_data2 = res.get('T_DATA2', [])
-                t_data3 = res.get('T_DATA3', [])
-                t_data4 = res.get('T_DATA4', [])
-                
-                response_sukses = {
-                    "status": "sukses",
-                    "aufnr": aufnr,
-                    "message": f"Berhasil mendapatkan data untuk PRO: {aufnr}",
-                    "details": {
-                        "T_DATA": t_data,
-                        "T_DATA1": t_data1,
-                        "T_DATA2": t_data2,
-                        "T_DATA3": t_data3,
-                        "T_DATA4": t_data4
+                sap_return_list = res.get('RETURN', [])
+                sap_return = sap_return_list[0] if sap_return_list else {}
+
+                if sap_return.get('TYPE') in ['S', 'W', '']:
+                    response_sukses = {
+                        "status": "sukses",
+                        "aufnr": aufnr,
+                        "message": f"Berhasil mendapatkan data untuk PRO: {aufnr}",
+                        "details": {
+                            "T_DATA": res.get('T_DATA', []),
+                            "T_DATA1": res.get('T_DATA1', []),
+                            "T_DATA2": res.get('T_DATA2', []),
+                            "T_DATA3": res.get('T_DATA3', []),
+                            "T_DATA4": res.get('T_DATA4', [])
+                        }
                     }
-                }
-                all_responses.append(response_sukses)
-                print(f"     ... SUKSES")
+                    all_responses.append(response_sukses)
+                    print(f"     ... SUKSES")
+                else:
+                    any_failures = True
+                    error_message = sap_return.get('MESSAGE', 'Error tidak diketahui dari SAP')
+                    response_gagal = {
+                        "status": "gagal",
+                        "aufnr": aufnr,
+                        "message": f"Gagal mengambil data dari SAP, Error: {error_message}"
+                    }
+                    all_responses.append(response_gagal)
+                    print(f"     ... GAGAL: {error_message}")
 
-            else:
-                # Proses Gagal (dikembalikan oleh SAP)
-                any_failures = True # <-- TAMBAHAN: Tandai bahwa ada kegagalan
-                error_message = sap_return.get('MESSAGE', 'Error tidak diketahui dari SAP')
-                response_gagal = {
+            except Exception as rfc_error:
+                any_failures = True
+                response_gagal_sistem = {
                     "status": "gagal",
                     "aufnr": aufnr,
-                    "message": f"Gagal mengambil data dari SAP, Error: {error_message}"
+                    "message": f"Gagal mengambil data dari SAP, Error: {str(rfc_error)}"
                 }
-                all_responses.append(response_gagal)
-                print(f"     ... GAGAL: {error_message}")
+                all_responses.append(response_gagal_sistem)
+                print(f"     ... GAGAL (Sistem): {str(rfc_error)}")
+                continue
+        
+        print("--- Proses Selesai ---")
 
-        except Exception as rfc_error:
-            # Gagal saat pemanggilan RFC (misal: koneksi terputus)
-            any_failures = True # <-- TAMBAHAN: Tandai bahwa ada kegagalan
-            response_gagal_sistem = {
-                "status": "gagal",
-                "aufnr": aufnr,
-                "message": f"Gagal mengambil data dari SAP, Error: {str(rfc_error)}"
-            }
-            all_responses.append(response_gagal_sistem)
-            print(f"     ... GAGAL (Sistem): {str(rfc_error)}")
-            continue
-    
-    print("--- Proses Selesai ---")
+        # 2d. Kembalikan semua hasil dengan status code yang sesuai
+        final_status_code = 207 if any_failures else 200
+        
+        return jsonify({
+            "plant": plant,
+            "results": all_responses
+        }), final_status_code
 
-    # 4. Kembalikan semua hasil dengan status code yang sesuai
-    final_status_code = 207 if any_failures else 200
-    
-    return jsonify({
-        "plant": plant,
-        "results": all_responses
-    }), final_status_code
+    except ValueError as ve:
+        # Gagal karena header otentikasi tidak ada
+        return jsonify({"error": str(ve)}), 401
+    except Exception as e:
+        # Gagal saat proses koneksi/autentikasi SAP atau error tak terduga lainnya
+        return jsonify({"error": f"Terjadi kesalahan sistem: {str(e)}"}), 500
+    finally:
+        # 3. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("--- Menutup Koneksi SAP ---")
+            conn.close()
+            print("--- Koneksi SAP Ditutup ---")
 
 @app.route('/api/bulk-teco-pro', methods=['POST'])
 def process_teco():
-
-    username, password = get_credentials()
-
-    if not username or not password:
-        return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
-
-    # Ambil data dari body JSON
-    data = request.get_json()
-    if not data or 'pro_list' not in data or not isinstance(data['pro_list'], list):
-        return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list' dalam bentuk array."}), 400
-
-    pro_list = data['pro_list']
-    if not pro_list:
-        return jsonify({"error": "'pro_list' tidak boleh kosong."}), 400
-
-    # =======================================================
-    # LANGKAH 2: PROSES LOOPING DAN HIT BAPI
-    # =======================================================
-    results = {
-        "success_details": [],
-        "error_details": []
-    }
-
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
+        username, password = get_credentials()
+
+        if not username or not password:
+            return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
+
+        # Ambil data dari body JSON
+        data = request.get_json()
+        if not data or 'pro_list' not in data or not isinstance(data['pro_list'], list):
+            return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list' dalam bentuk array."}), 400
+
+        pro_list = data['pro_list']
+        if not pro_list:
+            return jsonify({"error": "'pro_list' tidak boleh kosong."}), 400
+
+        # =======================================================
+        # LANGKAH 2: PROSES LOOPING DAN HIT BAPI
+        # =======================================================
+        results = {
+            "success_details": [],
+            "error_details": []
+        }
+
+        # Koneksi dibuat di sini, di dalam blok try utama
         conn = connect_sap(username, password)
 
         for pro_number in pro_list:
-            print(f"PRO {pro_number} Sedang di proses...") # Log ke konsol Flask
+            print(f"PRO {pro_number} Sedang di proses...")
 
             try:
                 bapi_result = conn.call(
@@ -1305,36 +927,29 @@ def process_teco():
                     WORK_PROCESS_MAX=99,
                     ORDERS=[{'ORDER_NUMBER': pro_number}]
                 )
-
-                # 1. Cetak respons mentah untuk debugging
                 print(f"RAW BAPI Result for {pro_number}: {bapi_result}")
 
-                # 2. Logika pengecekan yang lebih aman
                 has_error = False
                 return_messages = []
 
-                # Pastikan bapi_result adalah dictionary sebelum memproses
                 if isinstance(bapi_result, dict):
                     return_messages = bapi_result.get('RETURN', [])
                 
-                # Loop dengan aman melalui pesan balasan
                 for msg in return_messages:
-                    # Pastikan setiap pesan adalah dictionary dan punya key 'TYPE'
                     if isinstance(msg, dict) and msg.get('TYPE') in ['E', 'A']:
                         has_error = True
-                        break # Jika sudah ketemu satu error, cuku
+                        break
 
                 if not has_error:
                     results["success_details"].append({
                         "pro_number": pro_number,
-                        "sap_response": bapi_result  # Kirim semua respons SAP untuk development
+                        "sap_response": bapi_result
                     })
                 else:
-                    # Jika ada pesan error, anggap gagal
                     results["error_details"].append({
                         "pro_number": pro_number,
                         "message": f"Gagal melakukan teco pada PRO {pro_number}",
-                        "sap_response": bapi_result # Kirim semua respons SAP untuk debugging
+                        "sap_response": bapi_result
                     })
 
             except ABAPApplicationError as bapi_err:
@@ -1345,49 +960,56 @@ def process_teco():
                     "sap_response": str(bapi_err)
                 })
 
-        conn.close()
+        # Setelah loop selesai, tentukan status akhir
+        if results["error_details"]:
+            return jsonify(results), 400 # Menggunakan status 400 untuk menandakan ada kegagalan
+        else:
+            return jsonify(results), 200
 
-    except CommunicationError as conn_err:
-        print(f"Connection Error: {conn_err}")
-        return jsonify({"error": f"Gagal terhubung ke SAP: {conn_err}"}), 503
-
+    except (CommunicationError, ABAPRuntimeError) as conn_err:
+        print(f"Connection/Runtime Error: {conn_err}")
+        return jsonify({"error": f"Gagal terhubung atau terjadi error runtime di SAP: {conn_err}"}), 503
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return jsonify({"error": "Terjadi error tak terduga di server Flask."}), 500
-    
-    if results["error_details"]:
-        return jsonify(results), 400
-    else:
-        return jsonify(results), 200
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for bulk-teco-pro...")
+            conn.close()
+            print("SAP connection closed.")
     
 @app.route('/api/bulk-readpp-pro', methods=['POST'])
 def process_read_pp():
 
-    username, password = get_credentials()
-
-    if not username or not password:
-        return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
-
-    data = request.get_json()
-    if not data or 'pro_list' not in data or not isinstance(data['pro_list'], list):
-        return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list' dalam bentuk array."}), 400
-
-    pro_list = data['pro_list']
-    if not pro_list:
-        return jsonify({"error": "'pro_list' tidak boleh kosong."}), 400
-
-    # =======================================================
-    # LANGKAH 2: PROSES LOOPING DAN HIT BAPI BARU
-    # =======================================================
-    results = {
-        "success_details": [],
-        "error_details": []
-    }
-    
-    # Definisikan parameter statis untuk BAPI
-    order_data_input = {'EXPLODE_NEW': 'X'}
-
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
+        username, password = get_credentials()
+
+        if not username or not password:
+            return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
+
+        data = request.get_json()
+        if not data or 'pro_list' not in data or not isinstance(data['pro_list'], list):
+            return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list' dalam bentuk array."}), 400
+
+        pro_list = data['pro_list']
+        if not pro_list:
+            return jsonify({"error": "'pro_list' tidak boleh kosong."}), 400
+
+        # =======================================================
+        # LANGKAH 2: PROSES LOOPING DAN HIT BAPI BARU
+        # =======================================================
+        results = {
+            "success_details": [],
+            "error_details": []
+        }
+        
+        # Definisikan parameter statis untuk BAPI
+        order_data_input = {'EXPLODE_NEW': 'X'}
+
+        # Koneksi dibuat di sini, di dalam blok try utama
         conn = connect_sap(username, password)
 
         for pro_number in pro_list:
@@ -1403,7 +1025,7 @@ def process_read_pp():
                 
                 print(f"RAW BAPI Result for {pro_number}: {bapi_result}") # Debugging
 
-                # Analisis respons BAPI (pola yang sama seperti TECO)
+                # Analisis respons BAPI
                 has_error = False
                 return_messages = []
                 if isinstance(bapi_result, dict):
@@ -1434,63 +1056,61 @@ def process_read_pp():
                     "sap_response": str(bapi_err)
                 })
 
-        conn.close()
+        # Setelah loop selesai, tentukan respons akhir
+        if results["error_details"]:
+            return jsonify(results), 400
+        else:
+            return jsonify(results), 200
 
-    except CommunicationError as conn_err:
-        print(f"Connection Error: {conn_err}")
-        return jsonify({"error": f"Gagal terhubung ke SAP: {conn_err}"}), 503
+    except (CommunicationError, ABAPRuntimeError) as conn_err:
+        print(f"Connection/Runtime Error: {conn_err}")
+        return jsonify({"error": f"Gagal terhubung atau terjadi error runtime di SAP: {conn_err}"}), 503
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return jsonify({"error": f"Terjadi error tak terduga di server Flask: {str(e)}"}), 500
-
-    # =======================================================
-    # LANGKAH 3: KIRIM RESPONS KEMBALI KE LARAVEL (Sama seperti TECO)
-    # =======================================================
-    if results["error_details"]:
-        return jsonify(results), 400
-    else:
-        return jsonify(results), 200
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for bulk-readpp-pro...")
+            conn.close()
+            print("SAP connection closed.")
 
 @app.route('/api/bulk-schedule-pro', methods=['POST'])
 def process_schedule():
 
-    username, password = get_credentials()
-
-    if not username or not password:
-        return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
-
-    data = request.get_json()
-    # Validasi input yang lebih lengkap
-    required_keys = ['pro_list', 'schedule_date', 'schedule_time']
-    if not data or not all(key in data for key in required_keys):
-        return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list', 'schedule_date', dan 'schedule_time'."}), 400
-
-    pro_list = data['pro_list']
-    schedule_date = data['schedule_date']
-    schedule_time = data['schedule_time']
-
-    # =======================================================
-    # LANGKAH 2: PERSIAPAN DATA & PEMANGGILAN BAPI
-    # =======================================================
-    results = {
-        "success_details": [],
-        "error_details": []
-    }
-
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
+        username, password = get_credentials()
+
+        if not username or not password:
+            return jsonify({"error": "Username atau Password SAP tidak ada di header."}), 401
+
+        data = request.get_json()
+        required_keys = ['pro_list', 'schedule_date', 'schedule_time']
+        if not data or not all(key in data for key in required_keys):
+            return jsonify({"error": "Input tidak valid. Body harus berisi 'pro_list', 'schedule_date', dan 'schedule_time'."}), 400
+
+        pro_list = data['pro_list']
+        schedule_date = data['schedule_date']
+        schedule_time = data['schedule_time']
+
+        results = {
+            "success_details": [],
+            "error_details": []
+        }
+
         # --- Persiapan Format Tanggal & Waktu untuk SAP ---
-        # Ubah 'YYYY-MM-DD' menjadi 'YYYYMMDD'
         sap_date = datetime.strptime(schedule_date, '%Y-%m-%d').strftime('%Y%m%d')
-        # Ubah 'HH.MM.SS' atau 'HH:MM:SS' menjadi 'HHMMSS'
         sap_time = schedule_time.replace('.', '').replace(':', '')
 
+        # Koneksi dibuat di sini, di dalam blok try utama
         conn = connect_sap(username, password)
 
         for pro_number in pro_list:
             print(f"Scheduling PRO {pro_number} for {sap_date} at {sap_time}...")
 
             try:
-                # Panggil BAPI BAPI_PRODORD_SCHEDULE
                 bapi_result = conn.call(
                     'BAPI_PRODORD_SCHEDULE',
                     SCHED_TYPE='5',
@@ -1504,7 +1124,6 @@ def process_schedule():
                 
                 print(f"RAW BAPI Result for {pro_number}: {bapi_result}")
 
-                # Analisis respons BAPI (pola yang sama)
                 has_error = False
                 return_messages = []
                 if isinstance(bapi_result, dict):
@@ -1524,7 +1143,11 @@ def process_schedule():
                 print(f"BAPI Error on PRO {pro_number}: {bapi_err}")
                 results["error_details"].append({ "pro_number": pro_number, "message": f"Gagal schedule pada PRO {pro_number}", "sap_response": str(bapi_err) })
 
-        conn.close()
+        # Setelah loop selesai, tentukan respons akhir
+        if results["error_details"]:
+            return jsonify(results), 400
+        else:
+            return jsonify(results), 200
 
     except (CommunicationError, ABAPApplicationError) as sap_err:
         print(f"SAP RFC Error: {sap_err}")
@@ -1532,14 +1155,12 @@ def process_schedule():
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return jsonify({"error": f"Terjadi error tak terduga di server Flask: {str(e)}"}), 500
-
-    # =======================================================
-    # LANGKAH 3: KIRIM RESPONS KEMBALI KE LARAVEL
-    # =======================================================
-    if results["error_details"]:
-        return jsonify(results), 400
-    else:
-        return jsonify(results), 200
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for bulk-schedule-pro...")
+            conn.close()
+            print("SAP connection closed.")
     
 @app.route('/api/bulk-change-pv', methods=['POST'])
 def bulk_change_pv():
@@ -1792,6 +1413,8 @@ def edit_component():
 
 @app.route('/api/get_stock', methods=['GET'])
 def get_material_stock():
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
@@ -1801,22 +1424,26 @@ def get_material_stock():
 
         print(f"Menerima parameter untuk get_stock: matnr={material_number}, werks={plant_code}")
 
-        # 3. Validasi input
         if not material_number:
             return jsonify({'error': 'Missing required parameter: matnr'}), 400
         if not plant_code:
             return jsonify({'error': 'Missing required parameter: werks'}), 400
+
         if material_number.isdigit():
             formatted_matnr = material_number.zfill(18)
             print(f"Material number is numeric. Padding to 18 chars: {formatted_matnr}")
         else:
             formatted_matnr = material_number
             print(f"Material number is alphanumeric. Using as is: {formatted_matnr}")
+            
         print(f"Memanggil RFC Z_FM_YMMR006NX dengan P_MATNR={formatted_matnr} dan P_WERKS={plant_code}")
         
+        # NOTE: Berdasarkan nama RFC (Z_FM_YMMR006NX), kemungkinan besar parameter P_WERKS juga diperlukan.
+        # Jika terjadi error, coba aktifkan baris di bawah ini.
         result = conn.call(
             'Z_FM_YMMR006NX',
-            P_MATNR=formatted_matnr
+            P_MATNR=formatted_matnr,
+            # P_WERKS=plant_code # Mungkin parameter ini juga diperlukan oleh RFC
         )
 
         print("Hasil dari RFC diterima. Mengembalikan T_DATA.")
@@ -1828,10 +1455,16 @@ def get_material_stock():
         return jsonify({'error': str(ve)}), 401
     except (CommunicationError, ABAPApplicationError) as e:
         print(f"SAP Error: {e}")
-        return jsonify({'error': f"SAP Error: {e}"}), 500
+        return jsonify({'error': f"SAP Error: {str(e)}"}), 500
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
+    finally:
+        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for get_material_stock...")
+            conn.close()
+            print("SAP connection closed.")
 
 
 if __name__ == '__main__':

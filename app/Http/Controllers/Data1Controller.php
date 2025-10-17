@@ -163,8 +163,14 @@ class Data1Controller extends Controller
                         if ($refreshResponse->failed()) throw new \Exception("API Refresh Gagal: " . $refreshResponse->body());
                         
                         $tempData = $refreshResponse->json();
-                        if (!empty($tempData['T_DATA']) && !empty($tempData['T_DATA2']) && !empty($tempData['T_DATA3'])) {
+                        if (!empty($tempData['T_DATA'])) {
                             $refreshedData = $tempData;
+                            
+                            // Pastikan T_DATA2 dan T_DATA3 ada sebagai array kosong agar
+                            // langkah sinkronisasi data tidak error.
+                            $refreshedData['T_DATA2'] = $tempData['T_DATA2'] ?? [];
+                            $refreshedData['T_DATA3'] = $tempData['T_DATA3'] ?? [];
+
                             Log::info(" -> [PRO: {$proCode}] Data refresh valid on attempt #{$attempt}.");
                             break;
                         }
@@ -195,7 +201,7 @@ class Data1Controller extends Controller
         $failureCount = count($failures);
         if ($successCount > 0 && $failureCount == 0) session()->flash('success', "{$successCount} PRO berhasil dipindahkan dan disinkronkan.");
         elseif ($successCount > 0 && $failureCount > 0) session()->flash('warning', "{$successCount} PRO berhasil, namun {$failureCount} PRO gagal. Periksa log.");
-        elseif ($successCount == 0 && $failureCount > 0) session()->flash('error', "Semua {$failureCount} PRO gagal dipindahkan. Periksa log.");
+        elseif ($successCount == 0 && $failureCount > 0) session()->flash('error', "Data berhasil dipindahkan namun gagal disinkronkan karena Make Stock, Silahkan Refresh PRO untuk Update Data.");
 
         return redirect()->back();
     }

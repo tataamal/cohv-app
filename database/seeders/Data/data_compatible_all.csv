@@ -663,9 +663,9 @@ WC091,WC066,compatible with condition
 WC091,WC067,compatible with condition
 WC091,WC082,compatible with condition
 WC091,WC092,compatible with condition
-WC091,WC094,compatible with condition
-WC091,WC095,compatible with condition
-WC091,WC096,compatible with condition
+WC091,WC094,compatible
+WC091,WC095,compatible
+WC091,WC096,compatible
 WC091,WC097,compatible with condition
 WC091,WC145,compatible with condition
 WC091,WC149,compatible with condition
@@ -810,10 +810,10 @@ WC096,WC065,compatible with condition
 WC096,WC066,compatible with condition
 WC096,WC067,compatible with condition
 WC096,WC082,compatible with condition
-WC096,WC091,compatible with condition
+WC096,WC091,compatible 
 WC096,WC092,compatible with condition
-WC096,WC094,compatible with condition
-WC096,WC095,compatible with condition
+WC096,WC094,compatible
+WC096,WC095,compatible
 WC096,WC097,compatible with condition
 WC096,WC145,compatible with condition
 WC096,WC149,compatible with condition

@@ -14,6 +14,7 @@ return new class extends Migration
             $table->foreignId('sap_user_id')->constrained('sap_users')->onDelete('cascade');
             $table->string('nama_bagian');
             $table->string('kategori');
+            $table->string('sub_kategori');
             $table->timestamps();
         });
     }
