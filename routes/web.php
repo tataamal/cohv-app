@@ -8,6 +8,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\bulkController;
 use App\Http\Controllers\Data4Controller;
 use App\Http\Controllers\ManufactController;
+use App\Http\Controllers\StockController;
 use App\Http\Controllers\WcCompatibilityController;
 use App\Http\Controllers\MonitoringProController;
 use App\Http\Controllers\ProTransactionController;
@@ -82,4 +83,10 @@ Route::middleware('auth')->group(function (){
     // Cogi Routing
     Route::get('/monitoring/cogi/{kode}', [CogiController::class, 'index'])->name('cogi.report');
     Route::get('/show-stock', [Data4Controller::class, 'show_stock']);
+
+    // Search Stock Route
+    Route::get('/search-stock', [StockController::class, 'index'])->name('search.stock');
+    Route::get('/search-stock/results', [StockController::class, 'show_stock'])->name('search.stock.show');
+    Route::get('/search-stock/data', [StockCOntroller::class, 'show_stock'])->name('search.stock.data');
+
 });

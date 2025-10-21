@@ -64,8 +64,16 @@
                     </div>
                     <div class="row g-3 mt-1">
                         <div class="col-md-6">
-                            <label for="formBdmng" class="form-label"><i class="fa-solid fa-boxes-stacked"></i>Req. Quantity</label>
-                            <input type="number" class="form-control" id="formBdmng" name="bdmng" placeholder="Kosongkan jika tidak diubah">
+                            <label for="formBdmng" class="form-label">
+                                <i class="fa-solid fa-boxes-stacked"></i> Req. Quantity
+                            </label>
+                            
+                            <input type="number" 
+                                class="form-control" 
+                                id="formBdmng" 
+                                name="bdmng" 
+                                placeholder="Kosongkan jika tidak diubah"
+                                step="any"> 
                         </div>
                         <div class="col-md-6">
                             <label for="formLgort" class="form-label"><i class="fa-solid fa-warehouse"></i>S. Log</label>

@@ -1106,7 +1106,7 @@
 
                                 <button type="button" class="btn btn-info btn-sm show-stock-btn"
                                         data-matnr="${c.MATNR ?? ''}"
-                                        data-plant="${plantCode}"
+                                        data-lgort="${c.LGORT ?? ''}" 
                                         onclick="handleShowStock(this)">
                                     <i class="fa-solid fa-eye"></i>
                                 </button>
@@ -1166,7 +1166,7 @@
                                     </button>
                                     <button type="button" class="btn btn-info btn-sm show-stock-btn py-1 px-2"
                                             data-matnr="${c.MATNR ?? ''}"
-                                            data-plant="${plantCode}"
+                                            data-lgort="${c.LGORT ?? ''}" 
                                             onclick="event.stopPropagation(); handleShowStock(this);"> <i class="fa-solid fa-eye"></i> Show Stock
                                     </button>
                                 </div>
@@ -2739,15 +2739,16 @@
             }
         }
         async function handleShowStock(element) {
+            // PERBAIKAN 1: Ambil 'lgort' dari 'element', bukan 'button'
             const matnr = element.dataset.matnr;
-            const werks = element.dataset.plant;
-
-            if (!matnr || !werks) {
-                // GANTI alert DENGAN SweetAlert
+            const lgort = element.dataset.lgort; 
+            
+            if (!matnr) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Input Tidak Lengkap',
-                    text: 'Informasi material atau plant tidak ditemukan pada tombol.'
+                    // Teks error juga diperbarui
+                    text: 'Informasi material (MATNR) tidak ditemukan pada tombol.' 
                 });
                 return;
             }
@@ -2756,21 +2757,40 @@
             element.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...`;
 
             try {
-                const url = `/show-stock?matnr=${encodeURIComponent(matnr)}&werks=${encodeURIComponent(werks)}`;
+                // PERBAIKAN 3: Sesuaikan URL dengan yang diharapkan controller 'show_stock'
+                // Controller mengharapkan 'search_type', 'search_value', dan 'search_sloc'
+                const urlParams = new URLSearchParams({
+                    'search_type': 'matnr',
+                    'search_value': matnr,
+                    'search_sloc': lgort  // Kirim lgort (controller akan menanganinya jika kosong)
+                });
+
+                // Pastikan endpoint '/show-stock' ini mengarah ke controller 'show_stock'
+                const url = `/show-stock?${urlParams.toString()}`;
+                
+                // Kode selanjutnya sudah benar
                 const response = await fetch(url);
                 const data = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.error || 'Terjadi kesalahan saat mengambil data stok.');
+                    // 'data.error.message' mungkin? Cek respons error Anda
+                    let errorMessage = 'Terjadi kesalahan saat mengambil data stok.';
+                    if (data.error) {
+                        // Jika error adalah objek (dari validator)
+                        if (typeof data.error === 'object') {
+                            errorMessage = Object.values(data.error).join(' ');
+                        } else {
+                            errorMessage = data.error; // Jika error adalah string
+                        }
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 // --- BERHASIL ---
-                // HAPUS console.log dan alert, langsung panggil modal
                 showStockModal(data);
 
             } catch (error) {
                 // --- GAGAL ---
-                // GANTI alert DENGAN SweetAlert
                 Swal.fire({
                     icon: 'error',
                     title: 'Terjadi Kesalahan',
@@ -2778,6 +2798,7 @@
                 });
 
             } finally {
+                // --- FINALLY --- (Logika Anda di sini sudah OK)
                 element.disabled = false;
                 if (element.textContent.includes('Show Stock')) {
                     element.innerHTML = '<i class="fa-solid fa-eye"></i> Show Stock';

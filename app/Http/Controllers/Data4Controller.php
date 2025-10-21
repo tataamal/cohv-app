@@ -9,6 +9,7 @@ use App\Models\ProductionTData4;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Client\ConnectionException;
+use Throwable;
 
 class Data4Controller extends Controller
 {
@@ -197,7 +198,7 @@ class Data4Controller extends Controller
                 return response()->json(['message' => $errorMessage, 'details' => $errorData], $response->status());
             }
 
-        } catch (\Throwable $th) {
+        } catch (Throwable $th) {
             // Handle jika API Flask tidak bisa dihubungi
             Log::error('Gagal menghubungi Flask API: ' . $th->getMessage());
             return response()->json(['message' => 'Tidak dapat terhubung ke service SAP.'], 503); // Service Unavailable
@@ -263,35 +264,58 @@ class Data4Controller extends Controller
 
             return ['success' => true, 'data' => ['T4' => $T4]];
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error('refreshAndSyncOrderByAufnr exception', ['e' => $e]);
             return ['success' => false, 'error' => 'Exception: ' . $e->getMessage()];
         }
     }
     public function show_stock(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'matnr' => 'required|string|max:18', // Nomor Material
-            'werks' => 'required|string|max:4',  // Plant
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()], 400);
-        }
-        $username = session('username') ?? session('sap_username');
-        $password = session('password') ?? session('sap_password');
-        if (!$username || !$password) {
-            return response()->json(['error' => 'Otentikasi SAP tidak ditemukan. Silakan login kembali.'], 401);
-        }
-
+        // --- Bungkus SEMUA logika dalam try...catch ---
         try {
+            
+            // 1. VALIDASI BARU: Sesuaikan dengan parameter dari JavaScript
+            $validator = Validator::make($request->all(), [
+                // 'search_type' tidak perlu divalidasi ketat karena kita tahu ini dari tombol
+                'search_value' => 'required|string|max:40', // Ini adalah MATNR
+                'search_sloc'  => 'nullable|string|max:10', // Ini adalah LGORT (opsional)
+            ]);
+
+            if ($validator->fails()) {
+                // Jika validasi gagal, kirim JSON error 400
+                return response()->json(['error' => $validator->errors()], 400);
+            }
+
+            // 2. OTENTIKASI (Tidak berubah)
+            $username = session('username') ?? session('sap_username');
+            $password = session('password') ?? session('sap_password');
+            if (!$username || !$password) {
+                // Jika session tidak ada, kirim JSON error 401
+                return response()->json(['error' => 'Otentikasi SAP tidak ditemukan. Silakan login kembali.'], 401);
+            }
+
+            // 3. AMBIL INPUT YANG SUDAH SESUAI
+            $matnrValue = $request->input('search_value'); // Ambil MATNR
+            $slocValue  = $request->input('search_sloc');  // Ambil LGORT (bisa null)
+
+            // 4. SIAPKAN PARAMETER UNTUK FLASK API (/api/get_stock)
+            $queryParams = [
+                'matnr' => $matnrValue,
+            ];
+
+            // Tambahkan 'lgort' HANYA JIKA 'slocValue' diisi
+            if (!empty($slocValue)) {
+                // Asumsi endpoint Flask /api/get_stock sekarang menerima 'lgort'
+                $queryParams['lgort'] = $slocValue; 
+            }
+
+            // 5. EKSEKUSI PANGGILAN API KE /api/get_stock
             $response = Http::withHeaders([
                 'X-SAP-Username' => $username,
                 'X-SAP-Password' => $password,
-            ])->timeout(120)->get('http://127.0.0.1:8050/api/get_stock', [
-                'matnr' => $request->input('matnr'),
-                'werks' => $request->input('werks'),
-            ]);
+            ])->timeout(120)->get('http://127.0.0.1:8050/api/get_stock', $queryParams); // Panggil endpoint yang benar
+            
+            // 6. PEMROSESAN HASIL (Tidak berubah)
             if ($response->successful()) {
                 $sapData = $response->json();
 
@@ -306,16 +330,17 @@ class Data4Controller extends Controller
                         'LGORT' => $item['LGORT'] ?? null,
                         'CLABS' => $item['CLABS'] ?? 0,
                         'CHARG' => $item['CHARG'] ?? null,
-                        'VBELN'=> $item['VBELN'] ?? null,
-                        'POSNR'=> $item['POSNR'] ?? null,
-                        'MEINS'=> $item['MEINS'] ?? null,
+                        'VBELN' => $item['VBELN'] ?? null,
+                        'POSNR' => $item['POSNR'] ?? null,
+                        'MEINS' => $item['MEINS'] ?? null,
                     ];
-                }, $sapData);
+                }, $sapData ?? []);
 
                 return response()->json($filteredData, 200);
 
             } else {
-                Log::error('SAP API Error: ' . $response->body());
+                // Penanganan error dari Flask API
+                Log::error('SAP API Error (via Flask /api/get_stock): ' . $response->body());
                 return response()->json([
                     'error' => 'Gagal mengambil data stok dari SAP.',
                     'details' => $response->json() ?? ['message' => $response->body()]
@@ -323,8 +348,17 @@ class Data4Controller extends Controller
             }
 
         } catch (ConnectionException $e) {
-            Log::error('SAP API Connection Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Tidak dapat terhubung ke layanan SAP.'], 503);
+            // Penanganan error koneksi ke Flask API
+            Log::error('Flask API Connection Error (/api/get_stock): ' . $e->getMessage());
+            return response()->json(['error' => 'Tidak dapat terhubung ke layanan API Flask.'], 503);
+        
+        } catch (Throwable $e) {
+            // Penanganan error PHP internal
+            Log::error('Fatal Controller Error in show_stock: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            return response()->json([
+                'error' => 'Terjadi error internal pada server Laravel.',
+                'message' => $e->getMessage() // Kirim pesan error untuk debug
+            ], 500); 
         }
     }
 }

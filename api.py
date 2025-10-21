@@ -1413,22 +1413,23 @@ def edit_component():
 
 @app.route('/api/get_stock', methods=['GET'])
 def get_material_stock():
-    # 1. Inisialisasi koneksi sebagai None di luar blok try
     conn = None
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
 
+        # 1. Ambil 'matnr' (wajib) dan 'lgort' (opsional)
         material_number = request.args.get('matnr')
-        plant_code = request.args.get('werks')
+        storage_location = request.args.get('lgort') # <-- Menggantikan 'werks'
 
-        print(f"Menerima parameter untuk get_stock: matnr={material_number}, werks={plant_code}")
+        print(f"Menerima parameter: matnr={material_number}, lgort={storage_location}")
 
+        # 2. Validasi parameter wajib
         if not material_number:
             return jsonify({'error': 'Missing required parameter: matnr'}), 400
-        if not plant_code:
-            return jsonify({'error': 'Missing required parameter: werks'}), 400
-
+        
+        # 3. LOGIKA PADDING MATNR (Diambil dari /api/get_stock)
+        # Ini penting agar RFC berfungsi dengan benar
         if material_number.isdigit():
             formatted_matnr = material_number.zfill(18)
             print(f"Material number is numeric. Padding to 18 chars: {formatted_matnr}")
@@ -1436,14 +1437,22 @@ def get_material_stock():
             formatted_matnr = material_number
             print(f"Material number is alphanumeric. Using as is: {formatted_matnr}")
             
-        print(f"Memanggil RFC Z_FM_YMMR006NX dengan P_MATNR={formatted_matnr} dan P_WERKS={plant_code}")
+        # 4. Siapkan parameter RFC secara dinamis
+        print(f"Menyiapkan parameter RFC...")
+        rfc_params = {
+            'P_MATNR': formatted_matnr # <-- Gunakan matnr yang sudah diformat
+        }
+
+        # Tambahkan P_LGORT HANYA JIKA 'storage_location' diisi
+        if storage_location:
+            rfc_params['P_LGORT'] = storage_location # <-- Parameter opsional
+            
+        print(f"Memanggil RFC Z_FM_YMMR006NX dengan parameter: {rfc_params}")
         
-        # NOTE: Berdasarkan nama RFC (Z_FM_YMMR006NX), kemungkinan besar parameter P_WERKS juga diperlukan.
-        # Jika terjadi error, coba aktifkan baris di bawah ini.
+        # 5. Panggil RFC
         result = conn.call(
             'Z_FM_YMMR006NX',
-            P_MATNR=formatted_matnr,
-            # P_WERKS=plant_code # Mungkin parameter ini juga diperlukan oleh RFC
+            **rfc_params # <-- Mengirim parameter secara dinamis
         )
 
         print("Hasil dari RFC diterima. Mengembalikan T_DATA.")
@@ -1460,12 +1469,130 @@ def get_material_stock():
         print(f"An unexpected error occurred: {e}")
         return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
     finally:
-        # 2. Blok ini akan selalu dieksekusi, memastikan koneksi ditutup
+        if conn:
+            print("Closing SAP connection for search_material_stock...")
+            conn.close()
+            print("SAP connection closed.")
+
+@app.route('/api/search_stock', methods=['GET'])
+def search_material_stock():
+    conn = None
+    try:
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
+
+        # --- PERUBAHAN 1: Ambil parameter MATNR dan LGORT ---
+        material_number = request.args.get('matnr')
+        storage_location = request.args.get('lgort') # <-- BARU: Ambil parameter 'lgort'
+
+        print(f"Menerima parameter: matnr={material_number}, lgort={storage_location}") # <-- DIUBAH
+
+        # Validasi parameter wajib (matnr)
+        if not material_number:
+            return jsonify({'error': 'Missing required parameter: matnr'}), 400
+            
+        # --- PERUBAHAN 2: Siapkan parameter RFC secara dinamis ---
+        
+        # Mulai dengan parameter wajib
+        rfc_params = {
+            'P_MATNR': material_number
+        }
+
+        # Tambahkan parameter opsional HANYA JIKA ada nilainya
+        if storage_location:
+            # Asumsi nama parameter di RFC adalah P_LGORT
+            rfc_params['P_LGORT'] = storage_location # <-- BARU
+            
+        print(f"Memanggil RFC Z_FM_YMMR006NX dengan parameter: {rfc_params}") # <-- DIUBAH
+
+        # Panggil RFC menggunakan parameter dinamis
+        result = conn.call(
+            'Z_FM_YMMR006NX',
+            **rfc_params  # <-- DIUBAH: Menggunakan dictionary unpacking
+        )
+        # --- AKHIR PERUBAHAN ---
+
+        print("Hasil dari RFC diterima. Mengembalikan T_DATA.")
+        stock_data = result.get('T_DATA', [])
+        
+        return jsonify(stock_data)
+
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 401
+    except (CommunicationError, ABAPApplicationError) as e:
+        print(f"SAP Error: {e}")
+        return jsonify({'error': f"SAP Error: {str(e)}"}), 500
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
+    finally:
         if conn:
             print("Closing SAP connection for get_material_stock...")
             conn.close()
             print("SAP connection closed.")
 
+@app.route('/api/search_stock_by_description', methods=['GET'])
+def search_material_by_desc():
+    """
+    Endpoint untuk mencari material berdasarkan deskripsi (MAKTX)
+    Memanggil Z_RFC_GET_MATERIAL_BY_DESC dan mengembalikan tabel ET_MATERIAL.
+    """
+    conn = None
+    try:
+        # 1. Otentikasi dan Koneksi SAP (sama seperti contoh)
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
+
+        # 2. Ambil parameter 'maktx' dari URL
+        # Sesuai dengan yang dikirim oleh Controller Laravel Anda
+        description = request.args.get('maktx')
+
+        print(f"Menerima parameter untuk get_material_by_desc: maktx={description}")
+
+        # Validasi parameter
+        if not description:
+            return jsonify({'error': 'Missing required parameter: maktx'}), 400
+            
+        # 3. Panggil Function Module yang baru
+        # Sesuai dengan screenshot:
+        # FM Name: Z_RFC_GET_MATERIAL_BY_DESC
+        # Import Param: IV_MAKTX
+        print(f"Memanggil RFC Z_RFC_GET_MATERIAL_BY_DESC dengan IV_MAKTX={description}")
+        result = conn.call(
+            'Z_RFC_GET_MATERIAL_BY_DESC',
+            IV_MAKTX=description
+        )
+
+        # 4. Ambil hasil dari tabel 'ET_MATERIAL'
+        # Sesuai dengan screenshot:
+        # Tables: ET_MATERIAL
+        print("Hasil dari RFC diterima. Mengembalikan ET_MATERIAL.")
+        material_data = result.get('ET_MATERIAL', [])
+        
+        # (Opsional) Anda juga bisa log pesan sukses dari SAP
+        ev_msg = result.get('EV_RETURN_MSG', '')
+        print(f"Pesan balasan SAP: {ev_msg}")
+
+        # 5. Kembalikan data sebagai JSON
+        return jsonify(material_data)
+
+    except ValueError as ve:
+        # Error otentikasi dari get_credentials()
+        return jsonify({'error': str(ve)}), 401
+    except (CommunicationError, ABAPApplicationError) as e:
+        # Error spesifik dari SAP/RFC
+        print(f"SAP Error: {e}")
+        return jsonify({'error': f"SAP Error: {str(e)}"}), 500
+    except Exception as e:
+        # Error umum lainnya
+        print(f"An unexpected error occurred: {e}")
+        return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
+    finally:
+        # 6. Tutup koneksi (sama seperti contoh)
+        if conn:
+            print("Closing SAP connection for search_material_by_desc...")
+            conn.close()
+            print("SAP connection closed.")
 
 if __name__ == '__main__':
     os.environ['PYTHONHASHSEED'] = '0'
