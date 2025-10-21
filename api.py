@@ -1481,40 +1481,54 @@ def search_material_stock():
         username, password = get_credentials()
         conn = connect_sap(username, password)
 
-        # --- PERUBAHAN 1: Ambil parameter MATNR dan LGORT ---
-        material_number = request.args.get('matnr')
-        storage_location = request.args.get('lgort') # <-- BARU: Ambil parameter 'lgort'
+        # 1. Ambil 'matnr' (opsional) dan 'lgort' (opsional)
+        material_number = request.args.get('matnr') # Bisa None
+        storage_location = request.args.get('lgort') # Bisa None
 
-        print(f"Menerima parameter: matnr={material_number}, lgort={storage_location}") # <-- DIUBAH
+        print(f"Menerima parameter: matnr={material_number}, lgort={storage_location}")
 
-        # Validasi parameter wajib (matnr)
-        if not material_number:
-            return jsonify({'error': 'Missing required parameter: matnr'}), 400
-            
-        # --- PERUBAHAN 2: Siapkan parameter RFC secara dinamis ---
-        
-        # Mulai dengan parameter wajib
-        rfc_params = {
-            'P_MATNR': material_number
-        }
+        # 2. Validasi BARU: Setidaknya salah satu harus ada
+        if not material_number and not storage_location: # <-- DIUBAH
+            return jsonify({'error': 'Missing required parameter: either matnr or lgort must be provided'}), 400
 
-        # Tambahkan parameter opsional HANYA JIKA ada nilainya
+        # 3. Siapkan parameter RFC secara dinamis
+        rfc_params = {}
+
+        # Tambahkan MATNR HANYA JIKA ada dan lakukan padding
+        if material_number:
+            if material_number.isdigit():
+                formatted_matnr = material_number.zfill(18)
+                print(f"Material number is numeric. Padding to 18 chars: {formatted_matnr}")
+            else:
+                formatted_matnr = material_number
+                print(f"Material number is alphanumeric. Using as is: {formatted_matnr}")
+            rfc_params['P_MATNR'] = formatted_matnr # <-- P_MATNR opsional di RFC?
+        else:
+             print("Material number not provided.")
+             # Jika RFC *membutuhkan* P_MATNR meski kosong, tambahkan:
+             # rfc_params['P_MATNR'] = '' 
+
+        # Tambahkan LGORT HANYA JIKA ada
         if storage_location:
-            # Asumsi nama parameter di RFC adalah P_LGORT
-            rfc_params['P_LGORT'] = storage_location # <-- BARU
-            
-        print(f"Memanggil RFC Z_FM_YMMR006NX dengan parameter: {rfc_params}") # <-- DIUBAH
+            rfc_params['P_LGORT'] = storage_location
+            print(f"Storage location provided: {storage_location}")
+        else:
+            print("Storage location not provided.")
+            # Jika RFC *membutuhkan* P_LGORT meski kosong, tambahkan:
+            # rfc_params['P_LGORT'] = ''
 
-        # Panggil RFC menggunakan parameter dinamis
+        print(f"Memanggil RFC Z_FM_YMMR006NX dengan parameter: {rfc_params}")
+
+        # 4. Panggil RFC
+        # Asumsi RFC Z_FM_YMMR006NX bisa handle P_MATNR kosong jika P_LGORT diisi, atau sebaliknya
         result = conn.call(
             'Z_FM_YMMR006NX',
-            **rfc_params  # <-- DIUBAH: Menggunakan dictionary unpacking
+            **rfc_params 
         )
-        # --- AKHIR PERUBAHAN ---
 
+        # 5. Proses Hasil (Tidak berubah)
         print("Hasil dari RFC diterima. Mengembalikan T_DATA.")
         stock_data = result.get('T_DATA', [])
-        
         return jsonify(stock_data)
 
     except ValueError as ve:
