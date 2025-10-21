@@ -9,32 +9,29 @@
 
     <form action="{{ route('search.stock.data') }}" method="GET" id="searchStockForm">
         <div class="row g-3 align-items-center">
-            
+
             <div class="col-md-7">
                 <div class="input-group input-group-lg">
                     <select class="form-select" id="search_type" name="search_type" style="max-width: 200px;">
                         <option value="matnr" selected>By Material (MATNR)</option>
                         <option value="maktx">By Description (MAKTX)</option>
                     </select>
-                    
-                    <input type="text" 
-                        class="form-control" 
-                        id="search_value" 
-                        name="search_value" 
-                        placeholder="Masukkan Kode Material (MATNR)..." 
-                        required>
-                </div>
+
+                    <input type="text"
+                        class="form-control"
+                        id="search_value"
+                        name="search_value"
+                        placeholder="Material (Optional)" > </div>
             </div>
 
             <div class="col-md-3" id="slocContainer">
                 <div class="input-group input-group-lg">
                     <span class="input-group-text" title="Storage Location">S.Loc</span>
-                    <input type="text" 
-                        class="form-control" 
-                        id="search_sloc" 
-                        name="search_sloc" 
-                        placeholder="Optional (LGORT)">
-                </div>
+                    <input type="text"
+                            class="form-control"
+                            id="search_sloc"
+                            name="search_sloc"
+                            placeholder="S.Loc (Optional)"> </div>
             </div>
 
             <div class="col-md-2 d-grid">
@@ -101,16 +98,21 @@
                 if (this.value === 'matnr') {
                     // Tampilkan input S.Loc
                     slocContainer.classList.remove('d-none');
-                    
-                    searchValueInput.placeholder = 'Masukkan Kode Material (MATNR)...';
+
+                    // Placeholder untuk MATNR (sekarang opsional)
+                    searchValueInput.placeholder = 'Material (Optional)'; // <-- DIUBAH
                     searchValueInput.addEventListener('blur', applyMatnrPadding);
-                    applyMatnrPadding.call(searchValueInput);
-                } else {
+                    // Panggil padding HANYA jika sudah ada nilainya saat switch
+                    if (searchValueInput.value.trim() !== '') {
+                        applyMatnrPadding.call(searchValueInput);
+                    }
+                } else { // MAKTX
                     // Sembunyikan dan kosongkan input S.Loc
                     slocContainer.classList.add('d-none');
-                    slocInput.value = ''; 
-                    
-                    searchValueInput.placeholder = 'Masukkan Deskripsi Material (MAKTX)...';
+                    slocInput.value = '';
+
+                    // Placeholder untuk MAKTX (tetap required)
+                    searchValueInput.placeholder = 'Masukkan Deskripsi Material (MAKTX)...'; // <-- DIUBAH
                     searchValueInput.removeEventListener('blur', applyMatnrPadding);
                 }
             });

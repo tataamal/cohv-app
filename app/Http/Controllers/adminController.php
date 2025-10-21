@@ -33,7 +33,7 @@ class adminController extends Controller
                 master_wc.kode_wc AS wc_label,
                 master_wc.description AS wc_description,
                 COUNT(DISTINCT trans_data.AUFNR) AS pro_count,
-                COALESCE(SUM(trans_data.CPCTYX), 0) AS total_capacity
+                SUM(trans_data.CPCTYX) AS total_capacity
             ")
             ->groupBy('master_wc.kode_wc', 'master_wc.description')
             ->orderBy('master_wc.kode_wc', 'asc')
@@ -106,7 +106,7 @@ class adminController extends Controller
             ->select(
                 't1.ARBPL',
                 'wc.description',
-                DB::raw('SUM(t1.CPCTYX) as total_capacity')
+                DB::raw('COALESCE(SUM(t1.CPCTYX), 0) as total_capacity')
             )
             ->where('t1.WERKSX', $kode)
             ->whereNotNull('t1.ARBPL')

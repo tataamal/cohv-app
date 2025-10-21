@@ -3725,7 +3725,9 @@ WC631,WC628,compatible
 WC631,WC629,compatible
 WC631,WC630,compatible
 WC213,WC216,compatible
+WC216,WC213,compatible
 WC209,WC210,compatible
+WC210,WC209,compatible
 WC211,WC212,compatible
 WC241,WC242,compatible
 WC241,WC243,compatible
