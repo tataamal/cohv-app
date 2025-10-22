@@ -18,20 +18,22 @@
                     </select>
 
                     <input type="text"
-                        class="form-control"
-                        id="search_value"
-                        name="search_value"
-                        placeholder="Material (Optional)" > </div>
+                           class="form-control"
+                           id="search_value"
+                           name="search_value"
+                           placeholder="Material (Optional)" >
+                </div>
             </div>
 
             <div class="col-md-3" id="slocContainer">
                 <div class="input-group input-group-lg">
                     <span class="input-group-text" title="Storage Location">S.Loc</span>
                     <input type="text"
-                            class="form-control"
-                            id="search_sloc"
-                            name="search_sloc"
-                            placeholder="S.Loc (Optional)"> </div>
+                           class="form-control"
+                           id="search_sloc"
+                           name="search_sloc"
+                           placeholder="S.Loc (Optional)">
+                </div>
             </div>
 
             <div class="col-md-2 d-grid">
@@ -57,7 +59,7 @@
     </div>
 
     <div id="stockResultsContainer" class="row g-3">
-        </div>
+    </div>
 
 
     <script>
@@ -149,56 +151,80 @@
                 });
             }
             
+            // --- FUNGSI RENDER STOK (DIUBAH TOTAL SESUAI PERMINTAAN) ---
             function renderStockCards(data) {
-                 // ... (Fungsi renderStockCards Anda tetap sama, tidak perlu diubah)
-                resultsContainer.innerHTML = ''; 
+                resultsContainer.innerHTML = ''; // Kosongkan kontainer
+
+                // Handle jika tidak ada data
                 if (!data || data.length === 0) {
                     resultsContainer.innerHTML = `<div class="col-12"><p class="text-center text-muted fs-5 mt-3">Tidak ada data stok ditemukan.</p></div>`;
                     return;
                 }
-                data.forEach(item => {
-                    const cardHtml = `
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card shadow-sm h-100">
-                                <div class="card-header bg-light">
-                                    <strong class="text-primary">Storage Location: ${item.LGORT || '-'}</strong>
-                                </div>
-                                <div class="card-body">
-                                    <h5 class="card-title mb-1">${item.MATNR}</h5>
-                                    <p class="card-subtitle mb-2 text-muted">${item.MAKTX || 'Deskripsi tidak tersedia'}</p>
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="fs-4 fw-bold text-success">${item.CLABS || '0'}</span>
-                                        <span class="badge bg-secondary">${item.MEINS || 'Unit'}</span>
-                                    </div>
-                                    <ul class="list-group list-group-flush">
-                                        <li class="list-group-item d-flex justify-content-between px-0">
-                                            <span>Batch:</span>
-                                            <strong>${item.CHARG || '-'}</strong>
-                                        </li>
-                                        <li class="list-group-item d-flex justify-content-between px-0">
-                                            <span>Sales Order:</span>
-                                            <strong>${item.VBELN || '-'}</strong>
-                                        </li>
-                                        <li class="list-group-item d-flex justify-content-between px-0">
-                                            <span>Item:</span>
-                                            <strong>${item.POSNR || '-'}</strong>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
+                const tableWrapperHtml = `
+                    <div class="col-12">
+                        <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                            <table class="table table-striped table-hover align-middle">
+                                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                                    <tr class="align-middle">
+                                        <th class="text-center" >Storage Location</th>
+                                        <th class="text-center" >Material</th>
+                                        <th class="text-center" >Description</th>
+                                        <th class="text-center" >Batch</th>
+                                        <th class="text-center" >Stock Amount</th>
+                                        <th class="text-center" >UOM</th>
+                                        <th class="text-center" >Sales Order</th>
+                                        <th class="text-center" >SO Item</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stockTableBody">
+                                    </tbody>
+                            </table>
                         </div>
+                    </div>
+                `;
+                
+                resultsContainer.innerHTML = tableWrapperHtml;
+                
+                const tableBody = document.getElementById('stockTableBody');
+                if (!tableBody) return; // Safety check
+
+                // Loop data dan buat <tr> (baris tabel)
+                data.forEach(item => {
+                    let displayMeins = (item.MEINS || 'Unit').toUpperCase();
+                    if (displayMeins === 'ST') {
+                        displayMeins = 'PC';
+                    }
+                    const displayClabs = Math.floor(parseFloat(item.CLABS || '0'));
+                    
+                    const rowHtml = `
+                        <tr>
+                            <td class="text-center">
+                                <span class="badge bg-primary">${item.LGORT || '-'}</span>
+                            </td>
+                            
+                            <td class="text-center">${item.MATNR || '-'}</td>
+                            <td class="text-muted text-center">${item.MAKTX || 'Deskripsi tidak tersedia'}</td>
+                            
+                            <td class="text-center">
+                                <span class="badge bg-secondary text-center">${item.CHARG || '-'}</span>
+                            </td>
+                            
+                            <td class="fw-bold fs-5 text-success text-center">${displayClabs}</td>
+                            
+                            <td class="text-center">
+                                <span class="badge bg-info text-dark text-center">${displayMeins}</span>
+                            </td>
+                            
+                            <td class="text-center">${item.VBELN || '-'}</td>
+                            <td class="text-center">${item.POSNR || '-'}</td>
+                        </tr>
                     `;
-                    resultsContainer.innerHTML += cardHtml;
+                    tableBody.innerHTML += rowHtml;
                 });
             }
-
-
-            // --- Skrip AJAX untuk Form Submit (DIUBAH) ---
             form.addEventListener('submit', function(event) {
-                // 1. Hentikan form
-                event.preventDefault();
 
-                // 2. Siapkan UI untuk loading
+                event.preventDefault();
                 errorDiv.classList.add('d-none');
                 errorDiv.textContent = '';
                 resultsContainer.innerHTML = ''; 
@@ -208,23 +234,17 @@
                 buttonIcon.classList.add('d-none');
                 buttonText.textContent = 'Searching...';
 
-                // 3. Ambil data dari form (DIUBAH)
                 const currentSearchType = searchTypeSelect.value;
                 const searchValue = searchValueInput.value;
-                const slocValue = slocInput.value; // --- BARU ---
+                const slocValue = slocInput.value;
 
                 // Buat URL
                 const url = new URL(form.action);
                 url.searchParams.append('search_type', currentSearchType);
                 url.searchParams.append('search_value', searchValue);
-
-                // --- BARU: Tambahkan S.Loc jika ada dan tipenya matnr ---
                 if (currentSearchType === 'matnr' && slocValue.trim() !== '') {
                     url.searchParams.append('search_sloc', slocValue);
                 }
-                // --- AKHIR BARU ---
-
-                // 4. Kirim request
                 fetch(url, {
                     method: 'GET',
                     headers: {
@@ -233,7 +253,6 @@
                     }
                 })
                 .then(response => {
-                    // ... (Logika .then(response) Anda tetap sama)
                     const contentType = response.headers.get('content-type');
                     if (!response.ok) {
                         if (contentType && contentType.includes('application/json')) {
@@ -257,7 +276,6 @@
                     }
                 })
                 .then(data => {
-                    // 5. SUKSES: Tampilkan data
                     spinner.classList.add('d-none'); 
 
                     if (currentSearchType === 'matnr') {
@@ -267,23 +285,18 @@
                     }
                 })
                 .catch(error => {
-                    // 6. GAGAL: Tampilkan error
                     spinner.classList.add('d-none');
                     errorDiv.textContent = error.message; 
                     errorDiv.classList.remove('d-none');
                     console.error('Fetch Error:', error);
                 })
                 .finally(() => {
-                    // 7. FINALLY: Kembalikan tombol ke normal
                     searchButton.disabled = false;
                     buttonSpinner.classList.add('d-none');
                     buttonIcon.classList.remove('d-none');
                     buttonText.textContent = 'Search';
                 });
             });
-
-
-            // --- LISTENER Klik Kartu (DIUBAH) ---
             resultsContainer.addEventListener('click', function(event) {
                 const clickedCard = event.target.closest('.material-select-card');
 
@@ -291,31 +304,15 @@
                     const matnr = clickedCard.dataset.matnr; 
 
                     if (matnr) {
-                        // 1. Set nilai form
                         searchTypeSelect.value = 'matnr';
                         searchValueInput.value = matnr;
-                        
-                        // 2. Update UI form
                         searchValueInput.placeholder = 'Masukkan Kode Material (MATNR)...';
                         searchValueInput.removeEventListener('blur', applyMatnrPadding); 
-                        searchValueInput.addEventListener('blur', applyMatnrPadding);    
-                        
-                        // 3. Panggil padding
+                        searchValueInput.addEventListener('blur', applyMatnrPadding); 
                         applyMatnrPadding.call(searchValueInput); 
-
-                        // --- PERUBAHAN ALUR UTAMA ---
-                        
-                        // 4. Tampilkan kontainer S.Loc
                         slocContainer.classList.remove('d-none');
-
-                        // 5. (UX) Scroll ke atas dan fokus ke input S.Loc
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                         slocInput.focus(); 
-                        
-                        // 6. HAPUS AUTO-KLIK
-                        // searchButton.click(); // <-- Baris ini dihapus
-                        
-                        // --- AKHIR PERUBAHAN ---
                     }
                 }
             });
