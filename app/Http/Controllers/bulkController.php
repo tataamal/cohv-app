@@ -538,4 +538,76 @@ class bulkController extends Controller
             ], 500);
         }
     }
+
+    public function bulkChangeQuantity(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'items' => 'required|array|min:1',
+            'items.*.aufnr' => 'required|string|max:12',
+            'items.*.werks' => 'required|string|max:4',
+            'items.*.new_quantity' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        $items = $request->input('items');
+        $username = session('username');
+        $password = session('password');
+        
+        $flaskApiUrl = 'http://127.0.0.1:8050//api/change_quantity'; 
+
+        $successCount = 0;
+        $failCount = 0;
+        $errorMessages = [];
+
+        foreach ($items as $item) {
+            try {
+                $sapQuantityString = number_format(
+                    floatval($item['new_quantity']),
+                    3, '.', ''
+                );
+                $dataToFlask = [
+                    'AUFNR' => $item['aufnr'],
+                    'QUANTITY' => $sapQuantityString
+                ];
+
+                // Panggil API Flask
+                $response = Http::withHeaders([
+                    'X-SAP-Username' => $username,
+                    'X-SAP-Password' => $password,
+                ])->timeout(60)->post($flaskApiUrl, $dataToFlask);
+
+                // Periksa hasil
+                if ($response->successful() && !$response->json('error')) {
+                    $successCount++;
+                } else {
+                    $failCount++;
+                    $errorMessage = $response->json('error') ?? 'Unknown SAP/Flask Error';
+                    $errorMessages[] = "PRO <strong>{$item['aufnr']}</strong>: {$errorMessage}";
+                }
+
+            } catch (ConnectionException $e) {
+                $failCount++;
+                $errorMessages[] = "PRO <strong>{$item['aufnr']}</strong>: Connection Error (Timeout or API down)";
+            } catch (\Exception $e) {
+                $failCount++;
+                $errorMessages[] = "PRO <strong>{$item['aufnr']}</strong>: Client Error - {$e->getMessage()}";
+            }
+        }
+        $totalProcessed = count($items);
+        $finalMessage = "Bulk process finished. Please Refresh the data to see updates.";
+
+        return response()->json([
+            'success' => true,
+            'message' => $finalMessage,
+            'summary' => [
+                'processed' => $totalProcessed,
+                'successful' => $successCount,
+                'failed' => $failCount,
+            ],
+            'details' => $errorMessages
+        ]);
+    }
 }

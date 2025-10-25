@@ -128,6 +128,7 @@
                             <button class="btn btn-info btn-sm" id="bulk-refresh-btn" style="display: none;" onclick="openBulkRefreshModal()"><i class="fa-solid fa-arrows-rotate"></i></button>
                             <button class="btn btn-warning btn-sm" id="bulk-changePv-btn" style="display: none;" onclick="openBulkChangePvModal()"><i class="fa-solid fa-code-compare"></i></button>
                             <button class="btn btn-info btn-sm" id="bulk-readpp-btn" style="display: none;" onclick="openBulkReadPpModal()"><i class="fas fa-book-open"></i></button>
+                            <button class="btn btn-warning btn-sm" id="bulk-changeQty-btn" style="display: none;" onclick="openBulkChangeQuantityModal()"><i class="fa-solid fa-file-pen"></i></button>
                             <button class="btn btn-danger btn-sm" id="bulk-teco-btn" style="display: none;" onclick="openBulkTecoModal()"><i class="fas fa-trash"></i></button>
                             <button class="btn btn-outline-secondary btn-sm" onclick="clearAllSelections()">Clear</button>
                         </div>
@@ -277,6 +278,8 @@
     @include('components.modals.bulk-changepv-modal')
     @include('components.modals.edit-component')
     @include('components.modals.add-component-modal')
+    @include('components.modals.change-quantity-modal')
+    @include('components.modals.bulk-change-quantity-modal')
     @include('components.modals.show-stock')
     @push('scripts')
     <script src="{{ asset('js/bulk-modal-handle.js') }}"></script>
@@ -285,11 +288,13 @@
     <script src="{{ asset('js/schedule.js') }}"></script>
     <script src="{{ asset('js/teco.js') }}"></script>
     <script src="{{ asset('js/component.js') }}"></script>
-    <script src="{{ asset('js/changePv.js') }}"></script>
+    <script src="{{ asset('js/changeQuantity.js') }}"></script>
+    <script src="{{ asset('js/changeQuantity.js') }}"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // --- [BARU] Inisialisasi semua Modal Bootstrap ---
-        let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal, bulkChangePvModal, editComponentModal;
+        let resultModal, scheduleModal, changeWcModal, changePvModal, bulkScheduleModal, bulkReadPpModal, bulkTecoModal, bulkRefreshModal, bulkChangePvModal, editComponentModal, ChangeQuantityModal, bulkChangeQuantityModal;
         let bulkActionPlantCode = null;let bulkActionVerid = null;let t3ModalInstance;let detailModalInstance;let t4ModalInstance;let t1ModalInstance;let currentSortKey = null;
         let currentT3SortKey = null;let currentT3SortDirection = 'asc';let currentSearchTerm = '';
         document.addEventListener('DOMContentLoaded', function() {
@@ -413,7 +418,9 @@
             bulkTecoModal = new bootstrap.Modal(document.getElementById('bulkTecoModal'));
             bulkRefreshModal = new bootstrap.Modal(document.getElementById('bulkRefreshModal'));
             bulkChangePvModal = new bootstrap.Modal(document.getElementById('bulkChangePvModal'));
+            bulkChangeQuantityModal = new bootstrap.Modal(document.getElementById('bulkChangeQuantityModal'));
             editComponentModal = new bootstrap.Modal(document.getElementById('dataEntryModal'));
+            ChangeQuantityModal = new bootstrap.Modal(document.getElementById('changeQuantityModal'));
         });
 
         // --- Fungsi Helper Notifikasi (SweetAlert - Tidak Berubah) ---
@@ -1618,6 +1625,7 @@
                         ${d3.AUFNR ? `<button type="button" title="Refresh PRO" class="btn btn-info btn-sm" onclick="openRefresh('${d3.AUFNR}', '${d3.WERKSX}')"><i class="fa-solid fa-arrows-rotate"></i></button>` : ''}
                         ${d3.AUFNR ? `<button type="button" title="Change PV" class="btn btn-warning btn-sm" onclick="openChangePvModal('${d3.AUFNR}', '${d3.VERID}', '${d3.WERKSX}')"><i class="fa-solid fa-code-compare"></i></button>` : ''}
                         ${d3.AUFNR ? `<button type="button" title="Read PP" class="btn btn-info btn-sm" onclick="openReadPP('${encodeURIComponent(padAufnr(d3.AUFNR))}')"><i class="fas fa-book-open"></i></button>` : ''}
+                        ${d3.AUFNR ? `<button type="button" title="Change Quantity" class="btn btn-warning btn-sm" onclick="openChangeQuantityModal('${d3.AUFNR}', '${d3.PSMNG}', '${d3.WERKSX}')"><i class="fa-solid fa-file-pen"></i></button>` : ''}
                         ${d3.AUFNR ? `<button type="button" title="TECO" class="btn btn-danger btn-sm" onclick="openTeco('${encodeURIComponent(padAufnr(d3.AUFNR))}')"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                 </td>
@@ -1680,6 +1688,7 @@
                     <button type="button" title="Refresh PRO" class="btn btn-info btn-sm" onclick="openRefresh('${data.AUFNR}', '${data.WERKSX}')"><i class="fa-solid fa-arrows-rotate me-1"></i> Refresh</button>
                     <button type="button" title="Change PV" class="btn btn-warning btn-sm" onclick="openChangePvModal('${data.AUFNR}', '${data.VERID}', '${data.WERKSX}')"><i class="fa-solid fa-code-compare me-1"></i> Change PV</button>
                     <button type="button" title="Read PP" class="btn btn-info btn-sm" onclick="openReadPP('${encodeURIComponent(padAufnr(data.AUFNR))}')"><i class="fas fa-book-open me-1"></i> Read PP</button>
+                    <button type="button" title="Change Quantity" class="btn btn-warning btn-sm" onclick="openChangeQuantityModal('${data.AUFNR}', '${data.PSMNG}', '${data.WERKSX}')"><i class="<i class="fa-solid fa-file-pen"></i>"></i> Change Quantity</button>
                     <button type="button" title="TECO" class="btn btn-danger btn-sm" onclick="openTeco('${encodeURIComponent(padAufnr(data.AUFNR))}')"><i class="fas fa-trash me-1"></i> TECO</button>
                 </div>
             ` : '';
@@ -2869,6 +2878,267 @@
             
             stockModal.show();
         }
+
+        // Variabel untuk menyimpan instance modal
+        let changeQtyModal;
+
+        // Inisialisasi modal saat dokumen siap
+        document.addEventListener("DOMContentLoaded", function() {
+            const modalEl = document.getElementById('changeQuantityModal');
+            if (modalEl) {
+                changeQtyModal = new bootstrap.Modal(modalEl);
+            }
+        });
+
+        // Fungsi untuk membuka dan mengisi data modal
+        function openChangeQuantityModal(aufnr, psmng, werks) {
+            // Mengisi data ke dalam form
+            document.getElementById('modal_aufnr').value = aufnr;
+            document.getElementById('modal_werks').value = werks;
+            
+            // Mengisi data yang hanya untuk ditampilkan
+            document.getElementById('display_aufnr').value = aufnr;
+            document.getElementById('display_current_qty').value = psmng; // Menampilkan qty asli
+            
+            // Mengisi nilai awal qty baru sama dengan qty saat ini
+            document.getElementById('modal_new_quantity').value = psmng; 
+
+            // Reset tampilan error/processing
+            document.getElementById('processing-message').style.display = 'none';
+            document.getElementById('submitChangeQtyBtn').disabled = false;
+            
+            // Tampilkan modal
+            if (changeQtyModal) {
+                changeQtyModal.show();
+            }
+        }
+
+        document.getElementById('changeQtyForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('submitChangeQtyBtn');
+            const processingMsg = document.getElementById('processing-message');
+            const form = this;
+
+            // Tampilkan status proses & nonaktifkan tombol
+            submitBtn.disabled = true;
+            processingMsg.style.display = 'block';
+
+            const formData = new FormData(form);
+            fetch("{{ route('order.changeQuantity') }}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': formData.get('_token'),
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Sukses
+                    changeQtyModal.hide(); // Tutup modal
+                    Swal.fire({
+                        title: 'Success!',
+                        text: data.message,
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: data.message,
+                        icon: 'error'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Request Failed!',
+                    text: 'An unexpected error occurred. Please try again.',
+                    icon: 'error'
+                });
+            })
+            .finally(() => {
+                // Selalu jalankan ini: kembalikan tombol ke keadaan normal
+                submitBtn.disabled = false;
+                processingMsg.style.display = 'none';
+            });
+        });
+
+        let bulkChangeQtyModal;
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const modalEl = document.getElementById('bulkChangeQuantityModal');
+            if (modalEl) {
+                bulkChangeQtyModal = new bootstrap.Modal(modalEl);
+            }
+        });
+
+        function openBulkChangeQuantityModal() {
+
+            if (mappedPRO.size === 0) {
+                Swal.fire('Info', 'Tidak ada Production Order (PRO) yang dipilih.', 'info');
+                return;
+            }
+
+            // 2. Ambil elemen kontainer dari modal
+            const listContainer = document.getElementById('bulk-qty-list-container');
+            if (!listContainer) {
+                console.error('Modal element #bulk-qty-list-container not found!');
+                return;
+            }
+            
+            // Buat HTML tabel
+            let tableHtml = `<table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="d-none d-md-table-cell">Production Order</th>
+                                        <th>Current Qty</th>
+                                        <th>New Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+
+            // 3. Ambil WERKS (Plant) dari variabel global (mengikuti contoh Anda)
+            const werks = bulkActionPlantCode; 
+
+            // 4. Loop `mappedPRO` untuk mengambil data
+            mappedPRO.forEach((rowData, proNumber) => {
+                const psmng = rowData.PSMNG; 
+
+                // 6. Validasi bahwa data yang dibutuhkan ada
+                if (psmng !== undefined && werks) {
+                    // Jika data lengkap, buat baris input
+                    tableHtml += `
+                        <tr>
+                            <td class="d-none d-md-table-cell"><strong>${proNumber}</strong></td>
+                            <td>${psmng}</td>
+                            <td>
+                                <input type="number" 
+                                    class="form-control form-control-sm bulk-qty-input" 
+                                    value="${psmng}" 
+                                    data-aufnr="${proNumber}"
+                                    data-werks="${werks}"
+                                    data-original-qty="${psmng}">
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    // Jika data (psmng atau werks) tidak ditemukan
+                    tableHtml += `
+                        <tr>
+                            <td class="d-none d-md-table-cell"><strong>${proNumber}</strong></td>
+                            <td colspan="2" class="text-danger small">Error: Data (PSMNG/WERKS) not found in JavaScript data map.</td>
+                        </tr>
+                    `;
+                    console.warn(`Data 'PSMNG' (${psmng}) or 'WERKS' (${werks}) missing for PRO: ${proNumber}`, rowData);
+                }
+            });
+
+            tableHtml += `</tbody></table>`;
+            
+            // 7. Masukkan HTML ke modal
+            listContainer.innerHTML = tableHtml;
+
+            // Reset tampilan
+            document.getElementById('bulk-processing-message').style.display = 'none';
+            document.getElementById('submitBulkChangeQtyBtn').disabled = false;
+
+            // 8. Tampilkan modal
+            if (bulkChangeQtyModal) {
+                bulkChangeQtyModal.show();
+            }
+        }
+        document.getElementById('bulkChangeQtyForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('submitBulkChangeQtyBtn');
+            const processingMsg = document.getElementById('bulk-processing-message');
+            let itemsToProcess = [];
+            
+            const allInputs = document.querySelectorAll('.bulk-qty-input');
+            
+            allInputs.forEach(input => {
+                const originalQty = input.dataset.originalQty;
+                const newQty = input.value;
+                
+                if (originalQty !== newQty) {
+                    itemsToProcess.push({
+                        aufnr: input.dataset.aufnr,
+                        werks: input.dataset.werks,
+                        new_quantity: newQty
+                    });
+                }
+            });
+
+            if (itemsToProcess.length === 0) {
+                Swal.fire('No Changes', 'You did not change any quantity.', 'info');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            processingMsg.style.display = 'block';
+
+            fetch("{{ route('order.bulkChangeQuantity') }}", { // <-- NAMA ROUTE BARU
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json' // Kirim sebagai JSON
+                },
+                body: JSON.stringify({ items: itemsToProcess }) // Kirim sebagai array
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    bulkChangeQtyModal.hide();
+                    
+                    // Tampilkan ringkasan sukses
+                    let successMessage = `
+                        ${data.message}<br><br>
+                        Processed: ${data.summary.processed}<br>
+                        Successful: ${data.summary.successful}<br>
+                        Failed: ${data.summary.failed}
+                    `;
+                    
+                    if (data.summary.failed > 0) {
+                        // Jika ada error, tampilkan detailnya
+                        const errorList = data.details.map(err => `<li>${err}</li>`).join('');
+                        successMessage += `<br><br><strong>Errors:</strong><ul class="text-start">${errorList}</ul>`;
+                        
+                        Swal.fire({
+                            title: 'Process Finished (with errors)',
+                            html: successMessage,
+                            icon: 'warning'
+                        });
+                    } else {
+                        // Jika semua sukses
+                        Swal.fire({
+                            title: 'Success!',
+                            html: successMessage,
+                            icon: 'success'
+                        });
+                    }
+                    // Muat ulang datatable Anda jika perlu
+                    // yourDataTable.ajax.reload();
+                } else {
+                    // Error dari validasi controller
+                    Swal.fire('Error!', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Request Failed!', 'An unexpected error occurred.', 'error');
+            })
+            .finally(() => {
+                // Selalu aktifkan tombol lagi
+                submitBtn.disabled = false;
+                processingMsg.style.display = 'none';
+            });
+        });
 
     </script>
 @endpush
