@@ -3,14 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductionTData3;
-use App\Models\ProductionTData1;
-use App\Models\ProductionTData4;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Validator;
 
 class Data3Controller extends Controller
 {
@@ -278,6 +277,60 @@ class Data3Controller extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Tidak dapat terhubung ke server Read PP. Mohon coba lagi nanti.'
+            ], 500);
+        }
+    }
+
+    public function changeQuantity(Request $request)
+    {
+        // 1. Validasi Input (Tetap sama)
+        $validator = Validator::make($request->all(), [
+            'aufnr' => 'required|string|max:12',
+            'werks' => 'required|string|max:4',
+            'new_quantity' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            $sapQuantityString = number_format(
+                floatval($request->input('new_quantity')),
+                3,
+                '.',
+                ''
+            );
+            $dataToFlask = [
+                'AUFNR' => $request->input('aufnr'),
+                'QUANTITY' => $sapQuantityString
+            ];
+
+            $flaskApiUrl = 'http://127.0.0.1:8050//api/change_quantity';
+           $response = Http::withHeaders([
+                'X-SAP-Username' => session('username'),
+                'X-SAP-Password' => session('password'),
+            ])->timeout(60)->post($flaskApiUrl, $dataToFlask);
+            
+            if ($response->successful() && !$response->json('error')) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $response->json('message') ?? 'Quantity changed successfully, Please Refresh the Production Order data.'
+                ]);
+            } else {
+                $errorMessage = $response->json('error') ?? 'Failed to update quantity. Unknown error.';
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage
+                ], $response->status());
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error: ' . $e->getMessage()
             ], 500);
         }
     }

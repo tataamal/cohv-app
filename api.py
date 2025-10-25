@@ -1608,6 +1608,61 @@ def search_material_by_desc():
             conn.close()
             print("SAP connection closed.")
 
+# CHANGE QUANTITY
+@app.route('/api/change_quantity', methods=['POST'])
+def change_quantity():
+    import time
+    
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
+    conn = None
+    try:
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
+
+        data = request.get_json()
+        aufnr = data.get('AUFNR')
+        quantity = data.get('QUANTITY')
+
+        if not aufnr or not quantity:
+            return jsonify({'error': 'AUFNR and QUANTITY are required'}), 400
+
+        print("AUFNR:", aufnr, "→ Value Quantity:", quantity)
+        result_change = conn.call(
+            'BAPI_PRODORD_CHANGE',
+            NUMBER=aufnr,
+            ORDERDATA={'QUANTITY': quantity},
+            ORDERDATAX={'QUANTITY': 'X'}
+        )
+        sap_return = result_change.get('RETURN', [])
+        sap_return_list = sap_return if isinstance(sap_return, list) else [sap_return]
+        has_error = any(msg.get('TYPE') in ['E', 'A'] for msg in sap_return_list)
+
+        if has_error:
+            error_messages = [f"[{msg.get('TYPE')}] {msg.get('MESSAGE')}" for msg in sap_return_list]
+            error_string = "\n".join(error_messages)
+            print("❌ BAPI Error:", error_string)
+            return jsonify({'error': f'SAP BAPI Error:\n{error_string}'}), 500
+
+        # Commit perubahan
+        print("BAPI_TRANSACTION_COMMIT...")
+        conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
+        return jsonify({
+            'sap_return': sap_return_list,
+            'status':'success',
+            'message': 'Quantity changed successfully, Please Refresh the Production Order data.'
+        })
+
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 401
+    except Exception as e:
+        print("❌ Exception:", str(e))
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            print("Closing SAP connection for change_prod_version...")
+            conn.close()
+            print("SAP connection closed.")
+
 if __name__ == '__main__':
     os.environ['PYTHONHASHSEED'] = '0'
     app.run(host='127.0.0.1', port=8050, debug=True)

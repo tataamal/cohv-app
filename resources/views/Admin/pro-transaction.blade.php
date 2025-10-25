@@ -110,6 +110,11 @@
                         @if(empty($proData->AUFNR)) disabled @endif>
                         <i class="fas fa-book-open me-1"></i> READ PP
                     </button>
+                    <button type="button" class="btn btn-sm btn-warning" 
+                        onclick="openChangeQuantityModal('{{ $proData->AUFNR ?? '' }}', '{{ $proData->PSMNG ?? '' }}', '{{ $proData->WERKSX ?? '' }}')"
+                        @if(empty($proData->AUFNR)) disabled @endif>
+                        <i class="fa-solid fa-file-pen"></i> Change Quantity
+                    </button>
                     <button type="button" class="btn btn-sm btn-danger" onclick="openTeco('{{ $proData->AUFNR ?? '' }}')"
                         @if(empty($proData->AUFNR)) disabled @endif>
                         <i class="fas fa-circle-check me-1"></i> TECO
@@ -192,6 +197,7 @@
     @include('components.modals.add-component-modal')
     @include('components.modals.edit-component')
     @include('components.modals.add-component-modal')
+    @include('components.modals.change-quantity-modal')
     @push('scripts')
     <script src="{{ asset('js/readpp.js') }}"></script>
     <script src="{{ asset('js/refresh.js') }}"></script>
@@ -943,6 +949,94 @@
                 }
             }
         }
+        // Variabel untuk menyimpan instance modal
+        let changeQtyModal;
+
+        // Inisialisasi modal saat dokumen siap
+        document.addEventListener("DOMContentLoaded", function() {
+            const modalEl = document.getElementById('changeQuantityModal');
+            if (modalEl) {
+                changeQtyModal = new bootstrap.Modal(modalEl);
+            }
+        });
+
+        // Fungsi untuk membuka dan mengisi data modal
+        function openChangeQuantityModal(aufnr, psmng, werks) {
+            // Mengisi data ke dalam form
+            document.getElementById('modal_aufnr').value = aufnr;
+            document.getElementById('modal_werks').value = werks;
+            
+            // Mengisi data yang hanya untuk ditampilkan
+            document.getElementById('display_aufnr').value = aufnr;
+            document.getElementById('display_current_qty').value = psmng; // Menampilkan qty asli
+            
+            // Mengisi nilai awal qty baru sama dengan qty saat ini
+            document.getElementById('modal_new_quantity').value = psmng; 
+
+            // Reset tampilan error/processing
+            document.getElementById('processing-message').style.display = 'none';
+            document.getElementById('submitChangeQtyBtn').disabled = false;
+            
+            // Tampilkan modal
+            if (changeQtyModal) {
+                changeQtyModal.show();
+            }
+        }
+
+        document.getElementById('changeQtyForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('submitChangeQtyBtn');
+            const processingMsg = document.getElementById('processing-message');
+            const form = this;
+
+            // Tampilkan status proses & nonaktifkan tombol
+            submitBtn.disabled = true;
+            processingMsg.style.display = 'block';
+
+            const formData = new FormData(form);
+            fetch("{{ route('order.changeQuantity') }}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': formData.get('_token'),
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Sukses
+                    changeQtyModal.hide(); // Tutup modal
+                    Swal.fire({
+                        title: 'Success!',
+                        text: data.message,
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: data.message,
+                        icon: 'error'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Request Failed!',
+                    text: 'An unexpected error occurred. Please try again.',
+                    icon: 'error'
+                });
+            })
+            .finally(() => {
+                // Selalu jalankan ini: kembalikan tombol ke keadaan normal
+                submitBtn.disabled = false;
+                processingMsg.style.display = 'none';
+            });
+        });
     </script>
     @endpush
 </x-layouts.app>

@@ -66,6 +66,8 @@ Route::middleware('auth')->group(function (){
     Route::get('/wc-mapping/details/{kode}/{wc}', [WcCompatibilityController::class, 'showDetails'])->name('wc.details');
     Route::post('/changeWC', [Data1Controller::class, 'changeWc'])->name('wc.change.single');
     Route::post('/components/update', [Data4Controller::class, 'update'])->name('components.update');
+    Route::post('/change-order-quantity', [Data3Controller::class, 'changeQuantity'])
+     ->name('order.changeQuantity');
 
     // Routing untuk Bulk Function
     Route::post('/bulk-refresh-pro', [bulkController::class, 'handleBulkRefresh'])->name('bulk-refresh.store');
@@ -74,6 +76,7 @@ Route::middleware('auth')->group(function (){
     Route::post('/bulk-schedule-process', [bulkController::class, 'processBulkSchedule'])->name('bulk.schedule.process');
     Route::post('/bulk-change-and-refresh', [bulkController::class, 'handleBulkChangeAndRefresh']);
     Route::post('/changeWCBulk/{kode}/{wc_tujuan}', [Data1Controller::class, 'changeWcBulk'])->name('wc.change.bulk');
+    Route::post('/bulk-change-quantity', [bulkController::class, 'bulkChangeQuantity'])->name('order.bulkChangeQuantity');
 
     Route::get('/monitoring-pro/{kode}', [MonitoringProController::class, 'index'])->name('monitoring-pro.index');
     Route::get('/monitoring-pro/{kode}/filter', [MonitoringProController::class, 'filter'])->name('monitoring-pro.filter');

@@ -19,6 +19,7 @@ function updateBulkControls() {
     const bulkTecoBtn = document.getElementById('bulk-teco-btn');
     const bulkRefreshBtn = document.getElementById('bulk-refresh-btn');
     const bulkChangePvBtn = document.getElementById('bulk-changePv-btn');
+    const bulkChangeQtyBtn = document.getElementById('bulk-changeQty-btn');
 
     // Tampilkan tombol-tombol ini HANYA jika ada PRO yang dipilih
     if (bulkScheduleBtn) bulkScheduleBtn.style.display = hasPRO ? 'inline-block' : 'none';
@@ -26,6 +27,7 @@ function updateBulkControls() {
     if (bulkTecoBtn) bulkTecoBtn.style.display = hasPRO ? 'inline-block' : 'none';
     if (bulkRefreshBtn) bulkRefreshBtn.style.display = hasPRO ? 'inline-block' : 'none';
     if (bulkChangePvBtn) bulkChangePvBtn.style.display = hasPRO ? 'inline-block' : 'none';
+    if (bulkChangeQtyBtn) bulkChangeQtyBtn.style.display = hasPRO ? 'inline-block' : 'none';
 }
 
 // const scheduleForm = document.getElementById('bulkScheduleForm');
