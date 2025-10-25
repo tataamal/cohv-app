@@ -16,8 +16,8 @@
                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="control_key" data-sort-type="text">Control Key <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="description" data-sort-type="text">Description <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="work_center" data-sort-type="text">Work Center <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="time_capacity" data-sort-type="number">Time Capacity (Hours) <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="item_day" data-sort-type="number">Item/Day <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="time_capacity" data-sort-type="number">Time(H) <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
+                    <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="item_day" data-sort-type="number">Qty/Day <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                     
                     {{-- Kolom yang Tampil di Mobile --}}
                     <th class="text-center sortable-header" data-sort-column="pv1" data-sort-type="text">PV 1 <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
@@ -48,7 +48,7 @@
                         data-control-key="{{ $route->STEUS ?? '-' }}"
                         data-description="{{ $route->KTEXT ?? '-' }}"
                         data-work-center="{{ $route->ARBPL ?? '-' }}"
-                        data-time-capacity="{{ $route->KAPAZ ?? '-' }}"
+                        data-time-capacity="{{ $route->CPCTYX ?? '-' }}"
                         data-item-day="{{ $hasilPerHari }}"
                         data-pv1="{{ $route->PV1 ?? '-' }}"
                         data-pv2="{{ $route->PV2 ?? '-' }}"
