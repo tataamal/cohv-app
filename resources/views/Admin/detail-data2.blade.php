@@ -937,7 +937,7 @@
                         <td class="text-center d-none d-md-table-cell">${t1.STEUS || '-'}</td>
                         <td class="d-none d-md-table-cell">${t1.KTEXT || '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${t1.ARBPL || '-'}</td>
-                        <td class="text-center d-none d-md-table-cell">${t1.KAPAZ || '-'}</td>
+                        <td class="text-center d-none d-md-table-cell">${t1.CPCTYX || '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${hasilPerHari}</td>
                         <td class="text-center d-none d-md-table-cell">${t1.PV1 || '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${t1.PV2 || '-'}</td>
@@ -958,7 +958,7 @@
                                         <div class="fw-semibold">${t1.KAPAZ || '-'}</div>
                                     </div>
                                     <div>
-                                        <div class="small text-muted">Item/Day</div>
+                                        <div class="small text-muted">Qty/Day</div>
                                         <div class="fw-semibold">${hasilPerHari}</div>
                                     </div>
                                     <div>
