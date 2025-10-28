@@ -117,7 +117,7 @@ def fetch_data_for_plant(plant):
     print(f"PROCESS: Mulai mengambil data untuk plant: {plant}...")
     try:
         conn = connect_sap()
-        result = conn.call('Z_FM_YPPR018', P_WERKS=plant)
+        result = conn.call('P', P_WERKS=plant)
         conn.close()
 
         data = result.get('T_DATA1', [])

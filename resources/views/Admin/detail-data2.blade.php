@@ -1106,7 +1106,7 @@
                                 <button type="button" class="btn btn-warning btn-sm edit-component-btn"
                                         data-aufnr="${c.AUFNR ?? ''}" data-rspos="${c.RSPOS ?? ''}" data-matnr="${c.MATNR ?? ''}"
                                         data-bdmng="${c.BDMNG ?? ''}" data-lgort="${c.LGORT ?? ''}" data-sobkz="${c.SOBKZ ?? ''}"
-                                        data-plant="${plantCode}"
+                                        data-plant="${plantCode}" data-meins="${c.MEINS ?? ''}"
                                         onclick="handleEditClick(this)">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
@@ -2421,18 +2421,8 @@
             const lgort = buttonElement.dataset.lgort;
             const sobkz = buttonElement.dataset.sobkz;
             const plant = buttonElement.dataset.plant;
+            const meins = buttonElement.dataset.meins;
 
-            // Sekarang Anda bisa menggunakan semua variabel ini
-            console.log('✅ Tombol Edit Diklik via onclick!');
-            console.log('AUFNR:', aufnr);
-            console.log('RSPOS:', rspos);
-            console.log('MATNR:', matnr);
-            console.log('PLANT:', plant);
-
-            // ✨ CONTOH: Langsung panggil logika untuk menampilkan modal di sini
-            // (Ini adalah kode dari pembahasan modal kita sebelumnya)
-            
-            // Isi nilai-nilai ke dalam field form di modal
             document.getElementById('formPro').value = aufnr;
             document.getElementById('formRspos').value = rspos;
             document.getElementById('formMatnr').value = matnr;
@@ -2440,6 +2430,7 @@
             document.getElementById('formLgort').value = lgort;
             document.getElementById('formSobkz').value = sobkz;
             document.getElementById('formPlant').value = plant;
+            
 
             // Tampilkan modal
             const dataModal = new bootstrap.Modal(document.getElementById('dataEntryModal'));
