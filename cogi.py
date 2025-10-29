@@ -39,10 +39,8 @@ def connect_db():
             database=os.environ.get('DB_DATABASE'),
             user=os.environ.get('DB_USERNAME'),
             password=os.environ.get('DB_PASSWORD'),
-            # charset='utf8mb4', # Ditambahkan untuk konsistensi
-            # autocommit=False     # Ditambahkan untuk konsistensi
         )
-    except pymysql.Error as err: # DIUBAH: Menangkap pymysql.Error
+    except pymysql.Error as err:
         print(f"ERROR: Gagal terhubung ke MySQL. Pesan: {err}")
         raise
     except ValueError:
@@ -59,7 +57,7 @@ def save_cogi_to_db(cogi_data):
         return 0
 
     db_conn = None
-    cursor = None  # DIUBAH: Inisialisasi cursor ke None
+    cursor = None 
     try:
         db_conn = connect_db()
         cursor = db_conn.cursor()
@@ -71,10 +69,10 @@ def save_cogi_to_db(cogi_data):
             INSERT INTO tb_cogi (
                 MANDT, AUFNR, RSNUM, BUDAT, KDAUF, KDPOS, DWERK, MATNRH, MAKTXH,
                 DISPOH, PSMNG, WEMNG, MATNR, MAKTX, DISPO, ERFMG, AUFNRX, P1, PW,
-                MENGE, MEINS, LGORTH, LGORT, DEVISI, PESAN_ERROR, created_at, updated_at
+                MENGE, MEINS, LGORTH, LGORT, DEVISI, TYPMAT, PESAN_ERROR, created_at, updated_at
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()
             )
         """
         data_to_insert = [
@@ -83,7 +81,7 @@ def save_cogi_to_db(cogi_data):
                 d.get('KDPOS'), d.get('DWERK'), d.get('MATNRH'), d.get('MAKTXH'), d.get('DISPOH'),
                 d.get('PSMNG'), d.get('WEMNG'), d.get('MATNR'), d.get('MAKTX'), d.get('DISPO'),
                 d.get('ERFMG'), d.get('AUFNRX'), d.get('P1'), d.get('PW'), d.get('MENGE'),
-                d.get('MEINS'), d.get('LGORTH'), d.get('LGORT'), d.get('DEVISI'), d.get('PESAN_ERROR')
+                d.get('MEINS'), d.get('LGORTH'), d.get('LGORT'), d.get('DEVISI'), d.get('TYPMAT'), d.get('PESAN_ERROR')
             ) for d in cogi_data
         ]
 
@@ -117,7 +115,7 @@ def fetch_data_for_plant(plant):
     print(f"PROCESS: Mulai mengambil data untuk plant: {plant}...")
     try:
         conn = connect_sap()
-        result = conn.call('P', P_WERKS=plant)
+        result = conn.call('Z_FM_YPPR018', P_WERKS=plant)
         conn.close()
 
         data = result.get('T_DATA1', [])
@@ -137,7 +135,7 @@ def run_synchronization():
 
     try:
         # 1. Definisikan daftar WERKS
-        plants = ['1001', '1000', '2000', '3000', '1200']
+        plants = ['1001', '1000', '2000', '3000']
         all_cogi_data = []
 
         # 2. Ambil data dari SAP secara paralel
