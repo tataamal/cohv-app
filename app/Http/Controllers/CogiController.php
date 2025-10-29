@@ -131,7 +131,7 @@ class CogiController extends Controller
             sleep(2); 
 
             // Jika berhasil
-            return response()->json(['message' => 'Sinkronisasi data COGI berhasil. Data sedang diperbarui.']);
+            return response()->json(['message' => 'Fitur Singkronisasi Data COGI sedang dalam pengembangan.']);
         
         } catch (\Exception $e) {
             // Jika gagal
