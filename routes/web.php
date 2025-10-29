@@ -86,6 +86,9 @@ Route::middleware('auth')->group(function (){
     // Cogi Routing
     Route::get('/monitoring/cogi/{kode}', [CogiController::class, 'index'])->name('cogi.report');
     Route::get('/show-stock', [Data4Controller::class, 'show_stock']);
+    Route::get('/api/cogi/dashboard', [CogiController::class, 'getDashboardData'])->name('api.cogi.dashboard');
+    Route::post('/api/cogi/sync', [CogiController::class, 'syncCogiData'])->name('api.cogi.sync');
+    Route::get('/api/cogi/details/{plantCode}', [CogiController::class, 'getCogiDetails'])->name('api.cogi.details');
 
     // Search Stock Route
     Route::get('/search-stock', [StockController::class, 'index'])->name('search.stock');

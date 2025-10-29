@@ -1,8 +1,3 @@
-{{--
-    File: resources/views/partials/_form_komponen.blade.php
-    Komponen modal ini siap untuk di-include di halaman Blade utama Anda.
---}}
-
 @push('styles')
 <style>
     /* Kustomisasi Modal */
