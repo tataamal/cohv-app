@@ -1664,5 +1664,5 @@ def change_quantity():
             print("SAP connection closed.")
 
 if __name__ == '__main__':
-    os.environ['PYTHONHASHSEED'] = '0'
-    app.run(host='127.0.0.1', port=8050, debug=True)
+    # os.environ['PYTHONHASHSEED'] = '0'
+    app.run(host='127.0.0.1', port=8055, debug=True)

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Models\Kode;
 use App\Models\SapUser;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +15,14 @@ use Illuminate\Http\Client\ConnectionException;
 
 class LoginController extends Controller
 {
+    protected $flaskApi;
+
+    public function __construct()
+    {
+        $baseUrl = config('services.flask.base_url');
+        $this->flaskApi = Http::baseUrl($baseUrl)
+                             ->timeout(30);
+    }
     public function checkAuth(Request $request)
     {
         if (Auth::check()) {
@@ -39,8 +46,7 @@ class LoginController extends Controller
         ]);
 
         try {
-            // --- INTEGRASI API FLASK DIMULAI ---
-            $response = Http::timeout(30)->post('http://127.0.0.1:8050/api/sap-login', [
+            $response = $this->flaskApi->post('/api/sap-login', [
                 'username' => $validated['sap_id'],
                 'password' => $validated['password'],
             ]);
@@ -55,9 +61,7 @@ class LoginController extends Controller
                 $errorMessage = $response->json('message', 'Username atau Password SAP tidak valid.');
                 return back()->withErrors(['login' => $errorMessage]);
             }
-            // --- INTEGRASI API FLASK SELESAI ---
 
-            // Jika otentikasi SAP berhasil, lanjutkan membuat user di Laravel
             $sapUser = SapUser::where('sap_id', $validated['sap_id'])->first();
             if (!$sapUser) {
                 return back()->withErrors(['login' => 'SAP ID ini tidak terdaftar di sistem internal.']);
