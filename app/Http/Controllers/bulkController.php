@@ -19,7 +19,6 @@ class bulkController extends Controller
 {
     public function handleBulkRefresh(Request $request): JsonResponse
     {
-        // 1. Validasi input
         $validated = $request->validate([
             'pros'   => 'required|array|min:1',
             'pros.*' => 'string|max:20',
@@ -30,29 +29,23 @@ class bulkController extends Controller
         $plant = $validated['plant'];
 
         try {
-            // 2. Panggil service Flask untuk mendapatkan data mentah
             $flaskResponse = $this->_callBulkFlaskService('/api/bulk-refresh-pro', $proList, $plant);
             $results = $flaskResponse['results'] ?? [];
 
             $successfulPros = [];
             $failedPros = [];
 
-            // Memulai transaksi database. Jika ada error, semua akan di-rollback.
             DB::beginTransaction();
 
-            // 3. Iterasi hasil dari Flask dan proses satu per satu
             foreach ($results as $result) {
                 if (isset($result['status']) && $result['status'] === 'sukses') {
-                    // Jika PRO berhasil diambil dari SAP, proses data dan simpan ke DB
                     $proNumber = $result['aufnr'];
                     $sapData = $result['details'];
                     
-                    // Panggil private function untuk mapping dan update DB
                     $this->_processAndMapSinglePro($proNumber, $plant, $sapData);
 
                     $successfulPros[] = $proNumber;
                 } else {
-                    // Jika PRO gagal diambil dari SAP, catat kegagalannya
                     $failedPros[] = [
                         'aufnr' => $result['aufnr'] ?? 'Unknown',
                         'message' => $result['message'] ?? 'Unknown error from Flask service'
@@ -60,10 +53,8 @@ class bulkController extends Controller
                 }
             }
 
-            // Jika semua proses di atas berhasil, commit transaksi
             DB::commit();
 
-            // 4. Buat pesan respons yang informatif untuk frontend
             $message = $this->_buildResponseMessage(count($successfulPros), $failedPros);
 
             return response()->json([
@@ -77,7 +68,6 @@ class bulkController extends Controller
             ]);
 
         } catch (Throwable $e) {
-            // Jika terjadi error di mana pun, rollback transaksi dan lapor
             DB::rollBack();
             Log::error("Gagal total pada proses bulk refresh: " . $e->getMessage());
             return response()->json([
@@ -121,7 +111,6 @@ class bulkController extends Controller
     {
         Log::info("Memproses dan mapping data untuk PRO: {$proNumber}");
 
-        // 1. Hapus data lama yang spesifik untuk PRO ini
         ProductionTData1::where('WERKSX', $plant)->where('AUFNR', $proNumber)->delete();
         ProductionTData4::where('WERKSX', $plant)->where('AUFNR', $proNumber)->delete();
         ProductionTData3::where('WERKSX', $plant)->where('AUFNR', $proNumber)->delete();
@@ -130,13 +119,11 @@ class bulkController extends Controller
         $all_T3 = $sapData['T_DATA3'] ?? [];
         $all_T4 = $sapData['T_DATA4'] ?? [];
 
-        // 2. Insert data T3 (parent)
         foreach ($all_T3 as $t3_row) {
             $t3_row['WERKSX'] = $plant;
             ProductionTData3::create($t3_row);
         }
 
-        // 3. Insert data T1 (child) dengan mapping
         foreach ($all_T1 as $t1_row) {
             $t1_row['PV1'] = $this->_generatePvField($t1_row, 'ARBPL1', 'SSSLDPV1');
             $t1_row['PV2'] = $this->_generatePvField($t1_row, 'ARBPL2', 'SSSLDPV2');
@@ -145,7 +132,6 @@ class bulkController extends Controller
             ProductionTData1::create($t1_row);
         }
 
-        // 4. Insert data T4 (child)
         foreach ($all_T4 as $t4_row) {
             $t4_row['WERKSX'] = $plant;
             ProductionTData4::create($t4_row);
@@ -185,9 +171,6 @@ class bulkController extends Controller
 
     public function processBulkTeco(Request $request)
     {
-        // =======================================================
-        // LANGKAH 1: VALIDASI INPUT
-        // =======================================================
         $validator = Validator::make($request->all(), [
             'pro_list'   => 'required|array|min:1',
             'pro_list.*' => 'string|distinct',
@@ -199,9 +182,6 @@ class bulkController extends Controller
 
         $listOfPro = $validator->validated()['pro_list'];
 
-        // =======================================================
-        // LANGKAH 2: AMBIL KREDENSIAL DARI SESSION
-        // =======================================================
         $username = $request->session()->get('username');
         $password = $request->session()->get('password');
 
@@ -209,13 +189,9 @@ class bulkController extends Controller
             return response()->json(['message' => 'Autentikasi SAP tidak ditemukan. Silakan login ulang.'], 401);
         }
 
-        // =======================================================
-        // LANGKAH 3: PROSES HIT API FLASK DENGAN TRY-CATCH
-        // =======================================================
         try {
             $flaskApiUrl = env('FLASK_API_URL') . "/api/bulk-teco-pro";
 
-            // Mengirim request ke Flask dengan header dan body
             $response = Http::withHeaders([
                 'X-SAP-Username' => $username,
                 'X-SAP-Password' => $password,
@@ -224,7 +200,6 @@ class bulkController extends Controller
                 'pro_list' => $listOfPro,
             ]);
 
-            // --- JIKA FLASK MEMBERIKAN RESPONS (Berhasil atau Gagal dari sisi Flask) ---
             if ($response->successful()) { // Status code 2xx (Berhasil)
                 
                 Log::info('Bulk TECO success from SAP/Flask API.', [
@@ -237,10 +212,9 @@ class bulkController extends Controller
 
                 return response()->json(['message' => 'Semua PRO berhasil di-TECO.']);
 
-            } else { // Status code 4xx atau 5xx (Gagal dari sisi Flask)
+            } else { 
                 
                 $errorData = $response->json();
-                // Ambil pesan error dari respons Flask, jika tidak ada, beri pesan default
                 $errorMessage = $errorData['error'] ?? 'Terjadi error tidak diketahui dari SAP.';
 
                 Log::error('Bulk TECO failed from SAP/Flask API.', [
@@ -253,20 +227,15 @@ class bulkController extends Controller
             }
 
         } catch (ConnectionException $e) {
-            // --- JIKA GAGAL TERHUBUNG KE SERVER FLASK ---
             Log::error('Gagal terhubung ke Flask API untuk Bulk TECO.', [
                 'error_message' => $e->getMessage()
             ]);
-
             return response()->json(['message' => 'Gagal menghubungi SAP, Silahkan hubungi TIM IT'], 503); // 503 Service Unavailable
         }
     }
 
     public function processBulkReadPp(Request $request)
     {
-        // =======================================================
-        // LANGKAH 1: VALIDASI INPUT
-        // =======================================================
         $validator = Validator::make($request->all(), [
             'pro_list'   => 'required|array|min:1',
             'pro_list.*' => 'string|distinct',
@@ -277,10 +246,6 @@ class bulkController extends Controller
         }
 
         $listOfPro = $validator->validated()['pro_list'];
-
-        // =======================================================
-        // LANGKAH 2: AMBIL KREDENSIAL DARI SESSION
-        // =======================================================
         $username = $request->session()->get('username');
         $password = $request->session()->get('password');
 
@@ -288,9 +253,6 @@ class bulkController extends Controller
             return response()->json(['message' => 'Autentikasi SAP tidak ditemukan. Silakan login ulang.'], 401);
         }
 
-        // =======================================================
-        // LANGKAH 3: PROSES HIT API FLASK DENGAN TRY-CATCH
-        // =======================================================
         try {
             // Ambil URL dari file config
             $flaskApiUrl = env('FLASK_API_URL') . "/api/bulk-readpp-pro";
@@ -303,8 +265,7 @@ class bulkController extends Controller
                 'pro_list' => $listOfPro,
             ]);
 
-            // --- JIKA FLASK MEMBERIKAN RESPONS ---
-            if ($response->successful()) { // Status code 2xx (Berhasil)
+            if ($response->successful()) { 
                 
                 $responseData = $response->json();
                 Log::info('Bulk Read PP success from SAP/Flask API.', [
@@ -314,7 +275,7 @@ class bulkController extends Controller
 
                 return response()->json(['message' => 'Proses Read PP berhasil dijalankan.']);
 
-            } else { // Status code 4xx atau 5xx (Gagal dari sisi Flask)
+            } else { 
                 
                 $errorData = $response->json();
                 $errorMessage = $errorData['error'] ?? 'Terjadi error tidak diketahui dari SAP.';
@@ -329,7 +290,6 @@ class bulkController extends Controller
             }
 
         } catch (ConnectionException $e) {
-            // --- JIKA GAGAL TERHUBUNG KE SERVER FLASK ---
             Log::error('Gagal terhubung ke Flask API untuk Bulk Read PP.', [
                 'error_message' => $e->getMessage()
             ]);
@@ -340,9 +300,6 @@ class bulkController extends Controller
 
     public function processBulkSchedule(Request $request)
     {
-        // =======================================================
-        // LANGKAH 1: VALIDASI SEMUA INPUT DARI AJAX
-        // =======================================================
         $validator = Validator::make($request->all(), [
             'pro_list'      => 'required|array|min:1',
             'pro_list.*'    => 'string|distinct',
@@ -359,9 +316,6 @@ class bulkController extends Controller
         $listOfPro = $validatedData['pro_list'];
         $plant = $validatedData['plant'];
 
-        // =======================================================
-        // LANGKAH 2: EKSEKUSI SCHEDULE KE API FLASK
-        // =======================================================
         try {
             $scheduleApiUrl = env('FLASK_API_URL') . "/api/bulk-schedule-pro";
             $credentials = [
@@ -372,7 +326,6 @@ class bulkController extends Controller
             $scheduleResponse = Http::withHeaders($credentials)
                 ->timeout(0)
                 ->post($scheduleApiUrl, [
-                    // Sesuaikan body request dengan kebutuhan API schedule Anda
                     'pro_list'      => $listOfPro,
                     'schedule_date' => $validatedData['schedule_date'],
                     'schedule_time' => $validatedData['schedule_time'],
@@ -390,9 +343,6 @@ class bulkController extends Controller
             return response()->json(['message' => 'Gagal menghubungi service scheduler, Silahkan hubungi TIM IT'], 503);
         }
 
-        // =======================================================
-        // LANGKAH 3: JALANKAN FUNGSI REFRESH PRO SETELAH SCHEDULE SUKSES
-        // =======================================================
         Log::info('Scheduling berhasil, melanjutkan ke proses refresh data untuk PROs:', $listOfPro);
 
         $refreshResult = $this->_callBulkFlaskService(  "/api/bulk-refresh-pro", $listOfPro, $plant);
@@ -400,7 +350,6 @@ class bulkController extends Controller
         $successCount = 0;
         $failedPros = [];
 
-        // Proses data yang berhasil di-refresh
         if (!empty($refreshResult['success_details'])) {
             foreach ($refreshResult['success_details'] as $detail) {
                 try {
@@ -413,14 +362,12 @@ class bulkController extends Controller
             }
         }
 
-        // Kumpulkan data yang gagal di-refresh
         if (!empty($refreshResult['error_details'])) {
             foreach ($refreshResult['error_details'] as $errorDetail) {
                 $failedPros[] = $errorDetail['pro_number'];
             }
         }
         
-        // Buat pesan respons akhir menggunakan private function
         $finalMessage = $this->_buildResponseMessage($successCount, $failedPros);
         
         return response()->json(['message' => "Proses schedule berhasil. " . $finalMessage]);
@@ -428,9 +375,6 @@ class bulkController extends Controller
 
     public function handleBulkChangeAndRefresh(Request $request): JsonResponse
     {
-        // =================================================================
-        // --- PERUBAHAN 1: SESUAIKAN ATURAN VALIDASI ---
-        // =================================================================
         $validated = $request->validate([
             'plant'      => 'required|string|max:10',
             'verid'      => 'required|string|max:10',    // Sekarang kita validasi satu 'verid'
@@ -443,11 +387,6 @@ class bulkController extends Controller
         $proList = $validated['pro_list'];
 
         try {
-            // =================================================================
-            // --- PERUBAHAN 2: TRANSFORMASI DATA UNTUK FLASK API ---
-            // =================================================================
-            // API Flask mengharapkan format data: [{'pro': ..., 'verid': ...}, ...]
-            // Jadi, kita ubah pro_list dan satu verid menjadi format tersebut.
             $changeData = array_map(function($pro) use ($targetVerid) {
                 return [
                     'pro'   => $pro,
@@ -455,7 +394,6 @@ class bulkController extends Controller
                 ];
             }, $proList);
             
-            // Ambil kredensial dari session (Tidak ada perubahan)
             $sapUsername = $request->session()->get('username');
             $sapPassword = $request->session()->get('password');
 
@@ -463,17 +401,12 @@ class bulkController extends Controller
                 throw new \Exception("Kredensial SAP tidak ditemukan di sesi pengguna.");
             }
             
-            // =================================================================
-            // Sisa dari kode ini sebagian besar tetap sama karena $changeData
-            // sudah dalam format yang benar untuk dikirim ke Flask.
-            // =================================================================
-            
             Log::info("Memulai proses Bulk Change PV untuk plant: {$plant}");
             
             $changeResponse = Http::withHeaders([
                 'X-SAP-Username' => $sapUsername,
                 'X-SAP-Password' => $sapPassword,
-            ])->post('http://127.0.0.1:8050/api/bulk-change-pv', [
+            ])->post('http://127.0.0.1:8055/api/bulk-change-pv', [
                 'plant' => $plant,
                 'data'  => $changeData, // Kirim data yang sudah ditransformasi
             ]);
@@ -556,7 +489,7 @@ class bulkController extends Controller
         $username = session('username');
         $password = session('password');
         
-        $flaskApiUrl = 'http://127.0.0.1:8050//api/change_quantity'; 
+        $flaskApiUrl = 'http://127.0.0.1:8055//api/change_quantity'; 
 
         $successCount = 0;
         $failCount = 0;
