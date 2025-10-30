@@ -1107,7 +1107,7 @@
                                         data-aufnr="${c.AUFNR ?? ''}" data-rspos="${c.RSPOS ?? ''}" data-matnr="${c.MATNR ?? ''}"
                                         data-bdmng="${c.BDMNG ?? ''}" data-lgort="${c.LGORT ?? ''}" data-sobkz="${c.SOBKZ ?? ''}"
                                         data-plant="${plantCode}" data-meins="${c.MEINS ?? ''}"
-                                        onclick="handleEditClick(this)">
+                                        onclick=" event.stopPropagation(); handleEditClick(this)">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
 
@@ -1167,7 +1167,7 @@
                                     <button type="button" class="btn btn-warning btn-sm edit-component-btn py-1 px-2"
                                             data-aufnr="${c.AUFNR ?? ''}" data-rspos="${c.RSPOS ?? ''}" data-matnr="${c.MATNR ?? ''}"
                                             data-bdmng="${c.BDMNG ?? ''}" data-lgort="${c.LGORT ?? ''}" data-sobkz="${c.SOBKZ ?? ''}"
-                                            data-plant="${plantCode}"
+                                            data-plant="${plantCode}" data-meins="${c.MEINS ?? ''}"
                                             onclick="event.stopPropagation(); handleEditClick(this);">
                                         <i class="fa-solid fa-pen-to-square me-1"></i> Edit
                                     </button>
@@ -2430,6 +2430,7 @@
             document.getElementById('formLgort').value = lgort;
             document.getElementById('formSobkz').value = sobkz;
             document.getElementById('formPlant').value = plant;
+            document.getElementById('formMeins').value = (meins.trim().toUpperCase() === 'ST') ? 'PC' : meins;
             
 
             // Tampilkan modal

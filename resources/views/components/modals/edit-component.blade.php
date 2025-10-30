@@ -49,9 +49,15 @@
                             <input type="text" class="form-control form-control-readonly" id="formRspos" name="rspos" readonly>
                         </div>
                     </div>
-                    <div class="mt-3">
-                        <label for="formPlant" class="form-label"><i class="fa-solid fa-industry"></i>Plant</label>
-                        <input type="text" class="form-control form-control-readonly" id="formPlant" name="plant" readonly>
+                    <div class="row g-3 mt-1" >
+                        <div class="col-md-6">
+                            <label for="formPlant" class="form-label"><i class="fa-solid fa-industry"></i>Plant</label>
+                            <input type="text" class="form-control form-control-readonly" id="formPlant" name="plant" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="formMeins" class="form-label"><i class="fa-solid fa-circle-info"></i>UoM</label>
+                            <input type="text" class="form-control form-control-readonly" id="formMeins" name="meins" readonly>
+                        </div>
                     </div>
                     <div class="mt-3">
                         <label for="formMatnr" class="form-label"><i class="fa-solid fa-box"></i>Kode Material</label>
@@ -99,4 +105,38 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    const dataEntryModal = document.getElementById("dataEntryModal");
+    const quantityInput = document.getElementById("formBdmng");
+    const meinsInput = document.getElementById("formMeins");
+
+    // Pastikan semua elemen ditemukan
+    if (!dataEntryModal || !quantityInput || !meinsInput) {
+        console.error("Satu atau lebih elemen modal (dataEntryModal, formBdmng, formMeins) tidak ditemukan.");
+        return;
+    }
+
+    function validateQuantityRules() {
+        const meinsValue = meinsInput.value.trim().toUpperCase();
+        
+        if (meinsValue === 'ST') {
+            quantityInput.step = "1";
+            let currentValue = parseFloat(quantityInput.value);
+            if (!isNaN(currentValue) && currentValue % 1 !== 0) {
+                quantityInput.value = Math.round(currentValue);
+            }
+        } else {
+            quantityInput.step = "any";
+        }
+    }
+    quantityInput.addEventListener("input", validateQuantityRules);
+    dataEntryModal.addEventListener('show.bs.modal', function() {
+        setTimeout(validateQuantityRules, 10); 
+    });
+
+});
+</script>
 

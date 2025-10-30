@@ -35,17 +35,23 @@ class CogiController extends Controller
         $queryForCards = clone $baseQuery;
         
         $totalError = $queryForCards->count();
-        $errorBaru = (clone $queryForCards)->where('BUDAT', '<', today()->subDays(7))->count();
-        $errorLama = (clone $queryForCards)->where('BUDAT', '>', today()->subDays(7))->count();
+
+        // "Baru" (New) = Dalam 7 hari terakhir (lebih besar atau sama dengan 7 hari lalu)
+        $errorBaru = (clone $queryForCards)->where('BUDAT', '>=', today()->subDays(7))->count(); // <-- LOGIKA DIPERBAIKI
+
+        // "Lama" (Old) = Lebih tua dari 7 hari (lebih kecil dari 7 hari lalu)
+        $errorLama = (clone $queryForCards)->where('BUDAT', '<', today()->subDays(7))->count(); // <-- LOGIKA DIPERBAIKI
         
         $filter = $request->query('filter');
         
         $queryForTable = clone $baseQuery;
 
         if ($filter === 'baru') {
-            $queryForTable->where('BUDAT', '<', today()->subDays(7));
+            // Filter "Baru" (New)
+            $queryForTable->where('BUDAT', '>=', today()->subDays(7)); // <-- LOGIKA DIPERBAIKI
         } elseif ($filter === 'lama') {
-            $queryForTable->where('BUDAT', '>', today()->subDays(7));
+            // Filter "Lama" (Old)
+            $queryForTable->where('BUDAT', '<', today()->subDays(7)); // <-- LOGIKA DIPERBAIKI
         }
 
         $cogiData = $queryForTable->latest('BUDAT')->get();
