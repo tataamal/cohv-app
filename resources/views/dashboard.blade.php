@@ -4,7 +4,6 @@
         $user = Auth::user() ?? (object) ['name' => 'User', 'role' => 'Guest'];
     @endphp
 
-    {{-- CSS untuk transisi fade yang halus & UI Modern --}}
     @push('styles')
     <style>
         #cogi-dashboard-container {
@@ -28,23 +27,6 @@
         @keyframes glow {
             0%, 100% { filter: drop-shadow(0 0 3px rgba(255, 193, 7, 0.7)); }
             50% { filter: drop-shadow(0 0 8px rgba(255, 193, 7, 1)); }
-        }
-
-        #trophy-container {
-            position: absolute; 
-            top: 5px; 
-            left: 0; 
-            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            opacity: 0; 
-            transform: translateX(-50%) translateY(-20px);
-            z-index: 10;
-            filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.3)); /* Shadow */
-        }
-        
-        #trophy-container.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-            animation: glow 2s infinite ease-in-out; /* Animasi glow */
         }
 
         #cogiBarChart {
@@ -143,7 +125,7 @@
                 </div>
             </header>
             
-            <div class="w-100 mx-auto text-center py-5" style="max-width: 1140px;">
+            <div class="w-50 mx-auto text-center py-2" style="max-width: 1140px;">
                 <h1 class="display-5 fw-bold">Selamat Datang!</h1>
                 <p class="fs-5 text-white-75 mt-2" style="min-height: 28px;">
                     <span id="typing-effect">Bagian mana yang ingin anda kerjakan ?</span>
@@ -158,15 +140,12 @@
             <!-- Container untuk Dashboard & Tabel -->
             <div id="cogi-dashboard-container" class="mb-4">
 
-                <!-- [VIEW 1] Dashboard Utama (Chart + Summary) -->
                 <div id="cogi-dashboard-view" class="cogi-view">
-                    <div class="row g-4">
-                        
-                        <!-- Kolom Chart -->
-                        <div class="col-lg-8">
+                    <div class="row g-4 mb-4">
+                        <div class="col-lg-12">
                             <div class="card rounded-4 shadow-sm border-0 h-100">
                                 <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-center flex-wrap">
-                                    <h2 class="h6 fw-bold mb-0 pt-2">Ringkasan Total COGI (Qty)</h2>
+                                    <h2 class="h6 fw-bold mb-0 pt-2">Ringkasan COGI per Devisi</h2>
                                     <button id="sync-cogi-btn" class="btn btn-primary btn-sm my-2">
                                         <span class="spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
                                         <i class="fa-solid fa-sync-alt me-1 icon-sync"></i>
@@ -174,10 +153,7 @@
                                     </button>
                                 </div>
                                 <div class="card-body" style="position: relative;">
-                                    <div id="trophy-container">
-                                        <i class="fa-solid fa-trophy fs-4" style="color: #ffc107;"></i> <!-- Emas -->
-                                    </div>
-
+                                    
                                     <div id="chart-loader" class="text-center py-5" style="min-height: 300px;">
                                         <div class="spinner-border text-primary" role="status">
                                             <span class="visually-hidden">Loading...</span>
@@ -185,13 +161,32 @@
                                         <p class="mt-2 text-muted small">Memuat data chart...</p>
                                     </div>
                                     
-                                    <canvas id="cogiBarChart" style="display: none; min-height: 300px; max-height: 300px;"></canvas>
+                                    <div id="chart-grid-container" class="row g-4 d-none">
+                                        <div class="col-md-6">
+                                            <h3 class="h6 fw-bold text-center mb-2" style="font-size: 0.9rem;">Plant 1000 (Sby)</h3>
+                                            <canvas id="cogiDonutChart1000" style="max-height: 200px; cursor: pointer;"></canvas>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h3 class="h6 fw-bold text-center mb-2" style="font-size: 0.9rem;">Plant 1001 (Sby)</h3>
+                                            <canvas id="cogiDonutChart1001" style="max-height: 200px; cursor: pointer;"></canvas>
+                                        </div>
+                                        <div class="col-md-6 mt-4">
+                                            <h3 class="h6 fw-bold text-center mb-2" style="font-size: 0.9rem;">Plant 2000 (Sby)</h3>
+                                            <canvas id="cogiDonutChart2000" style="max-height: 200px; cursor: pointer;"></canvas>
+                                        </div>
+                                        <div class="col-md-6 mt-4">
+                                            <h3 class="h6 fw-bold text-center mb-2" style="font-size: 0.9rem;">Plant 3000 (Smg)</h3>
+                                            <canvas id="cogiDonutChart3000" style="max-height: 200px; cursor: pointer;"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Kolom Ringkasan Data -->
-                        <div class="col-lg-4">
+                    </div>
+                    
+                    <div class="row g-4">
+                        
+                        <div class="col-lg-6 mb-4">
                             <div class="card rounded-4 shadow-sm border-0 h-100">
                                 <div class="card-header bg-white border-0 pt-3 pb-0">
                                     <h2 class="h6 fw-bold mb-4 pt-2">Ranking Plant</h2>
@@ -202,16 +197,30 @@
                                             <span class="visually-hidden">Loading...</span>
                                         </div>
                                     </div>
-                                    <!-- [PERUBAHAN] Container dinamis untuk ranking -->
                                     <div id="summary-rank-list"> 
-                                        <!-- Ranking akan dibuat oleh JS di sini -->
+                                        </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6 mb-4">
+                            <div class="card rounded-4 shadow-sm border-0 h-100">
+                                <div class="card-header bg-white border-0 pt-3 pb-0">
+                                    <h2 class="h6 fw-bold mb-4 pt-2">COGI per Tipe Material (TYPMAT)</h2>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div id="typmat-loader" class="text-center py-5">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
                                     </div>
+                                    <div id="typmat-summary-list"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-
+                
                 <div id="cogi-table-view" class="cogi-view hidden">
                     <div class="card rounded-4 shadow-sm border-0">
                         <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-center flex-wrap">
@@ -222,8 +231,8 @@
                                 <h2 id="table-title" class="h6 fw-bold mb-0">Detail COGI Plant...</h2>
                             </div>
                             <div class="d-flex align-items-center mb-2">
-                                <select id="dispo-filter" class="form-select form-select-sm me-2" style="min-width: 150px; max-width: 200px;">
-                                    <option value="">Semua Dispo</option>
+                                <select id="division-filter" class="form-select form-select-sm me-2" style="min-width: 150px; max-width: 200px; display: none;">
+                                    <option value="">Semua Devisi</option>
                                 </select>
                                 <input type="text" id="table-search" class="form-control form-control-sm" placeholder="Cari di hasil ini..." style="max-width: 250px;">
                             </div>
@@ -237,17 +246,15 @@
                             </div>
 
                             <div id="table-container" class="table-responsive" style="max-height: 60vh;">
-                                <!-- Menambahkan class .table-cogi-detail -->
                                 <table class="table table-striped table-hover table-sm table-cogi-detail">
                                     <thead class="table-light" style="position: sticky; top: 0;">
                                         <tr>
-                                            <!-- Menambahkan style width ke TH -->
                                             <th style="width: 5%;">No</th>
                                             <th style="width: 12%;">PRO</th>
                                             <th style="width: 15%;">Reservasi Number</th>
                                             <th style="width: 15%;">Material Number</th>
                                             <th style="width: 28%;">Description</th>
-                                            <th style="width: 8%;">MRP</th>
+                                            <th style="width: 8%;">Devisi</th>
                                             <th style="width: 17%;">Date</th>
                                         </tr>
                                     </thead>
@@ -260,14 +267,10 @@
                             </div>
                         </div>
                     </div>
-                </div> <!-- [AKHIR] #cogi-table-view -->
+                </div> 
 
             </div>
-            <!-- [AKHIR] #cogi-dashboard-container -->
 
-
-            {{-- Bagian Plant Cards --}}
-            <!-- Menghapus 'justify-content-center' -->
             <div class="row g-4"> 
                 @php
                     $colorClasses = [
@@ -309,408 +312,436 @@
 
 
     @push('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    {{-- Import helper getRelativePosition dari Chart.js --}}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.4.1/helpers.min.js" xintegrity="sha512-JG3S/E6MNtPqodZUk1M/N4Q5Yj3Q5n/yQbzM09FxL2zfl9TtT8xF7RbfL+E7aP/htw50aD36HHY3h88P7FpwEg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> 
+        {{-- Library Chart.js --}}
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            
-            let currentPlantData = [];
-            let cogiChart;
-            const plantCodes = ['1000', '1001', '2000', '3000'];
-            const plantNames = {
-                '1000': 'Plant 1000 (Sby)',
-                '1001': 'Plant 1001 (Sby)',
-                '2000': 'Plant 2000 (Sby)',
-                '3000': 'Plant 3000 (Smg)',
-            };
-            const defaultColors = {
-                bg: 'rgba(54, 162, 235, 0.2)', // Biru muda transparan
-                border: 'rgba(54, 162, 235, 1)' // Biru solid
-            };
-
-            // --- Elemen DOM ---
-            const cogiDashboardView = document.getElementById('cogi-dashboard-view');
-            const cogiTableView = document.getElementById('cogi-table-view');
-            const backToDashboardBtn = document.getElementById('back-to-dashboard-btn');
-            const dispoFilter = document.getElementById('dispo-filter');
-            const tableSearch = document.getElementById('table-search'); 
-            const tableTitle = document.getElementById('table-title');
-            const tableLoader = document.getElementById('table-loader');
-            const tableContainer = document.getElementById('table-container');
-            const tableBody = document.getElementById('cogi-detail-table-body');
-            const tableNoData = document.getElementById('table-no-data');
-            
-            const trophyContainer = document.getElementById('trophy-container');
-            const ctx = document.getElementById('cogiBarChart').getContext('2d');
-            const chartCanvas = document.getElementById('cogiBarChart');
-            const chartLoader = document.getElementById('chart-loader');
-            const summaryLoader = document.getElementById('summary-loader');
-            const summaryRankList = document.getElementById('summary-rank-list'); 
-            const syncBtn = document.getElementById('sync-cogi-btn');
-            const syncBtnSpinner = syncBtn.querySelector('.spinner-border');
-            const syncBtnIcon = syncBtn.querySelector('.icon-sync');
-            const syncBtnText = syncBtn.querySelector('.text-sync');
-
-            const numberFormatter = (value) => {
-                const num = parseFloat(value);
-                if (isNaN(num)) return '0';
-                return new Intl.NumberFormat('id-ID').format(num);
-            };
-
-            const dateFormatter = (dateString) => {
-                if (!dateString) return '-';
-                try {
-                    const date = new Date(dateString);
-                    const options = { day: 'numeric', month: 'long', year: 'numeric' };
-                    return date.toLocaleDateString('en-GB', options); 
-                } catch (e) {
-                    return dateString;
-                }
-            };
-            
-            function showDashboardView() {
-                cogiTableView.classList.add('hidden');
-                cogiDashboardView.classList.remove('hidden');
-                 if (cogiChart && cogiChart.data.datasets[0].data.length > 0) {
-                     const highestIndex = cogiChart.data.datasets[0].data.indexOf(Math.max(...cogiChart.data.datasets[0].data));
-                     showTrophy(highestIndex);
-                 }
-            }
-
-            function showTableView() {
-                cogiDashboardView.classList.add('hidden');
-                cogiTableView.classList.remove('hidden');
-                trophyContainer.classList.remove('show');
-            }
-
-            function populateTable(data) {
-                tableBody.innerHTML = ''; 
-                if (data.length === 0) {
-                    tableContainer.classList.add('d-none');
-                    tableNoData.classList.remove('d-none');
-                    return;
-                }
-                tableContainer.classList.remove('d-none');
-                tableNoData.classList.add('d-none');
-                let rowNumber = 1;
-                data.forEach(item => {
-                    const row = `
-                        <tr>
-                            <td>${rowNumber++}</td>
-                            <td>${item.AUFNR || '-'}</td>
-                            <td>${item.RSNUM || '-'}</td>
-                            <td>${item.MATNRH || '-'}</td>
-                            <td>${item.MAKTXH || '-'}</td>
-                            <td>${item.DISPOH || '-'}</td>
-                            <td>${dateFormatter(item.BUDAT)}</td>
-                        </tr>
-                    `;
-                    tableBody.innerHTML += row;
-                });
-            }
-            
-            function filterTable() {
-                const selectedDispo = dispoFilter.value;
-                const searchTerm = tableSearch.value.toLowerCase();
-                const filteredData = currentPlantData.filter(item => {
-                    const dispoMatch = (selectedDispo === "") || (item.DISPO === selectedDispo);
-                    const searchMatch = (searchTerm === "") ||
-                        (item.AUFNR && item.AUFNR.toLowerCase().includes(searchTerm)) ||
-                        (item.RSNUM && item.RSNUM.toLowerCase().includes(searchTerm)) ||
-                        (item.MATNRH && item.MATNRH.toLowerCase().includes(searchTerm)) ||
-                        (item.MAKTXH && item.MAKTXH.toLowerCase().includes(searchTerm)) ||
-                        (item.DISPOH && item.DISPOH.toLowerCase().includes(searchTerm)) ||
-                        (dateFormatter(item.BUDAT).includes(searchTerm));
-                    return dispoMatch && searchMatch;
-                });
-                populateTable(filteredData);
-            }
-
-            function populateDispoFilter(dispoOptions) {
-                const oldValue = dispoFilter.value;
-                dispoFilter.innerHTML = '<option value="">Semua MRP</option>';
-                dispoOptions.forEach(dispo => {
-                    if(dispo) {
-                        dispoFilter.innerHTML += `<option value="${dispo}">${dispo}</option>`;
-                    }
-                });
-                dispoFilter.value = oldValue;
-            }
-
-            // --- Fungsi untuk mengambil detail COGI ---
-            async function fetchCogiDetails(plantCode, plantName) {
-                showTableView();
-                tableLoader.classList.remove('d-none');
-                tableContainer.classList.add('d-none');
-                tableNoData.classList.add('d-none');
-                tableTitle.textContent = `Detail COGI ${plantName}`;
-                dispoFilter.value = "";
-                tableSearch.value = "";
-
-                let url = '{{ route("api.cogi.details", ["plantCode" => "PLACEHOLDER"]) }}'.replace('PLACEHOLDER', plantCode);
-                try {
-                    const response = await fetch(url, {
-                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-                    });
-                    if (!response.ok) throw new Error('Status: ' + response.status);
-                    const json = await response.json();
-                    currentPlantData = json.data;
-                    populateDispoFilter(json.dispo_options);
-                    populateTable(currentPlantData);
-                } catch (error) {
-                    console.error('Error fetching COGI details:', error);
-                    tableNoData.innerHTML = `<p class="text-danger fw-semibold">Gagal mengambil detail data COGI. ${error.message}</p>`;
-                    tableNoData.classList.remove('d-none');
-                } finally {
-                    tableLoader.classList.add('d-none');
-                }
-            }
-            
-            // --- Fungsi untuk menampilkan piala ---
-            function showTrophy(index) {
-                if (!cogiChart || cogiChart.getDatasetMeta(0).data.length === 0) return;
-                try {
-                    const bar = cogiChart.getDatasetMeta(0).data[index];
-                    if (bar) {
-                        trophyContainer.style.left = `${bar.x}px`;
-                        trophyContainer.classList.add('show');
-                    } else {
-                         trophyContainer.classList.remove('show'); // Sembunyikan jika bar tidak ada
-                    }
-                } catch (e) {
-                    console.error("Gagal menempatkan piala:", e);
-                    trophyContainer.classList.remove('show');
-                }
-            }
-            
-            // --- [BARU] Fungsi untuk membuat ulang panel ranking ---
-            function populateSummaryRanking(rankingData) {
-                 summaryRankList.innerHTML = ''; // Kosongkan dulu
-                 if (!rankingData || rankingData.length === 0) {
-                     summaryRankList.innerHTML = '<p class="text-muted small p-3">Data ranking tidak tersedia.</p>';
-                     return;
-                 }
-
-                 rankingData.forEach((plant, index) => {
-                     const isHighest = index === 0;
-                     const iconClass = isHighest ? 'fa-solid fa-trophy' : 'fa-solid fa-industry';
-                     const iconColor = isHighest ? '#ffc107' : '#6c757d'; // Emas untuk piala, abu-abu untuk lainnya
-                     const itemClass = isHighest ? 'summary-item highest' : 'summary-item';
-                     
-                     const itemHTML = `
-                         <div class="${itemClass}" data-plant-code="${plant.plant_code}">
-                             <span class="summary-item-label">
-                                 <i class="${iconClass}" style="color: ${iconColor};"></i> ${plant.plant_name}
-                             </span>
-                             <span class="summary-item-value">${numberFormatter(plant.value)}</span>
-                         </div>
-                     `;
-                     summaryRankList.innerHTML += itemHTML;
-                 });
-            }
-
-
-            // --- Inisialisasi Chart ---
-            try {
-                // Warna gradien merah untuk highlight
-                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                gradient.addColorStop(0, 'rgba(220, 53, 69, 0.6)'); 
-                gradient.addColorStop(1, 'rgba(170, 40, 50, 0.8)'); 
-
-                const highlightColors = {
-                    bg: gradient,
-                    border: 'rgba(220, 53, 69, 1)'
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                
+                let currentPlantData = [];
+                let cogiCharts = {}; // Objek untuk menampung 4 chart
+                const plantCodes = ['1000', '1001', '2000', '3000'];
+                const plantNames = {
+                    '1000': 'Plant 1000 (Sby)',
+                    '1001': 'Plant 1001 (Sby)',
+                    '2000': 'Plant 2000 (Sby)',
+                    '3000': 'Plant 3000 (Smg)',
                 };
 
-                cogiChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: plantCodes.map(code => plantNames[code]), // Gunakan nama plant dari mapping
-                        datasets: [{
-                            label: 'Total COGI (Qty)',
-                            data: [0, 0, 0, 0],
-                            backgroundColor: defaultColors.bg,
-                            borderColor: defaultColors.border,
-                            borderWidth: 2, 
-                            borderRadius: 6,
-                            hoverBackgroundColor: 'rgba(54, 162, 235, 0.4)',
-                            hoverBorderColor: 'rgba(54, 162, 235, 1)',
-                        }]
-                    },
-                    options: { 
+                // --- Elemen DOM ---
+                const cogiDashboardView = document.getElementById('cogi-dashboard-view');
+                const cogiTableView = document.getElementById('cogi-table-view');
+                const backToDashboardBtn = document.getElementById('back-to-dashboard-btn');
+                const divisionFilter = document.getElementById('division-filter');
+                const tableSearch = document.getElementById('table-search'); 
+                const tableTitle = document.getElementById('table-title');
+                const tableLoader = document.getElementById('table-loader');
+                const tableContainer = document.getElementById('table-container');
+                const tableBody = document.getElementById('cogi-detail-table-body');
+                const tableNoData = document.getElementById('table-no-data');
+                const chartGridContainer = document.getElementById('chart-grid-container');
+                const chartLoader = document.getElementById('chart-loader');
+                const summaryLoader = document.getElementById('summary-loader');
+                const summaryRankList = document.getElementById('summary-rank-list'); 
+                
+                // [BARU] Elemen DOM untuk TYPMAT
+                const typmatLoader = document.getElementById('typmat-loader');
+                const typmatList = document.getElementById('typmat-summary-list');
+
+                const syncBtn = document.getElementById('sync-cogi-btn');
+                const syncBtnSpinner = syncBtn.querySelector('.spinner-border');
+                const syncBtnIcon = syncBtn.querySelector('.icon-sync');
+                const syncBtnText = syncBtn.querySelector('.text-sync');
+
+                // --- Helper Functions ---
+                const numberFormatter = (value) => {
+                    const num = parseFloat(value);
+                    if (isNaN(num)) return '0';
+                    return new Intl.NumberFormat('id-ID').format(num);
+                };
+
+                const dateFormatter = (dateString) => {
+                    if (!dateString) return '-';
+                    try {
+                        const date = new Date(dateString);
+                        const options = { day: 'numeric', month: 'long', year: 'numeric' };
+                        return date.toLocaleDateString('en-GB', options); 
+                    } catch (e) {
+                        return dateString;
+                    }
+                };
+                
+                // --- Fungsi Navigasi View ---
+                function showDashboardView() {
+                    cogiTableView.classList.add('hidden');
+                    cogiDashboardView.classList.remove('hidden');
+                }
+
+                function showTableView() {
+                    cogiDashboardView.classList.add('hidden');
+                    cogiTableView.classList.remove('hidden');
+                }
+
+                // --- Fungsi Tabel & Filter ---
+                function populateTable(data) {
+                    tableBody.innerHTML = ''; 
+                    if (data.length === 0) {
+                        tableContainer.classList.add('d-none');
+                        tableNoData.classList.remove('d-none');
+                        return;
+                    }
+                    tableContainer.classList.remove('d-none');
+                    tableNoData.classList.add('d-none');
+                    
+                    let rowNumber = 1;
+                    let rowsHtml = ''; // Optimasi kinerja DOM
+                    
+                    data.forEach(item => {
+                        rowsHtml += `
+                            <tr>
+                                <td>${rowNumber++}</td>
+                                <td>${item.AUFNR || '-'}</td>
+                                <td>${item.RSNUM || '-'}</td>
+                                <td>${item.MATNRH || '-'}</td>
+                                <td>${item.MAKTXH || '-'}</td>
+                                <td>${item.DEVISI || '-'}</td> 
+                                <td>${dateFormatter(item.BUDAT)}</td>
+                            </tr>
+                        `;
+                    });
+                    tableBody.innerHTML = rowsHtml;
+                }
+                
+                function filterTable() {
+                    const selectedDivision = divisionFilter.value;
+                    const searchTerm = tableSearch.value.toLowerCase();
+                    
+                    const filteredData = currentPlantData.filter(item => {
+                        
+                        let itemDevisi = (item.DEVISI || "").trim();
+                        if (itemDevisi === "") {
+                            itemDevisi = "Others DEVISI";
+                        }
+
+                        // ==========================================================
+                        // === [PERBAIKAN KUNCI ADA DI SINI] ===
+                        // ==========================================================
+                        // Kita trim() kedua sisi untuk memastikan kecocokan
+                        // walaupun ada spasi yang tidak sengaja di data
+                        const divisionMatch = (selectedDivision === "") || (itemDevisi.trim() === selectedDivision.trim());
+                        // ==========================================================
+
+                        const searchMatch = (searchTerm === "") ||
+                            (item.AUFNR && item.AUFNR.toLowerCase().includes(searchTerm)) ||
+                            (item.RSNUM && item.RSNUM.toLowerCase().includes(searchTerm)) ||
+                            (item.MATNRH && item.MATNRH.toLowerCase().includes(searchTerm)) ||
+                            (item.MAKTXH && item.MAKTXH.toLowerCase().includes(searchTerm)) ||
+                            (item.DEVISI && item.DEVISI.toLowerCase().includes(searchTerm)) || 
+                            (dateFormatter(item.BUDAT).includes(searchTerm));
+                        
+                        return divisionMatch && searchMatch;
+                    });
+                    
+                    populateTable(filteredData);
+                }
+
+                function populateDivisionFilter(divisionOptions) {
+                    const oldValue = divisionFilter.value;
+                    let optionsHtml = '<option value="">Semua Devisi</option>';
+                    
+                    if (divisionOptions) {
+                        divisionOptions.forEach(devisi => {
+                            if (devisi) { 
+                                optionsHtml += `<option value="${devisi}">${devisi}</option>`;
+                            }
+                        });
+                    }
+                    divisionFilter.innerHTML = optionsHtml;
+                    divisionFilter.value = oldValue;
+                }
+
+                // --- Fungsi Fetch Data Detail ---
+                async function fetchCogiDetails(plantCode, plantName, divisionName = "") {
+                    showTableView();
+                    tableLoader.classList.remove('d-none');
+                    tableContainer.classList.add('d-none');
+                    tableNoData.classList.add('d-none');
+                    tableTitle.textContent = `Detail COGI ${plantName}`;
+                    
+                    divisionFilter.value = divisionName;
+                    tableSearch.value = "";
+
+                    let url = '{{ route("api.cogi.details", ["plantCode" => "PLACEHOLDER"]) }}'.replace('PLACEHOLDER', plantCode);
+                    try {
+                        const response = await fetch(url, {
+                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                        });
+                        if (!response.ok) throw new Error('Status: ' + response.status);
+                        
+                        const json = await response.json();
+                        currentPlantData = json.data || json; 
+
+                        filterTable();
+                        
+                    } catch (error) {
+                        console.error('Error fetching COGI details:', error);
+                        tableNoData.innerHTML = `<p class="text-danger fw-semibold">Gagal mengambil detail data COGI. ${error.message}</p>`;
+                        tableNoData.classList.remove('d-none');
+                    } finally {
+                        tableLoader.classList.add('d-none');
+                    }
+                }
+                
+                // --- Fungsi Populate Ranking ---
+                function populateSummaryRanking(rankingData) {
+                    summaryRankList.innerHTML = ''; 
+                    if (!rankingData || rankingData.length === 0) {
+                        summaryRankList.innerHTML = '<p class="text-muted small p-3">Data ranking tidak tersedia.</p>';
+                        return;
+                    }
+
+                    rankingData.forEach((plant, index) => {
+                        const isHighest = index === 0;
+                        const iconClass = isHighest ? 'fa-solid fa-trophy' : 'fa-solid fa-industry';
+                        const iconColor = isHighest ? '#ffc107' : '#6c757d';
+                        const itemClass = isHighest ? 'summary-item highest' : 'summary-item';
+                        
+                        const itemHTML = `
+                            <div class="${itemClass}" data-plant-code="${plant.plant_code}">
+                                <span class="summary-item-label">
+                                    <i class="${iconClass}" style="color: ${iconColor};"></i> ${plant.plant_name}
+                                </span>
+                                <span class="summary-item-value">${numberFormatter(plant.value)}</span>
+                            </div>
+                        `;
+                        summaryRankList.innerHTML += itemHTML;
+                    });
+                }
+
+                // ==========================================================
+                // === [PERBAIKAN] Fungsi ini dipindahkan ke DALAM 'DOMContentLoaded' ===
+                // ==========================================================
+                function populateTypmatSummary(typmatData) {
+                    typmatList.innerHTML = ''; // Kosongkan
+                    if (!typmatData) {
+                        typmatList.innerHTML = '<p class="text-muted small p-3">Data TYPMAT tidak tersedia.</p>';
+                        return;
+                    }
+
+                    let html = '<div class="row g-0 px-3">'; // Gunakan row untuk 2 kolom
+                    
+                    // Loop per plant
+                    plantCodes.forEach((plantCode, index) => {
+                        const plantData = typmatData[plantCode] || [];
+                        const plantName = plantNames[plantCode];
+                        
+                        // Tambah pemisah per 2 kolom
+                        if (index === 2) {
+                            html += '</div><hr class="my-2"><div class="row g-0 px-3">';
+                        }
+
+                        html += `<div class="col-md-6 ${index % 2 === 0 ? 'pe-2' : 'ps-2'}">`;
+                        html += `<h4 class="h6 fw-bold mb-2 mt-2" style="font-size: 0.9rem;">${plantName}</h4>`;
+                        
+                        if (plantData.length === 0) {
+                            html += '<p class="text-muted small">Tidak ada data.</p>';
+                        } else {
+                            plantData.forEach(item => {
+                                // Kita gunakan style .summary-item yang sudah ada
+                                html += `
+                                    <div class="summary-item" style="padding: 0.5rem 0.2rem;">
+                                        <span class="summary-item-label" style="font-size: 0.85rem;">
+                                            <i class="fa-solid fa-tag" style="width: 16px; margin-right: 8px;"></i> ${item.name}
+                                        </span>
+                                        <span class="summary-item-value" style="font-size: 0.9rem;">${numberFormatter(item.value)}</span>
+                                    </div>
+                                `;
+                            });
+                        }
+                        html += `</div>`; // end col-md-6
+                    });
+
+                    html += '</div>'; // end row
+                    typmatList.innerHTML = html;
+                }
+            
+                function initializeDonutCharts(chartData) {
+                    Object.values(cogiCharts).forEach(chart => chart.destroy());
+                    cogiCharts = {};
+
+                    const chartOptions = {
                         responsive: true,
                         maintainAspectRatio: false,
-                        onClick: (event) => {
-                            if (typeof Chart.helpers === 'undefined') {
-                                console.error('Chart.js helpers library not loaded!');
-                                return;
-                            }
-                            const position = Chart.helpers.getRelativePosition(event, cogiChart);
-                            const index = cogiChart.scales.x.getValueForPixel(position.x);
-                            
-                            if (index !== undefined && index >= 0 && index < plantCodes.length) {
-                                const plantCode = plantCodes[index]; // Dapatkan kode plant dari index
-                                const plantName = plantNames[plantCode]; // Dapatkan nama plant
-                                fetchCogiDetails(plantCode, plantName);
-                            }
-                        },
-                        onResize: (chart) => {
-                             if (chart.data.datasets[0].data.length > 0) {
-                                const highestIndex = chart.data.datasets[0].data.indexOf(Math.max(...chart.data.datasets[0].data));
-                                showTrophy(highestIndex);
-                            } else {
-                                trophyContainer.classList.remove('show');
-                            }
-                        },
-                        scales: {
-                            y: { beginAtZero: true, grid: { display: true, drawBorder: false } },
-                            x: { grid: { display: false } }
-                        },
+                        cutout: '70%',
                         plugins: {
-                            tooltip: {
-                                enabled: true,
-                                backgroundColor: '#212529',
-                                titleFont: { size: 14, weight: 'bold' },
-                                bodyFont: { size: 12 },
-                                displayColors: false,
-                                callbacks: {
-                                    label: (context) => `Total: ${numberFormatter(context.parsed.y)}`
+                            legend: {
+                                position: 'right', 
+                                labels: { 
+                                    boxWidth: 10, 
+                                    padding: 10, 
+                                    font: { size: 10 }
                                 }
                             },
-                            legend: { display: false }
-                        }
-                    }
-                });
-
-                // Fungsi untuk update warna chart
-                cogiChart.updateColors = (highestIndex) => {
-                    const newBgs = [];
-                    const newBorders = [];
-                     // Pastikan data ada sebelum loop
-                     if (!cogiChart.data.datasets[0].data) return; 
-
-                    cogiChart.data.datasets[0].data.forEach((_, index) => {
-                        if (index === highestIndex) {
-                            newBgs.push(highlightColors.bg);
-                            newBorders.push(highlightColors.border);
-                        } else {
-                            newBgs.push(defaultColors.bg);
-                            newBorders.push(defaultColors.border);
-                        }
-                    });
-                    cogiChart.data.datasets[0].backgroundColor = newBgs;
-                    cogiChart.data.datasets[0].borderColor = newBorders;
-                };
-
-            } catch (e) {
-                console.error("Gagal menginisialisasi chart:", e);
-                chartLoader.innerHTML = '<p class="text-danger">Gagal memuat chart library.</p>';
-            }
-
-            // --- Fungsi Loader ---
-            function showLoaders() {
-                chartLoader.style.display = 'block';
-                chartCanvas.style.display = 'none';
-                trophyContainer.classList.remove('show');
-                summaryLoader.style.display = 'block';
-                summaryRankList.innerHTML = ''; // Kosongkan ranking saat loading
-            }
-
-            function hideLoaders() {
-                chartLoader.style.display = 'none';
-                chartCanvas.style.display = 'block';
-                summaryLoader.style.display = 'none';
-            }
-            
-            function showErrors(message) {
-                const errorMsg = `<p class="text-danger fw-semibold small p-3">${message}</p>`;
-                chartLoader.innerHTML = errorMsg;
-                summaryLoader.parentElement.innerHTML = errorMsg; // Tampilkan error di tempat loader summary
-            }
-
-            // --- Fungsi Fetch Dashboard ---
-            async function fetchCogiData() {
-                showLoaders();
-                
-                try {
-                    const response = await fetch('{{ route("api.cogi.dashboard") }}', {
-                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-                    });
-                    
-                    if (!response.ok) throw new Error('Status: ' + response.status);
-
-                    const data = await response.json(); 
-
-                    if (cogiChart) {
-                        cogiChart.data.datasets[0].data = data.chart_data;
-                        cogiChart.updateColors(data.highest_index); 
-                        cogiChart.update();
-
-                        setTimeout(() => {
-                             // Pastikan view dashboard masih aktif sebelum menampilkan piala
-                            if (!cogiDashboardView.classList.contains('hidden')) {
-                                showTrophy(data.highest_index);
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        const label = context.label || '';
+                                        const value = context.parsed || 0;
+                                        return ` ${label}: ${numberFormatter(value)}`;
+                                    }
+                                }
                             }
-                        }, 300); 
-                    }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const chartInstance = event.chart;
+                                const plantCode = chartInstance.canvas.id.replace('cogiDonutChart', '');
+                                
+                                const index = elements[0].index;
+                                const divisionName = chartInstance.data.labels[index];
+                                const plantName = plantNames[plantCode];
+                                fetchCogiDetails(plantCode, plantName, divisionName);
+                            }
+                        }
+                    };
 
-                    // [PERUBAHAN] Panggil fungsi populate ranking
-                    populateSummaryRanking(data.summary_ranking); 
-                    
-                    hideLoaders();
+                    // Loop untuk membuat 4 chart
+                    plantCodes.forEach(plantCode => {
+                        const ctx = document.getElementById(`cogiDonutChart${plantCode}`).getContext('2d');
+                        const plantData = chartData[plantCode] || { labels: [], values: [] };
 
-                } catch (error) {
-                    console.error('Error fetching COGI data:', error);
-                    showErrors('Gagal memuat data dashboard. ' + error.message);
-                }
-            }
-
-            // --- Fungsi Sync ---
-            async function syncCogiData() {
-                syncBtn.disabled = true;
-                syncBtnSpinner.classList.remove('d-none');
-                syncBtnIcon.classList.add('d-none');
-                syncBtnText.textContent = 'Sinkronisasi...';
-
-                try {
-                    const response = await fetch('{{ route("api.cogi.sync") }}', {
-                        method: 'POST',
-                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                        cogiCharts[plantCode] = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: plantData.labels,
+                                datasets: [{
+                                    data: plantData.values,
+                                    backgroundColor: [
+                                        'rgba(255, 99, 132, 0.7)',
+                                        'rgba(54, 162, 235, 0.7)',
+                                        'rgba(255, 206, 86, 0.7)',
+                                        'rgba(75, 192, 192, 0.7)',
+                                        'rgba(153, 102, 255, 0.7)',
+                                        'rgba(255, 159, 64, 0.7)',
+                                        'rgba(201, 203, 207, 0.7)',
+                                        'rgba(50, 205, 50, 0.7)',
+                                        'rgba(210, 105, 30, 0.7)',
+                                        'rgba(0, 128, 128, 0.7)'
+                                    ],
+                                    borderColor: '#ffffff',
+                                    borderWidth: 2,
+                                }]
+                            },
+                            options: chartOptions
+                        });
                     });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Status: ' + response.status);
-                    }
-
-                    const result = await response.json();
-                    alert(result.message || 'Sinkronisasi berhasil!');
-                    await fetchCogiData();
-                    showDashboardView(); 
-
-                } catch (error) {
-                    console.error('Error syncing COGI data:', error);
-                    alert(error.message || 'Sinkronisasi gagal. Silakan coba lagi.');
-                } finally {
-                    syncBtn.disabled = false;
-                    syncBtnSpinner.classList.add('d-none');
-                    syncBtnIcon.classList.remove('d-none');
-                    syncBtnText.textContent = 'Sinkronisasi Data';
                 }
-            }
 
-            // --- Event Listeners ---
-            backToDashboardBtn.addEventListener('click', showDashboardView);
-            dispoFilter.addEventListener('change', filterTable);
-            tableSearch.addEventListener('input', filterTable);
-            syncBtn.addEventListener('click', syncCogiData);
+                // --- Fungsi Loader & Error ---
+                function showLoaders() {
+                    chartLoader.style.display = 'block';
+                    chartGridContainer.classList.add('d-none');
+                    summaryLoader.style.display = 'block';
+                    summaryRankList.innerHTML = '';
+                    typmatLoader.style.display = 'block';
+                    typmatList.innerHTML = '';
+                }
+
+                function hideLoaders() {
+                    chartLoader.style.display = 'none';
+                    chartGridContainer.classList.remove('d-none');
+                    summaryLoader.style.display = 'none';
+                    typmatLoader.style.display = 'none';
+                }
+                
+                function showErrors(message) {
+                    const errorMsg = `<p class="text-danger fw-semibold small p-3">${message}</p>`;
+                    chartLoader.innerHTML = errorMsg;
+                    chartLoader.style.display = 'block';
+                    summaryLoader.style.display = 'none';
+                    summaryRankList.innerHTML = errorMsg; 
+                    typmatLoader.style.display = 'none';
+                    typmatList.innerHTML = errorMsg;
+                }
+                
+                // --- Fungsi Fetch Dashboard Utama ---
+                async function fetchCogiData() {
+                    showLoaders();
+                    
+                    try {
+                        const response = await fetch('{{ route("api.cogi.dashboard") }}', {
+                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || 'Status: ' + response.status);
+                        }
+
+                        const data = await response.json(); 
+                        
+                        initializeDonutCharts(data.chart_data);
+                        populateDivisionFilter(data.division_filter_options);
+                        populateSummaryRanking(data.summary_ranking); 
+                        populateTypmatSummary(data.typmat_summary);
+                        
+                        hideLoaders();
+
+                    } catch (error) {
+                        console.error('Error fetching COGI data:', error);
+                        showErrors('Gagal memuat data dashboard. ' + error.message);
+                    }
+                }
+
+                // --- Fungsi Sync ---
+                async function syncCogiData() {
+                    syncBtn.disabled = true;
+                    syncBtnSpinner.classList.remove('d-none');
+                    syncBtnIcon.classList.add('d-none');
+                    syncBtnText.textContent = 'Sinkronisasi...';
+
+                    try {
+                        const response = await fetch('{{ route("api.cogi.sync") }}', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || 'Status: ' + response.status);
+                        }
+
+                        const result = await response.json();
+                        alert(result.message || 'Sinkronisasi berhasil!');
+                        
+                        await fetchCogiData();
+                        showDashboardView();
+
+                    } catch (error) {
+                        console.error('Error syncing COGI data:', error);
+                        alert(error.message || 'Sinkronisasi gagal. Silakan coba lagi.');
+                    } finally {
+                        syncBtn.disabled = false;
+                        syncBtnSpinner.classList.add('d-none');
+                        syncBtnIcon.classList.remove('d-none');
+                        syncBtnText.textContent = 'Sinkronisasi Data';
+                    }
+                }
+
+                // --- Event Listeners ---
+                backToDashboardBtn.addEventListener('click', showDashboardView);
+                divisionFilter.addEventListener('change', filterTable);
+                tableSearch.addEventListener('input', filterTable);
+                syncBtn.addEventListener('click', syncCogiData);
+                
+                // --- Panggilan Awal ---
+                fetchCogiData();
+
+            }); // <-- AKHIR DARI DOMCONTENTLOADED
             
-            // Panggil data dashboard saat halaman dimuat
-            fetchCogiData();
-        });
-    </script>
+            // <-- Fungsi 'populateTypmatSummary' yang salah tadinya di sini
+            
+        </script>
     @endpush
 </x-layouts.landing>
 

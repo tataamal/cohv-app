@@ -8,7 +8,6 @@ use App\Models\Kode;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class CogiController extends Controller
 {
@@ -64,66 +63,6 @@ class CogiController extends Controller
             'kategori',
         ));
     }
-
-    public function getDashboardData(Request $request): JsonResponse
-    {
-        $plants = ['1000', '1001', '2000', '3000'];
-        $plantNames = [
-            '1000' => 'Plant 1000 (Sby)',
-            '1001' => 'Plant 1001 (Sby)',
-            '2000' => 'Plant 2000 (Sby)',
-            '3000' => 'Plant 3000 (Smg)',
-        ];
-
-        try {
-            // Mengambil total COUNT per plant
-            $cogiCounts = Cogi::select(
-                    'DWERK',
-                    DB::raw('COUNT(*) as total_cogi')
-                )
-                ->whereIn('DWERK', $plants)
-                ->groupBy('DWERK')
-                ->pluck('total_cogi', 'DWERK');
-
-            // Mengisi nilai default 0 untuk plant yang tidak ada data
-            $plantValues = collect($plants)->mapWithKeys(function ($plant) use ($cogiCounts) {
-                return [$plant => $cogiCounts->get($plant, 0)];
-            });
-            
-            // Mengurutkan plant berdasarkan jumlah COGI (descending)
-            $sortedPlants = $plantValues->sortDesc();
-
-            // Menyiapkan data ranking untuk panel ringkasan
-            $summaryRanking = $sortedPlants->map(function ($value, $plantCode) use ($plantNames) {
-                return [
-                    'plant_code' => $plantCode,
-                    'plant_name' => $plantNames[$plantCode] ?? 'N/A',
-                    'value' => $value,
-                ];
-            })->values()->toArray();
-
-            // Menentukan index tertinggi di data chart asli (sebelum diurutkan)
-            $highestValue = $sortedPlants->first() ?? 0;
-            $highestPlantCodeOriginal = $sortedPlants->search($highestValue);
-            $highestIndexOriginal = array_search($highestPlantCodeOriginal, $plants); // Cari index di array $plants awal
-
-
-            // Menyiapkan data chart (urutan tetap sesuai $plants)
-            $chartData = $plantValues->map(function ($value, $plantCode) {
-                return $value;
-            })->values()->toArray();
-            $data = [
-                'chart_data' => $chartData,
-                'highest_index' => $highestIndexOriginal !== false ? $highestIndexOriginal : 0, // Index di chart asli
-                'summary_ranking' => $summaryRanking, // Data ranking yang sudah diurutkan
-            ];
-            return response()->json($data);
-
-        } catch (\Exception $e) {
-            Log::error('Gagal mengambil data dashboard COGI: ' . $e->getMessage());
-            return response()->json(['message' => 'Gagal memuat data dashboard.'], 500);
-        }
-    }
     public function syncCogiData(Request $request): JsonResponse
     {
         try {
@@ -143,7 +82,6 @@ class CogiController extends Controller
     public function getCogiDetails(Request $request, $plantCode): JsonResponse
     {
         try {
-            // [PERBAIKAN] Tambahkan 'id' ke dalam select()
             $query = Cogi::ofPlant($plantCode)
                 ->select(
                     'id',
@@ -151,24 +89,139 @@ class CogiController extends Controller
                     'RSNUM',
                     'MATNRH',
                     'MAKTXH',
-                    'DISPOH',
+                    'DISPOH', 
+                    'DEVISI',
+                    'TYPMAT', 
                     'BUDAT'
                 )
                 ->orderBy('BUDAT', 'desc');
 
             $data = $query->get();
 
-            // Mengambil daftar unik DISPO untuk filter dropdown
-            $dispoOptions = $data->pluck('DISPO')->unique()->filter()->values();
-
             return response()->json([
                 'data' => $data,
-                'dispo_options' => $dispoOptions,
             ]);
 
         } catch (\Exception $e) {
             Log::error("Gagal mengambil detail Cogi plant {$plantCode}: " . $e->getMessage());
             return response()->json(['message' => 'Gagal mengambil data detail.'], 500);
+        }
+    }
+
+    public function getDashboardData(Request $request): JsonResponse
+    {
+        $plants = ['1000', '1001', '2000', '3000'];
+        $plantNames = [
+            '1000' => 'Plant 1000 (Sby)',
+            '1001' => 'Plant 1001 (Sby)',
+            '2000' => 'Plant 2000 (Sby)',
+            '3000' => 'Plant 3000 (Smg)',
+        ];
+
+        try {
+            Log::info('--- MENJALANKAN KODE BARU v6 (Perbaikan TYPMAT) ---');
+
+            // --- 1. Query untuk Ranking Plant (Sudah Benar) ---
+            $cogiCounts = Cogi::select('DWERK', DB::raw('COUNT(*) as total_cogi'))
+                ->whereIn('DWERK', $plants)
+                ->groupBy('DWERK')
+                ->pluck('total_cogi', 'DWERK');
+            
+            $plantValues = collect($plants)->mapWithKeys(function ($plant) use ($cogiCounts) {
+                return [$plant => $cogiCounts->get($plant, 0)];
+            });
+            $sortedPlants = $plantValues->sortDesc();
+            $summaryRanking = $sortedPlants->map(function ($value, $plantCode) use ($plantNames) {
+                return [
+                    'plant_code' => $plantCode,
+                    'plant_name' => $plantNames[$plantCode] ?? 'N/A',
+                    'value' => $value,
+                ];
+            })->values()->toArray();
+
+            // --- 2. Query untuk Data Chart (Sudah Benar) ---
+            $allCogiForCharts = Cogi::select('DWERK', 'DEVISI')
+                ->whereIn('DWERK', $plants)
+                ->get();
+
+            $chartData = collect($plants)->mapWithKeys(function ($plant) {
+                return [$plant => ['labels' => [], 'values' => []]];
+            })->toArray(); // ->toArray() sudah benar
+
+            $groupedByPlant = $allCogiForCharts->map(function ($item) {
+                return [
+                    'DWERK_string'  => (string) $item->DWERK,
+                    'division_name' => (!empty($item->DEVISI)) ? $item->DEVISI : 'Others DEVISI'
+                ];
+            })
+            ->groupBy('DWERK_string');
+
+            $allDivisionsSet = [];
+            foreach ($groupedByPlant as $plantCode => $itemsInPlant) {
+                if (isset($chartData[$plantCode])) {
+                    $divisionCounts = $itemsInPlant->countBy('division_name')->sortDesc();
+                    foreach ($divisionCounts as $divisionName => $count) {
+                        $chartData[$plantCode]['labels'][] = $divisionName;
+                        $chartData[$plantCode]['values'][] = $count;
+                        $allDivisionsSet[$divisionName] = true;
+                    }
+                }
+            }
+            $allDivisions = collect(array_keys($allDivisionsSet))->sort()->values();
+
+            // --- 3. Query untuk TYPMAT ---
+            $allCogiForTypmat = Cogi::select('DWERK', 'TYPMAT')
+                ->whereIn('DWERK', $plants)
+                ->get();
+
+            // --- [PERBAIKAN KUNCI DI SINI] ---
+            // Inisialisasi data TYPMAT dan tambahkan ->toArray()
+            $typmatData = collect($plants)->mapWithKeys(function ($plant) {
+                return [$plant => []];
+            })
+            ->toArray(); // <-- INI PERBAIKANNYA
+
+            // Proses di PHP
+            $groupedTypmat = $allCogiForTypmat->map(function ($item) {
+                return [
+                    'DWERK_string' => (string) $item->DWERK,
+                    'typmat_name'  => (!empty($item->TYPMAT)) ? $item->TYPMAT : 'Others'
+                ];
+            })
+            ->groupBy('DWERK_string');
+
+            // Kode ini sekarang AMAN karena $typmatData adalah Array
+            foreach ($groupedTypmat as $plantCode => $items) {
+                if (isset($typmatData[$plantCode])) {
+                    $typmatCounts = $items->countBy('typmat_name')->sortDesc();
+                    foreach ($typmatCounts as $name => $count) {
+                        $typmatData[$plantCode][] = ['name' => $name, 'value' => $count];
+                    }
+                }
+            }
+            // --- [AKHIR PERBAIKAN] ---
+
+            // --- 4. Menyusun data JSON final ---
+            $data = [
+                'summary_ranking' => $summaryRanking,
+                'chart_data'      => $chartData,
+                'division_filter_options' => $allDivisions,
+                'typmat_summary'  => $typmatData,
+            ];
+            
+            Log::info('Berhasil membentuk data dashboard v6');
+            return response()->json($data);
+
+        } catch (\Exception $e) {
+            Log::error('Gagal mengambil data dashboard COGI v6: ' . $e->getMessage(), [
+                'trace'   => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+            
+            return response()->json([
+                'message' => 'Gagal memuat data dashboard. Terjadi error internal.',
+                'error_detail' => $e->getMessage(),
+            ], 500);
         }
     }
 }
