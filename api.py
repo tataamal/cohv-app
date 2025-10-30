@@ -84,6 +84,39 @@ def get_detail(plant_code=None, workcenter=None, username=None, password=None):
     )
     return result.get('T_DATA1', [])
 
+def fetch_data_for_plant(args):
+    """
+    Worker function untuk mengambil data SAP (DIJALANKAN DI THREAD).
+    Menerima satu tuple 'args' yang berisi (plant, user, pass).
+    """
+    # 1. Bongkar argumen yang dioper dari thread utama
+    plant, sap_user, sap_pass = args
+    
+    print(f"PROCESS: Mulai mengambil data untuk plant: {plant}...")
+    conn = None # Inisialisasi conn
+    try:
+        # 2. Oper kredensial SEBAGAI ARGUMEN ke connect_sap
+        #    Ini mencegah 'connect_sap' memanggil 'get_credentials'
+        conn = connect_sap(username=sap_user, password=sap_pass)
+        
+        # 3. Panggil RFC yang benar
+        result = conn.call('Z_FM_YPPR018', P_WERKS=plant)
+        
+        # 4. Ambil data mentah
+        data = result.get('T_DATA1', [])
+        print(f"SUCCESS: Selesai mengambil data untuk plant: {plant}, ditemukan {len(data)} baris.")
+        return data
+        
+    except (ABAPApplicationError, CommunicationError) as e:
+        print(f"WARNING: Error SAP saat mengambil data untuk plant {plant}: {e}")
+        # Lempar error lagi agar ThreadPoolExecutor bisa menangkapnya
+        raise Exception(f"Error SAP di Plant {plant}: {e}")
+    finally:
+        # Pastikan koneksi ditutup
+        if conn:
+            conn.close()
+            print(f"INFO: Koneksi SAP untuk plant {plant} ditutup.")
+
 @app.route('/api/sap-login', methods=['POST'])
 def sap_login():
     data = request.json
@@ -1662,6 +1695,52 @@ def change_quantity():
             print("Closing SAP connection for change_prod_version...")
             conn.close()
             print("SAP connection closed.")
+
+@app.route('/api/cogi/sync', methods=['POST'])
+def fetch_cogi_data_from_sap():
+    """
+    Endpoint API untuk HANYA MENGAMBIL data COGI dari SAP.
+    Penyimpanan akan dilakukan oleh Laravel.
+    """
+    print(f"\n[{datetime.now()}] Menerima permintaan FETCH data COGI...")
+    
+    try:
+        # 1. Dapatkan Kredensial
+        sap_user, sap_pass = get_credentials()
+        print("INFO: Berhasil mendapatkan kredensial SAP dari header.")
+
+        # 2. Definisikan Plant & Siapkan Argumen
+        plants = ['1001', '1000', '2000', '3000']
+        all_cogi_data = []
+        task_args = [(plant, sap_user, sap_pass) for plant in plants]
+
+        # 3. Eksekusi Paralel
+        print("INFO: Memulai pengambilan data paralel dari SAP...")
+        with ThreadPoolExecutor(max_workers=len(plants)) as executor:
+            results = executor.map(fetch_data_for_plant, task_args)
+            for plant_data in results:
+                if plant_data:
+                    all_cogi_data.extend(plant_data)
+
+        print(f"INFO: Total data terkumpul dari SAP: {len(all_cogi_data)} baris.")
+        
+        # 4. [PERUBAHAN] Kembalikan data mentah, JANGAN SIMPAN
+        return jsonify({
+            "data": all_cogi_data
+        }), 200
+
+    # 5. Error Handling (tetap sama)
+    except ValueError as ve:
+        print(f"ERROR: Kredensial tidak ditemukan. Pesan: {ve}")
+        return jsonify({'error': str(ve)}), 401 # 401 Unauthorized
+    except (ABAPApplicationError, CommunicationError) as sap_err:
+        print(f"ERROR: Gagal mengambil data dari SAP: {sap_err}")
+        traceback.print_exc()
+        return jsonify({ "error": f"Gagal saat mengambil data dari SAP: {sap_err}" }), 500
+    except Exception as e:
+        print(f"ERROR: Terjadi kesalahan tidak terduga: {e}")
+        traceback.print_exc()
+        return jsonify({ "error": f"Terjadi kesalahan tidak terduga: {e}" }), 500
 
 if __name__ == '__main__':
     # os.environ['PYTHONHASHSEED'] = '0'

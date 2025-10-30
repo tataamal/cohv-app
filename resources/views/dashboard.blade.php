@@ -33,7 +33,6 @@
             cursor: pointer;
         }
 
-        /* Style untuk panel ringkasan */
         .summary-panel {
             background-color: #f8f9fa;
             border-radius: 0.75rem;
@@ -64,10 +63,8 @@
             font-weight: 600;
             font-size: 0.95rem;
             color: #212529;
-            text-align: right; /* [BARU] Rata kanan untuk nilai */
+            text-align: right;
         }
-
-        /* Style untuk highlight baris tertinggi */
         .summary-item.highest {
             background-color: #f8d7da; 
         }
@@ -79,7 +76,6 @@
          .summary-item.highest .summary-item-label i.fa-trophy {
             color: #ffc107; /* Pastikan ikon piala tetap emas */
          }
-        /* [DIHAPUS] .summary-item-value.highlight tidak diperlukan lagi */
         
         /* Penyesuaian layout tabel */
         .table-cogi-detail {
@@ -162,21 +158,21 @@
                                     </div>
                                     
                                     <div id="chart-grid-container" class="row g-4 d-none">
-                                        <div class="col-md-6">
+                                        <div class="col-sm-6">
                                             <h3 class="h6 fw-bold text-center mb-2" style="font-size: 0.9rem;">Plant 1000 (Sby)</h3>
-                                            <canvas id="cogiDonutChart1000" style="max-height: 200px; cursor: pointer;"></canvas>
+                                            <canvas id="cogiDonutChart1000" style="max-height: 250px; cursor: pointer;"></canvas>
                                         </div>
-                                        <div class="col-md-6">
+                                        <div class="col-sm-6">
                                             <h3 class="h6 fw-bold text-center mb-2" style="font-size: 0.9rem;">Plant 1001 (Sby)</h3>
-                                            <canvas id="cogiDonutChart1001" style="max-height: 200px; cursor: pointer;"></canvas>
+                                            <canvas id="cogiDonutChart1001" style="max-height: 250px; cursor: pointer;"></canvas>
                                         </div>
-                                        <div class="col-md-6 mt-4">
+                                        <div class="col-sm-6 mt-4">
                                             <h3 class="h6 fw-bold text-center mb-2" style="font-size: 0.9rem;">Plant 2000 (Sby)</h3>
-                                            <canvas id="cogiDonutChart2000" style="max-height: 200px; cursor: pointer;"></canvas>
+                                            <canvas id="cogiDonutChart2000" style="max-height: 250px; cursor: pointer;"></canvas>
                                         </div>
-                                        <div class="col-md-6 mt-4">
+                                        <div class="col-sm-6 mt-4">
                                             <h3 class="h6 fw-bold text-center mb-2" style="font-size: 0.9rem;">Plant 3000 (Smg)</h3>
-                                            <canvas id="cogiDonutChart3000" style="max-height: 200px; cursor: pointer;"></canvas>
+                                            <canvas id="cogiDonutChart3000" style="max-height: 250px; cursor: pointer;"></canvas>
                                         </div>
                                     </div>
                                 </div>
@@ -314,9 +310,13 @@
     @push('scripts')
         {{-- Library Chart.js --}}
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
         <script>
             document.addEventListener('DOMContentLoaded', function () {
+
+                const SAP_USERNAME = "{{ Auth::user()->sap_username ?? '' }}";
+            const SAP_PASSWORD = "{{ Auth::user()->sap_password ?? '' }}";
                 
                 let currentPlantData = [];
                 let cogiCharts = {}; // Objek untuk menampung 4 chart
@@ -343,15 +343,13 @@
                 const chartLoader = document.getElementById('chart-loader');
                 const summaryLoader = document.getElementById('summary-loader');
                 const summaryRankList = document.getElementById('summary-rank-list'); 
-                
-                // [BARU] Elemen DOM untuk TYPMAT
                 const typmatLoader = document.getElementById('typmat-loader');
                 const typmatList = document.getElementById('typmat-summary-list');
-
                 const syncBtn = document.getElementById('sync-cogi-btn');
                 const syncBtnSpinner = syncBtn.querySelector('.spinner-border');
                 const syncBtnIcon = syncBtn.querySelector('.icon-sync');
                 const syncBtnText = syncBtn.querySelector('.text-sync');
+                
 
                 // --- Helper Functions ---
                 const numberFormatter = (value) => {
@@ -394,7 +392,7 @@
                     tableNoData.classList.add('d-none');
                     
                     let rowNumber = 1;
-                    let rowsHtml = ''; // Optimasi kinerja DOM
+                    let rowsHtml = ''; 
                     
                     data.forEach(item => {
                         rowsHtml += `
@@ -422,12 +420,6 @@
                         if (itemDevisi === "") {
                             itemDevisi = "Others DEVISI";
                         }
-
-                        // ==========================================================
-                        // === [PERBAIKAN KUNCI ADA DI SINI] ===
-                        // ==========================================================
-                        // Kita trim() kedua sisi untuk memastikan kecocokan
-                        // walaupun ada spasi yang tidak sengaja di data
                         const divisionMatch = (selectedDivision === "") || (itemDevisi.trim() === selectedDivision.trim());
                         // ==========================================================
 
@@ -467,9 +459,11 @@
                     tableContainer.classList.add('d-none');
                     tableNoData.classList.add('d-none');
                     tableTitle.textContent = `Detail COGI ${plantName}`;
-                    
                     divisionFilter.value = divisionName;
                     tableSearch.value = "";
+
+                    const SAP_USERNAME = "{{ session('username') ?? '' }}";
+                    const SAP_PASSWORD = "{{ session('password') ?? '' }}";
 
                     let url = '{{ route("api.cogi.details", ["plantCode" => "PLACEHOLDER"]) }}'.replace('PLACEHOLDER', plantCode);
                     try {
@@ -491,8 +485,6 @@
                         tableLoader.classList.add('d-none');
                     }
                 }
-                
-                // --- Fungsi Populate Ranking ---
                 function populateSummaryRanking(rankingData) {
                     summaryRankList.innerHTML = ''; 
                     if (!rankingData || rankingData.length === 0) {
@@ -517,10 +509,6 @@
                         summaryRankList.innerHTML += itemHTML;
                     });
                 }
-
-                // ==========================================================
-                // === [PERBAIKAN] Fungsi ini dipindahkan ke DALAM 'DOMContentLoaded' ===
-                // ==========================================================
                 function populateTypmatSummary(typmatData) {
                     typmatList.innerHTML = ''; // Kosongkan
                     if (!typmatData) {
@@ -695,37 +683,49 @@
 
                 // --- Fungsi Sync ---
                 async function syncCogiData() {
-                    syncBtn.disabled = true;
-                    syncBtnSpinner.classList.remove('d-none');
-                    syncBtnIcon.classList.add('d-none');
-                    syncBtnText.textContent = 'Sinkronisasi...';
+                    const syncUrl = '{{ route("api.cogi.sync") }}';
+                    
+                    Swal.fire({
+                        title: 'Sinkronisasi...',
+                        text: 'Sedang mengambil data dari SAP dan menyimpan ke DB. Mohon tunggu.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => {
+                            Swal.showLoading(); 
+                        }
+                    });
 
                     try {
-                        const response = await fetch('{{ route("api.cogi.sync") }}', {
+                        const response = await fetch(syncUrl, {
                             method: 'POST',
-                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                            headers: { 
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            }
                         });
 
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.message || 'Status: ' + response.status);
-                        }
-
                         const result = await response.json();
-                        alert(result.message || 'Sinkronisasi berhasil!');
-                        
+
+                        if (!response.ok) {
+                            throw new Error(result.message || `Status: ${response.status}`);
+                        }
                         await fetchCogiData();
                         showDashboardView();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: result.message || 'Sinkronisasi berhasil!'
+                        });
 
                     } catch (error) {
                         console.error('Error syncing COGI data:', error);
-                        alert(error.message || 'Sinkronisasi gagal. Silakan coba lagi.');
-                    } finally {
-                        syncBtn.disabled = false;
-                        syncBtnSpinner.classList.add('d-none');
-                        syncBtnIcon.classList.remove('d-none');
-                        syncBtnText.textContent = 'Sinkronisasi Data';
-                    }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Sinkronisasi Gagal',
+                            text: error.message || 'Gagal terhubung ke server. Silakan coba lagi.'
+                        });
+                    } 
                 }
 
                 // --- Event Listeners ---

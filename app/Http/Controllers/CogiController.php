@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Cogi;
-use App\Models\Kode;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
+use App\Models\Cogi;
+use App\Models\Kode;
+use Carbon\Carbon;
 
 class CogiController extends Controller
 {
@@ -65,17 +68,112 @@ class CogiController extends Controller
     }
     public function syncCogiData(Request $request): JsonResponse
     {
+        // [LANGKAH 1] Tentukan URL API Flask (ambil dari .env)
+        $flaskApiUrl = env('FLASK_API_URL', 'http://127.0.0.1:8055') . '/api/cogi/sync';
+
         try {
+            // [LANGKAH 2] Ambil kredensial SAP dari session Laravel
+            $sapUser = session('username');
+            $sapPass = session('password');
 
-            sleep(2); 
+            if (!$sapUser || !$sapPass) {
+                return response()->json(['message' => 'Kredensial SAP tidak ditemukan di session Anda.'], 401);
+            }
 
-            // Jika berhasil
-            return response()->json(['message' => 'Fitur Singkronisasi Data COGI sedang dalam pengembangan.']);
+            Log::info('Memulai sinkronisasi COGI: Memanggil API Flask...');
+
+            // [LANGKAH 3] Panggil API Flask (Python)
+            $response = Http::withHeaders([
+                'X-SAP-Username' => $sapUser,
+                'X-SAP-Password' => $sapPass,
+                'Accept' => 'application/json',
+            ])
+            ->timeout(300) // Beri waktu 5 menit untuk SAP
+            ->post($flaskApiUrl);
+
+            if (!$response->successful()) {
+                $errorData = $response->json();
+                $errorMessage = $errorData['error'] ?? 'Gagal mengambil data dari server Flask.';
+                throw new \Exception($errorMessage);
+            }
+
+            // [LANGKAH 4] Ambil data mentah dari respons Flask
+            $cogiData = $response->json();
+            $all_cogi_data = $cogiData['data'] ?? null;
+
+            if (is_null($all_cogi_data)) {
+                throw new \Exception('Respon dari Flask tidak valid (tidak ada key "data").');
+            }
+
+            $saved_count = count($all_cogi_data);
+            Log::info("Berhasil mengambil {$saved_count} baris data dari Flask. Memulai penyimpanan ke DB...");
+
+            // [LANGKAH 5] Siapkan data untuk insert
+            $data_to_insert = [];
+            $now = Carbon::now();
+
+            foreach ($all_cogi_data as $d) {
+                $data_to_insert[] = [
+                    'MANDT' => $d['MANDT'] ?? null,
+                    'AUFNR' => $d['AUFNR'] ?? null,
+                    'RSNUM' => $d['RSNUM'] ?? null,
+                    'BUDAT' => (empty($d['BUDAT']) || $d['BUDAT'] == '0000-00-00') ? null : $d['BUDAT'],
+                    'KDAUF' => $d['KDAUF'] ?? null,
+                    'KDPOS' => $d['KDPOS'] ?? null,
+                    'DWERK' => $d['DWERK'] ?? null,
+                    'MATNRH' => $d['MATNRH'] ?? null,
+                    'MAKTXH' => $d['MAKTXH'] ?? null,
+                    'DISPOH' => $d['DISPOH'] ?? null,
+                    'PSMNG' => $d['PSMNG'] ?? null,
+                    'WEMNG' => $d['WEMNG'] ?? null,
+                    'MATNR' => $d['MATNR'] ?? null,
+                    'MAKTX' => $d['MAKTX'] ?? null,
+                    'DISPO' => $d['DISPO'] ?? null,
+                    'ERFMG' => $d['ERFMG'] ?? null,
+                    'AUFNRX' => $d['AUFNRX'] ?? null,
+                    'P1' => $d['P1'] ?? null,
+                    'PW' => $d['PW'] ?? null,
+                    'MENGE' => $d['MENGE'] ?? null,
+                    'MEINS' => $d['MEINS'] ?? null,
+                    'LGORTH' => $d['LGORTH'] ?? null,
+                    'LGORT' => $d['LGORT'] ?? null,
+                    'DEVISI' => $d['DEVISI'] ?? null,
+                    'TYPMAT' => $d['TYPMAT'] ?? null,
+                    'PESAN_ERROR' => $d['PESAN_ERROR'] ?? null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            // [LANGKAH 6] Simpan ke Database (Logika Inti)
+            DB::transaction(function () use ($data_to_insert) {
+
+                Cogi::query()->delete();
+                foreach (array_chunk($data_to_insert, 500) as $chunk) {
+                    Cogi::insert($chunk);
+                }
+            });
+            
+            Log::info("Berhasil menyimpan $saved_count baris ke tb_cogi.");
+
+            // [LANGKAH 7] Kirim respons sukses ke frontend
+            return response()->json([
+                'message' => "Sinkronisasi berhasil. {$saved_count} baris data telah diperbarui."
+            ]);
+
+        } catch (ConnectionException $e) {
+            // Error jika server Python mati
+            Log::error('Sinkronisasi COGI gagal: Gagal terhubung ke server Python/Flask. ' . $e->getMessage());
+            return response()->json(['message' => 'Gagal terhubung ke server sinkronisasi. Pastikan layanan Python berjalan.'], 503); // 503 Service Unavailable
+        
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Error saat menyimpan ke DB
+            Log::error('Sinkronisasi COGI gagal: Error Database. ' . $e->getMessage());
+            return response()->json(['message' => 'Gagal menyimpan data ke database: ' . $e->getMessage()], 500);
         
         } catch (\Exception $e) {
-            // Jika gagal
-            Log::error('Sinkronisasi COGI gagal: ' . $e->getMessage());
-            // Berikan pesan error yang spesifik jika ada
+            // Error lainnya (misal: Flask kirim 401, 500, atau $all_cogi_data null)
+            Log::error('Sinkronisasi COGI gagal (Error Umum): ' . $e->getMessage());
             return response()->json(['message' => 'Sinkronisasi gagal: ' . $e->getMessage()], 500);
         }
     }
