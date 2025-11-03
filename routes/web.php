@@ -4,7 +4,7 @@ use App\Http\Controllers\Data3Controller;
 use App\Http\Controllers\Data1Controller;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\adminController;
 use App\Http\Controllers\bulkController;
 use App\Http\Controllers\Data4Controller;
 use App\Http\Controllers\ManufactController;
@@ -28,15 +28,15 @@ Route::middleware('guest')->group(function (){
 
 Route::middleware('auth')->group(function (){
     Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
-        Route::get('/dashboard/{kode}', [AdminController::class, 'index'])->name('dashboard.show');
+        Route::get('/dashboard/{kode}', [adminController::class, 'index'])->name('dashboard.show');
         Route::get('data2/{kode}', [ManufactController::class, 'DetailData2'])->name('detail.data2');
         Route::get('data2/detail/{kode}', [ManufactController::class, 'showDetail'])->name('show.detail.data2');
-        Route::get('/pro-transaction/{proNumber}/{werksCode}/{view?}', [AdminController::class, 'showProDetail'])->name('pro.transaction.detail');
+        Route::get('/pro-transaction/{proNumber}/{werksCode}/{view?}', [adminController::class, 'showProDetail'])->name('pro.transaction.detail');
     });
 
     // Routing Admin
-    Route::get('/dashboard-landing', [AdminController::class, 'AdminDashboard'])->name('dashboard-landing');
-    Route::get('/api/pro-details/{status}', [AdminController::class, 'getProDetails'])->name('pro.details');
+    Route::get('/dashboard-landing', [adminController::class, 'AdminDashboard'])->name('dashboard-landing');
+    Route::get('/api/pro-details/{status}', [adminController::class, 'getProDetails'])->name('pro.details');
 
     Route::post('/create_prod_order', [ManufactController::class, 'convertPlannedOrder'])->name('convert-button');
     Route::post('/component/add', [Data4Controller::class, 'addComponent'])->name('component.add');
