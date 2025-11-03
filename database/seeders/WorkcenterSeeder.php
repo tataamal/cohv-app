@@ -13,8 +13,8 @@ class WorkcenterSeeder extends Seeder
      */
     public function run(): void
     {
-        $surabayaFile = database_path('seeders/data/List WC-Surabaya.csv');
-        $semarangFile = database_path('seeders/data/List WC-Semarang.csv');
+        $surabayaFile = database_path('seeders/Data/List WC-Surabaya.csv');
+        $semarangFile = database_path('seeders/Data/List WC-Semarang.csv');
 
         $surabayaMapping = ['kode_wc' => 'ARBPL', 'description' => 'Deskripsi', 'werksx' => 'WERKSX', 'werks' => 'WERKS'];
         $semarangMapping = ['kode_wc' => 'Kode Workcenter', 'description' => 'Deskripsi', 'werksx' => 'WERKSX', 'werks' => 'WERKS'];
