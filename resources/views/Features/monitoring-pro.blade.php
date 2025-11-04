@@ -54,7 +54,7 @@
         .border-start-primary { border-left-color: #0d6efd !important; }
         .border-start-dark { border-left-color: #212529 !important; }
         .pro-card-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
-        .pro-card-buyer-so, .pro-card-details { font-size: 0.9rem; }
+        .pro-card-buyer-so, .pro-card-matfg-makfg ,.pro-card-details { font-size: 0.9rem; }
         .pro-card-pro-number { font-weight: 700; color: #212529; font-size: 1.25rem; }
         .pro-card-material { font-size: 0.9rem; }
         .loading-spinner-container { display: flex; align-items: center; justify-content: center; height: 100%; min-height: 200px; }

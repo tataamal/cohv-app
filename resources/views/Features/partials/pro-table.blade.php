@@ -54,8 +54,12 @@
         <div class="row g-3 align-items-center">
             <div class="col-12 col-md-7">
                 <h5 class="pro-card-pro-number mb-1">{{ $pro->AUFNR ?? '-' }}</h5>
-                <p class="pro-card-material text-muted mb-2">
-                    {{ (int)($pro->MATNR ?? '') }} - {{ $pro->MAKTX ?? 'No description' }}
+
+                <p class="pro-card-material text-muted mb-1"> <span class="fw-bold">Mat:</span> {{ (int)($pro->MATNR ?? '') }} - {{ $pro->MAKTX ?? 'No description' }}
+                </p>
+
+                <p class="pro-card-fg-material text-muted mb-2">
+                    <span class="fw-bold">Material FG Detail :</span> {{ $pro->MATFG ?? 'No MATFG Number' }} - {{ $pro->MAKFG ?? 'No MAKFG description' }}
                 </p>
                 <div class="pro-card-buyer-so">
                     <span class="fw-bold text-dark" title="Buyer">{{ $pro->NAME1 ?? 'Unknown Buyer' }}</span>

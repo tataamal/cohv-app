@@ -69,7 +69,9 @@
                     </div>
                     <div class="col-lg-4">
                         <strong class="d-block">{{ $pro->MAKTX }}</strong>
-                        <span class="item-code">Code: {{ $pro->MATNR }}</span>
+                        <span class="item-code d-block">Code: {{ $pro->MATNR }}</span>
+                        <span class="item-code d-block">Material FG: {{ $pro->MATFG }}</span>
+                        <span class="item-code d-block">Mat. FG Description: {{ $pro->MAKFG }}</span>
                     </div>
                     <div class="col-lg-4 progress-container">
                         <div class="d-flex justify-content-between small mb-1">

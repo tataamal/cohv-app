@@ -71,7 +71,7 @@ class StockController extends Controller
             $queryParams = [];
 
             if ($searchType == 'matnr') {
-                $apiEndpoint = 'http://192.168.90.27:5001/api/search_stock'; // Atau /api/get_stock sesuai kebutuhan Flask
+                $apiEndpoint = 'http://192.168.90.27:6001/api/search_stock'; // Atau /api/get_stock sesuai kebutuhan Flask
                 if (!empty($searchValue)) {
                     $queryParams['matnr'] = $searchValue;
                 }
@@ -80,7 +80,7 @@ class StockController extends Controller
                 }
                 // Validasi di atas memastikan $queryParams tidak akan kosong
             } else { // searchType == 'maktx'
-                $apiEndpoint = 'http://192.168.90.27:5001/api/search_stock_by_description';
+                $apiEndpoint = 'http://192.168.90.27:6001/api/search_stock_by_description';
                 $queryParams = ['maktx' => $searchValue]; // searchValue pasti ada karena required_if
             }
 
