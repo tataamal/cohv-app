@@ -406,7 +406,7 @@ class bulkController extends Controller
             $changeResponse = Http::withHeaders([
                 'X-SAP-Username' => $sapUsername,
                 'X-SAP-Password' => $sapPassword,
-            ])->post('http://192.168.90.27:6001/api/bulk-change-pv', [
+            ])->post('http://192.168.90.27:5001/api/bulk-change-pv', [
                 'plant' => $plant,
                 'data'  => $changeData, // Kirim data yang sudah ditransformasi
             ]);
@@ -489,7 +489,7 @@ class bulkController extends Controller
         $username = session('username');
         $password = session('password');
         
-        $flaskApiUrl = 'http://192.168.90.27:6001//api/change_quantity'; 
+        $flaskApiUrl = 'http://192.168.90.27:5001//api/change_quantity'; 
 
         $successCount = 0;
         $failCount = 0;
