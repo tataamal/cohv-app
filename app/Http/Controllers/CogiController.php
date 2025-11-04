@@ -75,7 +75,7 @@ class CogiController extends Controller
     public function syncCogiData(Request $request): JsonResponse
     {
         // [LANGKAH 1] Tentukan URL API Flask (ambil dari .env)
-        $flaskApiUrl = env('FLASK_API_URL', 'http://192.168.90.27:6001') . '/api/cogi/sync';
+        $flaskApiUrl = env('FLASK_API_URL', 'http://192.168.90.27:5001') . '/api/cogi/sync';
 
         try {
             // [LANGKAH 2] Ambil kredensial SAP dari session Laravel
