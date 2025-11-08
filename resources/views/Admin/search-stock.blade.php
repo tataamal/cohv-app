@@ -13,8 +13,8 @@
             <div class="col-md-7">
                 <div class="input-group input-group-lg">
                     <select class="form-select" id="search_type" name="search_type" style="max-width: 200px;">
-                        <option value="matnr" selected>By Material (MATNR)</option>
-                        <option value="maktx">By Description (MAKTX)</option>
+                        <option value="maktx ">Description</option>
+                        <option value="matnr selected">Mat. Number</option>
                     </select>
 
                     <input type="text"

@@ -3,29 +3,18 @@
     @push('styles')
     <style>
         .table-container-scroll {
-            max-height: 60vh; /* Atur tinggi maksimal sesuai kebutuhan */
+            max-height: 60vh;
             overflow-y: auto;
         }
-
-
-        /* 2. ATUR SEMUA HEADER (th) AGAR STICKY */
         thead.table-light th {
-            /* --- Properti untuk STICKY --- */
             position: sticky;
             top: 0;
-            z-index: 10; /* Pastikan header selalu di lapisan teratas */
-
-            /* Beri warna latar belakang agar tidak transparan saat scroll */
+            z-index: 10;
             background-color: #f8f9fa; 
         }
-         /* 3. ATUR POSISI IKON AGAR TEKS RATA TENGAH */
-        /* Targetkan hanya header yang bisa di-sort */
         thead.table-light th.sortable-header {
-        /* Beri ruang di kanan agar teks tidak tertimpa ikon */
             padding-right: 25px; 
         }
-
-        /* Posisikan ikonnya secara absolut di sebelah kanan */
         thead.table-light th.sortable-header .sort-icon {
             position: absolute;
             right: 8px;

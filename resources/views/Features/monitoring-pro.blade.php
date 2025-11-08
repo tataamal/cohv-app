@@ -1,7 +1,6 @@
 <x-layouts.app>
     @section('title', 'Monitoring PRO - ' . $activeKode)
     @push('styles')
-    {{-- [FINAL] Menggunakan Flexbox untuk layout halaman --}}
     <style>
         /* Mengubah container-fluid menjadi flex-container vertikal */
         .page-container-flex {

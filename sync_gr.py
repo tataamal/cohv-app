@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from pyrfc import Connection, ABAPApplicationError, CommunicationError
 from dotenv import load_dotenv
 import pymysql
+import calendar
 
 # --- Inisialisasi & Konfigurasi Logging ---
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -17,11 +18,13 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(__file__), 'storage', 'logs', 'sync_gr_data.log')),
+        # MODIFIKASI: Path log sekarang ada di direktori yang sama dengan script
+        logging.FileHandler(os.path.join(os.path.dirname(__file__), 'sync_gr_data.log')),
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger(__name__)
+
+logger = logging.getLogger()
 
 # --- Penambahan Mapping MRP berdasarkan Plant ---
 MRP_MAPPING = {
@@ -66,7 +69,7 @@ def map_plant_code(original_werks):
         return '2000'
     elif werks.startswith('1'):
         return '1000'
-    
+
     return original_werks
 
 # --- Fungsi Koneksi ---
@@ -91,10 +94,10 @@ def connect_mysql():
     """Membuka koneksi ke MySQL menggunakan PyMySQL."""
     try:
         cnx = pymysql.connect(
-            host=os.getenv('DB_HOST', '127.0.0.1'),
-            user=os.getenv('DB_USERNAME', 'root'),
-            password=os.getenv('DB_PASSWORD', ''),
-            database=os.getenv('DB_DATABASE', 'cohv'),
+            host=os.getenv('DB_HOST', '192.168.90.105'),
+            user=os.getenv('DB_USERNAME', 'python_client'),
+            password=os.getenv('DB_PASSWORD', 'singgampang'),
+            database=os.getenv('DB_DATABASE', 'cohv_app'),
             charset='utf8mb4',
             autocommit=False
         )
@@ -110,10 +113,10 @@ def sync_data_for_date(target_date):
     sap_conn = None
     db_conn = None
     cursor = None
-    
+
     sync_date_sap = target_date.strftime('%Y%m%d')
     sync_date_mysql = target_date.strftime('%Y-%m-%d')
-    
+
     logger.info(f"===== TUGAS DIMULAI: Sinkronisasi data GR untuk tanggal {sync_date_mysql} =====")
 
     try:
@@ -126,24 +129,24 @@ def sync_data_for_date(target_date):
         for mapped_plant, dispo_list in MRP_MAPPING.items():
             try:
                 dispo_table_param = [{'DISPO': code} for code in dispo_list]
-                
+
                 result = sap_conn.call(
                     'Z_FM_YPPR009',
                     IV_BUDAT=sync_date_sap,
-                    IV_WERKS=mapped_plant, 
+                    IV_WERKS=mapped_plant,
                     T_DISPO=dispo_table_param
                 )
-                
+
                 plant_data = result.get('T_DATA1', [])
                 if plant_data:
                     all_sap_data.extend(plant_data)
 
             except (CommunicationError, ABAPApplicationError) as e:
                 logger.error(f"Gagal mengambil data untuk Plant: {mapped_plant}. Error: {e}")
-        
+
         sap_data = all_sap_data
         logger.info(f"Proses penarikan data SAP selesai, ditemukan total {len(sap_data)} record.")
-        
+
         records_to_insert = []
         if sap_data:
             for i, row in enumerate(sap_data):
@@ -151,13 +154,13 @@ def sync_data_for_date(target_date):
                     sap_date_str = row.get('BUDAT_MKPF', '').strip()
                     if not sap_date_str or datetime.strptime(sap_date_str, '%Y%m%d').strftime('%Y-%m-%d') != sync_date_mysql:
                         continue
-                    
+
                     original_werks = row.get('WERKS')
                     mapped_werks_from_data = map_plant_code(original_werks)
-                    
+
                     record = {
                         'MANDT': row.get('MANDT'), 'LGORT': row.get('LGORT'), 'MBLNR': row.get('MBLNR'), 'DISPO': row.get('DISPO'),
-                        'AUFNR': row.get('AUFNR'), 
+                        'AUFNR': row.get('AUFNR'),
                         'WERKS': mapped_werks_from_data,
                         'CHARG': row.get('CHARG'), 'MATNR': row.get('MATNR'),
                         'MAKTX': row.get('MAKTX'), 'KDAUF': row.get('MAT_KDAUF'), 'KDPOS': row.get('MAT_KDPOS'),
@@ -204,21 +207,21 @@ def sync_data_for_date(target_date):
                 cols = f"`{cols}`"
                 placeholders = ', '.join(['%s'] * len(records_to_insert[0]))
                 insert_query = f"INSERT INTO gr ({cols}) VALUES ({placeholders})"
-                
+
                 values_to_insert = [tuple(rec.values()) for rec in records_to_insert]
                 cursor.executemany(insert_query, values_to_insert)
-                
+
                 db_conn.commit()
                 logger.info(f"Transaksi berhasil di-commit.")
             else:
                 db_conn.commit()
                 logger.info("Tidak ada data baru dari SAP. Transaksi penghapusan di-commit.")
-        
+
         except pymysql.Error as db_err:
             logger.error(f"Database error terjadi: {db_err}. Melakukan rollback...")
             db_conn.rollback()
             return False
-        
+
     except Exception as e:
         logger.error(f"Terjadi error fatal dalam proses sinkronisasi: {str(e)}")
         logger.error(traceback.format_exc())
@@ -235,28 +238,83 @@ def run_sync_for_today():
     """Wrapper untuk menjalankan sinkronisasi khusus hari ini."""
     sync_data_for_date(datetime.now())
 
-def run_historical_sync():
-    """Menjalankan sinkronisasi untuk SETIAP HARI dari September 2025 s.d. hari ini."""
-    logger.info("===== MEMULAI SINKRONISASI DATA HISTORIS (SETIAP HARI) =====")
-    start_date = datetime(2025, 9, 1)
-    end_date = datetime.now()
-    
+def run_sync_for_one_month(year, month, start_day, end_day_of_month):
+    """
+    Menjalankan sinkronisasi harian untuk rentang tanggal tertentu dalam satu bulan.
+    """
+    logger.info(f"--> Memulai proses untuk BULAN: {year}-{month:02d} (Tanggal {start_day} s.d. {end_day_of_month})")
+
+    try:
+        # Tentukan tanggal mulai dan akhir untuk loop harian
+        start_date = datetime(year, month, start_day)
+        end_date = datetime(year, month, end_day_of_month)
+    except ValueError as e:
+        logger.warning(f"Tanggal tidak valid untuk {year}-{month:02d} (dari {start_day} s.d. {end_day_of_month}). Dilewati. Error: {e}")
+        return True
+
     current_date = start_date
     total_days = (end_date - start_date).days + 1
     day_count = 0
 
     while current_date <= end_date:
         day_count += 1
-        logger.info(f"--> Memproses hari ke-{day_count} dari {total_days}: {current_date.strftime('%Y-%m-%d')}")
+        logger.info(f"    --> Memproses hari ke-{day_count} dari {total_days} (di bulan ini): {current_date.strftime('%Y-%m-%d')}")
+
         success = sync_data_for_date(current_date)
+
         if not success:
-            logger.error(f"Sinkronisasi untuk tanggal {current_date.strftime('%Y-%m-%d')} GAGAL. Proses historis dihentikan.")
+            logger.error(f"Sinkronisasi harian GAGAL untuk {current_date.strftime('%Y-%m-%d')}.")
+            return False
+
+        time.sleep(2)
+        current_date += timedelta(days=1) # <--- PERBAIKAN
+
+    logger.info(f"--> Selesai memproses BULAN: {year}-{month:02d}")
+    return True
+
+def run_historical_sync():
+    """
+    Modifikasi: Menjalankan sinkronisasi per BULAN
+    dari September 2025 hingga bulan ini (H-1).
+    """
+    logger.info("===== MEMULAI SINKRONISASI DATA HISTORIS (PER BULAN) =====")
+
+    # 1. Tentukan tanggal mulai dan akhir global
+    current_date_tracker = datetime(2025, 9, 1) # <--- PERBAIKAN (INI YANG ERROR)
+    today = datetime.now() # <--- PERBAIKAN
+    yesterday = today - timedelta(days=1) # <--- PERBAIKAN
+
+    # 2. Loop Luar (per bulan)
+    while current_date_tracker.year < yesterday.year or \
+         (current_date_tracker.year == yesterday.year and current_date_tracker.month <= yesterday.month):
+
+        year = current_date_tracker.year
+        month = current_date_tracker.month
+
+        start_day = 1
+
+        # 3. Tentukan tanggal akhir untuk bulan ini
+        if year == yesterday.year and month == yesterday.month:
+            end_day = yesterday.day
+        else:
+            _, end_day = calendar.monthrange(year, month)
+
+        # 4. Jalankan "Loop Dalam"
+        success = run_sync_for_one_month(year, month, start_day, end_day)
+
+        if not success:
+            logger.error(f"Sinkronisasi untuk bulan {year}-{month:02d} GAGAL. Proses historis dihentikan.")
             break
-        
-        time.sleep(2) # Jeda 2 detik antar hari
-        current_date += timedelta(days=1)
-    
-    logger.info("===== SINKRONISASI DATA HISTORIS SELESAI =====")
+
+        # 5. Jeda antar BULAN
+        logger.info(f"Jeda 5 detik sebelum pindah ke bulan berikutnya...")
+        time.sleep(5)
+
+        # 6. Maju ke bulan berikutnya
+        next_month = current_date_tracker.replace(day=1) + timedelta(days=32)
+        current_date_tracker = next_month.replace(day=1)
+
+    logger.info("===== SINKRONISASI DATA HISTORIS (PER BULAN) SELESAI =====")
 
 # --- Scheduler ---
 def start_scheduler():
@@ -265,7 +323,7 @@ def start_scheduler():
     logger.info("Menjalankan sinkronisasi awal (hari ini) saat startup...")
     run_sync_for_today()
     logger.info("Sinkronisasi awal selesai. Menunggu jadwal berikutnya.")
-    
+
     schedule.every().day.at("05:00").do(run_sync_for_today)
     schedule.every().day.at("20:00").do(run_sync_for_today)
 

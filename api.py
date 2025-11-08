@@ -1606,13 +1606,9 @@ def search_material_by_desc():
         # Import Param: IV_MAKTX
         print(f"Memanggil RFC Z_RFC_GET_MATERIAL_BY_DESC dengan IV_MAKTX={description}")
         result = conn.call(
-            'Z_RFC_GET_MATERIAL_BY_DESC',
+            'Z_RFC_GET_MATERIAL_BY_DESC2',
             IV_MAKTX=description
         )
-
-        # 4. Ambil hasil dari tabel 'ET_MATERIAL'
-        # Sesuai dengan screenshot:
-        # Tables: ET_MATERIAL
         print("Hasil dari RFC diterima. Mengembalikan ET_MATERIAL.")
         material_data = result.get('ET_MATERIAL', [])
         
