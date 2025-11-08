@@ -39,7 +39,7 @@ class Data4Controller extends Controller
             // =========================================================
 
             // ========== PANGGIL API UNTUK ADD COMPONENT ==========
-            $flaskEndpoint = 'http://192.168.90.27:5001/api/add_component';
+            $flaskEndpoint = 'http://192.168.90.27:6001/api/add_component';
             $response = Http::timeout(60)->withHeaders([
                     'X-SAP-Username' => session('username'),
                     'X-SAP-Password' => session('password'),
@@ -102,7 +102,7 @@ class Data4Controller extends Controller
             $aufnr = $request->input('aufnr');
             $plant = $request->input('plant');
 
-            $flaskEndpoint = 'http://192.168.90.27:5001/api/delete_component'; // Ganti dengan URL Flask Anda
+            $flaskEndpoint = 'http://192.168.90.27:6001/api/delete_component'; // Ganti dengan URL Flask Anda
 
             // 2. Loop untuk setiap komponen yang dipilih
             foreach ($components as $component) {
@@ -215,7 +215,7 @@ class Data4Controller extends Controller
             }
 
             // 1. Panggil API Refresh
-            $flaskRefreshUrl = 'http://192.168.90.27:5001/api/refresh-pro'; // Sesuaikan URL
+            $flaskRefreshUrl = 'http://192.168.90.27:6001/api/refresh-pro'; // Sesuaikan URL
             $refreshResp = Http::timeout(120)
                 ->withHeaders([
                     'X-SAP-Username' => $username,
@@ -313,7 +313,7 @@ class Data4Controller extends Controller
             $response = Http::withHeaders([
                 'X-SAP-Username' => $username,
                 'X-SAP-Password' => $password,
-            ])->timeout(120)->get('http://192.168.90.27:5001/api/get_stock', $queryParams); // Panggil endpoint yang benar
+            ])->timeout(120)->get('http://192.168.90.27:6001/api/get_stock', $queryParams); // Panggil endpoint yang benar
             
             // 6. PEMROSESAN HASIL (Tidak berubah)
             if ($response->successful()) {

@@ -31,10 +31,10 @@ class ManufactController extends Controller
         try {
             // 1. Ambil data dari API SAP (Sama seperti kedua versi)
             Log::info("[Langkah 1/5] Mengambil data dari API SAP...");
-            $response = Http::timeout(0)->withHeaders([
+            $response = Http::timeout(3600)->withHeaders([
                 'X-SAP-Username' => session('username'),
                 'X-SAP-Password' => session('password'),
-            ])->get('http://192.168.90.27:5001/api/sap_combined', ['plant' => $kode]);
+            ])->get('http://192.168.90.27:6001/api/sap_combined', ['plant' => $kode]);
 
             if (!$response->successful()) {
                 Log::error("Gagal mengambil data dari SAP. Status: " . $response->status());

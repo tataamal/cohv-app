@@ -19,7 +19,7 @@ class Data3Controller extends Controller
         $response = Http::timeout(0)->withHeaders([
             'X-SAP-Username' => session('username'),
             'X-SAP-Password' => session('password'),
-        ])->post('http://192.168.90.27:5001/api/release_order', $payload);
+        ])->post('http://192.168.90.27:6001/api/release_order', $payload);
 
         if ($response->successful()) {
             $data = $response-> json();
@@ -81,7 +81,7 @@ class Data3Controller extends Controller
         }
 
         try {
-            $flaskBase = rtrim(env('FLASK_API_URL', 'http://192.168.90.27:5001'), '/');
+            $flaskBase = rtrim(env('FLASK_API_URL', 'http://192.168.90.27:6001'), '/');
 
             $response = Http::withHeaders([
                     'X-SAP-Username' => $sapUser,
@@ -150,7 +150,7 @@ class Data3Controller extends Controller
         ]);
 
         $aufnr = $validated['aufnr'];
-        $flaskApiUrl = 'http://192.168.90.27:5001/api/teco_order'; // URL API Flask Anda
+        $flaskApiUrl = 'http://192.168.90.27:6001/api/teco_order'; // URL API Flask Anda
 
         try {
             // 2. Hit ke endpoint API Flask
@@ -224,7 +224,7 @@ class Data3Controller extends Controller
 
         $aufnr = $validated['aufnr'];
         // URL API Flask untuk Read PP
-        $flaskApiUrl = 'http://192.168.90.27:5001/api/read-pp';
+        $flaskApiUrl = 'http://192.168.90.27:6001/api/read-pp';
 
         try {
             // 2. Hit ke endpoint API Flask
@@ -309,7 +309,7 @@ class Data3Controller extends Controller
                 'QUANTITY' => $sapQuantityString
             ];
 
-            $flaskApiUrl = 'http://192.168.90.27:5001//api/change_quantity';
+            $flaskApiUrl = 'http://192.168.90.27:6001//api/change_quantity';
            $response = Http::withHeaders([
                 'X-SAP-Username' => session('username'),
                 'X-SAP-Password' => session('password'),
