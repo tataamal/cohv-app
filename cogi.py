@@ -14,8 +14,8 @@ def connect_sap():
     """Membangun koneksi ke SAP menggunakan kredensial dari .env"""
     try:
         return Connection(
-            user=os.environ.get('SAP_USER'),
-            passwd=os.environ.get('SAP_PASSWD'),
+            user=os.getenv("SAP_USERNAME", "auto_email"),
+            passwd=os.getenv("SAP_PASSWORD", "11223344"),
             ashost='192.168.254.154',
             sysnr='01',
             client='300',
@@ -28,23 +28,19 @@ def connect_sap():
 def connect_db():
     """Membangun koneksi ke MySQL menggunakan kredensial dari .env (menggunakan PyMySQL)"""
     try:
-        # DIUBAH: Menggunakan pymysql.connect
-        # Pastikan DB_PORT di .env adalah angka jika ada, atau biarkan pymysql menggunakan default (3306)
-        db_port_str = os.environ.get('DB_PORT')
-        db_port = int(db_port_str) if db_port_str else 3306
-
         return pymysql.connect(
-            host=os.environ.get('DB_HOST'),
-            port=db_port,
-            database=os.environ.get('DB_DATABASE'),
-            user=os.environ.get('DB_USERNAME'),
-            password=os.environ.get('DB_PASSWORD'),
+            host='192.168.90.105',
+            user='python_client',
+            password='singgampang',
+            database='cohv_app',
+            charset='utf8mb4',
+            autocommit=False
         )
     except pymysql.Error as err:
         print(f"ERROR: Gagal terhubung ke MySQL. Pesan: {err}")
         raise
     except ValueError:
-        print(f"ERROR: DB_PORT ('{db_port_str}') di file .env harus berupa angka.")
+        print(f"ERROR: DB_PORT di file .env harus berupa angka.")
         raise
 
 
@@ -57,7 +53,7 @@ def save_cogi_to_db(cogi_data):
         return 0
 
     db_conn = None
-    cursor = None 
+    cursor = None
     try:
         db_conn = connect_db()
         cursor = db_conn.cursor()
@@ -92,7 +88,7 @@ def save_cogi_to_db(cogi_data):
         saved_count = cursor.rowcount
         print(f"SUCCESS: Berhasil menyimpan {saved_count} baris data ke tb_cogi.")
         return saved_count
-    
+
     except pymysql.Error as e: # DIUBAH: Menangkap error spesifik pymysql
         print(f"ERROR: Gagal menyimpan ke DB. Pesan: {e}")
         if db_conn:

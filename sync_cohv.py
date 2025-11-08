@@ -22,7 +22,7 @@ logging.basicConfig(
 
 def load_config():
     """Mendefinisikan konfigurasi langsung di dalam skrip."""
-    
+
     config = {
         'sap_user': 'auto_email',
         'sap_passwd': '11223344',
@@ -30,10 +30,11 @@ def load_config():
         'sap_sysnr': '01',
         'sap_client': '300',
 
-        'db_host': '127.0.0.1',
-        'db_user': 'root',
-        'db_passwd': 'root', 
+        'db_host': '192.168.90.105',
+        'db_user': 'python_client',
+        'db_passwd': 'singgampang',
         'db_name': 'cohv_app',
+        'db_port': 3306,
 
         'plants': [
             '1001', '3014', '3012', '3013', '3015', '3016', '3021',
@@ -46,7 +47,7 @@ def load_config():
             '3011', '3017', '3018', '3019', '3020', '3022'
         ]
     }
-    
+
     for key, value in config.items():
         if value is None and key not in ['plants', 'db_passwd']:
             logging.error(f"Konfigurasi '{key}' kosong. Harap isi nilainya di dalam skrip.")
@@ -54,7 +55,7 @@ def load_config():
 
     if not config['plants']:
         logging.warning("Tidak ada plant yang dikonfigurasi di dalam skrip (variabel 'plants').")
-            
+
     return config
 
 def connect_sap(config):
@@ -82,6 +83,7 @@ def connect_db(config):
             user=config['db_user'],
             password=config['db_passwd'],
             database=config['db_name'],
+            port=config['db_port'],
             charset='utf8mb4',
             autocommit=False  # Manual commit untuk transaksi
         )
@@ -135,7 +137,7 @@ def safe_get_value(row, key):
 
 def process_plant_data(plant_code, config):
     logging.info(f"--- Memulai proses untuk Plant: {plant_code} ---")
-    
+
     sap_conn = connect_sap(config)
     if not sap_conn: return
     try:
@@ -152,12 +154,12 @@ def process_plant_data(plant_code, config):
     logging.info(f"   -> Jumlah data mentah: T_DATA: {len(t_data)}, T1: {len(t1)}, T2: {len(t2)}, T3: {len(t3)}, T4: {len(t4)}")
 
     logging.info("[Langkah 2/5] Mengelompokkan data anak berdasarkan kunci relasi...")
-    
+
     t2_grouped = defaultdict(list)
     for row in t2:
         key = f"{safe_get_value(row, 'KUNNR')}-{safe_get_value(row, 'NAME1')}"
         t2_grouped[key].append(row)
-    
+
     t3_grouped = defaultdict(list)
     for row in t3:
         key = f"{safe_get_value(row, 'KDAUF')}-{safe_get_value(row, 'KDPOS')}"
@@ -207,22 +209,22 @@ def process_plant_data(plant_code, config):
                 sql = "INSERT INTO production_t_data2 (MANDT, KDAUF, KDPOS, MATFG, MAKFG, EDATU, WERKSX, KUNNR, NAME1) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
                 vals = (safe_get_value(t2_row, 'MANDT'), kdauf_t2, kdpos_t2, safe_get_value(t2_row, 'MATFG'), safe_get_value(t2_row, 'MAKFG'), format_sap_date_for_db(t2_row.get('EDATU')), plant_code, kunnr, name1)
                 cursor.execute(sql, vals)
-                
+
                 key_t3 = f"{kdauf_t2}-{kdpos_t2}"
                 children_t3 = t3_grouped.get(key_t3, [])
                 for t3_row in children_t3:
                     aufnr_t3 = safe_get_value(t3_row, 'AUFNR')
-                    
+
                     sql = "INSERT INTO production_t_data3 (MANDT, ARBPL, ORDERX, PWWRK, KTEXT, ARBID, VERID, KDAUF, KDPOS, AUFNR, NAME1, KUNNR, PLNUM, STATS, DISPO, MATNR, MTART, MAKTX, VORNR, STEUS, AUART, MEINS, MATKL, PSMNG, WEMNG, MGVRG2, LMNGA, P1, MENG2, VGW01, VGE01, CPCTYX, DTIME, DDAY, SSSLD, SSAVD, GLTRP, GSTRP, MATFG, MAKFG, CATEGORY, WERKSX, MENGE2, STATS2) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
                     vals = (safe_get_value(t3_row, 'MANDT'), safe_get_value(t3_row, 'ARBPL'), safe_get_value(t3_row, 'ORDERX'), safe_get_value(t3_row, 'PWWRK'), safe_get_value(t3_row, 'KTEXT'), safe_get_value(t3_row, 'ARBID'), safe_get_value(t3_row, 'VERID'), kdauf_t2, kdpos_t2, aufnr_t3, safe_get_value(t3_row, 'NAME1'), safe_get_value(t3_row, 'KUNNR'), safe_get_value(t3_row, 'PLNUM'), safe_get_value(t3_row, 'STATS'), safe_get_value(t3_row, 'DISPO'), safe_get_value(t3_row, 'MATNR'), safe_get_value(t3_row, 'MTART'), safe_get_value(t3_row, 'MAKTX'), safe_get_value(t3_row, 'VORNR'), safe_get_value(t3_row, 'STEUS'), safe_get_value(t3_row, 'AUART'), safe_get_value(t3_row, 'MEINS'), safe_get_value(t3_row, 'MATKL'), t3_row.get('PSMNG'), t3_row.get('WEMNG'), t3_row.get('MGVRG2'), t3_row.get('LMNGA'), t3_row.get('P1'), t3_row.get('MENG2'), t3_row.get('VGW01'), t3_row.get('VGE01'), safe_get_value(t3_row, 'CPCTYX'), t3_row.get('DTIME'), t3_row.get('DDAY'), format_sap_date_for_db(t3_row.get('SSSLD')), format_sap_date_for_db(t3_row.get('SSAVD')), format_sap_date_for_db(t3_row.get('GLTRP')), format_sap_date_for_db(t3_row.get('GSTRP')),  safe_get_value(t3_row, 'MATFG'), safe_get_value(t3_row, 'MAKFG'), safe_get_value(t3_row, 'CATEGORY'), plant_code, t3_row.get('MENGE2'), safe_get_value(t3_row, 'STATS2'))
                     cursor.execute(sql, vals)
-                    
+
                     key_t1_t4 = aufnr_t3
                     if not key_t1_t4: continue
 
                     children_t1 = t1_grouped.get(key_t1_t4, [])
                     children_t4 = t4_grouped.get(key_t1_t4, [])
-                    
+
                     for t1_row in children_t1:
                         sssl1 = format_display_date(t1_row.get('SSSLDPV1'))
                         sssl2 = format_display_date(t1_row.get('SSSLDPV2'))
@@ -245,51 +247,51 @@ def process_plant_data(plant_code, config):
                         if arbpl3: parts_pv3.append(arbpl3.upper())
                         if sssl3: parts_pv3.append(sssl3)
                         pv3 = ' - '.join(parts_pv3) if parts_pv3 else None
-                        
+
                         sql = "INSERT INTO production_t_data1 (MANDT, ARBPL, PWWRK, KTEXT, WERKSX, ARBID, KAPID, KAPAZ, VERID, KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MTART, MAKTX, VORNR, STEUS, AUART, MEINS, MATKL, PSMNG, WEMNG, MGVRG2, LMNGA, P1, MENG2, VGW01, VGE01, CPCTYX, DTIME, DDAY, SSSLD, SSAVD, MATFG, MAKFG, CATEGORY, ORDERX, STATS2, PV1, PV2, PV3) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-                        vals = (safe_get_value(t1_row, 'MANDT'), 
-                                safe_get_value(t1_row, 'ARBPL'), 
-                                safe_get_value(t1_row, 'PWWRK'), 
-                                safe_get_value(t1_row, 'KTEXT'), 
-                                plant_code, 
-                                safe_get_value(t1_row, 'ARBID'), 
-                                safe_get_value(t1_row, 'KAPID'), 
-                                safe_get_value(t1_row, 'KAPAZ'), 
-                                safe_get_value(t1_row, 'VERID'), 
-                                safe_get_value(t1_row, 'KDAUF'), 
-                                safe_get_value(t1_row, 'KDPOS'), 
-                                aufnr_t3, 
-                                safe_get_value(t1_row, 'PLNUM'), 
-                                safe_get_value(t1_row, 'STATS'), 
-                                safe_get_value(t1_row, 'DISPO'), 
-                                safe_get_value(t1_row, 'MATNR'), 
-                                safe_get_value(t1_row, 'MTART'), 
-                                safe_get_value(t1_row, 'MAKTX'), 
-                                safe_get_value(t1_row, 'VORNR'), 
-                                safe_get_value(t1_row, 'STEUS'), 
-                                safe_get_value(t1_row, 'AUART'), 
-                                safe_get_value(t1_row, 'MEINS'), 
-                                safe_get_value(t1_row, 'MATKL'), 
-                                t1_row.get('PSMNG'), 
-                                t1_row.get('WEMNG'), 
-                                t1_row.get('MGVRG2'), 
-                                t1_row.get('LMNGA'), 
-                                t1_row.get('P1'), 
-                                t1_row.get('MENG2'), 
-                                t1_row.get('VGW01'), 
-                                t1_row.get('VGE01'), 
-                                safe_get_value(t1_row, 'CPCTYX'), 
-                                t1_row.get('DTIME'), 
-                                t1_row.get('DDAY'), 
-                                format_sap_date_for_db(t1_row.get('SSSLD')), 
-                                format_sap_date_for_db(t1_row.get('SSAVD')), 
-                                safe_get_value(t1_row, 'MATFG'), 
-                                safe_get_value(t1_row, 'MAKFG'), 
-                                safe_get_value(t1_row, 'CATEGORY'), 
-                                safe_get_value(t1_row, 'ORDERX'), 
-                                safe_get_value(t1_row, 'STATS2'), 
-                                pv1, 
-                                pv2, 
+                        vals = (safe_get_value(t1_row, 'MANDT'),
+                                safe_get_value(t1_row, 'ARBPL'),
+                                safe_get_value(t1_row, 'PWWRK'),
+                                safe_get_value(t1_row, 'KTEXT'),
+                                plant_code,
+                                safe_get_value(t1_row, 'ARBID'),
+                                safe_get_value(t1_row, 'KAPID'),
+                                safe_get_value(t1_row, 'KAPAZ'),
+                                safe_get_value(t1_row, 'VERID'),
+                                safe_get_value(t1_row, 'KDAUF'),
+                                safe_get_value(t1_row, 'KDPOS'),
+                                aufnr_t3,
+                                safe_get_value(t1_row, 'PLNUM'),
+                                safe_get_value(t1_row, 'STATS'),
+                                safe_get_value(t1_row, 'DISPO'),
+                                safe_get_value(t1_row, 'MATNR'),
+                                safe_get_value(t1_row, 'MTART'),
+                                safe_get_value(t1_row, 'MAKTX'),
+                                safe_get_value(t1_row, 'VORNR'),
+                                safe_get_value(t1_row, 'STEUS'),
+                                safe_get_value(t1_row, 'AUART'),
+                                safe_get_value(t1_row, 'MEINS'),
+                                safe_get_value(t1_row, 'MATKL'),
+                                t1_row.get('PSMNG'),
+                                t1_row.get('WEMNG'),
+                                t1_row.get('MGVRG2'),
+                                t1_row.get('LMNGA'),
+                                t1_row.get('P1'),
+                                t1_row.get('MENG2'),
+                                t1_row.get('VGW01'),
+                                t1_row.get('VGE01'),
+                                safe_get_value(t1_row, 'CPCTYX'),
+                                t1_row.get('DTIME'),
+                                t1_row.get('DDAY'),
+                                format_sap_date_for_db(t1_row.get('SSSLD')),
+                                format_sap_date_for_db(t1_row.get('SSAVD')),
+                                safe_get_value(t1_row, 'MATFG'),
+                                safe_get_value(t1_row, 'MAKFG'),
+                                safe_get_value(t1_row, 'CATEGORY'),
+                                safe_get_value(t1_row, 'ORDERX'),
+                                safe_get_value(t1_row, 'STATS2'),
+                                pv1,
+                                pv2,
                                 pv3)
                         cursor.execute(sql, vals)
 
@@ -298,20 +300,20 @@ def process_plant_data(plant_code, config):
                         # Menambahkan satu '%s' agar jumlahnya menjadi 23
                         sql = "INSERT INTO production_t_data4 (MANDT, RSNUM, RSPOS, VORNR, KDAUF, KDPOS, AUFNR, PLNUM, STATS, DISPO, MATNR, MAKTX, MEINS, BAUGR, WERKSX, BDMNG, KALAB, VMENG, SOBSL, BESKZ, LTEXT, LGORT, OUTSREQ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
                         vals = (
-                            safe_get_value(t4_row, 'MANDT'), safe_get_value(t4_row, 'RSNUM'), 
-                            safe_get_value(t4_row, 'RSPOS'), safe_get_value(t4_row, 'VORNR'), 
-                            safe_get_value(t4_row, 'KDAUF'), 
-                            safe_get_value(t4_row, 'KDPOS'), aufnr_t3, safe_get_value(t4_row, 'PLNUM'), 
-                            safe_get_value(t4_row, 'STATS'), safe_get_value(t4_row, 'DISPO'), 
-                            safe_get_value(t4_row, 'MATNR'), safe_get_value(t4_row, 'MAKTX'), 
-                            safe_get_value(t4_row, 'MEINS'), safe_get_value(t4_row, 'BAUGR'), 
+                            safe_get_value(t4_row, 'MANDT'), safe_get_value(t4_row, 'RSNUM'),
+                            safe_get_value(t4_row, 'RSPOS'), safe_get_value(t4_row, 'VORNR'),
+                            safe_get_value(t4_row, 'KDAUF'),
+                            safe_get_value(t4_row, 'KDPOS'), aufnr_t3, safe_get_value(t4_row, 'PLNUM'),
+                            safe_get_value(t4_row, 'STATS'), safe_get_value(t4_row, 'DISPO'),
+                            safe_get_value(t4_row, 'MATNR'), safe_get_value(t4_row, 'MAKTX'),
+                            safe_get_value(t4_row, 'MEINS'), safe_get_value(t4_row, 'BAUGR'),
                             plant_code, t4_row.get('BDMNG'), t4_row.get('KALAB'), t4_row.get('VMENG'),
-                            safe_get_value(t4_row, 'SOBSL'), safe_get_value(t4_row, 'BESKZ'), 
+                            safe_get_value(t4_row, 'SOBSL'), safe_get_value(t4_row, 'BESKZ'),
                             safe_get_value(t4_row, 'LTEXT'), safe_get_value(t4_row, 'LGORT'),
                             safe_get_value(t4_row, 'OUTSREQ')
                         )
                         cursor.execute(sql, vals)
-        
+
         logging.info("[Langkah 5/5] Melakukan commit transaksi...")
         db_conn.commit()
         logging.info(f"--- Transaksi untuk Plant {plant_code} berhasil. ---")
@@ -332,7 +334,7 @@ def run_job():
         logging.warning("Tidak ada plant yang diproses. Periksa variabel 'plants' di dalam skrip.")
         logging.info("================ JOB DIBATALKAN ================")
         return
-        
+
     for plant in config['plants']:
         if plant:
             process_plant_data(plant.strip(), config)

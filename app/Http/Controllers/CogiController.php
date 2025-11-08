@@ -10,6 +10,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use App\Models\Cogi;
 use App\Models\Kode;
+use App\Models\MRP;
 use Carbon\Carbon;
 
 class CogiController extends Controller
@@ -19,12 +20,31 @@ class CogiController extends Controller
         $targetWerk = match (true) {
             in_array($kode, ['1001', '1002', '1003']) => '1001',
             $kode == '1200' => '1200',
+            str_starts_with($kode, '10') => '1000',
             str_starts_with($kode, '20') => '2000',
             str_starts_with($kode, '30') => '3000',
             default => $kode
         };
-        $kodeModel = Kode::where('kode', $kode)->first();
-        $mrpList = $kodeModel ? $kodeModel->mrps()->pluck('mrp')->toArray() : [];
+
+        $kodeModels = Kode::where('kode', $kode)->get();
+        $mrpList = [];
+        $kategori = null;
+        $sub_kategori = null;
+        $nama_bagian = null;
+        
+        if ($kodeModels->isNotEmpty()) {
+            
+            $kodeIds = $kodeModels->pluck('id');
+            $mrpList = MRP::whereIn('kode_id', $kodeIds)
+                            ->pluck('mrp')
+                            ->unique()
+                            ->toArray();
+            $firstKodeModel = $kodeModels->first();
+            $kategori = $firstKodeModel->kategori;
+            $sub_kategori = $firstKodeModel->sub_kategori;
+            $nama_bagian = $firstKodeModel->nama_bagian;
+        }
+
         $baseQuery = Cogi::query();
         $baseQuery->where('DWERK', $targetWerk);
 
@@ -33,32 +53,39 @@ class CogiController extends Controller
         }
 
         $queryForCards = clone $baseQuery;
-        
         $totalError = $queryForCards->count();
-
-        // "Baru" (New) = Dalam 7 hari terakhir (lebih besar atau sama dengan 7 hari lalu)
-        $errorBaru = (clone $queryForCards)->where('BUDAT', '>=', today()->subDays(7))->count(); // <-- LOGIKA DIPERBAIKI
-
-        // "Lama" (Old) = Lebih tua dari 7 hari (lebih kecil dari 7 hari lalu)
-        $errorLama = (clone $queryForCards)->where('BUDAT', '<', today()->subDays(7))->count(); // <-- LOGIKA DIPERBAIKI
+        $errorBaru = (clone $queryForCards)->where('BUDAT', '>=', today()->subDays(7))->count();
+        $errorLama = (clone $queryForCards)->where('BUDAT', '<', today()->subDays(7))->count();
         
         $filter = $request->query('filter');
-        
         $queryForTable = clone $baseQuery;
 
         if ($filter === 'baru') {
-            // Filter "Baru" (New)
-            $queryForTable->where('BUDAT', '>=', today()->subDays(7)); // <-- LOGIKA DIPERBAIKI
+            $queryForTable->where('BUDAT', '>=', today()->subDays(7));
         } elseif ($filter === 'lama') {
-            // Filter "Lama" (Old)
-            $queryForTable->where('BUDAT', '<', today()->subDays(7)); // <-- LOGIKA DIPERBAIKI
+            $queryForTable->where('BUDAT', '<', today()->subDays(7));
         }
 
         $cogiData = $queryForTable->latest('BUDAT')->get();
-        
-        $kategori = Kode::where('kode', $kode)->value('kategori');
-        $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
-        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
+        try {
+            Log::info('--- DATA MONITORING COGI UNTUK VIEW ---', [
+                'kode' => $kode,
+                'cogiData_count' => $cogiData->count(),
+                'totalError' => $totalError,
+                'errorBaru' => $errorBaru,
+                'errorLama' => $errorLama,
+                'filter' => $filter,
+                'nama_bagian' => $nama_bagian,
+                'sub_kategori' => $sub_kategori,
+                'kategori' => $kategori,
+                'mrpList' => $mrpList,
+                'targetWerk' => $targetWerk
+            ]);
+            Log::info('Detail CogiData:', $cogiData->toArray());
+            
+        } catch (\Exception $e) {
+            Log::error('GAGAL MELAKUKAN LOGGING: ' . $e->getMessage());
+        }
 
         return view('Features.monitoring-cogi', compact(
             'kode',

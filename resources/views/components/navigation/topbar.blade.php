@@ -18,84 +18,73 @@
             'needs_kode' => true 
         ],
         
-        // --- [PERBAIKAN DI SINI] ---
         [
             'name' => 'Monitoring COGI', 
             'route_name' => 'cogi.report',
-            'needs_kode' => true // <-- TAMBAHKAN INI
+            'needs_kode' => true 
         ],
         [
             'name' => 'Monitoring GR', 
             'route_name' => 'list.gr',
-            'needs_kode' => true // <-- TAMBAHKAN INI JUGA
+            'needs_kode' => true
         ],
-        // --- [AKHIR PERBAIKAN] ---
         
         [
             'name' => 'Search Stock',
             'route_name' => 'search.stock', 
             'active_on' => ['search.stock*'] 
         ],
+        [
+            'name' => 'Outstanding Reservasi',
+            'route_name' => 'outstanding.reservasi', 
+            'active_on' => ['outstanding.reservasi*']
+        ]
     ],
 ])
 
 @php
     $user = Auth::user();
-
-    // 1. Coba ambil 'kode' dari RUTE
     $kodeAktif = request()->route('kode'); 
 
-    // 2. Jika tidak ada, coba ambil 'kode' dari QUERY
     if (!$kodeAktif) {
         $kodeAktif = request()->query('kode');
     }
 
-    // 3. Logika khusus 'werksCode'
     if (!$kodeAktif) {
         if (request()->routeIs('manufaktur.pro.transaction.detail*')) {
             $kodeAktif = request()->route('werksCode');
         }
     }
 
-    // --- [LOGIKA SESSION UNTUK "MENGINGAT" KODE] ---
     if ($kodeAktif) {
-        // Jika kita MENEMUKAN kode di URL, simpan di session
         session(['manufaktur_last_kode' => $kodeAktif]);
     } else {
-        // Jika kita TIDAK MENEMUKAN kode di URL, coba ambil dari session
         $kodeAktif = session('manufaktur_last_kode');
     }
-    // --- [AKHIR LOGIKA SESSION] ---
-    
+
     $kodeAktif = $kodeAktif ?? null; 
     
     $normalizedNav = collect($navigation)->map(function ($item) use ($kodeAktif) {
         $name = $item['name'] ?? 'Menu';
         $active = false;
-        $href = '#'; // Default jika rute tidak valid
+        $href = '#';
 
-        // [PERBAIKAN LOGIKA UTAMA]
-        // Cek hanya jika 'route_name' ada dan valid. HAPUS '&& $kodeAktif'
         if (isset($item['route_name']) && Route::has($item['route_name'])) {
             
-            $needsKode = $item['needs_kode'] ?? false; // Cek 'needs_kode'
+            $needsKode = $item['needs_kode'] ?? false; 
             $params = $item['params'] ?? [];
 
             if ($needsKode) {
-                // --- Rute ini BUTUH {kode} (cth: Dashboard) ---
                 if ($kodeAktif) {
                     $params['kode'] = $kodeAktif;
                     $href = route($item['route_name'], $params);
                 } else {
-                    // Jika {kode} tidak ada (bahkan di session), link-nya mati
                     $href = '#'; 
                 }
             } else {
-                // --- Rute ini TIDAK BUTUH {kode} (cth: Search Stock) ---
                 $href = route($item['route_name'], $params);
             }
 
-            // Logika 'active' sekarang berjalan untuk SEMUA item
             $activePattern = $item['active_on'] ?? $item['route_name'].'*';
             $active = request()->routeIs($activePattern);
         }
