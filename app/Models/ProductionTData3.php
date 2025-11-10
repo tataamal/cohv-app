@@ -50,7 +50,10 @@ class ProductionTData3 extends Model
             'CATEGORY', 
             'WERKSX', 
             'MENGE2',
-            'STATS2'];
+            'STATS2',
+            'GROES',
+            'FERTH',
+            'ZEINR'];
     public function tData1()
     {
         return $this->hasMany(ProductionTData1::class, 'AUFNR', 'AUFNR');

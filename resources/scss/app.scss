@@ -12,6 +12,7 @@ $success: #059669;
 @import 'pages/_kelola-pro';
 @import 'pages/_monitoring-pro';
 @import 'pages/detail-pro';
+@import 'pages/_pro-transaction';
 
 // ============================================
 // SIDEBAR STYLES - VERSI LEBIH KECIL
@@ -416,8 +417,9 @@ body.sidebar-open .sidebar-overlay {
 
 .loader-text {
     color: #ffffff; // Warna teks putih
-    font-size: 1.2rem;
+    font-size: 0.8rem;
     font-weight: bold;
+    text-align: center;
 }
 
 .sortable-header-data-cohv {

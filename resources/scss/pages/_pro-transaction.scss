@@ -1,0 +1,118 @@
+/* ========================================= */
+/* == STYLE CHECKBOX KUSTOM == */
+/* ========================================= */
+.custom-checkbox-container {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+.custom-checkbox-container .form-check-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+.custom-checkbox-container .form-check-label {
+    position: relative;
+    padding-left: 30px; 
+    cursor: pointer;
+    line-height: 20px; 
+    display: inline-block;
+    transition: color 0.15s ease-in-out;
+}
+.custom-checkbox-container:hover .form-check-label {
+    color: var(--bs-success);
+}
+.custom-checkbox-container .form-check-label::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    border: 2px solid #adb5bd; 
+    border-radius: 0.25rem;
+    background-color: #fff;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.custom-checkbox-container:hover .form-check-label::before {
+        border-color: var(--bs-success);
+        box-shadow: 0 0 0 0.25rem rgba(25,135,84,.25);
+}
+.custom-checkbox-container .form-check-input:checked + .form-check-label::before {
+    background-color: var(--bs-success);
+    border-color: var(--bs-success);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 70%;
+}
+.custom-checkbox-container .form-check-input:indeterminate + .form-check-label::before {
+    background-color: var(--bs-success);
+    border-color: var(--bs-success);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M5 10h10'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 70%;
+}
+.accordion-header .custom-checkbox-container .form-check-label {
+    padding-left: 20px;
+}
+
+/* ========================================= */
+/* == STYLE LAYOUT == */
+/* ========================================= */
+.accordion-button {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+.accordion-button:not(.collapsed) {
+    background-color: #eef5ff; 
+    box-shadow: none;
+    color: #0a58ca;
+}
+.accordion-button.collapsed .row .col-md-5 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.accordion-header {
+    background-color: #fff;
+    border-bottom: 1px solid var(--bs-border-color); 
+}
+
+.nav-tabs-card {
+    border-bottom: 1px solid var(--bs-border-color); 
+}
+.nav-tabs-card .nav-link {
+    border: 0;
+    border-bottom: 3px solid transparent;
+    color: #6c757d;
+    padding: 1rem 1.25rem;
+    font-weight: 500;
+}
+.nav-tabs-card .nav-link.active {
+    border-bottom-color: var(--bs-success);
+    color: var(--bs-success);
+    background-color: transparent;
+}
+
+/* [PERBAIKAN #4] Memastikan kontras teks tabel */
+.accordion-body .table tbody td {
+    color: var(--bs-body-color, #212529); 
+    vertical-align: middle;
+}
+
+/* [PERBAIKAN #1] Hapus override yang menghilangkan border */
+/* .accordion-body .card-body .table-bordered { ... } */
+/* .accordion-body .card-body .table-bordered thead th, ... */
+
+/* Biarkan .table-bordered dari Bootstrap yang bekerja */
+.accordion-body .card-body .table {
+    margin-bottom: 0; /* Tetap hapus margin bawah */
+}
+.accordion-body .card-body .table thead th {
+    border-top: 0; /* Hapus border atas ganda */
+}

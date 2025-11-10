@@ -57,6 +57,9 @@ return new class extends Migration
             $table->string('CATEGORY')->nullable();
             $table->double('MENGE2', 15, 3)->nullable();
             $table->string('STATS2')->nullable();
+            $table->string('GROES')->nullable();
+            $table->string('FERTH')->nullable();
+            $table->string('ZEINR')->nullable();
             $table->timestamps();
         });
     }

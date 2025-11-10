@@ -35,6 +35,6 @@ return [
         ],
     ],
     'flask' => [
-        'base_url' => env('FLASK_API_URL', 'http://192.168.90.27:6001')
+        'base_url' => env('FLASK_API_URL')
     ],
 ];

@@ -124,35 +124,58 @@
                 </div>
             </div>
 
-            <form id="searchPROForm">
+            <form id="searchPROForm" method="POST" action="{{ route('manufaktur.pro.multi-search') }}">
+                @csrf
+                
+                {{-- Input Hidden untuk Data Header (Tetap sama) --}}
+                <input type="hidden" name="werks_code" id="werksCode" value="{{ $kode }}">
+                <input type="hidden" name="bagian_name" id="bagianName" value="{{ $nama_bagian }}">
+                <input type="hidden" name="categories_name" id="categoriesName" value="{{ $kategori }}">
+                
+                {{-- 
+                    INPUT HIDDEN BARU: 
+                    Ini yang akan kita kirim ke controller. 
+                    Akan berisi semua PRO yang ditambahkan.
+                --}}
+                <input type="hidden" name="pro_numbers" id="proNumbersInput">
+
                 <div class="row g-2">
-                    {{-- Input Hidden untuk Data Header dari Laravel/Blade --}}
-                    <input type="hidden" name="werks_code" id="werksCode" value="{{ $kode }}">
-                    <input type="hidden" name="bagian_name" id="bagianName" value="{{ $nama_bagian }}">
-                    <input type="hidden" name="categories_name" id="categoriesName" value="{{ $kategori }}">
-                    
+                    {{-- Area Input untuk mengetik PRO --}}
                     <div class="col-md-9 col-lg-10">
+                        <label for="proInput" class="form-label small">Enter PRO Number(s)</label>
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0">
-                                <i class="fas fa-search text-muted"></i>
+                                <i class="fas fa-tag text-muted"></i>
                             </span>
                             <input 
                                 type="text" 
                                 class="form-control border-start-0" 
-                                id="proNumber" 
-                                name="proNumber" 
-                                placeholder="Enter PRO number (e.g., PRO-2024-001)"
-                                required
+                                id="proInput"
+                                placeholder="Ketik PRO, pisahkan dengan spasi atau koma"
                                 autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="addProButton">
+                                <i class="fas fa-plus me-1"></i>
+                                Add
+                            </button>
                         </div>
-                        <small class="text-muted d-block mt-2">Enter the PRO number to view detailed information</small>
                     </div>
                 
-                    <div class="col-md-3 col-lg-2">
+                    {{-- Tombol Submit Utama --}}
+                    <div class="col-md-3 col-lg-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="fas fa-arrow-right me-2"></i>
-                            <span>Go To PRO</span>
+                            <span>Go To PROs</span> 
                         </button>
+                    </div>
+                </div>
+
+                {{-- AREA PREVIEW BADGE BARU --}}
+                <div class="row g-2 mt-3">
+                    <div class="col-12">
+                        <label class="form-label small text-muted">PRO numbers to search:</label>
+                        <div id="proBadgeContainer" class="border p-3 rounded" style="min-height: 80px; background-color: #f8f9fa; display: flex; flex-wrap: wrap; gap: 8px;">
+                            <span id="proBadgePlaceholder" class="text-muted fst-italic">Added PROs will appear here...</span>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -1035,6 +1058,125 @@
                         });
                     });
                 });
+            });
+
+            document.addEventListener("DOMContentLoaded", function() {
+    
+                const form = document.getElementById('searchPROForm');
+                const proInput = document.getElementById('proInput');
+                const addButton = document.getElementById('addProButton');
+                const badgeContainer = document.getElementById('proBadgeContainer');
+                const hiddenInput = document.getElementById('proNumbersInput');
+                const placeholder = document.getElementById('proBadgePlaceholder');
+
+                // Menyimpan daftar PRO dalam array
+                let proList = [];
+
+                // --- Fungsi untuk meng-update tampilan badge ---
+                function updateBadges() {
+                    // Bersihkan container
+                    badgeContainer.innerHTML = '';
+                    
+                    if (proList.length === 0) {
+                        badgeContainer.appendChild(placeholder); // Tampilkan placeholder jika kosong
+                    } else {
+                        proList.forEach(pro => {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-primary d-inline-flex align-items-center';
+                            badge.style.padding = '0.5em 0.75em';
+                            badge.style.fontSize = '0.9rem';
+
+                            badge.innerHTML = `
+                                <span>${pro}</span>
+                                <button type="button" class="btn-close btn-close-white ms-2" 
+                                        data-pro="${pro}" 
+                                        aria-label="Remove" 
+                                        style="font-size: 0.7rem;"></button>
+                            `;
+                            badgeContainer.appendChild(badge);
+                        });
+                    }
+                }
+
+                // --- [PERUBAHAN DI SINI] Fungsi untuk menambah PRO (bisa multi-input) ---
+                function addPro() {
+                    const rawInput = proInput.value.trim();
+                    
+                    // 1. Split berdasarkan koma (,) ATAU whitespace (\s)
+                    //    RegEx /[\s,]+/ berarti "satu atau lebih spasi ATAU koma"
+                    const proNumbers = rawInput.split(/[\s,]+/)
+                                            // 2. Bersihkan setiap item
+                                            .map(pro => pro.trim().toUpperCase())
+                                            // 3. Filter/buang entri yang kosong
+                                            //    (misal: hasil dari "PRO1,,PRO2")
+                                            .filter(pro => pro); 
+
+                    let itemsAdded = 0;
+
+                    if (proNumbers.length > 0) {
+                        proNumbers.forEach(proValue => {
+                            if (proValue && !proList.includes(proValue)) {
+                                proList.push(proValue);
+                                itemsAdded++;
+                            } else if (proList.includes(proValue)) {
+                                // Opsional: beri feedback jika PRO sudah ada
+                                console.warn(`PRO ${proValue} already in list.`);
+                            }
+                        });
+                    }
+
+                    // Hanya update tampilan jika ada item baru
+                    if (itemsAdded > 0) {
+                        updateBadges(); 
+                    }
+
+                    proInput.value = ''; // Selalu kosongkan input
+                    proInput.focus();
+                }
+
+                // --- Fungsi untuk menghapus PRO ---
+                function removePro(proValue) {
+                    proList = proList.filter(pro => pro !== proValue);
+                    updateBadges(); // Update tampilan
+                    proInput.focus();
+                }
+
+                // --- Event Listeners (Tidak berubah) ---
+
+                // 1. Klik tombol "Add"
+                addButton.addEventListener('click', addPro);
+
+                // 2. Tekan "Enter" di input
+                proInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault(); // Mencegah form tersubmit
+                        addPro();
+                    }
+                });
+
+                // 3. Klik tombol "X" (close) pada badge
+                badgeContainer.addEventListener('click', function(e) {
+                    // Cek apakah yang diklik adalah tombol close
+                    if (e.target.classList.contains('btn-close')) {
+                        const proToRemove = e.target.dataset.pro;
+                        removePro(proToRemove);
+                    }
+                });
+
+                // 4. (PENTING) Sebelum form di-submit ke controller
+                form.addEventListener('submit', function(e) {
+                    if (proList.length === 0) {
+                        e.preventDefault(); // Hentikan submit jika tidak ada PRO
+                        alert('Please add at least one PRO number.');
+                        proInput.focus();
+                        return;
+                    }
+                    
+                    // Isi hidden input dengan data untuk controller
+                    hiddenInput.value = JSON.stringify(proList);
+                    console.log('Submitting data:', hiddenInput.value);
+                });
+
             });
         </script>
     @endpush

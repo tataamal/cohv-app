@@ -14,7 +14,7 @@
                 <div class="input-group input-group-lg">
                     <select class="form-select" id="search_type" name="search_type" style="max-width: 200px;">
                         <option value="maktx ">Description</option>
-                        <option value="matnr selected">Mat. Number</option>
+                        <option value="matnr" selected>Mat. Number</option>
                     </select>
 
                     <input type="text"

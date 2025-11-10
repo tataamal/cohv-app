@@ -60,8 +60,16 @@
                         </div>
                     </div>
                     <div class="mt-3">
+                        <label for="formMaktx" class="form-label"><i class="fa-solid fa-box"></i>Deskripsi</label>
+                        <input type="text" class="form-control" id="formMaktx" name="maktx" placeholder="Kosongkan jika tidak diubah" readonly>
+                    </div>
+                    <div class="mt-3">
                         <label for="formMatnr" class="form-label"><i class="fa-solid fa-box"></i>Kode Material</label>
                         <input type="text" class="form-control" id="formMatnr" name="matnr" placeholder="Kosongkan jika tidak diubah">
+                    </div>
+                    <div class="mt-3">
+                        <label for="formCharg" class="form-label"><i class="fa-solid fa-box"></i>Batch</label>
+                        <input type="text" class="form-control" id="formCharg" name="charg" placeholder="Masukkan No. Batch (Jika ingin diubah)">
                     </div>
                     <div class="row g-3 mt-1">
                         <div class="col-md-6">

@@ -1383,8 +1383,15 @@ def edit_component():
         else:
             params['IV_SOBKZ'] = ''
             params['IV_SOBKZX'] = ''
+        if 'charg' in data:
+            params['IV_CHARG'] = data['charg']
+            params['IV_CHARGX'] = 'X'
+        else:
+            params['IV_CHARG'] = ''
+            params['IV_CHARGX'] = 'x'
             
         print(f"   -> Parameter yang akan dikirim: {params}")
+        print("isi data charg : ", params['IV_CHARG'])
 
         # --- LANGKAH 4: Memanggil RFC ---
         print("4. Memanggil RFC 'Z_RFC_PRODORD_COMPONENT_MAINTA'...")

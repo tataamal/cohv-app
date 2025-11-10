@@ -32,7 +32,7 @@ Route::middleware('auth')->group(function (){
         Route::get('/dashboard/{kode}', [adminController::class, 'index'])->name('dashboard.show');
         Route::get('data2/{kode}', [ManufactController::class, 'DetailData2'])->name('detail.data2');
         Route::get('data2/detail/{kode}', [ManufactController::class, 'showDetail'])->name('show.detail.data2');
-        Route::get('/pro-transaction/{proNumber}/{werksCode}/{view?}', [adminController::class, 'showProDetail'])->name('pro.transaction.detail');
+        Route::post('/pro/multi-search', [adminController::class, 'showMultiProDetail'])->name('pro.multi-search');
     });
 
     // Routing Admin

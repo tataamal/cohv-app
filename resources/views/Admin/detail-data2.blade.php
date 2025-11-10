@@ -175,6 +175,15 @@
                                     <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('remainingQty')">
                                         <span>Outs <i class="${getT3SortIconClass('remainingQty')}"></i></span>
                                     </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('GROES')">
+                                        <span>Finish Size<i class="${getT3SortIconClass('GROES')}"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('FERTH')">
+                                        <span>Rough Size<i class="${getT3SortIconClass('FERTH')}"></i></span>
+                                    </th>
+                                    <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('ZEINR'')">
+                                        <span>Material Bhn<i class="${getT3SortIconClass('ZEINR')}"></i></span>
+                                    </th>
                                     <th class="text-center d-none d-md-table-cell sortable-header" onclick="sortT3Table('GSTRP')">
                                         <span>Start <i class="${getT3SortIconClass('GSTRP')}"></i></span>
                                     </th>
@@ -1106,7 +1115,7 @@
                                 <button type="button" class="btn btn-warning btn-sm edit-component-btn"
                                         data-aufnr="${c.AUFNR ?? ''}" data-rspos="${c.RSPOS ?? ''}" data-matnr="${c.MATNR ?? ''}"
                                         data-bdmng="${c.BDMNG ?? ''}" data-lgort="${c.LGORT ?? ''}" data-sobkz="${c.SOBKZ ?? ''}"
-                                        data-plant="${plantCode}" data-meins="${c.MEINS ?? ''}"
+                                        data-plant="${plantCode}" data-meins="${c.MEINS ?? ''}" data-maktx="${c.MAKTX ?? ''}"
                                         onclick=" event.stopPropagation(); handleEditClick(this)">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
@@ -1635,6 +1644,9 @@
                 <td class="text-center d-none d-md-table-cell">${d3.PSMNG || '-'}</td>
                 <td class="text-center d-none d-md-table-cell">${d3.WEMNG}</td>
                 <td class="text-center d-none d-md-table-cell">${remainingQty}</td>
+                <td class="text-center d-none d-md-table-cell">${d3.GROES || '-'}</td>
+                <td class="text-center d-none d-md-table-cell">${d3.FERTH || '-'}</td>
+                <td class="text-center d-none d-md-table-cell">${d3.ZEINR || '-'}</td>
                 <td class="text-center d-none d-md-table-cell">${formatDate(d3.GSTRP)}</td>
                 <td class="text-center d-none d-md-table-cell">${formatDate(d3.GLTRP)}</td>
 
@@ -1700,6 +1712,9 @@
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Qty Order</span><strong class="text-dark text-end">${psmng}</strong></div>
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Qty GR</span><strong class="text-dark text-end">${wemng}</strong></div>
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Outs GR</span><strong class="text-dark text-end">${remainingQty}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Finish Size</span><strong class="text-dark text-end">${data.GROES || '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Rough Size</span><strong class="text-dark text-end">${data.FERTH || '-'}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Material Bhn</span><strong class="text-dark text-end">${data.ZEINR || '-'}</strong></div>
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Start Date</span><strong class="text-dark text-end">${formatDate(data.GSTRP)}</strong></div>
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Finish Date</span><strong class="text-dark text-end">${formatDate(data.GLTRP)}</strong></div>
                 </div>
@@ -2417,6 +2432,7 @@
             const aufnr = buttonElement.dataset.aufnr;
             const rspos = buttonElement.dataset.rspos;
             const matnr = buttonElement.dataset.matnr;
+            const maktx = buttonElement.dataset.maktx;
             const bdmng = buttonElement.dataset.bdmng;
             const lgort = buttonElement.dataset.lgort;
             const sobkz = buttonElement.dataset.sobkz;
@@ -2426,6 +2442,7 @@
             document.getElementById('formPro').value = aufnr;
             document.getElementById('formRspos').value = rspos;
             document.getElementById('formMatnr').value = matnr;
+            document.getElementById('formMaktx').value = maktx;
             document.getElementById('formBdmng').value = bdmng;
             document.getElementById('formLgort').value = lgort;
             document.getElementById('formSobkz').value = sobkz;
@@ -2576,6 +2593,7 @@
                 form.querySelector('#formMatnr').value = '';
                 form.querySelector('#formBdmng').value = '';
                 form.querySelector('#formLgort').value = '';
+                form.querySelector('#formCharg').value = '';
                 
                 initialSobkzValue = button.getAttribute('data-sobkz') === '1' ? '1' : '0';
                 sobkzSelect.value = ""; 
@@ -2599,6 +2617,7 @@
                 if (formData.get('matnr')) payload.matnr = formData.get('matnr');
                 if (formData.get('bdmng')) payload.bdmng = formData.get('bdmng');
                 if (formData.get('lgort')) payload.lgort = formData.get('lgort');
+                if (formData.get('charg')) payload.charg = formData.get('charg');
 
                 if (sobkzSelect.value !== '') {
                     payload.sobkz = sobkzSelect.value;

@@ -39,7 +39,7 @@ class Data4Controller extends Controller
             // =========================================================
 
             // ========== PANGGIL API UNTUK ADD COMPONENT ==========
-            $flaskEndpoint = 'http://192.168.90.27:6001/api/add_component';
+            $flaskEndpoint = env('FLASK_API_URL') . '/api/add_component';
             $response = Http::timeout(60)->withHeaders([
                     'X-SAP-Username' => session('username'),
                     'X-SAP-Password' => session('password'),
@@ -102,7 +102,7 @@ class Data4Controller extends Controller
             $aufnr = $request->input('aufnr');
             $plant = $request->input('plant');
 
-            $flaskEndpoint = 'http://192.168.90.27:6001/api/delete_component'; // Ganti dengan URL Flask Anda
+            $flaskEndpoint = env('FLASK_API_URL') . '/api/delete_component';
 
             // 2. Loop untuk setiap komponen yang dipilih
             foreach ($components as $component) {
@@ -152,6 +152,7 @@ class Data4Controller extends Controller
             'bdmng' => 'sometimes|nullable|numeric',
             'lgort' => 'sometimes|nullable|string',
             'sobkz' => 'sometimes|nullable|in:0,1',
+            'charg' => 'sometimes|nullable|string',
         ]);
 
         // 2. Cek kredensial SAP dari session
@@ -165,7 +166,7 @@ class Data4Controller extends Controller
         $flaskApiUrl = rtrim(env('FLASK_API_URL'), '/') . '/api/edit_component';
 
         try {
-            $response = Http::timeout(60) // Timeout 60 detik
+            $response = Http::timeout(120) // Timeout 120 detik
                 ->withHeaders([
                     'X-SAP-Username' => $sapUser,
                     'X-SAP-Password' => $sapPass,
@@ -215,7 +216,7 @@ class Data4Controller extends Controller
             }
 
             // 1. Panggil API Refresh
-            $flaskRefreshUrl = 'http://192.168.90.27:6001/api/refresh-pro'; // Sesuaikan URL
+            $flaskRefreshUrl = env('FLASK_API_URL') . '/api/refresh-pro'; // Sesuaikan URL
             $refreshResp = Http::timeout(120)
                 ->withHeaders([
                     'X-SAP-Username' => $username,
@@ -313,7 +314,7 @@ class Data4Controller extends Controller
             $response = Http::withHeaders([
                 'X-SAP-Username' => $username,
                 'X-SAP-Password' => $password,
-            ])->timeout(120)->get('http://192.168.90.27:6001/api/get_stock', $queryParams); // Panggil endpoint yang benar
+            ])->timeout(120)->get(env('FLASK_API_URL') . '/api/get_stock', $queryParams); // Panggil endpoint yang benar
             
             // 6. PEMROSESAN HASIL (Tidak berubah)
             if ($response->successful()) {

@@ -10,7 +10,7 @@ use App\Models\ProductionTData2;
 use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
 use App\Models\Kode;
-use App\Models\ProductionTData;
+use Illuminate\Support\Facades\Log;
 use App\Models\SapUser;
 use App\Models\workcenter;
 use Carbon\Carbon;
@@ -225,39 +225,26 @@ class adminController extends Controller
 
     public function AdminDashboard()
     {
-        // Inisialisasi koleksi kosong untuk menampung data
         $plants = collect();
-        $allUsers = collect(); // Inisialisasi allUsers juga
+        $allUsers = collect();
 
-        // Pastikan pengguna sudah login sebelum mengambil data
         if (Auth::check()) {
             $user = Auth::user();
             $sapUser = null;
 
-            // Logika untuk menemukan SapUser berdasarkan peran (role) pengguna
             if ($user->role === 'admin') {
-                // 1. Ambil 'sap_id' dari email pengguna
                 $sapId = str_replace('@kmi.local', '', $user->email);
-                // 2. Cari SapUser berdasarkan sap_id
                 $sapUser = SapUser::where('sap_id', $sapId)->first();
             } 
 
-            // Jika SapUser ditemukan, ambil dan filter 'kodes' (plant) yang berelasi
             if ($sapUser) {
-                // Ambil SEMUA kode yang berelasi terlebih dahulu
                 $allRelatedKodes = $sapUser->kode()->get();
-
-                // FIX: Filter koleksi untuk mendapatkan hanya nilai 'kode' yang unik.
-                // Metode unique('kode') akan mengambil item pertama untuk setiap 'kode'
-                // dan mengabaikan duplikat selanjutnya.
                 $plants = $allRelatedKodes->unique('kode');
             }
             
-            // Ambil semua user untuk keperluan lain di dashboard
             $allUsers = SapUser::orderBy('nama')->get();
         }
         
-        // Kirim data 'plants' yang sudah unik ke view
         return view('dashboard', [
             'plants' => $plants,
             'allUsers' => $allUsers
@@ -266,29 +253,25 @@ class adminController extends Controller
 
     public function getProDetails($status, Request $request)
     {
-        // Ambil filter tambahan dari request (jika ada)
-        // Asumsi: 'kode' dikirimkan dari AJAX sebagai $request->input('kode')
-        $kode_plant = $request->input('kode'); // Filter baru: Kode Plant/WERKSX
+        $kode_plant = $request->input('kode');
         $nama_bagian = $request->input('nama_bagian');
         $kategori = $request->input('kategori');
 
-        // 1. Ambil data dengan SELECT EKSPLISIT dan ALIAS
         $proDetails = DB::table('production_t_data3')
             ->select(
-                // Alias ke snake_case untuk konsistensi di Blade
-                'KDAUF as so_number',      // SO
-                'KDPOS as so_item',       // SO Item
-                'AUFNR as pro_number',    // PRO
-                'MATNR as material_code', // MATERIAL
-                'MAKTX as description',   // DESKRIPSI
-                'PWWRK as plant',         // PLANT
-                'DISPO as mrp_controller',// MRP
-                'PSMNG as order_quantity',// QTY. ORDER
-                'WEMNG as gr_quantity',   // QTY. GR
-                DB::raw('(PSMNG - WEMNG) AS outs_gr_quantity'), // OUTS. GR (Kolom terhitung)
-                'GSTRP as start_date',    // START DATE
-                'GLTRP as end_date',      // END DATE
-                'STATS as stats'          // STATS
+                'KDAUF as so_number', 
+                'KDPOS as so_item', 
+                'AUFNR as pro_number', 
+                'MATNR as material_code', 
+                'MAKTX as description',
+                'PWWRK as plant',
+                'DISPO as mrp_controller',
+                'PSMNG as order_quantity',
+                'WEMNG as gr_quantity',
+                DB::raw('(PSMNG - WEMNG) AS outs_gr_quantity'),
+                'GSTRP as start_date', 
+                'GLTRP as end_date',
+                'STATS as stats' 
             )
             ->where('WERKSX', $kode_plant) 
             ->where('STATS', $status)
@@ -306,182 +289,64 @@ class adminController extends Controller
         ]);
     }
 
-    public function showProDetail(Request $request, $proNumber, $werksCode, $view = null)
+    public function showMultiProDetail(Request $request, ProTransaction $proApi) // [BARU] Inject ProController
     {
-        $proNumber = strtoupper($proNumber);
+        Log::info("==================================================");
+        Log::info("Memulai pencarian PRO live dari SAP...");
+        Log::info("==================================================");
 
-        $bagianName = $request->query('bagian');
-        $categoriesName = $request->query('categories');
-        
-        // 1. Ambil data TData3 (PRO) yang dicari
-        $tdata3 = ProductionTData3::where('AUFNR', $proNumber)->first();
-        
-        if (!$tdata3) {
-            abort(404, 'Production Order (PRO) not found in TData3.');
-        }
-        
-        // --- PEMFORMATAN TANGGAL DI CONTROLLER ---
-        // Tambahkan properti _formatted untuk View Blade
-        $dateFields = ['GSTRP', 'GLTRP', 'SSAVD'];
-        foreach ($dateFields as $field) {
-            if (!empty($tdata3->{$field})) {
-                try {
-                    $tdata3->{$field . '_formatted'} = Carbon::parse($tdata3->{$field})->format('d/m/Y');
-                } catch (\Exception $e) {
-                    $tdata3->{$field . '_formatted'} = '-';
-                }
-            } else {
-                $tdata3->{$field . '_formatted'} = '-';
+        try {
+            $validated = $request->validate([
+                'werks_code'        => 'required|string',
+                'bagian_name'       => 'required|string',
+                'categories_name'   => 'required|string',
+                'pro_numbers'       => 'required|string', 
+            ]);
+
+            $werksCode = $validated['werks_code'];
+            $proNumbersArray = json_decode($validated['pro_numbers'], true);
+
+            if (empty($proNumbersArray)) {
+                return back()->withErrors(['pro_numbers' => 'Tidak ada nomor PRO yang dimasukkan.']);
             }
-        }
-        
-        // Kunci relasi dasar
-        $t2Key = trim($tdata3->KDAUF ?? '') . '-' . trim($tdata3->KDPOS ?? '');
-        
-        // 2. Ambil data TData2 dan TData1 spesifik
-        $outstandingOrder = $this->getTData2BySalesOrder($tdata3->KDAUF, $tdata3->KDPOS);
-        $buyerData = $this->getTData1BySalesOrder($tdata3->NAME1); 
-
-        // Handle jika salah satu data utama tidak ditemukan
-        if (!$outstandingOrder) { $outstandingOrder = (object)['key_for_frontend' => '']; }
-        if (!$buyerData) { $buyerData = (object)['key_for_frontend' => '', 'NAME1' => $tdata3->NAME1 ?? '']; }
-
-        // --- LOGIKA PENGAMBILAN DATA GLOBAL (DIPERTAHANKAN UNTUK KONTEKS) ---
-        
-        // A. Ambil SEMUA TData3 (Masih perlu untuk 'Order Overview' di Tab 1)
-        $allTData3_flat = ProductionTData3::where('WERKSX', $werksCode)
-            ->where(DB::raw("CONCAT(KDAUF, '-', KDPOS)"), $t2Key)
-            ->where("AUFNR", $proNumber)
-            ->get();
-        $allTData3Grouped = $allTData3_flat->groupBy(fn($it) => trim($it->KDAUF ?? '') . '-' . trim($it->KDPOS ?? ''));
-
-        // B. Ambil SEMUA TData2
-        $allTData2_flat = ProductionTData2::where('WERKSX', $werksCode)
-            ->where('NAME1', $tdata3->NAME1)
-            ->get();
-        $allTData2 = $allTData2_flat->groupBy(function ($r) {
-            $kunnr = trim($r->KUNNR ?? '');
-            $name1 = trim($r->NAME1 ?? '');
-            return !empty($kunnr) ? ($kunnr . '-' . $name1) : $name1;
-        });
-
-        // C. Ambil SEMUA TData1 (List Buyer)
-        $tdata = ProductionTData::where('WERKSX', $werksCode)
-            ->where('NAME1', $tdata3->NAME1) 
-            ->get();
-        $tdata->each(function ($item) {
-            $kunnr = trim($item->KUNNR ?? '');
-            $name1 = trim($item->NAME1 ?? '');
-            $item->key_for_frontend = !empty($kunnr) ? ($kunnr . '-' . $name1) : $name1;
-        });
             
-        // D. ✅ PERBAIKAN KRITIS: ROUTING & KOMPONEN HANYA BERDASARKAN PRO SPESIFIK
-        
-        $targetAufnr = $proNumber; 
-        $targetPlnum = $tdata3->PLNUM;
-        
-        // TData1 (Routing) - HANYA PRO SPESIFIK YANG DI-SEARCH
-        $allTData1ByAufnr = ProductionTData1::where('AUFNR', $targetAufnr)
-            ->get()
-            ->groupBy('AUFNR');
-        
-        // TData4 (Komponen) - HANYA PRO SPESIFIK YANG DI-SEARCH
-        $allTData4ByAufnr = ProductionTData4::where('AUFNR', $targetAufnr)
-            ->get()
-            ->groupBy('AUFNR');
-        
-        // TData4 (Komponen PLO) - HANYA PLNUM TERKAIT DARI PRO SPESIFIK
-        $allTData4ByPlnum = ProductionTData4::where('PLNUM', $targetPlnum)
-            ->get()
-            ->groupBy('PLNUM');
-        
-        // E. Ambil Work Center
-        $workCenters = workcenter::where('WERKSX', $werksCode)->orderBy('kode_wc')->get();
-
-        // --- PEMBENTUKAN KUNCI INISIALISASI SESSION ---
-        $activeSOKey = $buyerData->key_for_frontend ?? '';
-        $activeT2Key = $outstandingOrder->key_for_frontend ?? ''; 
-        $initialView = ($view === 't3') ? 'T3' : 'T1';
-
-        // 3. Kirim semua data yang dibutuhkan ke View BARU
-        return view('Admin.pro-transaction', [
-            // Data Header
-            'WERKS'             => $werksCode,
-            'plant'             => $werksCode, 
-            'bagian'            => urldecode($bagianName),
-            'categories'        => urldecode($categoriesName),
-            'workCenters'       => $workCenters,
-
-            // Data Tampilan Utama (GLOBAL DATA - Sekarang lebih fokus)
-            'tdata'             => $tdata, 
-            'allTData2'         => $allTData2, 
-            'allTData3'         => $allTData3Grouped, 
-            'allTData1'         => $allTData1ByAufnr, // Hanya 1 PRO
-            'allTData4ByAufnr'  => $allTData4ByAufnr, // Hanya 1 PRO
-            'allTData4ByPlnum'  => $allTData4ByPlnum, 
+            $sapUser = session('username');
+            $sapPass = session('password');
             
-            // Data Shortcut & Inisialisasi
-            'proData'           => $tdata3, 
-            'outstandingOrder'  => $outstandingOrder,
-            'buyerData'         => $buyerData, 
-            'initialView'       => $initialView,
-            'initSOKey'         => $activeSOKey,
-            'initT2Key'         => $activeT2Key,
-            'initProNumber'     => $proNumber,
-            'search'            => null,
-        ]);
-    }
+            if (empty($sapUser) || empty($sapPass)) {
+                Log::error("Kredensial SAP tidak ditemukan di session.");
+                return back()->with('error', 'Sesi Anda telah berakhir atau kredensial SAP tidak ada. Silakan login kembali.');
+            }
 
-    // --- FUNGSI PEMBANTU (Wajib Anda Implementasikan) ---
+            Log::info("[WebController] Memanggil ProController@get_data_pro...");
+            $sapData = $proApi->get_data_pro(
+                $werksCode, 
+                $proNumbersArray, 
+                $sapUser, 
+                $sapPass
+            );
 
-    protected function getTData1BySalesOrder($name1)
-    {
-        // 1. Ambil data Buyer berdasarkan NAME1
-        $buyerData = ProductionTData::where('NAME1', $name1)->first(); 
+            $workCenters = WorkCenter::where('WERKSX', $werksCode)->orderBy('kode_wc')->get();
 
-        if (!$buyerData) {
-            return null;
+            return view('Admin.pro-transaction', [ // Nama view Anda
+                // Data Header
+                'WERKS'          => $werksCode,
+                'bagian'         => $validated['bagian_name'],
+                'categories'     => $validated['categories_name'],
+                'workCenters'    => $workCenters,
+                
+                // Data Utama (Sekarang datang dari $sapData)
+                'proDetailsList' => $sapData['proDetailsList'],
+                
+                // Data Info
+                'proNumbersSearched' => $proNumbersArray,
+                'notFoundProNumbers' => $sapData['notFoundProNumbers'],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Gagal menampilkan PRO live: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
-
-        // 2. Hitung Kunci T1 (activeSOKey) dengan logika Fallback
-        $kunnr = trim($buyerData->KUNNR ?? '');
-        $name1 = trim($buyerData->NAME1 ?? '');
-
-        // Kunci T1 (activeSalesOrderKey): Prioritas: KUNNR-NAME1. Fallback: NAME1
-        $activeSOKey = !empty($kunnr) ? ($kunnr . '-' . $name1) : $name1;
-
-        // 3. Tambahkan kunci ini ke objek data yang dikembalikan
-        $buyerData->key_for_frontend = $activeSOKey;
-
-        return $buyerData;
-    }
-
-    /**
-     * Mengambil data Outstanding Order (TData2/ProductionTData2) dan menghitung kunci frontend-nya.
-     * Kunci: KDAUF-KDPOS.
-     */
-    protected function getTData2BySalesOrder($kdauf, $kdpos)
-    {
-        // 1. Ambil data TData2 spesifik (gunakan first() untuk menghindari exception)
-        $outstandingOrder = ProductionTData2::where('KDAUF', $kdauf)
-                                        ->where('KDPOS', $kdpos)
-                                        ->first();
-
-        if (!$outstandingOrder) {
-            return null;
-        }
-
-        // 2. Hitung Kunci T2 (activeTdata2Key)
-        $kdauf = trim($outstandingOrder->KDAUF ?? '');
-        $kdpos = trim($outstandingOrder->KDPOS ?? '');
-
-        // Kunci T2: KDAUF-KDPOS
-        $activeT2Key = $kdauf . '-' . $kdpos;
-
-        // 3. Tambahkan kunci ini ke objek data yang dikembalikan
-        $outstandingOrder->key_for_frontend = $activeT2Key;
-
-        return $outstandingOrder;
     }
 
 }
