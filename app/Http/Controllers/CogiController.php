@@ -221,8 +221,11 @@ class CogiController extends Controller
                     'MATNRH',
                     'MAKTXH',
                     'DISPOH', 
-                    'DEVISI',
-                    'TYPMAT', 
+                    'LGORT',
+                    'MEINS',
+                    'ERFMG',
+                    'TYPMAT',
+                    'DEVISI', 
                     'BUDAT'
                 )
                 ->orderBy('BUDAT', 'desc');

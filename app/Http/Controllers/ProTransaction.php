@@ -55,71 +55,55 @@ class ProTransaction extends Controller
             
             $allFoundProNumbers[] = $proNumber;
             
-            // =================================================================
-            // == [LANGKAH BARU] Transaksi "cicil" per PRO ==
-            // =================================================================
             try {
-                // [PERBAIKAN] Pindahkan konversi array ke luar transaksi
                 $tdata3Array = (array) $tdata3;
-
-                DB::transaction(function () use ($tdata3Array, $T1, $T4, $proNumber) {
+                $mappedT1Collection = $T1->map(function($item) {
+                    $item = (array) $item; 
                     
-                    // 1. Hapus data anak yang lama HANYA untuk PRO ini
-                    ProductionTData1::where('AUFNR', $proNumber)->delete();
-                    ProductionTData4::where('AUFNR', $proNumber)->delete();
+                    $arbpl1 = $item['ARBPL1'] ?? '';
+                    $arbpl2 = $item['ARBPL2'] ?? '';
+                    $arbpl3 = $item['ARBPL3'] ?? '';
+                    $sssl1 = $this->formatSapDateForDisplay($item['SSSLDPV1'] ?? '');
+                    $sssl2 = $this->formatSapDateForDisplay($item['SSSLDPV2'] ?? '');
+                    $sssl3 = $this->formatSapDateForDisplay($item['SSSLDPV3'] ?? '');
+                    $partsPv1 = [];
+                    if (!empty($arbpl1)) $partsPv1[] = strtoupper($arbpl1);
+                    if (!empty($sssl1)) $partsPv1[] = $sssl1;
+                    $item['PV1'] = !empty($partsPv1) ? implode(' - ', $partsPv1) : null;
 
-                    // 2. Update atau Buat (Upsert) data T3 (PRO)
-                    ProductionTData3::updateOrCreate(
-                        ['AUFNR' => $proNumber],
-                        $tdata3Array // Data lengkap untuk di-update atau di-create
+                    $partsPv2 = [];
+                    if (!empty($arbpl2)) $partsPv2[] = strtoupper($arbpl2);
+                    if (!empty($sssl2)) $partsPv2[] = $sssl2;
+                    $item['PV2'] = !empty($partsPv2) ? implode(' - ', $partsPv2) : null;
+
+                    $partsPv3 = [];
+                    if (!empty($arbpl3)) $partsPv3[] = strtoupper($arbpl3);
+                    if (!empty($sssl3)) $partsPv3[] = $sssl3;
+                    $item['PV3'] = !empty($partsPv3) ? implode(' - ', $partsPv3) : null;
+
+                    unset(
+                        $item['ARBPL1'], $item['ARBPL2'], $item['ARBPL3'],
+                        $item['SSSLDPV1'], $item['SSSLDPV2'], $item['SSSLDPV3']
                     );
                     
-                    // 3. Buat ulang data anak T1 dan T4 yang baru
+                    return $item; 
+                });
+
+
+                DB::transaction(function () use ($tdata3Array, $mappedT1Collection, $T4, $proNumber) {
                     
-                    // [PERBAIKAN KRITIS] Terapkan mapping data T1 (logika dari DetailData2)
-                    $t1DataToInsert = $T1->map(function($item) {
-                        $item = (array) $item; // Konversi ke array
-                        
-                        // Ambil data SAP mentah
-                        $arbpl1 = $item['ARBPL1'] ?? '';
-                        $arbpl2 = $item['ARBPL2'] ?? '';
-                        $arbpl3 = $item['ARBPL3'] ?? '';
-                        $sssl1 = $this->formatSapDateForDisplay($item['SSSLDPV1'] ?? '');
-                        $sssl2 = $this->formatSapDateForDisplay($item['SSSLDPV2'] ?? '');
-                        $sssl3 = $this->formatSapDateForDisplay($item['SSSLDPV3'] ?? '');
-                        
-                        // Buat field PV1
-                        $partsPv1 = [];
-                        if (!empty($arbpl1)) $partsPv1[] = strtoupper($arbpl1);
-                        if (!empty($sssl1)) $partsPv1[] = $sssl1;
-                        $item['PV1'] = !empty($partsPv1) ? implode(' - ', $partsPv1) : null;
-
-                        // Buat field PV2
-                        $partsPv2 = [];
-                        if (!empty($arbpl2)) $partsPv2[] = strtoupper($arbpl2);
-                        if (!empty($sssl2)) $partsPv2[] = $sssl2;
-                        $item['PV2'] = !empty($partsPv2) ? implode(' - ', $partsPv2) : null;
-
-                        // Buat field PV3
-                        $partsPv3 = [];
-                        if (!empty($arbpl3)) $partsPv3[] = strtoupper($arbpl3);
-                        if (!empty($sssl3)) $partsPv3[] = $sssl3;
-                        $item['PV3'] = !empty($partsPv3) ? implode(' - ', $partsPv3) : null;
-
-                        // HAPUS field SAP mentah agar tidak error saat INSERT
-                        unset(
-                            $item['ARBPL1'], $item['ARBPL2'], $item['ARBPL3'],
-                            $item['SSSLDPV1'], $item['SSSLDPV2'], $item['SSSLDPV3']
-                        );
-                        
-                        return $item; // Kembalikan array yang sudah bersih
-                    })->all();
+                    ProductionTData1::where('AUFNR', $proNumber)->delete();
+                    ProductionTData4::where('AUFNR', $proNumber)->delete();
+                    ProductionTData3::updateOrCreate(
+                        ['AUFNR' => $proNumber],
+                        $tdata3Array 
+                    );
+                    $t1DataToInsert = $mappedT1Collection->all();
                     
                     if (!empty($t1DataToInsert)) {
                         ProductionTData1::insert($t1DataToInsert);
                     }
 
-                    // T4 tidak butuh mapping, jadi bisa langsung
                     $t4DataToInsert = $T4->map(fn($item) => (array)$item)->all();
                     if (!empty($t4DataToInsert)) {
                         ProductionTData4::insert($t4DataToInsert);
@@ -129,16 +113,10 @@ class ProTransaction extends Controller
 
             } catch (\Exception $dbException) {
                 Log::error("[ProController] GAGAL 'cicil' update DB untuk PRO: {$proNumber}. Error: " . $dbException->getMessage());
-                // Jika DB gagal, kita jangan tampilkan datanya
-                // karena data di DB (lama) dan data SAP (baru) tidak sinkron.
                 continue; 
             }
-            // =================================================================
-            // == [AKHIR TRANSAKSI CICIL] ==
-            // =================================================================
-            
-            // 4. Susun data untuk view
-            $tdata3 = (object) $tdata3; // Ubah jadi object lagi untuk view
+
+            $tdata3 = (object) $tdata3; 
             $dateFields = ['GSTRP', 'GLTRP', 'SSAVD'];
             foreach ($dateFields as $field) {
                 $tdata3->{$field . '_formatted'} = !empty($tdata3->{$field}) 
@@ -148,28 +126,22 @@ class ProTransaction extends Controller
 
             $proDetailsList->push([
                 'pro_detail' => $tdata3,
-                'routings'   => $T1, // T1 sudah otomatis hanya untuk PRO ini
-                'components' => $T4, // T4 juga
+                'routings'   => $mappedT1Collection, 
+                'components' => $T4,
             ]);
 
-        } // <-- Akhir dari loop `foreach ($proNumbersArray as $proNumber)`
+        }
 
-        // 5. Selesai loop, hitung yang tidak ditemukan
         $notFoundProNumbers = array_diff($proNumbersArray, $allFoundProNumbers);
 
         Log::info("[ProController] Penyusunan data selesai.");
 
-        // 6. Kembalikan data yang berhasil diproses
         return [
             'proDetailsList'     => $proDetailsList,
             'notFoundProNumbers' => $notFoundProNumbers,
         ];
     }
 
-    /**
-     * [BARU] Helper private untuk memformat tanggal
-     * Diambil dari logika controller sinkronisasi (DetailData2)
-     */
     private function formatSapDateForDisplay($sap_date_str)
     {
         if (empty($sap_date_str) || trim($sap_date_str) === '00000000') {

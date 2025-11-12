@@ -244,11 +244,12 @@
                                     <thead class="table-light" style="position: sticky; top: 0;">
                                         <tr class="text-center align-middle">
                                             <th style="width: 5%;">No</th>
-                                            <th style="width: 12%;">PRO</th>
-                                            <th style="width: 15%;">Material Number</th>
+                                            <th style="width: 10%;">PRO</th>
+                                            <th style="width: 10%;">Material Number</th>
                                             <th style="width: 20%;">Description</th>
                                             <th style="width: 8%;">MRP</th>
-                                            <th style="width: 8%;">Devisi</th>
+                                            <th style="width: 7%;">Qty. COGI</th>
+                                            <th style="width: 8%;">S.Loc</th>
                                             <th style="width: 17%;">Date</th>
                                         </tr>
                                     </thead>
@@ -287,8 +288,8 @@
                                 <div class="d-inline-flex align-items-center justify-content-center rounded-circle mx-auto mb-3 {{ $colors['bg'] }}" style="width: 56px; height: 56px;">
                                     <svg class="{{ $colors['text'] }}" width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                                 </div>
-                                <h3 class="card-title h6 fw-bold text-dark">{{ $plant->nama_bagian }}</h3>
-                                <p class="card-text text-muted small">Kategori: {{ $plant->sub_kategori }}</p>
+                                <h3 class="card-title h6 fw-bold text-dark">{{ $plant->sub_kategori }}</h3>
+                                <p class="card-text text-muted small">Kategori: {{ $plant->kategori }}</p>
                             </div>
                         </a>
                     </div>
@@ -400,10 +401,11 @@
                         <tr class="text-center align-middle" >
                             <td>${rowNumber++}</td>
                             <td>${item.AUFNR || '-'}</td> 
-                            <td>${item.MATNR || '-'}</td>  
-                            <td>${item.MAKTX || '-'}</td>  
+                            <td>${item.MATNRH || '-'}</td>  
+                            <td>${item.MAKTXH || '-'}</td>  
                             <td>${item.DISPOH || '-'}</td> 
-                            <td>${item.DEVISI || '-'}</td> 
+                            <td>${ formatQuantity(item) }</td>
+                            <td>${item.LGORT || '-'}</td> 
                             <td>${dateFormatter(item.BUDAT)}</td>
                         </tr>
                     `;
@@ -426,9 +428,10 @@
                     // PERBAIKAN: Menyesuaikan pencarian dengan data baru
                     const searchMatch = (searchTerm === "") ||
                         (item.AUFNR && item.AUFNR.toLowerCase().includes(searchTerm)) ||
-                        (item.MATNR && item.MATNRH.toLowerCase().includes(searchTerm)) ||  // Diubah dari MATNRH
-                        (item.MAKTX && item.MAKTXH.toLowerCase().includes(searchTerm)) ||  // Diubah dari MAKTXH
-                        (item.DISPOH && item.DISPOH.toLowerCase().includes(searchTerm)) || // Diubah dari MAKTXH
+                        (item.MATNR && item.MATNRH.toLowerCase().includes(searchTerm)) ||
+                        (item.MAKTX && item.MAKTXH.toLowerCase().includes(searchTerm)) ||
+                        (item.DISPOH && item.DISPOH.toLowerCase().includes(searchTerm)) ||
+                        (item.LGORT && item.LGORT.toLowerCase().includes(searchTerm)) ||
                         (item.DEVISI && item.DEVISI.toLowerCase().includes(searchTerm)) || 
                         (dateFormatter(item.BUDAT).includes(searchTerm));
                     
@@ -597,7 +600,7 @@
                     };
 
                     if (isDataEmpty) {
-                        chartLabels = ['Tidak Ada Data'];
+                        chartLabels = ['Tidak Ada Data'];                                                                                                                                                                   
                         chartValues = [1]; // Beri nilai 1 agar chart tetap render
                         chartColors = [defaultGreyColor];
                         chartOnClick = null; // Matikan klik
@@ -759,7 +762,19 @@
             // --- Panggilan Awal ---
             fetchCogiData();
 
-        }); // <-- AKHIR DARI DOMCONTENTLOADED
+        });
+
+        function formatQuantity(item) {
+            if (item.ERFMG == null) {
+                return '-';
+            }
+            const unitsToParse = ['ST', 'PC'];
+
+            if (unitsToParse.includes(item.MEINS)) {
+                return parseInt(item.ERFMG, 10);
+            }
+            return item.ERFMG;
+        }
         
     </script>
 @endpush

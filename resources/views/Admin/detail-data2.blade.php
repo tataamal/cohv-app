@@ -929,16 +929,36 @@
                 }
             });
             const rowsHtml = data.map((t1, i) => {
+                // === Kalkulasi hasil per hari ===
                 let hasilPerHari = '-'; 
                 const kapazStr = String(t1.KAPAZ || '0').replace(/,/g, '.');
                 const vgw01Str = String(t1.VGW01 || '0').replace(/\./g, '').replace(/,/g, '.');
                 const kapazNum = parseFloat(kapazStr) || 0;
                 const vgw01Num = parseFloat(vgw01Str) || 0;
+                const vge01 = t1.VGE01 || ''; // ambil unit
+
                 if (kapazNum > 0 && vgw01Num > 0) {
-                    let result = (t1.VGE01 === 'S') ? (kapazNum * 3600) / vgw01Num : (kapazNum * 60) / vgw01Num;
+                    let result = (vge01 === 'S') 
+                        ? (kapazNum * 3600) / vgw01Num 
+                        : (kapazNum * 60) / vgw01Num;
                     hasilPerHari = Math.floor(result);
                 }
+
+                // === Kalkulasi total time ===
+                let totalTime = '-';
+                const psmngStr = String(t1.PSMNG || '0').replace(/\./g, '').replace(/,/g, '.');
+                const psmngNum = parseFloat(psmngStr) || 0;
+
+                if (vgw01Num > 0 && psmngNum > 0) {
+                    let total = vgw01Num * psmngNum;
+                    if (vge01 === 'S') {
+                        total = total / 60; // konversi detik ke menit
+                    }
+                    totalTime = total;
+                }
+
                 const rowData = encodeURIComponent(JSON.stringify(t1));
+
                 return `
                     <tr class="t1-row cursor-pointer" data-row-data="${rowData}" onclick="handleT1RowClick(this)">
                         <td class="text-center d-none d-md-table-cell">${i + 1}</td>
@@ -948,6 +968,7 @@
                         <td class="text-center d-none d-md-table-cell">${t1.ARBPL || '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${t1.CPCTYX || '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${hasilPerHari}</td>
+                        <td class="text-center d-none d-md-table-cell">${totalTime}</td>
                         <td class="text-center d-none d-md-table-cell">${t1.PV1 || '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${t1.PV2 || '-'}</td>
                         <td class="text-center d-none d-md-table-cell">${t1.PV3 || '-'}</td>
@@ -969,6 +990,10 @@
                                     <div>
                                         <div class="small text-muted">Qty/Day</div>
                                         <div class="fw-semibold">${hasilPerHari}</div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Total Time</div>
+                                        <div class="fw-semibold">${totalTime}</div>
                                     </div>
                                     <div>
                                         <div class="small text-muted">Ctrl Key</div>
@@ -1007,6 +1032,7 @@
                                     <th class="text-center p-2 d-none d-md-table-cell">Work Ctr</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">Time (H)</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">Item/Day</th>
+                                    <th class="text-center p-2 d-none d-md-table-cell">Total Time</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">PV 1</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">PV 2</th>
                                     <th class="text-center p-2 d-none d-md-table-cell">PV 3</th>
@@ -1045,16 +1071,35 @@
 
             modalLabel.textContent = `Routing: ${data.KTEXT || 'Detail'}`;
 
+            // === Kalkulasi hasil per hari ===
             let hasilPerHari = '-'; 
             const kapazStr = String(data.KAPAZ || '0').replace(/,/g, '.');
             const vgw01Str = String(data.VGW01 || '0').replace(/\./g, '').replace(/,/g, '.');
             const kapazNum = parseFloat(kapazStr) || 0;
             const vgw01Num = parseFloat(vgw01Str) || 0;
+            const vge01 = data.VGE01 || ''; // ambil unit
+
             if (kapazNum > 0 && vgw01Num > 0) {
-                let result = (data.VGE01 === 'S') ? (kapazNum * 3600) / vgw01Num : (kapazNum * 60) / vgw01Num;
+                let result = (vge01 === 'S') 
+                    ? (kapazNum * 3600) / vgw01Num 
+                    : (kapazNum * 60) / vgw01Num;
                 hasilPerHari = Math.floor(result);
             }
 
+            // === Kalkulasi total time ===
+            let totalTime = '-';
+            const psmngStr = String(data.PSMNG || '0').replace(/\./g, '').replace(/,/g, '.');
+            const psmngNum = parseFloat(psmngStr) || 0;
+
+            if (vgw01Num > 0 && psmngNum > 0) {
+                let total = vgw01Num * psmngNum;
+                if (vge01 === 'S') {
+                    total = total / 60; // ubah detik ke menit
+                }
+                totalTime = total;
+            }
+
+            // === Tampilkan data di modal ===
             modalBody.innerHTML = `
                 <div class="list-group list-group-flush small">
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Activity</span><strong>${data.VORNR || '-'}</strong></div>
@@ -1062,6 +1107,7 @@
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Work Center</span><strong>${data.ARBPL || '-'}</strong></div>
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Time Capacity (H)</span><strong>${data.KAPAZ || '-'}</strong></div>
                     <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Item/Day</span><strong>${hasilPerHari}</strong></div>
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start"><span class="text-muted">Total Time</span><strong>${totalTime}</strong></div>
                 </div>
             `;
             
@@ -2503,8 +2549,6 @@
                 "altInput": true,
                 "altFormat": "d/m/Y", // Format yang dilihat pengguna (dd/mm/yyyy)
                 "dateFormat": "Y-m-d", // Format yang dikirim ke backend (YYYY-MM-DD)
-                
-                // Langsung nonaktifkan tanggal lampau di kalender
                 "minDate": "today",
 
                 // Fungsi yang berjalan setiap kali tanggal berubah
@@ -2651,8 +2695,6 @@
                     
                 } catch (error) {
                     console.error('Submit error:', error);
-                    
-                    // --- [DIUBAH] Mengganti alert dengan SweetAlert untuk notifikasi gagal ---
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal!',

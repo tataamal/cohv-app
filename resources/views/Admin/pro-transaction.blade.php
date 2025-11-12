@@ -3,10 +3,7 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-12">
-                
-                {{-- 1. HEADER HALAMAN --}}
                 <div class="card shadow-sm mb-4">
-                    {{-- [PERUBAHAN] Menambahkan d-flex untuk menampung tombol --}}
                     <div class="card-body d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
                         <div>
                             <h1 class="h4 mb-1">PRO Search Results</h1>
@@ -14,14 +11,14 @@
                                 Menampilkan {{ $proDetailsList->count() }} dari {{ count($proNumbersSearched) }} PRO yang dicari untuk Plant: <strong>{{ $WERKS }}</strong>
                             </p>
                         </div>
-                        {{-- [BARU] Tombol kembali ke Dashboard Plant --}}
                         <a href="{{ route('manufaktur.dashboard.show', $WERKS) }}" class="btn btn-outline-secondary mt-3 mt-sm-0">
                             <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
                         </a>
                     </div>
                 </div>
 
-                {{-- 2. TAMPILKAN PRO YANG TIDAK DITEMUKAN --}}
+                <input type="hidden" id="kode-halaman" value="{{ $WERKS }}">
+
                 @if(!empty($notFoundProNumbers))
                     <div class="alert alert-warning">
                         <strong>PRO Tidak Ditemukan:</strong> 
@@ -29,17 +26,28 @@
                     </div>
                 @endif
 
-                {{-- 3. CARD TOMBOL TRANSAKSI BULK --}}
                 <div class="card shadow-sm mb-4">
                     <div class="card-header">
                         <h6 class="mb-0">Bulk Transactions</h6>
                     </div>
                     <div class="card-body d-flex flex-wrap" style="gap: 10px;">
-                        <button class="btn btn-success-subtle text-success-emphasis border-success-subtle" id="bulkEditBtn" disabled>
-                            <i class="fas fa-edit me-2"></i> Bulk Edit Components
+                        <button class="btn btn-warning " id="bulkRescheduleBtn" disabled>
+                            <i class="fas fa-calendar-alt"></i> Rechedule PRO
                         </button>
-                        <button class="btn btn-secondary-subtle text-secondary-emphasis border-secondary-subtle" id="bulkPrintBtn" disabled>
-                            <i class="fas fa-print me-2"></i> Bulk Print PRO
+                        <button class="btn btn-info" id="bulkRefreshBtn" disabled>
+                            <i class="fa-solid fa-arrows-rotate"></i> Refresh PRO
+                        </button>
+                        <button class="btn btn-warning" id="bulkChangePv" disabled>
+                            <i class="fa-solid fa-code-compare"></i> Change PV
+                        </button>
+                        <button class="btn btn-info" id="bultkReadPpBtn" disabled>
+                            <i class="fas fa-book-open"></i> READ PP
+                        </button>
+                        <button class="btn btn-warning" id="bulkChangeQty" disabled>
+                            <i class="fa-solid fa-file-pen"></i> change Quantity
+                        </button>
+                        <button class="btn btn-danger text-white" id="bulkTecoBtn" disabled>
+                            <i class="fas fa-trash"></i> TECO
                         </button>
                     </div>
                 </div>
@@ -70,6 +78,15 @@
                                     $components = $item['components'];
                                     $collapseId = "collapse-" . $pro->AUFNR;
                                     $proId = "pro-check-" . $pro->AUFNR;
+                                    $qty = $pro->PSMNG;
+                                    $gr = $pro->WEMNG;
+                                    $unit = strtoupper(trim($pro->MEINS ?? ''));
+
+                                    // Jika satuan ST atau SET → hilangkan semua bagian desimal (termasuk titik)
+                                    if (in_array($unit, ['ST', 'SET'])) {
+                                        $qty = (int) $qty;
+                                        $gr = (int) $gr;
+                                    }
                                 @endphp
 
                                 <div class="accordion-item">
@@ -96,9 +113,15 @@
                                                     <strong class="d-block">{{ $pro->KDAUF }}-{{ $pro->KDPOS }}</strong>
                                                     <small class="text-muted">SO - Item</small>
                                                 </div>
-                                                <div class="col-md-5">
+                                                <div class="col-md-3">
                                                     <strong class="d-block">{{ $pro->MAKTX }}</strong>
                                                     <small class="text-muted">Material</small>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <strong class="d-block">
+                                                        {{ ctype_digit($pro->MATNR) ? ltrim($pro->MATNR, '0') : $pro->MATNR }}
+                                                    </strong>
+                                                    <small class="text-muted">Material Number</small>
                                                 </div>
                                             </div>
                                         </button>
@@ -109,32 +132,76 @@
                                             
                                             {{-- [BAGIAN 1] Detail PRO --}}
                                             <div class="card mb-4 border-0 shadow-sm">
-                                                <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                                                <div class="card-header bg-white border-bottom fw-bold d-flex justify-content-between align-items-center">
                                                     <h6 class="mb-0">Detail for PRO: {{ $pro->AUFNR }}</h6>
-                                                    <span class="badge {{ $pro->STATS === 'REL' ? 'bg-success-subtle text-success-emphasis' : 'bg-info-subtle text-info-emphasis' }}">{{ $pro->STATS }}</span>
+                                                    <span class="badge 
+                                                        {{ $pro->STATS === 'REL' ? 'bg-success-subtle text-success-emphasis' : 'bg-info-subtle text-info-emphasis' }} 
+                                                        rounded-pill p-2">
+                                                        {{ $pro->STATS }}
+                                                    </span>
                                                 </div>
-                                                <ul class="list-group list-group-flush">
-                                                    <li class="list-group-item">
-                                                        <div class="row g-3">
-                                                            <div class="col-md-6 col-lg-3">
-                                                                <small class="text-muted d-block">Start Date</small>
-                                                                <strong class="d-block">{{ $pro->GSTRP_formatted }}</strong>
-                                                            </div>
-                                                            <div class="col-md-6 col-lg-3">
-                                                                <small class="text-muted d-block">Finish Date</small>
-                                                                <strong class="d-block">{{ $pro->GLTRP_formatted }}</strong>
-                                                            </div>
-                                                            <div class="col-md-6 col-lg-3">
-                                                                <small class="text-muted d-block">Order Qty</small>
-                                                                <strong class="d-block">{{ $pro->PSMNG }} {{ $pro->MEINS }}</strong>
-                                                            </div>
-                                                            <div class="col-md-6 col-lg-3">
-                                                                <small class="text-muted d-block">Material Group</small>
-                                                                <strong class="d-block">{{ $pro->MATKL }}</strong>
-                                                            </div>
+
+                                                <div class="card-body p-3">
+                                                    <div class="row g-3 align-items-center text-sm">
+                                                        {{-- Kiri --}}
+                                                        <div class="col-6 col-md-2">
+                                                            <small class="text-muted d-block">MRP</small>
+                                                            <strong>{{ $pro->DISPO }}</strong>
                                                         </div>
-                                                    </li>
-                                                </ul>
+                                                        <div class="col-6 col-md-2">
+                                                            <small class="text-muted d-block">Material</small>
+                                                            <strong>{{ ctype_digit($pro->MATNR) ? ltrim($pro->MATNR, '0') : $pro->MATNR }}</strong>
+                                                        </div>
+                                                        <div class="col-12 col-md-3">
+                                                            <small class="text-muted d-block">Description</small>
+                                                            <strong>{{ $pro->MAKTX }}</strong>
+                                                        </div>
+
+                                                        {{-- Tengah --}}
+                                                        <div class="col-4 col-md-1">
+                                                            <small class="text-muted d-block">Qty</small>
+                                                            <strong>{{ $qty }}</strong>
+                                                        </div>
+                                                        <div class="col-4 col-md-1">
+                                                            <small class="text-muted d-block">GR</small>
+                                                            <strong>{{ $gr }}</strong>
+                                                        </div>
+                                                        <div class="col-4 col-md-1">
+                                                            <small class="text-muted d-block">Outs GR</small>
+                                                            <strong>{{ $pro->PSMNG - $pro->WEMNG }}</strong>
+                                                        </div>
+
+                                                        {{-- Kanan --}}
+                                                        <div class="col-6 col-md-1">
+                                                            <small class="text-muted d-block">Start</small>
+                                                            <strong>{{ $pro->GSTRP_formatted }}</strong>
+                                                        </div>
+                                                        <div class="col-6 col-md-1">
+                                                            <small class="text-muted d-block">Finish</small>
+                                                            <strong>{{ $pro->GLTRP_formatted }}</strong>
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- Baris kedua, info tambahan (opsional) --}}
+                                                    <div class="row g-3 mt-3 border-top pt-3 text-sm">
+                                                        <div class="col-md-3 col-6">
+                                                            <small class="text-muted d-block">SO - Item</small>
+                                                            <strong>{{ $pro->KDAUF }}-{{ $pro->KDPOS }}</strong>
+                                                        </div>
+                                                        <div class="col-md-3 col-6">
+                                                            <small class="text-muted d-block">Finish Size</small>
+                                                            <strong>{{ $pro->GROES }}</strong>
+                                                        </div>
+                                                        <div class="col-md-3 col-6">
+                                                            <small class="text-muted d-block">Rough Size</small>
+                                                            <strong>{{ $pro->FERTH ?? '-' }}</strong>
+                                                        </div>
+                                                        <div class="col-md-3 col-6">
+                                                            <small class="text-muted d-block">Material Bhn</small>
+                                                            <strong>{{ $pro->ZEINR }}</strong>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             {{-- [BAGIAN 2] Tab Komponen & Routing --}}
@@ -142,15 +209,21 @@
                                                 <div class="card-header bg-white p-0 border-bottom-0">
                                                     <ul class="nav nav-tabs nav-tabs-card" id="proTab-{{ $pro->AUFNR }}" role="tablist">
                                                         <li class="nav-item" role="presentation">
-                                                            <button class="nav-link active" id="comp-tab-{{ $pro->AUFNR }}" data-bs-toggle="tab" data-bs-target="#comp-content-{{ $pro->AUFNR }}" type="button" role="tab" aria-controls="comp-content" aria-selected="true">
-                                                                <i class="fas fa-cogs me-2"></i> Components 
-                                                                <span class="badge bg-success rounded-pill ms-2">{{ $components->count() }}</span>
+                                                            <button class="nav-link active py-2 px-3" id="comp-tab-{{ $pro->AUFNR }}" data-bs-toggle="tab" data-bs-target="#comp-content-{{ $pro->AUFNR }}" type="button" role="tab" aria-controls="comp-content" aria-selected="true">
+                                                                <i class="fas fa-cogs me-2"></i>
+                                                                <span class="me-2">Components</span>
+                                                                <span class="badge bg-white text-dark border border-secondary-subtle rounded-pill">
+                                                                    {{ $components->count() }}
+                                                                </span>
                                                             </button>
                                                         </li>
                                                         <li class="nav-item" role="presentation">
-                                                            <button class="nav-link" id="route-tab-{{ $pro->AUFNR }}" data-bs-toggle="tab" data-bs-target="#route-content-{{ $pro->AUFNR }}" type="button" role="tab" aria-controls="route-content" aria-selected="false">
-                                                                <i class="fas fa-route me-2"></i> Routings 
-                                                                <span class="badge bg-secondary rounded-pill ms-2">{{ $routings->count() }}</span>
+                                                            <button class="nav-link py-2 px-3" id="route-tab-{{ $pro->AUFNR }}" data-bs-toggle="tab" data-bs-target="#route-content-{{ $pro->AUFNR }}" type="button" role="tab" aria-controls="route-content" aria-selected="false">
+                                                                <i class="fas fa-route me-2"></i>
+                                                                <span class="me-2">Routings</span> 
+                                                                <span class="badge bg-white text-dark border border-secondary-subtle rounded-pill">
+                                                                    {{ $routings->count() }}
+                                                                </span>
                                                             </button>
                                                         </li>
                                                     </ul>
@@ -189,199 +262,10 @@
             </div>
         </div>
     </div>
-    
-    @push('styles')
-    <style>
-        /* ========================================= */
-        /* == STYLE CHECKBOX KUSTOM == */
-        /* ========================================= */
-        .custom-checkbox-container {
-            display: inline-flex;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-        }
-        .custom-checkbox-container .form-check-input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-            position: absolute;
-        }
-        .custom-checkbox-container .form-check-label {
-            position: relative;
-            padding-left: 30px; 
-            cursor: pointer;
-            line-height: 20px; 
-            display: inline-block;
-            transition: color 0.15s ease-in-out;
-        }
-        .custom-checkbox-container:hover .form-check-label {
-            color: var(--bs-success);
-        }
-        .custom-checkbox-container .form-check-label::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            border: 2px solid #adb5bd; 
-            border-radius: 0.25rem;
-            background-color: #fff;
-            transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        }
-        .custom-checkbox-container:hover .form-check-label::before {
-             border-color: var(--bs-success);
-             box-shadow: 0 0 0 0.25rem rgba(25,135,84,.25);
-        }
-        .custom-checkbox-container .form-check-input:checked + .form-check-label::before {
-            background-color: var(--bs-success);
-            border-color: var(--bs-success);
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: 70%;
-        }
-        .custom-checkbox-container .form-check-input:indeterminate + .form-check-label::before {
-            background-color: var(--bs-success);
-            border-color: var(--bs-success);
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M5 10h10'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: 70%;
-        }
-        .accordion-header .custom-checkbox-container .form-check-label {
-            padding-left: 20px;
-        }
 
-        /* ========================================= */
-        /* == STYLE LAYOUT == */
-        /* ========================================= */
-        .accordion-button {
-            padding-top: 1rem;
-            padding-bottom: 1rem;
-        }
-        .accordion-button:not(.collapsed) {
-            background-color: #eef5ff; 
-            box-shadow: none;
-            color: #0a58ca;
-        }
-        .accordion-button.collapsed .row .col-md-5 {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .accordion-header {
-            background-color: #fff;
-            border-bottom: 1px solid var(--bs-border-color); 
-        }
-        
-        .nav-tabs-card {
-            border-bottom: 1px solid var(--bs-border-color); 
-        }
-        .nav-tabs-card .nav-link {
-            border: 0;
-            border-bottom: 3px solid transparent;
-            color: #6c757d;
-            padding: 1rem 1.25rem;
-            font-weight: 500;
-        }
-        .nav-tabs-card .nav-link.active {
-            border-bottom-color: var(--bs-success);
-            color: var(--bs-success);
-            background-color: transparent;
-        }
-        
-        .accordion-body .table tbody td {
-            color: var(--bs-body-color, #212529); 
-            vertical-align: middle;
-        }
-        
-        .accordion-body .card-body .table {
-            margin-bottom: 0;
-        }
-        .accordion-body .card-body .table thead th {
-            border-top: 0;
-        }
-    </style>
-    @endpush
-
+    @include('components.modals.pro-transaction.confirmation-modal')
     @push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const selectAll = document.getElementById('selectAllCheckbox');
-            const proCheckboxes = document.querySelectorAll('.pro-checkbox');
-            const bulkEditBtn = document.getElementById('bulkEditBtn');
-            const bulkPrintBtn = document.getElementById('bulkPrintBtn');
-
-            if (!selectAll || !proCheckboxes.length || !bulkEditBtn || !bulkPrintBtn) {
-                console.warn('Satu atau lebih elemen (checkbox, tombol bulk) tidak ditemukan. Fungsionalitas bulk mungkin tidak bekerja.');
-                return;
-            }
-
-            function updateSelectionState() {
-                const checkedCount = document.querySelectorAll('.pro-checkbox:checked').length;
-                const totalCount = proCheckboxes.length;
-                const anySelected = checkedCount > 0;
-
-                bulkEditBtn.disabled = !anySelected;
-                bulkPrintBtn.disabled = !anySelected;
-
-                if (checkedCount === 0) {
-                    selectAll.checked = false;
-                    selectAll.indeterminate = false;
-                } else if (checkedCount === totalCount) {
-                    selectAll.checked = true;
-                    selectAll.indeterminate = false;
-                } else {
-                    selectAll.checked = false;
-                    selectAll.indeterminate = true;
-                }
-            }
-
-            selectAll.addEventListener('change', function() {
-                proCheckboxes.forEach(checkbox => {
-                    checkbox.checked = this.checked;
-                });
-                updateSelectionState();
-            });
-
-            proCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    updateSelectionState();
-                });
-            });
-
-            function getSelectedPros() {
-                const selectedPros = [];
-                proCheckboxes.forEach(checkbox => {
-                    if (checkbox.checked) {
-                        selectedPros.push(checkbox.value);
-                    }
-                });
-                return selectedPros;
-            }
-
-            bulkEditBtn.addEventListener('click', function() {
-                const selectedPros = getSelectedPros();
-                if (selectedPros.length > 0) {
-                    console.log('PROs selected for bulk edit:', selectedPros);
-                    alert('PROs yang dipilih (lihat console): ' + selectedPros.join(', '));
-                }
-            });
-
-            bulkPrintBtn.addEventListener('click', function() {
-                const selectedPros = getSelectedPros();
-                if (selectedPros.length > 0) {
-                    console.log('PROs selected for bulk print:', selectedPros);
-                    alert('PROs yang dipilih (lihat console): ' + selectedPros.join(', '));
-                }
-            });
-
-            updateSelectionState();
-        });
-    </script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @endpush
 
 </x-layouts.app>

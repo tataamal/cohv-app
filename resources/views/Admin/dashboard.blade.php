@@ -27,7 +27,7 @@
         <div class="mb-4">
             <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-sm-between">
                 <div>
-                    <h1 class="h3 fw-bold text-dark">Dashboard - {{ $nama_bagian }} - {{ $sub_kategori }} </h1>
+                    <h1 class="h3 fw-bold text-dark">Dashboard - {{ $sub_kategori }} </h1>
                     <p class="mt-1 text-muted">Welcome, here is the COHV data information in {{ $kategori }}</p>
                 </div>
                 <div class="mt-3 mt-sm-0 small text-muted">
@@ -637,6 +637,26 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="loadingModal" 
+        data-bs-backdrop="static" 
+        data-bs-keyboard="false" 
+        tabindex="-1" 
+        aria-labelledby="loadingModalLabel" 
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="mb-0" id="loadingModalLabel">Processing Request...</h5>
+                    <p class="text-muted mt-2">
+                        Please wait, fetching PRO data from the server.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
     @include('components.modals.dashboard-modal.so-detail')
     @include('components.modals.dashboard-modal.reservasi-detail')
     @include('components.modals.dashboard-modal.ongoing-detail')
@@ -645,6 +665,27 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         {{-- JavaScript untuk mengontrol modal --}}
         <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                const loadingModalElement = document.getElementById('loadingModal');
+                if (loadingModalElement) {
+                    const loadingModal = new bootstrap.Modal(loadingModalElement);
+                    const proForm = document.getElementById('searchPROForm');
+                    const submitButton = proForm.querySelector('button[type="submit"]');
+            
+                    proForm.addEventListener('submit', function() {
+
+                        loadingModal.show();
+                        
+                        if (submitButton) {
+                            submitButton.disabled = true;
+                            submitButton.innerHTML = `
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Loading...</span>
+                            `;
+                        }
+                    });
+                }
+            });
             document.addEventListener('DOMContentLoaded', function () {
                 const soDetailModalElement = document.getElementById('soDetailModal');
                 if (soDetailModalElement) {
