@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\SapUser;
 use App\Models\workcenter;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Redirect;
 
 class adminController extends Controller
 {
@@ -289,36 +290,72 @@ class adminController extends Controller
         ]);
     }
 
-    public function showMultiProDetail(Request $request, ProTransaction $proApi) // [BARU] Inject ProController
+    public function handleMultiProSearch(Request $request) 
     {
-        Log::info("==================================================");
-        Log::info("Memulai pencarian PRO live dari SAP...");
-        Log::info("==================================================");
+        Log::info("[POST] Menerima request pencarian multi-pro...");
 
         try {
+            // 1. Validasi input (sama seperti kode Anda)
             $validated = $request->validate([
                 'werks_code'        => 'required|string',
                 'bagian_name'       => 'required|string',
                 'categories_name'   => 'required|string',
-                'pro_numbers'       => 'required|string', 
+                'pro_numbers'       => 'required|string', // Masih string JSON
             ]);
 
-            $werksCode = $validated['werks_code'];
             $proNumbersArray = json_decode($validated['pro_numbers'], true);
-
             if (empty($proNumbersArray)) {
                 return back()->withErrors(['pro_numbers' => 'Tidak ada nomor PRO yang dimasukkan.']);
             }
             
+            Log::info("[POST] Validasi sukses. Redirect ke route GET '...hasil'.");
+
+            // 2. Redirect ke route GET (showMultiProResult)
+            // Kita kirim semua data yang divalidasi sebagai parameter query
+            return Redirect::route('manufaktur.pro.search.hasil', [
+                'werks_code' => $validated['werks_code'],
+                'bagian_name' => $validated['bagian_name'],
+                'categories_name' => $validated['categories_name'],
+                'pro_numbers' => $validated['pro_numbers'], // Kirim sebagai string JSON
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('[POST] Gagal validasi atau redirect: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    public function showMultiProResult(Request $request, ProTransaction $proApi) // [BARU] Inject ProController
+    {
+        Log::info("==================================================");
+        Log::info("[GET] Menampilkan halaman hasil pencarian PRO...");
+        Log::info("==================================================");
+
+        try {
+            // 1. Ambil data dari QUERY PARAMETER (URL)
+            $werksCode = $request->query('werks_code');
+            $bagianName = $request->query('bagian_name');
+            $categoriesName = $request->query('categories_name');
+            $proNumbersJson = $request->query('pro_numbers');
+
+            $proNumbersArray = json_decode($proNumbersJson, true);
+
+            if (empty($proNumbersArray) || empty($werksCode)) {
+                Log::warn("[GET] Parameter tidak lengkap, kembali ke dashboard.");
+                return redirect()->route('manufaktur.dashboard.show'); // Redirect ke 'aman'
+            }
+            
+            // 2. Ambil Kredensial SAP (Sama seperti kode Anda)
             $sapUser = session('username');
             $sapPass = session('password');
             
             if (empty($sapUser) || empty($sapPass)) {
-                Log::error("Kredensial SAP tidak ditemukan di session.");
-                return back()->with('error', 'Sesi Anda telah berakhir atau kredensial SAP tidak ada. Silakan login kembali.');
+                Log::error("[GET] Kredensial SAP tidak ditemukan di session.");
+                return back()->with('error', 'Sesi Anda telah berakhir. Silakan login kembali.');
             }
 
-            Log::info("[WebController] Memanggil ProController@get_data_pro...");
+            // 3. Panggil API SAP (Sama seperti kode Anda)
+            Log::info("[GET] Memanggil ProController@get_data_pro...");
             $sapData = $proApi->get_data_pro(
                 $werksCode, 
                 $proNumbersArray, 
@@ -326,13 +363,15 @@ class adminController extends Controller
                 $sapPass
             );
 
+            // 4. Ambil Data Lokal (Sama seperti kode Anda)
             $workCenters = WorkCenter::where('WERKSX', $werksCode)->orderBy('kode_wc')->get();
 
+            // 5. Tampilkan View (Sama seperti kode Anda)
             return view('Admin.pro-transaction', [ // Nama view Anda
                 // Data Header
                 'WERKS'          => $werksCode,
-                'bagian'         => $validated['bagian_name'],
-                'categories'     => $validated['categories_name'],
+                'bagian'         => $bagianName,
+                'categories'     => $categoriesName,
                 'workCenters'    => $workCenters,
                 
                 // Data Utama (Sekarang datang dari $sapData)
@@ -344,7 +383,7 @@ class adminController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Gagal menampilkan PRO live: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('[GET] Gagal menampilkan PRO live: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }

@@ -124,23 +124,16 @@
                 </div>
             </div>
 
-            <form id="searchPROForm" method="POST" action="{{ route('manufaktur.pro.multi-search') }}">
+            <form id="searchPROForm" method="POST" action="{{ route('manufaktur.pro.search.submit') }}">
                 @csrf
                 
                 {{-- Input Hidden untuk Data Header (Tetap sama) --}}
                 <input type="hidden" name="werks_code" id="werksCode" value="{{ $kode }}">
                 <input type="hidden" name="bagian_name" id="bagianName" value="{{ $nama_bagian }}">
                 <input type="hidden" name="categories_name" id="categoriesName" value="{{ $kategori }}">
-                
-                {{-- 
-                    INPUT HIDDEN BARU: 
-                    Ini yang akan kita kirim ke controller. 
-                    Akan berisi semua PRO yang ditambahkan.
-                --}}
                 <input type="hidden" name="pro_numbers" id="proNumbersInput">
 
                 <div class="row g-2">
-                    {{-- Area Input untuk mengetik PRO --}}
                     <div class="col-md-9 col-lg-10">
                         <label for="proInput" class="form-label small">Enter PRO Number(s)</label>
                         <div class="input-group">
@@ -154,8 +147,7 @@
                                 placeholder="Ketik PRO, pisahkan dengan spasi atau koma"
                                 autocomplete="off">
                             <button type="button" class="btn btn-outline-secondary" id="addProButton">
-                                <i class="fas fa-plus me-1"></i>
-                                Add
+                                <i class="fas fa-plus me-1"></i>Add
                             </button>
                         </div>
                     </div>
@@ -172,7 +164,13 @@
                 {{-- AREA PREVIEW BADGE BARU --}}
                 <div class="row g-2 mt-3">
                     <div class="col-12">
-                        <label class="form-label small text-muted">PRO numbers to search:</label>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small text-muted mb-0">PRO numbers to search:</label>
+                            
+                            <button type="button" class="btn btn-link text-danger p-0" id="clearAllProButton" style="display: none; text-decoration: none;">
+                                <small><i class="fas fa-trash me-1"></i>Clear All</small>
+                            </button>
+                            </div>
                         <div id="proBadgeContainer" class="border p-3 rounded" style="min-height: 80px; background-color: #f8f9fa; display: flex; flex-wrap: wrap; gap: 8px;">
                             <span id="proBadgePlaceholder" class="text-muted fst-italic">Added PROs will appear here...</span>
                         </div>
@@ -526,14 +524,10 @@
                 </div>
             </div>
         </div>
-
-        {{-- [BARU] Seksi Tabel untuk Total PRO --}}
-        
+   
         <div id="totalProSection" style="display: none;">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
-    
-                    {{-- Header Card & Filter (Tidak Berubah) --}}
                     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
                             <h3 class="h5 fw-semibold text-dark mb-1">List of Production Order (PRO)</h3>
@@ -545,6 +539,10 @@
                                 <option value="REL">RELEASE</option>
                                 <option value="CRTD">CREATED</option>
                             </select>
+
+                            <button id="copyProBtn" class="btn btn-outline-success flex-shrink-0" disabled>
+                                <i class="fas fa-copy me-2"></i>Copy PRO
+                            </button>
                             <button id="backToDashboardBtnTotalPro" class="btn btn-outline-secondary flex-shrink-0">
                                 <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
                             </button>
@@ -556,22 +554,19 @@
                             <input type="text" id="realtimeSearchInputTotalPro" placeholder="Cari SO, PRO, Material..." class="form-control border-start-0">
                         </div>
                     </div>
-    
-                    {{-- Tabel Responsif --}}
+
                     <div class="table-container-scroll">
-                        {{-- [UBAH] Tambahkan class unik 'total-pro-responsive-table' --}}
                         <table class="table table-hover table-striped table-sm align-middle mb-0 total-pro-responsive-table">
                             <thead class="table-light">
                                 <tr class="small text-uppercase align-middle">
-                                    {{-- [UBAH] Sembunyikan semua kolom di mobile kecuali PRO dan Status --}}
+                                    <th class="text-center" style="width: 1%;">
+                                        <input class="form-check-input" type="checkbox" id="selectAllTotalProCheckbox" title="Pilih Semua">
+                                    </th>
                                     <th class="text-center d-none d-md-table-cell">No.</th>
                                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="so" data-sort-type="text">SO <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="so_item" data-sort-type="text">SO. Item <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                    
-                                    {{-- Kolom yang TERLIHAT di mobile --}}
                                     <th class="text-center sortable-header" data-sort-column="pro" data-sort-type="text">PRO <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                     <th class="text-center sortable-header" data-sort-column="status" data-sort-type="text">Status <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
-                                    
                                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="material_code" data-sort-type="text">Material Code <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="description" data-sort-type="text">Deskripsi <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                     <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="plant" data-sort-type="text">Plant <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
@@ -611,6 +606,12 @@
                                         data-start-date="{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}"
                                         data-end-date="{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}"
                                     >
+                                        <td class="text-center">
+                                            <input class="form-check-input pro-checkbox" 
+                                                type="checkbox" 
+                                                value="{{ $item->AUFNR ?? '' }}" 
+                                                id="pro-check-{{ $loop->iteration }}">
+                                        </td>
                                         <td class="text-center small d-none d-md-table-cell">{{ $loop->iteration }}</td>
                                         <td class="text-center small d-none d-md-table-cell" data-col="so">{{ $item->KDAUF ?? '-' }}</td>
                                         <td class="text-center small d-none d-md-table-cell" data-col="so_item">{{ $item->KDPOS ?? '-' }}</td>
@@ -627,9 +628,9 @@
                                         <td class="small text-center d-none d-md-table-cell" data-col="end_date" data-sort-value="{{ $item->GLTRP ?? '0' }}">{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}</td>
                                     </tr>
                                     @empty
-                                    <tr><td colspan="14" class="text-center p-5 text-muted">Tidak ada data PRO yang ditemukan.</td></tr>
+                                    <tr><td colspan="15" class="text-center p-5 text-muted">Tidak ada data PRO yang ditemukan.</td></tr>
                                 @endforelse
-                                <tr id="noResultsTotalProRow" style="display: none;"><td colspan="14" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td></tr>
+                                <tr id="noResultsTotalProRow" style="display: none;"><td colspan="15" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1103,24 +1104,40 @@
 
             document.addEventListener("DOMContentLoaded", function() {
     
+                // --- BAGIAN 1: FORM PENCARIAN PRO (Penambahan Badge) ---
                 const form = document.getElementById('searchPROForm');
                 const proInput = document.getElementById('proInput');
                 const addButton = document.getElementById('addProButton');
                 const badgeContainer = document.getElementById('proBadgeContainer');
                 const hiddenInput = document.getElementById('proNumbersInput');
                 const placeholder = document.getElementById('proBadgePlaceholder');
+                const clearAllBtn = document.getElementById('clearAllProButton');
 
-                // Menyimpan daftar PRO dalam array
+                // --- BAGIAN 2: CHECKBOX TABEL (Copy PRO) ---
+                // ▼▼▼ PERBAIKAN: Tiga baris ini hilang dari skrip Anda ▼▼▼
+                const selectAll = document.getElementById('selectAllTotalProCheckbox');
+                const proCheckboxes = document.querySelectorAll('#totalProTableBody .pro-checkbox');
+                const copyBtn = document.getElementById('copyProBtn');
+                // ▲▲▲ AKHIR PERBAIKAN ▲▲▲
+
+                // --- Logika Bagian 1: Form ---
                 let proList = [];
 
-                // --- Fungsi untuk meng-update tampilan badge ---
-                function updateBadges() {
-                    // Bersihkan container
+                function updateProAdderUI() {
                     badgeContainer.innerHTML = '';
                     
                     if (proList.length === 0) {
-                        badgeContainer.appendChild(placeholder); // Tampilkan placeholder jika kosong
+                        // Cek null untuk placeholder jika elemennya tidak ada di halaman
+                        if (placeholder) {
+                            badgeContainer.appendChild(placeholder);
+                        }
+                        if (clearAllBtn) {
+                            clearAllBtn.style.display = 'none';
+                        }
                     } else {
+                        if (clearAllBtn) {
+                            clearAllBtn.style.display = 'inline-block';
+                        }
                         proList.forEach(pro => {
                             const badge = document.createElement('span');
                             badge.className = 'badge bg-primary d-inline-flex align-items-center';
@@ -1137,87 +1154,171 @@
                             badgeContainer.appendChild(badge);
                         });
                     }
+                    // Cek null untuk hiddenInput
+                    if (hiddenInput) {
+                        hiddenInput.value = JSON.stringify(proList);
+                    }
                 }
 
-                // --- [PERUBAHAN DI SINI] Fungsi untuk menambah PRO (bisa multi-input) ---
                 function addPro() {
                     const rawInput = proInput.value.trim();
-                    
-                    // 1. Split berdasarkan koma (,) ATAU whitespace (\s)
-                    //    RegEx /[\s,]+/ berarti "satu atau lebih spasi ATAU koma"
                     const proNumbers = rawInput.split(/[\s,]+/)
-                                            // 2. Bersihkan setiap item
                                             .map(pro => pro.trim().toUpperCase())
-                                            // 3. Filter/buang entri yang kosong
-                                            //    (misal: hasil dari "PRO1,,PRO2")
                                             .filter(pro => pro); 
-
                     let itemsAdded = 0;
-
                     if (proNumbers.length > 0) {
                         proNumbers.forEach(proValue => {
                             if (proValue && !proList.includes(proValue)) {
                                 proList.push(proValue);
                                 itemsAdded++;
                             } else if (proList.includes(proValue)) {
-                                // Opsional: beri feedback jika PRO sudah ada
                                 console.warn(`PRO ${proValue} already in list.`);
                             }
                         });
                     }
 
-                    // Hanya update tampilan jika ada item baru
                     if (itemsAdded > 0) {
-                        updateBadges(); 
+                        updateProAdderUI();
                     }
 
-                    proInput.value = ''; // Selalu kosongkan input
+                    proInput.value = '';
                     proInput.focus();
                 }
 
-                // --- Fungsi untuk menghapus PRO ---
                 function removePro(proValue) {
                     proList = proList.filter(pro => pro !== proValue);
-                    updateBadges(); // Update tampilan
+                    updateProAdderUI(); 
                     proInput.focus();
                 }
 
-                // --- Event Listeners (Tidak berubah) ---
+                // Tambahkan listener hanya jika elemennya ada
+                if (form) {
+                    addButton.addEventListener('click', addPro);
 
-                // 1. Klik tombol "Add"
-                addButton.addEventListener('click', addPro);
+                    proInput.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault(); 
+                            addPro();
+                        }
+                    });
 
-                // 2. Tekan "Enter" di input
-                proInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault(); // Mencegah form tersubmit
-                        addPro();
-                    }
-                });
+                    badgeContainer.addEventListener('click', function(e) {
+                        if (e.target.classList.contains('btn-close')) {
+                            const proToRemove = e.target.dataset.pro;
+                            removePro(proToRemove);
+                        }
+                    });
 
-                // 3. Klik tombol "X" (close) pada badge
-                badgeContainer.addEventListener('click', function(e) {
-                    // Cek apakah yang diklik adalah tombol close
-                    if (e.target.classList.contains('btn-close')) {
-                        const proToRemove = e.target.dataset.pro;
-                        removePro(proToRemove);
-                    }
-                });
-
-                // 4. (PENTING) Sebelum form di-submit ke controller
-                form.addEventListener('submit', function(e) {
-                    if (proList.length === 0) {
-                        e.preventDefault(); // Hentikan submit jika tidak ada PRO
-                        alert('Please add at least one PRO number.');
+                    clearAllBtn.addEventListener('click', function() {
+                        proList = []; 
+                        updateProAdderUI(); 
                         proInput.focus();
-                        return;
-                    }
-                    
-                    // Isi hidden input dengan data untuk controller
-                    hiddenInput.value = JSON.stringify(proList);
-                    console.log('Submitting data:', hiddenInput.value);
-                });
+                    });
 
+                    form.addEventListener('submit', function(e) {
+                        if (proList.length === 0) {
+                            e.preventDefault(); 
+                            alert('Please add at least one PRO number.');
+                            proInput.focus();
+                            return;
+                        }
+                        console.log('Submitting data:', hiddenInput.value);
+                    });
+
+                    updateProAdderUI();
+                }
+
+                // --- Logika Bagian 2: Copy/Select All ---
+                // (Kode ini sekarang akan berjalan karena selectAll dan copyBtn sudah didefinisikan)
+                if (selectAll && copyBtn) {
+                    function getSelectedPros() {
+                        const selected = [];
+                        // Kita ambil proCheckboxes lagi di sini untuk memastikan datanya fresh
+                        const currentCheckboxes = document.querySelectorAll('#totalProTableBody .pro-checkbox');
+                        currentCheckboxes.forEach(cb => {
+                            if (cb.checked) {
+                                selected.push(cb.value);
+                            }
+                        });
+                        return selected;
+                    }
+
+                    function updateSelectionState() {
+                        // Ambil elemen terbaru setiap kali update
+                        const currentCheckboxes = document.querySelectorAll('#totalProTableBody .pro-checkbox');
+                        const selectedCount = getSelectedPros().length;
+                        const totalCount = currentCheckboxes.length;
+
+                        if (selectedCount > 0) {
+                            copyBtn.disabled = false;
+                            copyBtn.textContent = `Copy ${selectedCount} PRO`;
+                        } else {
+                            copyBtn.disabled = true;
+                            copyBtn.textContent = 'Copy PRO';
+                        }
+
+                        if (totalCount === 0) {
+                            selectAll.checked = false;
+                            selectAll.indeterminate = false;
+                            return; // Keluar jika tidak ada checkbox
+                        }
+
+                        if (selectedCount === 0) {
+                            selectAll.checked = false;
+                            selectAll.indeterminate = false;
+                        } else if (selectedCount === totalCount) {
+                            selectAll.checked = true;
+                            selectAll.indeterminate = false;
+                        } else {
+                            selectAll.checked = false;
+                            selectAll.indeterminate = true;
+                        }
+                    }
+
+                    copyBtn.addEventListener('click', function() {
+                        const selectedPros = getSelectedPros();
+                        
+                        if (selectedPros.length > 0) {
+                            const proListString = selectedPros.join('\n');
+                            navigator.clipboard.writeText(proListString).then(() => {
+                                if (typeof Swal !== 'undefined') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Berhasil Disalin',
+                                        text: `${selectedPros.length} nomor PRO telah disalin ke clipboard.`,
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    });
+                                } else {
+                                    alert(`${selectedPros.length} nomor PRO disalin!`);
+                                }
+                            }).catch(err => {
+                                console.error('Gagal menyalin:', err);
+                                alert('Gagal menyalin ke clipboard.');
+                            });
+                        }
+                    });
+
+                    selectAll.addEventListener('change', function() {
+                        const currentCheckboxes = document.querySelectorAll('#totalProTableBody .pro-checkbox');
+                        currentCheckboxes.forEach(checkbox => {
+                            checkbox.checked = this.checked;
+                        });
+                        updateSelectionState();
+                    });
+
+                    // Ambil elemen terbaru untuk listener
+                    document.querySelectorAll('#totalProTableBody .pro-checkbox').forEach(checkbox => {
+                        checkbox.addEventListener('change', function() {
+                            updateSelectionState();
+                        });
+                    });
+                    
+                    updateSelectionState();
+                } else {
+                    // Ini akan memberitahu Anda jika elemennya tidak ditemukan
+                    console.warn("Elemen 'Select All' atau 'Copy PRO' tidak ditemukan. Fungsionalitas Copy dinonaktifkan.");
+                }
             });
         </script>
     @endpush

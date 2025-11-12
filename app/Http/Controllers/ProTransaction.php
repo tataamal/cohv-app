@@ -20,7 +20,6 @@ class ProTransaction extends Controller
         $proDetailsList = collect();
         $allFoundProNumbers = [];
 
-        // [PERUBAHAN] Loop untuk setiap PRO yang dicari
         foreach ($proNumbersArray as $proNumber) {
             
             Log::info("[ProController] Memproses PRO: {$proNumber}");
