@@ -135,7 +135,29 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    editComponentBtn.addEventListener('click',function(){
+        console.log('Button Edit Component Berhasil diaktifkan');
+        Swal.fire({
+            title: 'Maintenance!',
+            text: 'Fitur masih dalam tahap pengembangan',
+            icon: 'warning'
+        })
+    });
+
+    showStockBtn.addEventListener('click', function(){
+        console.log('Button Edit Component Berhasil diaktifkan');
+        Swal.fire({
+            title: 'Maintenance!',
+            text: 'Fitur masih dalam tahap pengembangan',
+            icon: 'warning'
+        })
+    });
+
     modalBtnLanjutkan.addEventListener('click', function() {
+        const sapUser = document.querySelector('meta[name="sap-username"]').getAttribute('content');
+        const sapPass = document.querySelector('meta[name="sap-password"]').getAttribute('content');
+        const prosToRefresh = getSelectedPros(); 
+        const kodeHalaman = document.getElementById('kode-halaman').value;
         if (!currentAction || currentPros.length === 0) {
             console.error('Tidak ada aksi atau PRO yang dipilih saat konfirmasi.');
             closeConfirmationModal();
@@ -144,11 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         switch (currentAction) {
             case 'refresh':
-                const prosToRefresh = getSelectedPros(); 
-                const sapUser = document.querySelector('meta[name="sap-username"]').getAttribute('content');
-                const sapPass = document.querySelector('meta[name="sap-password"]').getAttribute('content');
-                const kodeHalaman = document.getElementById('kode-halaman').value;
-
                 if (!sapUser || !sapPass) {
                     Swal.fire('Error', 'Kredensial SAP tidak ditemukan di halaman. (Cek tag meta)', 'error');
                     return; 
@@ -248,29 +265,47 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
             
             case 'schedule':
-
+                // --- 1. Ambil semua data yang dibutuhkan ---
                 const scheduleDate = document.getElementById('modalScheduleDate').value;
                 const scheduleTime = document.getElementById('modalScheduleTime').value;
-
-                // 2. Validasi
+                // --- 2. Validasi Input ---
                 if (!scheduleDate || !scheduleTime) {
                     Swal.fire('Error', 'Silakan pilih tanggal dan waktu penjadwalan.', 'error');
                     return; 
                 }
+                if (!sapUser || !sapPass) {
+                    Swal.fire('Error', 'Kredensial SAP tidak ditemukan (Cek tag meta).', 'error');
+                    return;
+                }
+                if (!kodeHalaman || prosToRefresh.length === 0) {
+                    Swal.fire('Error', 'Data Halaman (WERKS) atau PRO tidak ditemukan.', 'error');
+                    return;
+                }
 
-                modalBtnLanjutkan.disabled = true;
-                modalBtnLanjutkan.textContent = 'Menjadwalkan...';
+                // --- 3. Tutup modal lama & Buka Modal Loading ---
+                closeConfirmationModal(); // Tutup modal 'bulkActionModal' Anda
+                
+                Swal.fire({
+                    title: '1/3: Mengirim Jadwal...',
+                    text: 'Harap tunggu, memproses reschedule di SAP...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // === PANGGILAN FETCH 1 (Schedule) ===
                 fetch('http://192.168.90.27:4002/api/bulk-schedule-pro', { 
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-SAP-Username': sapUser, 
-                        'X-SAP-Password': sapPass  
+                        'X-SAP-Username': sapUser, // 
+                        'X-SAP-Password': sapPass  // 
                     },
                     body: JSON.stringify({
-                        pro_list: currentPros,        
+                        pro_list: prosToRefresh, // <-- Menggunakan data PRO terbaru     
                         schedule_date: scheduleDate,  
-                        schedule_time: scheduleTime   
+                        schedule_time: scheduleTime + ":00"   
                     })
                 })
                 .then(response => {
@@ -281,49 +316,125 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     return response.json();
                 })
-                .then(data => {
-                    // Tampilkan pesan sukses
-                    const successCount = data.success_details ? data.success_details.length : 0;
+                .then(scheduleData => {
+                    console.log('Langkah 1 Sukses (Schedule):', scheduleData.message || 'OK');
+                    Swal.update({
+                        title: '2/3: Mengambil Data Baru...',
+                        text: 'Jadwal berhasil, mengambil data terbaru dari SAP...'
+                    });
+                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-SAP-Username': sapUser,
+                            'X-SAP-Password': sapPass
+                        },
+                        body: JSON.stringify({
+                            kode: kodeHalaman,
+                            pros: prosToRefresh
+                        })
+                    });
+                })
+                .then(refreshResponse => {
+                    if (!refreshResponse.ok) {
+                        return refreshResponse.json().then(err => { 
+                            throw new Error(err.message || 'Gagal mengambil data SAP.'); 
+                        });
+                    }
+                    return refreshResponse.json();
+                })
+                .then(sapData => {
+                    console.log('Langkah 2 Sukses (Refresh):', sapData.message);
+                    Swal.update({
+                        title: '3/3: Menyimpan Data...',
+                        text: 'Data terbaru diterima, menyimpan ke database...'
+                    });
+
+                    if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) {
+                        const failedPros = sapData.sap_failed_details.map(f => f.pro).join(', ');
+                        throw new Error(`Gagal mengambil data SAP untuk PRO: ${failedPros}.`);
+                    }
+                    if (!sapData.aggregated_data) {
+                        throw new Error('Tidak ada data (null) yang dikembalikan dari SAP.');
+                    }
+
+                    // === PANGGILAN FETCH 3 (Save) ===
+                    const saveDataPayload = { 
+                        kode: kodeHalaman, 
+                        pros_to_refresh: prosToRefresh,
+                        aggregated_data: sapData.aggregated_data 
+                    };
+                    
+                    return fetch('http://192.168.90.27:4002/api/save-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(saveDataPayload)
+                    });
+                })
+                .then(saveResponse => {
+                    if (!saveResponse.ok) {
+                        return saveResponse.json().then(err => { 
+                            throw new Error(err.message || 'Gagal menyimpan ke DB.'); 
+                        });
+                    }
+                    return saveResponse.json();
+                })
+                .then(finalData => {
+                    // --- 6. Semua Langkah Sukses ---
+                    console.log('Langkah 3 Sukses (Save):', finalData.message);
                     Swal.fire({
                         title: 'Sukses!',
-                        text: `Berhasil menjadwalkan ulang ${successCount} PRO.`,
+                        text: 'PRO berhasil dijadwalkan ulang DAN data telah diperbarui.',
                         icon: 'success'
-                    }).then(() => window.location.reload());
+                    }).then(() => {
+                        // Muat ulang halaman (dengan metode GET yang aman)
+                        window.location.reload(); 
+                    });
                 })
                 .catch(error => {
-                    // Tampilkan pesan error
-                    Swal.fire('Terjadi Kesalahan', error.message, 'error');
-                })
-                .finally(() => {
-                    modalBtnLanjutkan.disabled = false;
-                    modalBtnLanjutkan.textContent = 'Lanjutkan';
-                    closeConfirmationModal();
+                    console.error('Error selama proses berantai:', error);
+                    Swal.fire({
+                        title: 'Terjadi Kesalahan',
+                        text: error.message,
+                        icon: 'error'
+                    });
                 });
-
                 break;
             
             case 'readPp':
                 console.log('PROs selected for bulk read PP:', currentPros);
-                alert('PROs yang dipilih untuk baca PP (lihat console): ' + currentPros.join(', '));
-                // TODO: Tambahkan logika AJAX/fetch untuk read PP di sini
+                Swal.fire({
+                    title: 'Maintenance!',
+                    text: 'Fitur masih dalam tahap pengembangan',
+                    icon: 'warning'
+                })
                 break;
             
             case 'changePv':
                 console.log('PROs selected for bulk change PV:', currentPros);
-                alert('PROs yang dipilih untuk ubah PV (lihat console): ' + currentPros.join(', '));
-                // TODO: Tambahkan logika AJAX/fetch untuk change PV di sini
+                Swal.fire({
+                    title: 'Maintenance!',
+                    text: 'Fitur masih dalam tahap pengembangan',
+                    icon: 'warning'
+                })
                 break;
                 
             case 'changeQty':
                 console.log('PROs selected for bulk change Qty:', currentPros);
-                alert('PROs yang dipilih untuk ubah Qty (lihat console): ' + currentPros.join(', '));
-                // TODO: Tambahkan logika AJAX/fetch untuk change Qty di sini
+                Swal.fire({
+                    title: 'Maintenance!',
+                    text: 'Fitur masih dalam tahap pengembangan',
+                    icon: 'warning'
+                })
                 break;
             
             case 'teco':
                 console.log('PROs selected for bulk TECO:', currentPros);
-                alert('PROs yang dipilih untuk TECO (lihat console): ' + currentPros.join(', '));
-                // TODO: Tambahkan logika AJAX/fetch untuk TECO di sini
+                Swal.fire({
+                    title: 'Maintenance!',
+                    text: 'Fitur masih dalam tahap pengembangan',
+                    icon: 'warning'
+                })
                 break;
             
             default:
@@ -415,4 +526,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ==================== Inisialisasi Awal ====================
     updateSelectionState(); // Panggil saat halaman dimuat
+});
+
+document.body.addEventListener('click', function(event) {
+    if (event.target.classList.contains('edit-component-btn')) {
+        console.log('Button Edit Component Berhasil diaktifkan');
+        Swal.fire({
+            title: 'Maintenance!',
+            text: 'Fitur masih dalam tahap pengembangan',
+            icon: 'warning'
+        });
+    }
+    if (event.target.classList.contains('show-stock-btn')) {
+        console.log('Button Show Stock Berhasil diaktifkan');
+        Swal.fire({
+            title: 'Maintenance!',
+            text: 'Fitur masih dalam tahap pengembangan',
+            icon: 'warning'
+        });
+    }
 });
