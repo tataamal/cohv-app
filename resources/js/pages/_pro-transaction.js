@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const scheduleInputs = document.getElementById('scheduleInputs');
     const modalScheduleDate = document.getElementById('modalScheduleDate');
     const modalScheduleTime = document.getElementById('modalScheduleTime');
+    const changePvInputs = document.getElementById('changePvInputs');
+    const modalChangePv = document.getElementById('changePvInput');
 
     // State untuk menyimpan aksi dan data yang sedang diproses
     let currentAction = null;
@@ -77,13 +79,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ==================== Logika Modal Generik ====================
 
-    /**
-     * Membuka dan mengisi modal konfirmasi.
-     * @param {string} action - Tipe aksi (misal: 'refresh', 'teco')
-     * @param {string} title - Judul untuk modal
-     * @param {string} description - Teks deskripsi/pertanyaan
-     * @param {string[]} pros - Array berisi nomor PRO yang dipilih
-     */
     function openConfirmationModal(action, title, description, pros) {
         currentAction = action;
         currentPros = pros;
@@ -109,6 +104,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             scheduleInputs.style.display = 'block';
         }
+        else if (action === 'changePv') {
+            modalIcon.innerHTML = '&#9888;';
+            changePvInputs.style.display = 'block';
+            modalChangePv.value = '';
+        }
         modalProList.innerHTML = ''; 
         currentPros.forEach(pro => {
             const li = document.createElement('li');
@@ -133,24 +133,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (event.target === bulkActionModal) {
             closeConfirmationModal();
         }
-    });
-
-    editComponentBtn.addEventListener('click',function(){
-        console.log('Button Edit Component Berhasil diaktifkan');
-        Swal.fire({
-            title: 'Maintenance!',
-            text: 'Fitur masih dalam tahap pengembangan',
-            icon: 'warning'
-        })
-    });
-
-    showStockBtn.addEventListener('click', function(){
-        console.log('Button Edit Component Berhasil diaktifkan');
-        Swal.fire({
-            title: 'Maintenance!',
-            text: 'Fitur masih dalam tahap pengembangan',
-            icon: 'warning'
-        })
     });
 
     modalBtnLanjutkan.addEventListener('click', function() {
@@ -265,10 +247,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
             
             case 'schedule':
-                // --- 1. Ambil semua data yang dibutuhkan ---
                 const scheduleDate = document.getElementById('modalScheduleDate').value;
                 const scheduleTime = document.getElementById('modalScheduleTime').value;
-                // --- 2. Validasi Input ---
                 if (!scheduleDate || !scheduleTime) {
                     Swal.fire('Error', 'Silakan pilih tanggal dan waktu penjadwalan.', 'error');
                     return; 
@@ -282,8 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                // --- 3. Tutup modal lama & Buka Modal Loading ---
-                closeConfirmationModal(); // Tutup modal 'bulkActionModal' Anda
+                closeConfirmationModal(); 
                 
                 Swal.fire({
                     title: '1/3: Mengirim Jadwal...',
@@ -294,7 +273,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
 
-                // === PANGGILAN FETCH 1 (Schedule) ===
                 fetch('http://192.168.90.27:4002/api/bulk-schedule-pro', { 
                     method: 'POST',
                     headers: {
@@ -303,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         'X-SAP-Password': sapPass  // 
                     },
                     body: JSON.stringify({
-                        pro_list: prosToRefresh, // <-- Menggunakan data PRO terbaru     
+                        pro_list: prosToRefresh,    
                         schedule_date: scheduleDate,  
                         schedule_time: scheduleTime + ":00"   
                     })
@@ -380,14 +358,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     return saveResponse.json();
                 })
                 .then(finalData => {
-                    // --- 6. Semua Langkah Sukses ---
                     console.log('Langkah 3 Sukses (Save):', finalData.message);
                     Swal.fire({
                         title: 'Sukses!',
                         text: 'PRO berhasil dijadwalkan ulang DAN data telah diperbarui.',
                         icon: 'success'
                     }).then(() => {
-                        // Muat ulang halaman (dengan metode GET yang aman)
                         window.location.reload(); 
                     });
                 })
@@ -401,23 +377,338 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 break;
             
-            case 'readPp':
+            case 'readPp': {
                 console.log('PROs selected for bulk read PP:', currentPros);
+
+                // --- 1. Ambil semua data yang dibutuhkan ---
+                const sapUser = document.querySelector('meta[name="sap-username"]').getAttribute('content');
+                const sapPass = document.querySelector('meta[name="sap-password"]').getAttribute('content');
+                const kodeHalaman = document.getElementById('kode-halaman').value;
+                const prosToProcess = currentPros; 
+
+                // --- 2. Validasi Input ---
+                if (!sapUser || !sapPass) {
+                    Swal.fire('Error', 'Kredensial SAP tidak ditemukan (Cek tag meta).', 'error');
+                    return; 
+                }
+                if (!kodeHalaman) {
+                    Swal.fire('Error', 'Kode halaman (WERKS) tidak ditemukan.', 'error');
+                    return;
+                }
+                if (prosToProcess.length === 0) {
+                    Swal.fire('Error', 'Tidak ada PRO yang dipilih.', 'error');
+                    return; 
+                }
+
+                // --- 3. Tutup modal lama & Buka Modal Loading ---
+                closeConfirmationModal();
+                
                 Swal.fire({
-                    title: 'Maintenance!',
-                    text: 'Fitur masih dalam tahap pengembangan',
-                    icon: 'warning'
+                    title: '1/3: Membaca Master Data PP...',
+                    text: `Harap tunggu, sedang memproses ${prosToProcess.length} PRO...`,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // === PANGGILAN FETCH 1 (Read PP) ===
+                fetch('http://192.168.90.27:4002/api/bulk-readpp-pro', { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-SAP-Username': sapUser,
+                        'X-SAP-Password': sapPass
+                    },
+                    body: JSON.stringify({
+                        pro_list: prosToProcess // Menggunakan variabel yang sudah divalidasi
+                    })
                 })
-                break;
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { 
+                            throw new Error(err.error || `Gagal Read PP (Error ${response.status})`); 
+                        });
+                    }
+                    return response.json();
+                })
+                .then(readPpData => {
+                    console.log('Langkah 1 Sukses (ReadPP):', readPpData);
+                    // Cek jika ada error detail dari SAP
+                    if (readPpData.error_details && readPpData.error_details.length > 0) {
+                        throw new Error(`Read PP gagal untuk ${readPpData.error_details.length} PRO.`);
+                    }
+
+                    // Lanjut ke langkah 2
+                    Swal.update({
+                        title: '2/3: Mengambil Data Baru...',
+                        text: 'Read PP berhasil, mengambil data terbaru dari SAP...'
+                    });
+                    
+                    // === PANGGILAN FETCH 2 (Refresh) ===
+                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-SAP-Username': sapUser,
+                            'X-SAP-Password': sapPass
+                        },
+                        body: JSON.stringify({
+                            kode: kodeHalaman,
+                            pros: prosToProcess
+                        })
+                    });
+                })
+                .then(refreshResponse => {
+                    if (!refreshResponse.ok) {
+                        return refreshResponse.json().then(err => { 
+                            throw new Error(err.message || 'Gagal mengambil data SAP.'); 
+                        });
+                    }
+                    return refreshResponse.json();
+                })
+                .then(sapData => {
+                    console.log('Langkah 2 Sukses (Refresh):', sapData.message);
+                    Swal.update({
+                        title: '3/3: Menyimpan Data...',
+                        text: 'Data terbaru diterima, menyimpan ke database...'
+                    });
+
+                    // Validasi data refresh (seperti di case 'schedule')
+                    if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) {
+                        const failedPros = sapData.sap_failed_details.map(f => f.pro).join(', ');
+                        throw new Error(`Gagal mengambil data SAP untuk PRO: ${failedPros}.`);
+                    }
+                    if (!sapData.aggregated_data) {
+                        throw new Error('Tidak ada data (null) yang dikembalikan dari SAP.');
+                    }
+
+                    // === PANGGILAN FETCH 3 (Save) ===
+                    const saveDataPayload = { 
+                        kode: kodeHalaman, 
+                        pros_to_refresh: prosToProcess, // Nama key sesuai API Anda
+                        aggregated_data: sapData.aggregated_data 
+                    };
+                    
+                    return fetch('http://192.168.90.27:4002/api/save-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(saveDataPayload)
+                    });
+                })
+                .then(saveResponse => {
+                    if (!saveResponse.ok) {
+                        return saveResponse.json().then(err => { 
+                            throw new Error(err.message || 'Gagal menyimpan ke DB.'); 
+                        });
+                    }
+                    return saveResponse.json();
+                })
+                .then(finalData => {
+                    console.log('Langkah 3 Sukses (Save):', finalData.message);
+                    Swal.fire({
+                        title: 'Sukses!',
+                        text: 'Proses Read PP dan Refresh data telah selesai.',
+                        icon: 'success'
+                    }).then(() => {
+                        window.location.reload(); 
+                    });
+                })
+                .catch(error => {
+                    console.error('Error selama proses berantai:', error);
+                    Swal.fire({
+                        title: 'Terjadi Kesalahan',
+                        text: error.message,
+                        icon: 'error'
+                    });
+                });
+
+                break; 
+            }
             
-            case 'changePv':
+            case 'changePv': {
                 console.log('PROs selected for bulk change PV:', currentPros);
+                const sapUser = document.querySelector('meta[name="sap-username"]').getAttribute('content');
+                const sapPass = document.querySelector('meta[name="sap-password"]').getAttribute('content');
+                const kodeHalaman = document.getElementById('kode-halaman').value;
+                const selectedPv = modalChangePv.value; 
+                const prosToProcess = currentPros;
+
+                if (!selectedPv) {
+                    Swal.fire('Error', 'Silakan pilih Production Version terlebih dahulu.', 'error');
+                    return; 
+                }
+                if (!sapUser || !sapPass) {
+                    Swal.fire('Error', 'Kredensial SAP tidak ditemukan (Cek tag meta).', 'error');
+                    return;
+                }
+                if (!kodeHalaman) {
+                    Swal.fire('Error', 'Kode halaman (WERKS) tidak ditemukan.', 'error');
+                    return;
+                }
+                if (prosToProcess.length === 0) {
+                    Swal.fire('Error', 'Tidak ada PRO yang dipilih.', 'error');
+                    return;
+                }
+
+                closeConfirmationModal();
+                
                 Swal.fire({
-                    title: 'Maintenance!',
-                    text: 'Fitur masih dalam tahap pengembangan',
-                    icon: 'warning'
+                    title: '1/3: Mengubah Production Version...',
+                    text: `Harap tunggu, sedang memproses ${prosToProcess.length} PRO...`,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                fetch('http://192.168.90.27:4002/api/bulk-change-pv', { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-SAP-Username': sapUser,
+                        'X-SAP-Password': sapPass
+                    },
+                    body: JSON.stringify({
+                        pro_list: prosToProcess,      
+                        PROD_VERSION: selectedPv  
+                    })
                 })
-                break;
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { 
+                            throw new Error(err.error || `Gagal Ubah PV (Error ${response.status})`); 
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Langkah 1 Selesai (ChangePV):', data);
+
+                    if (data.error_details && data.error_details.length > 0) {
+                        const errorCount = data.error_details.length;
+                        const successCount = data.success_details ? data.success_details.length : 0;
+
+                        let errorHtml = '<ul style="text-align: left; list-style-position: inside; max-height: 200px; overflow-y: auto;">';
+                        
+                        data.error_details.forEach(err => {
+                            
+                            let sapMessage = "Error tidak diketahui";
+                            if (err.sap_response) {
+                                const match = err.sap_response.match(/message=(.*)/); 
+                                
+                                if (match && match[1]) {
+                                    sapMessage = match[1].trim(); 
+                                } else {
+                                    sapMessage = err.sap_response; 
+                                }
+                            } else {
+                                sapMessage = err.message || "Gagal, cek log Flask.";
+                            }
+
+                            errorHtml += `<li><strong>${err.pro_number}:</strong> ${sapMessage}</li>`;
+                        });
+                        errorHtml += '</ul>';
+
+                        Swal.fire({
+                            title: `Selesai (${successCount} sukses, ${errorCount} gagal)`,
+                            html: `<p>Proses ubah PV selesai dengan beberapa error. <strong>Refresh dibatalkan.</strong></p>${errorHtml}`,
+                            icon: 'warning'
+                        });
+                        throw new Error('Proses dihentikan karena ada error parsial.');
+                    }
+                    console.log('Langkah 1 Sukses Penuh (ChangePV). Melanjutkan ke Refresh...');
+                    Swal.update({
+                        title: '2/3: Mengambil Data Baru...',
+                        text: 'Ubah PV berhasil, mengambil data terbaru dari SAP...'
+                    });
+                    
+                    // === PANGGILAN FETCH 2 (Refresh) ===
+                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-SAP-Username': sapUser,
+                            'X-SAP-Password': sapPass
+                        },
+                        body: JSON.stringify({
+                            kode: kodeHalaman,
+                            pros: prosToProcess
+                        })
+                    });
+                })
+                .then(refreshResponse => {
+                    if (!refreshResponse) return;
+                    if (!refreshResponse.ok) {
+                        return refreshResponse.json().then(err => { 
+                            throw new Error(err.message || 'Gagal mengambil data SAP.'); 
+                        });
+                    }
+                    return refreshResponse.json();
+                })
+                .then(sapData => {
+                    if (!sapData) return;
+                    console.log('Langkah 2 Sukses (Refresh):', sapData.message);
+                    Swal.update({
+                        title: '3/3: Menyimpan Data...',
+                        text: 'Data terbaru diterima, menyimpan ke database...'
+                    });
+
+                    if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) {
+                        const failedPros = sapData.sap_failed_details.map(f => f.pro).join(', ');
+                        throw new Error(`Gagal mengambil data SAP untuk PRO: ${failedPros}.`);
+                    }
+                    if (!sapData.aggregated_data) {
+                        throw new Error('Tidak ada data (null) yang dikembalikan dari SAP.');
+                    }
+                    const saveDataPayload = { 
+                        kode: kodeHalaman, 
+                        pros_to_refresh: prosToProcess,
+                        aggregated_data: sapData.aggregated_data 
+                    };
+                    
+                    return fetch('http://192.168.90.27:4002/api/save-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(saveDataPayload)
+                    });
+                })
+                .then(saveResponse => {
+                    if (!saveResponse) return;
+                    if (!saveResponse.ok) {
+                        return saveResponse.json().then(err => { 
+                            throw new Error(err.message || 'Gagal menyimpan ke DB.'); 
+                        });
+                    }
+                    return saveResponse.json();
+                })
+                .then(finalData => {
+                    if (!finalData) return; 
+
+                    // --- 6. Semua Langkah Sukses ---
+                    console.log('Langkah 3 Sukses (Save):', finalData.message);
+                    Swal.fire({
+                        title: 'Sukses!',
+                        text: 'Proses Ubah PV, Refresh, dan Simpan Data telah selesai.',
+                        icon: 'success'
+                    }).then(() => {
+                        window.location.reload(); 
+                    });
+                })
+                .catch(error => {
+                    // --- 7. Penanganan Error (Global) ---
+                    console.error('Error selama proses berantai:', error);
+                    
+                    if (error.message !== 'Proses dihentikan karena ada error parsial.') {
+                        Swal.fire({
+                            title: 'Terjadi Kesalahan',
+                            text: error.message,
+                            icon: 'error'
+                        });
+                    }
+                });
+                break; 
+            }
                 
             case 'changeQty':
                 console.log('PROs selected for bulk change Qty:', currentPros);
