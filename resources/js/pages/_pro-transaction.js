@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
+                fetch('/api/bulk/bulk-refresh', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                     body: JSON.stringify({ kode: kodeHalaman, pros: prosToRefresh })
@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) throw new Error('Gagal mengambil data SAP untuk beberapa PRO.');
 
                     const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToRefresh, aggregated_data: sapData.aggregated_data };
-                    return fetch('http://192.168.90.27:4002/api/save-data', {
+                    return fetch('/api/bulk/save-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(saveDataPayload)
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                fetch('http://192.168.90.27:4002/api/bulk-schedule-pro', { 
+                fetch('/api/bulk/bulk-schedule-pro', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                     body: JSON.stringify({ pro_list: prosToRefresh, schedule_date: scheduleDate, schedule_time: scheduleTime + ":00" })
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .then(scheduleData => {
                     Swal.update({ title: '2/3: Mengambil Data Baru...' });
-                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
+                    return fetch('/api/bulk/bulk-refresh', { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                         body: JSON.stringify({ kode: kodeHalaman, pros: prosToRefresh })
@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
                     const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToRefresh, aggregated_data: sapData.aggregated_data };
-                    return fetch('http://192.168.90.27:4002/api/save-data', {
+                    return fetch('/api/bulk/save-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(saveDataPayload)
@@ -377,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                fetch('http://192.168.90.27:4002/api/bulk-readpp-pro', { 
+                fetch('/api/bulk/bulk-readpp-pro', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                     body: JSON.stringify({ pro_list: prosToProcess })
@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (readPpData.error_details && readPpData.error_details.length > 0) throw new Error(`Read PP gagal untuk ${readPpData.error_details.length} PRO.`);
                     Swal.update({ title: '2/3: Mengambil Data Baru...' });
                     
-                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
+                    return fetch('/api/bulk/bulk-refresh', { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                         body: JSON.stringify({ kode: kodeHalaman, pros: prosToProcess })
@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
                     const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToProcess, aggregated_data: sapData.aggregated_data };
-                    return fetch('http://192.168.90.27:4002/api/save-data', {
+                    return fetch('/api/bulk/save-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(saveDataPayload)
@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                fetch('http://192.168.90.27:4002/api/bulk-change-pv', { 
+                fetch('/api/bulk/bulk-change-pv', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                     body: JSON.stringify({ pro_list: prosToProcess, PROD_VERSION: selectedPv })
@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     Swal.update({ title: '2/3: Mengambil Data Baru...' });
                     
-                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
+                    return fetch('/api/bulk/bulk-refresh', { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                         body: JSON.stringify({ kode: kodeHalaman, pros: prosToProcess })
@@ -493,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
                     const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToProcess, aggregated_data: sapData.aggregated_data };
-                    return fetch('http://192.168.90.27:4002/api/save-data', {
+                    return fetch('/api/bulk/save-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(saveDataPayload)
@@ -583,7 +583,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     const prosToRefresh = ordersToSubmit.map(o => o.AUFNR);
 
-                   fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
+                   fetch('/api/bulk/bulk-refresh', { 
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -613,7 +613,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             aggregated_data: sapData.aggregated_data 
                         };
                         
-                        return fetch('http://192.168.90.27:4002/api/save-data', {
+                        return fetch('/api/bulk/save-data', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(saveDataPayload)
@@ -778,7 +778,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         try {
-            const response = await fetch('http://192.168.90.27:4002/api/change_quantity', {
+            const response = await fetch('/api/bulk/change_quantity', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
