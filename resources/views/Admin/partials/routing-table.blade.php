@@ -17,7 +17,7 @@
                         <th class="text-center p-2 d-none d-md-table-cell">Work Ctr</th>
                         <th class="text-center p-2 d-none d-md-table-cell">Time (H)</th>
                         <th class="text-center p-2 d-none d-md-table-cell">Item/Day</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">Total Time</th>
+                        <th class="text-center p-2 d-none d-md-table-cell">Total Time (m)</th>
                         <th class="text-center p-2 d-none d-md-table-cell">PV 1</th>
                         <th class="text-center p-2 d-none d-md-table-cell">PV 2</th>
                         <th class="text-center p-2 d-none d-md-table-cell">PV 3</th>

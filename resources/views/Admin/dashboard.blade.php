@@ -60,7 +60,6 @@
                 </div>
 
                 <div class="col-sm-6 col-lg-3">
-                    {{-- [DIUBAH] Kartu ini sekarang bisa diklik --}}
                     <div id="card-total-pro" class="card border-0 shadow-sm h-100 card-interactive position-relative" style="cursor: pointer;">
                         <button class="btn btn-sm btn-outline-secondary rounded-circle info-button"
                             data-bs-toggle="popover"
@@ -1103,8 +1102,6 @@
             });
 
             document.addEventListener("DOMContentLoaded", function() {
-    
-                // --- BAGIAN 1: FORM PENCARIAN PRO (Penambahan Badge) ---
                 const form = document.getElementById('searchPROForm');
                 const proInput = document.getElementById('proInput');
                 const addButton = document.getElementById('addProButton');
@@ -1112,38 +1109,24 @@
                 const hiddenInput = document.getElementById('proNumbersInput');
                 const placeholder = document.getElementById('proBadgePlaceholder');
                 const clearAllBtn = document.getElementById('clearAllProButton');
-
-                // --- BAGIAN 2: CHECKBOX TABEL (Copy PRO) ---
-                // ▼▼▼ PERBAIKAN: Tiga baris ini hilang dari skrip Anda ▼▼▼
                 const selectAll = document.getElementById('selectAllTotalProCheckbox');
-                const proCheckboxes = document.querySelectorAll('#totalProTableBody .pro-checkbox');
                 const copyBtn = document.getElementById('copyProBtn');
-                // ▲▲▲ AKHIR PERBAIKAN ▲▲▲
+                const tableBody = document.getElementById('totalProTableBody'); 
 
-                // --- Logika Bagian 1: Form ---
                 let proList = [];
 
                 function updateProAdderUI() {
                     badgeContainer.innerHTML = '';
-                    
                     if (proList.length === 0) {
-                        // Cek null untuk placeholder jika elemennya tidak ada di halaman
-                        if (placeholder) {
-                            badgeContainer.appendChild(placeholder);
-                        }
-                        if (clearAllBtn) {
-                            clearAllBtn.style.display = 'none';
-                        }
+                        if (placeholder) badgeContainer.appendChild(placeholder);
+                        if (clearAllBtn) clearAllBtn.style.display = 'none';
                     } else {
-                        if (clearAllBtn) {
-                            clearAllBtn.style.display = 'inline-block';
-                        }
+                        if (clearAllBtn) clearAllBtn.style.display = 'inline-block';
                         proList.forEach(pro => {
                             const badge = document.createElement('span');
                             badge.className = 'badge bg-primary d-inline-flex align-items-center';
                             badge.style.padding = '0.5em 0.75em';
                             badge.style.fontSize = '0.9rem';
-
                             badge.innerHTML = `
                                 <span>${pro}</span>
                                 <button type="button" class="btn-close btn-close-white ms-2" 
@@ -1154,7 +1137,6 @@
                             badgeContainer.appendChild(badge);
                         });
                     }
-                    // Cek null untuk hiddenInput
                     if (hiddenInput) {
                         hiddenInput.value = JSON.stringify(proList);
                     }
@@ -1176,11 +1158,7 @@
                             }
                         });
                     }
-
-                    if (itemsAdded > 0) {
-                        updateProAdderUI();
-                    }
-
+                    if (itemsAdded > 0) updateProAdderUI();
                     proInput.value = '';
                     proInput.focus();
                 }
@@ -1191,30 +1169,25 @@
                     proInput.focus();
                 }
 
-                // Tambahkan listener hanya jika elemennya ada
                 if (form) {
                     addButton.addEventListener('click', addPro);
-
                     proInput.addEventListener('keydown', function(e) {
                         if (e.key === 'Enter') {
                             e.preventDefault(); 
                             addPro();
                         }
                     });
-
                     badgeContainer.addEventListener('click', function(e) {
                         if (e.target.classList.contains('btn-close')) {
                             const proToRemove = e.target.dataset.pro;
                             removePro(proToRemove);
                         }
                     });
-
                     clearAllBtn.addEventListener('click', function() {
                         proList = []; 
                         updateProAdderUI(); 
                         proInput.focus();
                     });
-
                     form.addEventListener('submit', function(e) {
                         if (proList.length === 0) {
                             e.preventDefault(); 
@@ -1224,31 +1197,47 @@
                         }
                         console.log('Submitting data:', hiddenInput.value);
                     });
-
                     updateProAdderUI();
                 }
 
-                // --- Logika Bagian 2: Copy/Select All ---
-                // (Kode ini sekarang akan berjalan karena selectAll dan copyBtn sudah didefinisikan)
-                if (selectAll && copyBtn) {
+                if (selectAll && copyBtn && tableBody) {
+
                     function getSelectedPros() {
                         const selected = [];
-                        // Kita ambil proCheckboxes lagi di sini untuk memastikan datanya fresh
-                        const currentCheckboxes = document.querySelectorAll('#totalProTableBody .pro-checkbox');
-                        currentCheckboxes.forEach(cb => {
-                            if (cb.checked) {
-                                selected.push(cb.value);
+                        const allRows = tableBody.querySelectorAll('tr');
+                        
+                        allRows.forEach(row => {
+                            if (row.style.display !== 'none') {
+                                const cb = row.querySelector('.pro-checkbox');
+                                if (cb && cb.checked) {
+                                    selected.push(cb.value);
+                                }
                             }
                         });
                         return selected;
                     }
-
                     function updateSelectionState() {
-                        // Ambil elemen terbaru setiap kali update
-                        const currentCheckboxes = document.querySelectorAll('#totalProTableBody .pro-checkbox');
-                        const selectedCount = getSelectedPros().length;
-                        const totalCount = currentCheckboxes.length;
+                        const allRows = tableBody.querySelectorAll('tr');
+                        let visibleCheckboxCount = 0;
+                        let selectedVisibleCount = 0;
 
+                        allRows.forEach(row => {
+                            // Cek apakah baris ini sedang ditampilkan
+                            if (row.style.display !== 'none') {
+                                const cb = row.querySelector('.pro-checkbox');
+                                if (cb) {
+                                    visibleCheckboxCount++; // Hitung total checkbox yang terlihat
+                                    if (cb.checked) {
+                                        selectedVisibleCount++; // Hitung checkbox yang tercentang & terlihat
+                                    }
+                                }
+                            }
+                        });
+
+                        const totalCount = visibleCheckboxCount;
+                        const selectedCount = selectedVisibleCount;
+
+                        // Update tombol Copy
                         if (selectedCount > 0) {
                             copyBtn.disabled = false;
                             copyBtn.textContent = `Copy ${selectedCount} PRO`;
@@ -1257,10 +1246,11 @@
                             copyBtn.textContent = 'Copy PRO';
                         }
 
+                        // Update status checkbox "Select All"
                         if (totalCount === 0) {
                             selectAll.checked = false;
                             selectAll.indeterminate = false;
-                            return; // Keluar jika tidak ada checkbox
+                            return;
                         }
 
                         if (selectedCount === 0) {
@@ -1270,6 +1260,7 @@
                             selectAll.checked = true;
                             selectAll.indeterminate = false;
                         } else {
+                            // Ada yang tercentang, tapi tidak semua
                             selectAll.checked = false;
                             selectAll.indeterminate = true;
                         }
@@ -1300,24 +1291,29 @@
                     });
 
                     selectAll.addEventListener('change', function() {
-                        const currentCheckboxes = document.querySelectorAll('#totalProTableBody .pro-checkbox');
-                        currentCheckboxes.forEach(checkbox => {
-                            checkbox.checked = this.checked;
+                        const allRows = tableBody.querySelectorAll('tr');
+                        
+                        allRows.forEach(row => {
+                            // Cek apakah baris ini sedang ditampilkan
+                            if (row.style.display !== 'none') {
+                                const checkbox = row.querySelector('.pro-checkbox');
+                                if (checkbox) {
+                                    checkbox.checked = this.checked;
+                                }
+                            }
                         });
                         updateSelectionState();
                     });
-
-                    // Ambil elemen terbaru untuk listener
-                    document.querySelectorAll('#totalProTableBody .pro-checkbox').forEach(checkbox => {
-                        checkbox.addEventListener('change', function() {
+                    tableBody.addEventListener('change', function(e) {
+                        if (e.target.classList.contains('pro-checkbox')) {
                             updateSelectionState();
-                        });
+                        }
                     });
                     
                     updateSelectionState();
+                    
                 } else {
-                    // Ini akan memberitahu Anda jika elemennya tidak ditemukan
-                    console.warn("Elemen 'Select All' atau 'Copy PRO' tidak ditemukan. Fungsionalitas Copy dinonaktifkan.");
+                    console.warn("Elemen 'Select All', 'Copy PRO', atau 'totalProTableBody' tidak ditemukan. Fungsionalitas Copy dinonaktifkan.");
                 }
             });
         </script>

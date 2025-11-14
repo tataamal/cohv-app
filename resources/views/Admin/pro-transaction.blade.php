@@ -89,7 +89,7 @@
                                     }
                                 @endphp
 
-                                <div class="accordion-item">
+                                <div class="accordion-item" data-aufnr="{{ $pro->AUFNR }}" data-psmng="{{ $qty }}">
                                     <h2 class="accordion-header d-flex align-items-center" id="heading-{{ $pro->AUFNR }}">
                                         
                                         {{-- Checkbox individual dengan style kustom --}}
