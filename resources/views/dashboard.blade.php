@@ -402,7 +402,7 @@
                         <tr class="text-center align-middle" >
                             <td>${rowNumber++}</td>
                             <td>${item.AUFNR || '-'}</td> 
-                            <td>${ formatMatnr(matnr) || '-'}</td>  
+                            <td>${ formatMatnr(item.MATNR) || '-'}</td>  
                             <td>${item.MAKTX || '-'}</td>  
                             <td>${item.DISPO || '-'}</td> 
                             <td>${item.ERFMG || '-'}</td> 
