@@ -402,7 +402,7 @@
                         <tr class="text-center align-middle" >
                             <td>${rowNumber++}</td>
                             <td>${item.AUFNR || '-'}</td> 
-                            <td>${item.MATNR || '-'}</td>  
+                            <td>${ formatMatnr(matnr) || '-'}</td>  
                             <td>${item.MAKTX || '-'}</td>  
                             <td>${item.DISPO || '-'}</td> 
                             <td>${item.ERFMG || '-'}</td> 
@@ -765,6 +765,15 @@
             fetchCogiData();
 
         });
+        function formatMatnr(matnr) {
+            if (!matnr) return '-';
+            const isAllNumbers = /^\d+$/.test(matnr);
+
+            if (isAllNumbers) {
+                return matnr.replace(/^0+/, '');
+            }
+            return matnr;
+        }
         
     </script>
 @endpush
