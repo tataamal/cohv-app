@@ -35,10 +35,10 @@ class SidebarService
         }
 
         if ($sapUser) {
-            $uniqueKodes = $sapUser->kode()->orderBy('sub_kategori')->get()->unique('kode');
+            $uniqueKodes = $sapUser->kode()->orderBy(column: 'kode')->get()->unique('kode');
             foreach ($uniqueKodes as $kode) {
                 $submenuItems[] = [
-                    'name' => $kode->sub_kategori,
+                    'name' => $kode->nama_bagian,
                     'route_name'   => 'manufaktur.dashboard.show',
                     'route_params' => ['kode' => $kode->kode],
                     'is_active'    => $activeKode === $kode->kode, // <-- Kunci 'is_active' ada di sini
