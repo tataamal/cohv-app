@@ -249,6 +249,7 @@
                                             <th style="width: 20%;">Description</th>
                                             <th style="width: 8%;">MRP</th>
                                             <th style="width: 7%;">Qty. COGI</th>
+                                            <th style="width: 7%;">UoM</th>
                                             <th style="width: 8%;">S.Loc</th>
                                             <th style="width: 17%;">Date</th>
                                         </tr>
@@ -404,6 +405,7 @@
                             <td>${item.MATNR || '-'}</td>  
                             <td>${item.MAKTX || '-'}</td>  
                             <td>${item.DISPO || '-'}</td> 
+                            <td>${item.ERFMG || '-'}</td> 
                             <td>${(item.MEINS === 'ST' ? 'PC' : (item.MEINS || '-'))}</td>
                             <td>${item.LGORT || '-'}</td> 
                             <td>${dateFormatter(item.BUDAT)}</td>
