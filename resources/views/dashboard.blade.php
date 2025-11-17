@@ -401,10 +401,10 @@
                         <tr class="text-center align-middle" >
                             <td>${rowNumber++}</td>
                             <td>${item.AUFNR || '-'}</td> 
-                            <td>${item.MATNRH || '-'}</td>  
-                            <td>${item.MAKTXH || '-'}</td>  
-                            <td>${item.DISPOH || '-'}</td> 
-                            <td>${ formatQuantity(item) }</td>
+                            <td>${item.MATNR || '-'}</td>  
+                            <td>${item.MAKTX || '-'}</td>  
+                            <td>${item.DISPO || '-'}</td> 
+                            <td>${(item.MEINS === 'ST' ? 'PC' : (item.MEINS || '-'))}</td>
                             <td>${item.LGORT || '-'}</td> 
                             <td>${dateFormatter(item.BUDAT)}</td>
                         </tr>
@@ -763,18 +763,6 @@
             fetchCogiData();
 
         });
-
-        function formatQuantity(item) {
-            if (item.ERFMG == null) {
-                return '-';
-            }
-            const unitsToParse = ['ST', 'PC'];
-
-            if (unitsToParse.includes(item.MEINS)) {
-                return parseInt(item.ERFMG, 10);
-            }
-            return item.ERFMG;
-        }
         
     </script>
 @endpush
