@@ -547,10 +547,46 @@
                             </button>
                         </div>
                     </div>
-                    <div class="mb-3" style="max-width: 320px;">
+                    <div class="mb-3" style="max-width: 450px;"> <!-- Sedikit diperlebar -->
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                            <input type="text" id="realtimeSearchInputTotalPro" placeholder="Cari SO, PRO, Material..." class="form-control border-start-0">
+                            <input type="text" id="realtimeSearchInputTotalPro" placeholder="Cari SO-Item, PRO..." class="form-control">
+                            
+                            <!-- Tombol Multi Filter Material -->
+                            <button class="btn btn-outline-secondary" type="button" id="btnMultiMatnr" data-bs-toggle="modal" data-bs-target="#multiMatnrModal" title="Filter Banyak Material">
+                                <i class="fas fa-layer-group me-1"></i>
+                                <span id="matnrBadge" class="badge bg-primary rounded-pill d-none">0</span>
+                            </button>
+
+                            <!-- TOMBOL BARU: CLEAR FILTER -->
+                            <button class="btn btn-outline-danger" type="button" id="btnClearTotalProFilter" title="Reset Semua Filter & Pencarian">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="multiMatnrModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title"><i class="fas fa-filter me-2"></i>Filter Multi Material</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="small text-muted mb-2">Masukkan kode material (satu per baris). Anda bisa copy-paste langsung dari Excel.</p>
+                                    <div class="form-group">
+                                        <textarea id="multiMatnrInput" class="form-control" rows="10" placeholder="Contoh:&#10;KG-12345&#10;KG-67890&#10;..."></textarea>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-2">
+                                        <small class="text-secondary" id="matnrCountInfo">0 kode terdeteksi</small>
+                                        <button class="btn btn-sm btn-link text-danger text-decoration-none" id="clearMatnrFilter">Hapus Filter</button>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                    <button type="button" class="btn btn-primary" id="applyMatnrFilter">Terapkan Filter</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
