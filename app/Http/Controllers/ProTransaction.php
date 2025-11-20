@@ -30,7 +30,7 @@ class ProTransaction extends Controller
                 'X-SAP-Password' => $sapPass,
             ])->get(env('FLASK_API_URL') . '/api/sap_get_pro_detail', [
                 'plant' => $werksCode,
-                'aufnr' => $proNumber // [BARU] Kirim PRO number
+                'aufnr' => $proNumber 
             ]);
 
             if (!$response->successful()) {
@@ -40,16 +40,36 @@ class ProTransaction extends Controller
 
             $payload = $response->json();
 
-            // 2. Ekstrak data (payload sekarang JAUH lebih kecil)
+            // 2. Ekstrak data
             $T1 = collect($payload['T_DATA1'] ?? []);
-            $T3 = collect($payload['T_DATA3'] ?? []); // Harusnya hanya berisi 1 PRO
+            $T3 = collect($payload['T_DATA3'] ?? []); 
             $T4 = collect($payload['T_DATA4'] ?? []);
 
             $tdata3 = $T3->first(); // Ambil satu-satunya PRO
             
+            // --- [MODIFIKASI DI SINI] ---
             if (!$tdata3) {
-                Log::warning("[ProController] PRO {$proNumber} tidak ditemukan di SAP (payload kosong).");
-                continue; // Lanjut ke PRO berikutnya
+                Log::warning("[ProController] PRO {$proNumber} tidak ditemukan di SAP (payload kosong). Mencoba menghapus data lokal...");
+                
+                try {
+                    // Panggil API Flask untuk menghapus data di DB Lokal
+                    $deleteResponse = Http::post(env('FLASK_API_URL') . '/api/delete-data', [
+                        'pro_list' => [$proNumber] // Sesuai format yang diminta app.py
+                    ]);
+
+                    if ($deleteResponse->successful()) {
+                        Log::info("[ProController] SUKSES sinkronisasi hapus: PRO {$proNumber} dihapus dari DB lokal.");
+                    } else {
+                        Log::error("[ProController] GAGAL sinkronisasi hapus: PRO {$proNumber}. Status API: " . $deleteResponse->status() . " - " . $deleteResponse->body());
+                        
+                        // Opsional: Fallback delete manual via Eloquent jika API gagal
+                        // ProductionTData3::where('AUFNR', $proNumber)->delete();
+                    }
+                } catch (\Exception $e) {
+                    Log::error("[ProController] Exception saat memanggil API delete-data: " . $e->getMessage());
+                }
+
+                continue; // Lanjut ke PRO berikutnya karena data ini invalid
             }
             
             $allFoundProNumbers[] = $proNumber;
@@ -147,7 +167,6 @@ class ProTransaction extends Controller
             return null;
         }
         try {
-            // [PERBAIKAN] Menggunakan Carbon::createFromFormat untuk string 'Ymd'
             return Carbon::createFromFormat('Ymd', trim($sap_date_str))->format('d-m-Y');
         } catch (\Exception $e) {
             Log::info("[ProController] Gagal format tanggal: {$sap_date_str}");
