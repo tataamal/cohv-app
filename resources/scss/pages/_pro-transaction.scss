@@ -253,7 +253,7 @@
 }
 
 /* Kotak modal utama */
-.modal-content {
+.modal-content-search-pro {
     background: #ffffff;
     border-radius: 10px; /* Sudut lebih bulat */
     box-shadow: 0 5px 20px rgba(0,0,0,0.25); /* Shadow lebih jelas */
@@ -266,7 +266,7 @@
 }
 
 /* Header (Ikon dan Judul) */
-.modal-header {
+.modal-header-search-pro {
     display: flex;
     align-items: center;
     padding: 18px 25px;
@@ -286,15 +286,15 @@
     color: #333;
 }
 
-.modal-header.warning {
+.modal-header-search-pro.warning {
     background-color: #fffbeb;
     color: #b45309;
 }
-.modal-header.warning #modalIcon {
+.modal-header-search-pro.warning #modalIcon {
     color: #f59e0b;
 }
 
-.modal-body {
+.modal-body-search-pro {
     padding: 20px 25px;
     max-height: 300px;
     overflow-y: auto;
@@ -326,7 +326,7 @@
 
 
 /* Actions (Tombol) */
-.modal-actions {
+.modal-actions-search-pro {
     display: flex;
     justify-content: flex-end;
     gap: 12px;

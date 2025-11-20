@@ -1,12 +1,12 @@
 <div id="bulkActionModal" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content-search-pro">
         
-        <div id="modalHeader" class="modal-header">
+        <div id="modalHeader" class="modal-header-search-pro">
             <span id="modalIcon"></span>
             <h2 id="modalTitle">Konfirmasi Aksi</h2>
         </div>
         
-        <div class="modal-body">
+        <div class="modal-body-search-pro">
             <p id="modalDescription">Apakah Anda yakin?</p>
             
             <ul id="modalProList" class="mb-3"></ul>
@@ -33,7 +33,7 @@
             </div>
         </div>
 
-        <div class="modal-actions">
+        <div class="modal-actions-search-pro">
             <button id="modalBtnBatal" class="btn btn-secondary">Batal</button>
             <button id="modalBtnLanjutkan" class="btn btn-primary">Lanjutkan</button>
         </div>
