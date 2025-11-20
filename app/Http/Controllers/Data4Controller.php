@@ -149,7 +149,7 @@ class Data4Controller extends Controller
             'rspos' => 'required|string',
             'plant' => 'required|string', // Ditambahkan karena diperlukan untuk sinkronisasi
             'matnr' => 'sometimes|nullable|string',
-            'bdmng' => 'sometimes|nullable|numeric',
+            'bdmng' => 'sometimes|nullable|string',
             'lgort' => 'sometimes|nullable|string',
             'sobkz' => 'sometimes|nullable|in:0,1',
             'charg' => 'sometimes|nullable|string',

@@ -77,10 +77,11 @@
                                 <i class="fa-solid fa-boxes-stacked"></i> Req. Quantity
                             </label>
                             
-                            <input type="number" 
+                            <input type="text" 
                                 class="form-control" 
                                 id="formBdmng" 
-                                name="bdmng" 
+                                name="bdmng"
+                                inputmode="decimal" 
                                 placeholder="Kosongkan jika tidak diubah"
                                 step="any"> 
                         </div>
@@ -121,7 +122,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const quantityInput = document.getElementById("formBdmng");
     const meinsInput = document.getElementById("formMeins");
 
-    // Pastikan semua elemen ditemukan
     if (!dataEntryModal || !quantityInput || !meinsInput) {
         console.error("Satu atau lebih elemen modal (dataEntryModal, formBdmng, formMeins) tidak ditemukan.");
         return;
@@ -129,16 +129,26 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function validateQuantityRules() {
         const meinsValue = meinsInput.value.trim().toUpperCase();
-        
-        if (meinsValue === 'ST') {
-            quantityInput.step = "1";
-            let currentValue = parseFloat(quantityInput.value);
-            if (!isNaN(currentValue) && currentValue % 1 !== 0) {
-                quantityInput.value = Math.round(currentValue);
-            }
-        } else {
-            quantityInput.step = "any";
+        let currentValue = quantityInput.value;
+
+        if (currentValue.includes('.')) {
+            currentValue = currentValue.replace(/\./g, ','); 
+            quantityInput.value = currentValue; 
         }
+        const cleanValue = currentValue.replace(/[^0-9,]/g, '');
+        
+        if (currentValue !== cleanValue) {
+            quantityInput.value = cleanValue;
+            currentValue = cleanValue;
+        }
+
+        let jsValue = parseFloat(currentValue.replace(',', '.'));
+
+        if (meinsValue === 'ST') {
+            if (!isNaN(jsValue) && jsValue % 1 !== 0) {
+                quantityInput.value = Math.round(jsValue);
+            }
+        } 
     }
     quantityInput.addEventListener("input", validateQuantityRules);
     dataEntryModal.addEventListener('show.bs.modal', function() {

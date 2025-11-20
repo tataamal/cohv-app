@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                fetch('/api/bulk/bulk-refresh', { 
+                fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                     body: JSON.stringify({ kode: kodeHalaman, pros: prosToRefresh })
@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) throw new Error('Gagal mengambil data SAP untuk beberapa PRO.');
 
                     const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToRefresh, aggregated_data: sapData.aggregated_data };
-                    return fetch('/api/bulk/save-data', {
+                    return fetch('http://192.168.90.27:4002/api/save-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(saveDataPayload)
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                fetch('/api/bulk/bulk-schedule-pro', { 
+                fetch('http://192.168.90.27:4002/api/bulk-schedule-pro', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                     body: JSON.stringify({ pro_list: prosToRefresh, schedule_date: scheduleDate, schedule_time: scheduleTime + ":00" })
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .then(scheduleData => {
                     Swal.update({ title: '2/3: Mengambil Data Baru...' });
-                    return fetch('/api/bulk/bulk-refresh', { 
+                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                         body: JSON.stringify({ kode: kodeHalaman, pros: prosToRefresh })
@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
                     const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToRefresh, aggregated_data: sapData.aggregated_data };
-                    return fetch('/api/bulk/save-data', {
+                    return fetch('http://192.168.90.27:4002/api/save-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(saveDataPayload)
@@ -377,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                fetch('/api/bulk/bulk-readpp-pro', { 
+                fetch('http://192.168.90.27:4002/api/bulk-readpp-pro', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                     body: JSON.stringify({ pro_list: prosToProcess })
@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (readPpData.error_details && readPpData.error_details.length > 0) throw new Error(`Read PP gagal untuk ${readPpData.error_details.length} PRO.`);
                     Swal.update({ title: '2/3: Mengambil Data Baru...' });
                     
-                    return fetch('/api/bulk/bulk-refresh', { 
+                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                         body: JSON.stringify({ kode: kodeHalaman, pros: prosToProcess })
@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
                     const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToProcess, aggregated_data: sapData.aggregated_data };
-                    return fetch('/api/bulk/save-data', {
+                    return fetch('http://192.168.90.27:4002/api/save-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(saveDataPayload)
@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                fetch('/api/bulk/bulk-change-pv', { 
+                fetch('http://192.168.90.27:4002/api/bulk-change-pv', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                     body: JSON.stringify({ pro_list: prosToProcess, PROD_VERSION: selectedPv })
@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     Swal.update({ title: '2/3: Mengambil Data Baru...' });
                     
-                    return fetch('/api/bulk/bulk-refresh', { 
+                    return fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
                         body: JSON.stringify({ kode: kodeHalaman, pros: prosToProcess })
@@ -493,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
                     const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToProcess, aggregated_data: sapData.aggregated_data };
-                    return fetch('/api/bulk/save-data', {
+                    return fetch('http://192.168.90.27:4002/api/save-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(saveDataPayload)
@@ -583,7 +583,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     const prosToRefresh = ordersToSubmit.map(o => o.AUFNR);
 
-                   fetch('/api/bulk/bulk-refresh', { 
+                   fetch('http://192.168.90.27:4002/api/bulk-refresh', { 
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -613,7 +613,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             aggregated_data: sapData.aggregated_data 
                         };
                         
-                        return fetch('/api/bulk/save-data', {
+                        return fetch('http://192.168.90.27:4002/api/save-data', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(saveDataPayload)
@@ -649,12 +649,113 @@ document.addEventListener('DOMContentLoaded', function() {
             } 
             
             case 'teco':
-                console.log('PROs selected for bulk TECO:', currentPros);
+                if (prosToProcess.length === 0) {
+                    Swal.fire('Error', 'Tidak ada PRO yang dipilih untuk TECO.', 'error');
+                    return;
+                }
+                if (!sapUser || !sapPass) {
+                    Swal.fire('Error', 'Kredensial SAP tidak ditemukan.', 'error');
+                    return;
+                }
+
+                const totalTecoOrders = prosToProcess.length;
+                let processedTecoCount = 0;
+                let successfulTecos = [];
+
                 Swal.fire({
-                    title: 'Maintenance!',
-                    text: 'Fitur masih dalam tahap pengembangan',
-                    icon: 'warning'
-                })
+                    title: '1/2: Memproses TECO di SAP...',
+                    html: `
+                        <p>Memproses ${totalTecoOrders} PRO...</p>
+                        <div class="progress" style="height: 20px; margin-top: 10px;">
+                            <div id="swal-progress-bar" 
+                                 class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" 
+                                 style="width: 0%" 
+                                 aria-valuenow="0" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                        <p id="swal-progress-text" style="margin-top: 5px; font-weight: bold;">0 / ${totalTecoOrders}</p>
+                        <div id="swal-progress-status" style="text-align: left; font-size: 0.8em; margin-top: 10px; height: 40px; overflow-y: auto; border: 1px solid #eee; padding: 5px;">Memulai...</div>
+                    `,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                const handleTecoProgress = (data) => {
+                    processedTecoCount++;
+                    const percentage = Math.round((processedTecoCount / totalTecoOrders) * 100);
+
+                    // Update UI Progress Bar
+                    const progressBar = document.getElementById('swal-progress-bar');
+                    const progressText = document.getElementById('swal-progress-text');
+                    const progressStatus = document.getElementById('swal-progress-status');
+
+                    if (progressBar) {
+                        progressBar.style.width = percentage + '%';
+                        progressBar.setAttribute('aria-valuenow', percentage);
+                    }
+                    if (progressText) {
+                        progressText.textContent = `${processedTecoCount} / ${totalTecoOrders}`;
+                    }
+                    if (progressStatus) {
+                        const statusIcon = data.status === 'success' ? '✅' : '❌';
+                        // Prepend log terbaru agar muncul paling atas
+                        progressStatus.innerHTML = `<div>${statusIcon} ${data.AUFNR}: ${data.message}</div>` + progressStatus.innerHTML;
+                    }
+
+                    if (data.status === 'success') {
+                        successfulTecos.push(data.AUFNR);
+                    }
+                };
+
+                const handleTecoComplete = () => {
+                    if (successfulTecos.length === 0) {
+                        Swal.fire('Gagal', 'Tidak ada PRO yang berhasil di-TECO. Database tidak diubah.', 'error')
+                            .then(() => window.location.reload());
+                        return;
+                    }
+
+                    Swal.update({
+                        title: '2/2: Menghapus Data Lokal...',
+                        html: `Berhasil TECO ${successfulTecos.length} PRO. Sedang menghapus data dari database MySQL...`,
+                        icon: 'info'
+                    });
+
+                    fetch('http://192.168.90.27:4002/api/delete-data', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            pro_list: successfulTecos
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) return response.json().then(err => { throw new Error(err.message || 'Gagal menghapus data DB.'); });
+                        return response.json();
+                    })
+                    .then(deleteResult => {
+                        Swal.close();
+                        showSuccessToast(`Selesai! ${successfulTecos.length} PRO TECO & Dihapus.`);
+                    })
+                    .catch(error => {
+                        Swal.fire({
+                            title: 'Warning',
+                            text: `TECO Sukses di SAP, tetapi gagal menghapus data lokal: ${error.message}`,
+                            icon: 'warning'
+                        }).then(() => window.location.reload());
+                    });
+                };
+
+                const handleTecoError = (error) => {
+                    Swal.fire('Error Fatal', `Terjadi kesalahan saat streaming TECO: ${error.message}`, 'error');
+                };
+
+                callTecoStream(prosToProcess, handleTecoProgress, handleTecoComplete, handleTecoError);
                 break;
             
             default:
@@ -778,7 +879,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         try {
-            const response = await fetch('/api/bulk/change_quantity', {
+            const response = await fetch('http://192.168.90.27:4002/api/change_quantity', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -828,6 +929,74 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error('Terjadi error saat fetch stream:', error);
+            if (onError) {
+                onError(error); 
+            }
+        }
+    }
+
+    async function callTecoStream(proList, onProgress, onComplete, onError) {
+        const sapUser = document.querySelector('meta[name="sap-username"]').getAttribute('content');
+        const sapPass = document.querySelector('meta[name="sap-password"]').getAttribute('content');
+
+        try {
+            const response = await fetch('http://192.168.90.27:4002/api/stream_teco_orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-SAP-Username': sapUser, 
+                    'X-SAP-Password': sapPass
+                },
+                body: JSON.stringify({
+                    pro_list: proList
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                
+                // Simpan sisa buffer yang belum lengkap (baris terakhir yg tidak ada \n)
+                buffer = lines.pop(); 
+
+                for (const line of lines) {
+                    if (line.trim() === '') continue;
+                    try {
+                        const progressData = JSON.parse(line);
+                        
+                        // Cek error fatal dari backend stream
+                        if (progressData.status === 'fatal_error') {
+                            throw new Error(progressData.message);
+                        }
+
+                        if (onProgress) {
+                            onProgress(progressData); 
+                        }
+                    } catch (parseError) {
+                        console.error('Gagal parsing JSON stream line:', line, parseError);
+                    }
+                }
+            }
+
+            // Selesai streaming
+            if (onComplete) {
+                onComplete(); 
+            }
+
+        } catch (error) {
+            console.error('Terjadi error saat TECO stream:', error);
             if (onError) {
                 onError(error); 
             }
