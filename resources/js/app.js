@@ -4,17 +4,20 @@
 
 import './bootstrap';
 import 'bootstrap';
-import './sidebar.js';
+// import './sidebar.js'; // Jika logika sidebar sudah ada di initAppLayout di bawah, ini mungkin redundan
 import * as bootstrap from 'bootstrap';
 window.bootstrap = bootstrap; 
 import jQuery from 'jquery';
 window.$ = window.jQuery = jQuery;
+
+// FullCalendar Imports
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-// [DIUBAH] Pastikan file ini diimpor agar fungsinya tersedia
+
+// Page Scripts
 import './pages/_kelola-pro.js';
 import './pages/_monitoring-pro.js'; 
 import './pages/_dashboard_admin.js';
@@ -32,6 +35,7 @@ window.appLoader = {
         if (this.overlay) this.overlay.classList.add('d-none');
     }
 };
+
 window.addEventListener('load', () => {
     window.appLoader.hide();
 });
@@ -41,41 +45,39 @@ window.addEventListener('load', () => {
 // =================================================================
 document.addEventListener('DOMContentLoaded', function() {
     
-    // ===============================================================
-    // Router Sederhana: Jalankan skrip yang sesuai untuk setiap halaman.
-    // ===============================================================
+    // --- Router Sederhana ---
 
-    // Cek apakah kita berada di HALAMAN LANDING
+    // 1. Halaman Landing
     if (document.getElementById('typing-effect')) {
         console.log('✅ Inisialisasi skrip untuk Halaman Landing...');
-        // Catatan: Pastikan fungsi `runTypingEffect` dan `initializeCalendar` terdefinisi di sini atau diimpor.
-        // Untuk sekarang, saya asumsikan fungsi tersebut ada.
-        // runTypingEffect('typing-effect', 'typing-cursor', "Bagian mana yang ingin anda kerjakan hari ini?");
-        // initializeCalendar();
+        // runTypingEffect(...); 
     }
 
-    // [DIUBAH] Logika untuk dashboard sekarang memanggil fungsi spesifik
+    // 2. Halaman Dashboard
     if (document.querySelector('.stat-value')) {
         console.log('✅ Inisialisasi skrip untuk Halaman Dashboard...');
         document.querySelectorAll('.stat-value').forEach(el => animateCountUp(el));
-        
-        // Panggil fungsi inisialisasi dari file _dashboard_admin.js
-        if (window.initializeDashboardAdmin) {
-            window.initializeDashboardAdmin();
-        }
+        if (window.initializeDashboardAdmin) window.initializeDashboardAdmin();
     }
 
-    // Cek apakah kita berada di LAYOUT APLIKASI UTAMA (yang memiliki sidebar)
+    // 3. Layout Aplikasi (Sidebar)
     if (document.getElementById('sidebar')) {
         console.log('✅ Inisialisasi skrip untuk App Layout...');
         initAppLayout();
     }
 
+    // 4. Halaman Kelola PRO
     if (document.getElementById('wcChart')) {
         console.log('✅ Inisialisasi skrip untuk Halaman Kelola PRO...');
-        if (window.initializeKelolaProPage) {
-            window.initializeKelolaProPage();
-        }
+        if (window.initializeKelolaProPage) window.initializeKelolaProPage();
+    }
+
+    // 5. [BARU] Halaman List GR (Kalender)
+    if (document.getElementById('calendar')) {
+        console.log('✅ Inisialisasi skrip untuk Halaman Calendar GR...');
+        injectCustomStyles();
+        initializeGoodReceiptCalendar(); // Fungsi baru (definisinya ada di bawah)
+        initializeMainDetailTable();     // Fungsi untuk tabel statis di bawah
     }
 });
 
@@ -85,7 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // --- FUNGSI UNTUK APP LAYOUT (SIDEBAR & TOPBAR) ---
 function initAppLayout() {
-    // ... (Fungsi ini tidak berubah, biarkan seperti adanya)
     const body = document.body;
     const sidebar = document.getElementById('sidebar');
     const mobileToggle = document.getElementById('sidebar-mobile-toggle');
@@ -93,8 +94,6 @@ function initAppLayout() {
     const overlay = document.getElementById('sidebar-overlay');
     
     if (!sidebar || !mobileToggle || !collapseToggle || !overlay) return;
-    
-    const dropdownToggles = sidebar.querySelectorAll('[data-bs-toggle="collapse"]');
     
     const checkScreenWidth = () => {
         if (window.innerWidth < 992) {
@@ -105,10 +104,18 @@ function initAppLayout() {
     };
     
     mobileToggle.addEventListener('click', () => body.classList.toggle('sidebar-open'));
-    collapseToggle.addEventListener('click', () => body.classList.toggle('sidebar-collapsed'));
+    
+    collapseToggle.addEventListener('click', () => {
+        body.classList.toggle('sidebar-collapsed');
+        // Trigger event resize agar chart/calendar menyesuaikan diri
+        window.dispatchEvent(new Event('resize')); 
+    });
+
     overlay.addEventListener('click', () => body.classList.remove('sidebar-open'));
     window.addEventListener('resize', checkScreenWidth);
 
+    // Dropdown toggle logic inside sidebar
+    const dropdownToggles = sidebar.querySelectorAll('[data-bs-toggle="collapse"]');
     dropdownToggles.forEach(toggle => {
         toggle.addEventListener('click', function(event) {
             if (body.classList.contains('sidebar-collapsed')) {
@@ -118,26 +125,22 @@ function initAppLayout() {
         });
     });
 
+    // Nav Loader
     const navLoaderLinks = document.querySelectorAll('.nav-loader-link');
     navLoaderLinks.forEach(link => {
         link.addEventListener('click', function(event) {
-            if (!this.getAttribute('href') || this.getAttribute('href') === '#') {
-                return;
-            }
+            if (!this.getAttribute('href') || this.getAttribute('href') === '#') return;
             event.preventDefault();
             const destination = this.href;
             window.appLoader.show();
-            setTimeout(() => {
-                window.location.href = destination;
-            }, 150);
+            setTimeout(() => { window.location.href = destination; }, 150);
         });
     });
     checkScreenWidth();
 }
 
-// --- FUNGSI UNTUK HALAMAN DASHBOARD (Hanya yang global) ---
+// --- FUNGSI ANIMASI ANGKA (DASHBOARD) ---
 function animateCountUp(element) {
-    // ... (Fungsi ini tidak berubah, biarkan seperti adanya)
     const target = parseInt(element.dataset.target, 10);
     if (isNaN(target)) return;
     const duration = 1500;
@@ -155,80 +158,77 @@ function animateCountUp(element) {
     }
     window.requestAnimationFrame(step);
 }
-// [BARU] Fungsi untuk menambahkan style border & sorting indicator ke halaman
+
+// --- FUNGSI CSS INJECTION ---
 function injectCustomStyles() {
-    // Cek agar style tidak ditambahkan berulang kali
     if (document.getElementById('custom-calendar-styles')) return;
 
     const style = document.createElement('style');
     style.id = 'custom-calendar-styles';
     style.textContent = `
         /* Border hijau untuk setiap kotak tanggal di kalender */
-        .fc-daygrid-day {
-            border: 1px solid #c3e6cb !important;
-        }
+        .fc-daygrid-day { border: 1px solid #c3e6cb !important; }
 
-        /* Indikator panah untuk sorting di header tabel utama */
+        /* Indikator panah sorting tabel */
         #main-detail-table thead th.sort-asc::after,
         #main-detail-table thead th.sort-desc::after {
-            font-family: 'bootstrap-icons'; /* Pastikan font Bootstrap Icons dimuat */
-            margin-left: 0.5em;
-            font-size: 0.9em;
-            vertical-align: middle;
+            font-family: 'bootstrap-icons';
+            margin-left: 0.5em; font-size: 0.9em; vertical-align: middle;
         }
-        #main-detail-table thead th.sort-asc::after {
-            content: '\\F537'; /* Kode ikon Bootstrap: arrow-up-short */
-        }
-        #main-detail-table thead th.sort-desc::after {
-            content: '\\F282'; /* Kode ikon Bootstrap: arrow-down-short */
-        }
+        #main-detail-table thead th.sort-asc::after { content: '\\F537'; }
+        #main-detail-table thead th.sort-desc::after { content: '\\F282'; }
     `;
     document.head.appendChild(style);
 }
 
-
+// =================================================================
+// 4. [BARU] LOGIKA KALENDER (FullCalendar)
+// =================================================================
 function initializeGoodReceiptCalendar() {
     const calendarEl = document.getElementById('calendar');
     if (!calendarEl) return;
 
-    injectCustomStyles(); // Panggil fungsi untuk menambahkan border hijau
-
-    // --- Elemen Modal & Helper ---
+    // --- Elemen Modal Detail Tanggal ---
     const modalElement = document.getElementById('detailModal');
     if (!modalElement) return console.error('Modal #detailModal tidak ditemukan.');
+    
     const detailModal = new bootstrap.Modal(modalElement);
     const modalTitle = document.getElementById('modalTitle');
     const modalTableBody = document.getElementById('modal-table-body');
 
+    // --- Formatters ---
     const formatNumber = (num) => new Intl.NumberFormat('id-ID').format(num || 0);
+    
+    // [PENTING] Formatter USD
+    const formatCurrency = (num) => new Intl.NumberFormat('en-US', {
+        style: 'currency', currency: 'USD', minimumFractionDigits: 2
+    }).format(num || 0);
+
     const formatDate = (dateStr) => {
         if (!dateStr || dateStr === '0000-00-00') return '-';
         return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
+            day: '2-digit', month: 'short', year: 'numeric'
         });
     };
 
-    // --- [STATE] Variabel untuk data & status sorting modal ---
+    // --- State & Render Logic Modal ---
     let currentModalData = [];
-    let sortState = { key: 'BUDAT_MKPF', order: 'desc' }; // Default sort
+    let sortState = { key: 'BUDAT_MKPF', order: 'desc' };
 
-    // --- [HELPER] Fungsi untuk merender konten modal (responsif & sorting) ---
     function renderModalContent() {
         modalTableBody.innerHTML = '';
         const isMobile = window.innerWidth < 768;
-
         const thead = modalElement.querySelector('thead');
         if (thead) thead.style.display = isMobile ? 'none' : '';
 
-        // Logika Sorting Data
+        // Sorting
         currentModalData.sort((a, b) => {
             const valA = a[sortState.key];
             const valB = b[sortState.key];
-
             let comparison = 0;
-            if (sortState.key === 'PSMNG' || sortState.key === 'MENGE') {
+            // Cek apakah angka (untuk quantity) atau string
+            // [UPDATE] Gunakan WEMNG untuk sorting Quantity GR
+            if (sortState.key === 'PSMNG' || sortState.key === 'WEMNG') {
                 comparison = (Number(valA) || 0) - (Number(valB) || 0);
             } else {
                 comparison = String(valA || '').localeCompare(String(valB || ''));
@@ -236,10 +236,12 @@ function initializeGoodReceiptCalendar() {
             return sortState.order === 'asc' ? comparison : -comparison;
         });
 
-        // Loop dan Render HTML
+        // Render Rows/Cards
         currentModalData.forEach(item => {
             let contentHtml = '';
+            // [UPDATE] Gunakan item.WEMNG untuk Quantity GR
             if (isMobile) {
+                // Tampilan Card untuk Mobile
                 contentHtml = `
                     <div class="modal-card">
                         <div class="modal-card-header">
@@ -251,11 +253,12 @@ function initializeGoodReceiptCalendar() {
                             <div class="modal-card-grid">
                                 <div><strong>Sales Order:</strong></div> <div>${item.KDAUF || '-'} (${item.KDPOS || '-'})</div>
                                 <div><strong>Qty PRO:</strong></div> <div>${formatNumber(item.PSMNG)}</div>
-                                <div><strong>Qty GR:</strong></div> <div class="fw-bold text-success">${formatNumber(item.MENGE)}</div>
+                                <div><strong>Qty GR:</strong></div> <div class="fw-bold text-success">${formatNumber(item.WEMNG)}</div>
                             </div>
                         </div>
                     </div>`;
             } else {
+                // Tampilan Table Row untuk Desktop
                 contentHtml = `
                     <tr>
                         <td class="text-center align-middle small fw-medium">${item.AUFNR || '-'}</td>
@@ -263,7 +266,7 @@ function initializeGoodReceiptCalendar() {
                         <td class="text-center align-middle"><span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">${item.KDAUF || '-'}</span></td>
                         <td class="text-center align-middle"><span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">${item.KDPOS || '-'}</span></td>
                         <td class="text-center align-middle small">${formatNumber(item.PSMNG)}</td>
-                        <td class="text-center align-middle small fw-bold text-success">${formatNumber(item.MENGE)}</td>
+                        <td class="text-center align-middle small fw-bold text-success">${formatNumber(item.WEMNG)}</td>
                         <td class="text-center align-middle"><span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">${formatDate(item.BUDAT_MKPF)}</span></td>
                     </tr>`;
             }
@@ -271,48 +274,41 @@ function initializeGoodReceiptCalendar() {
         });
     }
 
-    // --- [SETUP] Fungsi untuk event listener di header tabel ---
-    function setupModalSorting() {
-        modalElement.querySelectorAll('thead th[data-sort-key]').forEach(header => {
-            header.addEventListener('click', () => {
-                const key = header.dataset.sortKey;
-                const currentOrder = sortState.key === key ? sortState.order : 'desc';
-                sortState.key = key;
-                sortState.order = currentOrder === 'desc' ? 'asc' : 'desc';
-                renderModalContent();
-            });
+    // Setup Header Click Sorting
+    modalElement.querySelectorAll('thead th[data-sort-key]').forEach(header => {
+        header.addEventListener('click', () => {
+            const key = header.dataset.sortKey;
+            const currentOrder = sortState.key === key ? sortState.order : 'desc';
+            sortState.key = key;
+            sortState.order = currentOrder === 'desc' ? 'asc' : 'desc';
+            renderModalContent();
         });
-    }
+    });
 
-    // --- Inisialisasi FullCalendar ---
+    // --- FullCalendar Init ---
     const calendar = new Calendar(calendarEl, {
         plugins: [dayGridPlugin, interactionPlugin],
         initialView: 'dayGridMonth',
         headerToolbar: {
-            left: 'prev',
-            center: 'title',
-            right: 'next today'
+            left: 'prev', center: 'title', right: 'next today'
         },
-        dayHeaderFormat: {
-            weekday: 'narrow'
-        },
+        dayHeaderFormat: { weekday: 'narrow' },
         events: window.processedCalendarData || [],
 
+        // 1. Tampilan Kartu di Kalender
         eventContent: function (arg) {
             const grCount = arg.event.extendedProps.totalGrCount;
             const formattedGrCount = formatNumber(grCount);
             let eventCardEl = document.createElement('div');
             eventCardEl.classList.add('fc-event-card-gr');
             eventCardEl.innerHTML = `GR: <span class="fw-bold">${formattedGrCount}</span>`;
-            return {
-                domNodes: [eventCardEl]
-            };
+            return { domNodes: [eventCardEl] };
         },
 
+        // 2. Popover (Hover)
         eventDidMount: function (info) {
             info.el.style.cursor = 'pointer';
             const props = info.event.extendedProps;
-
             if (!props || !props.dispoBreakdown) return;
 
             const dispoBreakdownHtml = props.dispoBreakdown.map(item =>
@@ -322,6 +318,7 @@ function initializeGoodReceiptCalendar() {
                 </div>`
             ).join('');
 
+            // [FIX] Menggunakan formatCurrency (USD) untuk Total Value
             const popoverContent = `
                 <div class="popover-summary">
                     <div class="d-flex justify-content-between">
@@ -334,7 +331,7 @@ function initializeGoodReceiptCalendar() {
                     </div>
                     <div class="d-flex justify-content-between mb-2">
                         <span>Total Value:</span>
-                        <span class="fw-bold">${formatNumber(props.totalValue)}</span>
+                        <span class="fw-bold text-primary">${formatCurrency(props.totalValue)}</span>
                     </div>
                     <hr class="my-1">
                     <div class="fw-semibold small mb-1">Breakdown per MRP:</div>
@@ -352,19 +349,37 @@ function initializeGoodReceiptCalendar() {
             });
         },
 
+        // 3. Klik Tanggal -> Buka Modal
+        // [PERBAIKAN] Data di grouping berdasarkan AUFNR agar unik di modal
         eventClick: function (info) {
             const eventDetails = info.event.extendedProps.details;
             if (!eventDetails || !eventDetails.length) return;
 
-            currentModalData = [...eventDetails];
-            sortState = { key: 'BUDAT_MKPF', order: 'desc' };
+            // --- AGREGASI DATA ---
+            // Menggabungkan transaksi dengan AUFNR yang sama menjadi satu baris
+            const groupedData = {};
+            eventDetails.forEach(item => {
+                const key = item.AUFNR;
+                // [PERBAIKAN UTAMA] Gunakan WEMNG (Qty Aktual GR)
+                const currentWemng = parseFloat(item.WEMNG) || 0;
+                
+                if (!groupedData[key]) {
+                    // Copy object, set WEMNG awal
+                    groupedData[key] = { ...item, WEMNG: currentWemng };
+                } else {
+                    // Akumulasi WEMNG
+                    groupedData[key].WEMNG += currentWemng;
+                }
+            });
+
+            // Konversi kembali object ke array untuk ditampilkan
+            currentModalData = Object.values(groupedData);
+            
+            sortState = { key: 'BUDAT_MKPF', order: 'desc' }; // Reset sort
 
             const eventDate = info.event.start;
             modalTitle.textContent = 'Detail GR: ' + eventDate.toLocaleDateString('id-ID', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
             });
 
             renderModalContent();
@@ -373,19 +388,19 @@ function initializeGoodReceiptCalendar() {
     });
 
     calendar.render();
-    setupModalSorting();
 
+    // Resize Helper jika sidebar di-toggle
     const sidebarToggle = document.querySelector('#sidebar-collapse-toggle');
     if (sidebarToggle) {
         sidebarToggle.addEventListener('click', () => {
-            setTimeout(() => {
-                calendar.updateSize();
-            }, 350);
+            setTimeout(() => calendar.updateSize(), 350);
         });
     }
 }
 
-// --- [DIPERBARUI] FUNGSI UNTUK MENGELOLA TABEL DETAIL UTAMA ---
+// =================================================================
+// 5. FUNGSI UNTUK MENGELOLA TABEL DETAIL UTAMA (STATIS DI BAWAH)
+// =================================================================
 function initializeMainDetailTable() {
     const table = document.getElementById('main-detail-table');
     if (!table) return;
@@ -393,14 +408,17 @@ function initializeMainDetailTable() {
     const tbody = table.querySelector('tbody');
     const headers = table.querySelectorAll('thead th[data-sort-key]');
     const initialRows = Array.from(tbody.querySelectorAll('tr.detail-row'));
-    if (initialRows.length === 0) return; // Keluar jika tidak ada data
+    if (initialRows.length === 0) return;
 
+    // Modal Item Detail (untuk klik baris tabel di mobile)
     const itemDetailModalEl = document.getElementById('itemDetailModal');
     const itemDetailContentEl = document.getElementById('itemDetailContent');
-    if (!itemDetailModalEl || !itemDetailContentEl) return;
+    let itemDetailModal = null;
+    if (itemDetailModalEl && itemDetailContentEl) {
+        itemDetailModal = new bootstrap.Modal(itemDetailModalEl);
+    }
     
-    const itemDetailModal = new bootstrap.Modal(itemDetailModalEl);
-    
+    // Parsing Data dari DOM
     let tableData = initialRows.map(row => {
         const cells = row.querySelectorAll('td');
         return {
@@ -408,8 +426,10 @@ function initializeMainDetailTable() {
             MAKTX: row.dataset.material,
             KDAUF: row.dataset.so,
             KDPOS: row.dataset.soItem,
+            // Parsing angka format ID (hapus titik, ganti koma dengan titik)
             PSMNG: parseFloat(cells[4].textContent.replace(/\./g, '').replace(',', '.')) || 0,
-            MENGE: parseFloat(cells[5].textContent.replace(/\./g, '').replace(',', '.')) || 0,
+            // [UPDATE] Penamaan properti diganti ke WEMNG (Quantity GR)
+            WEMNG: parseFloat(cells[5].textContent.replace(/\./g, '').replace(',', '.')) || 0,
             BUDAT_MKPF: row.dataset.postingDate,
             element: row
         };
@@ -438,23 +458,27 @@ function initializeMainDetailTable() {
             }
             return tableSortState.order === 'asc' ? comparison : -comparison;
         });
-
         tbody.innerHTML = '';
         tableData.forEach(item => tbody.appendChild(item.element));
     }
     
+    // Event Listener Sorting
     headers.forEach(header => {
         header.addEventListener('click', () => {
             const key = header.dataset.sortKey;
-            tableSortState.order = (tableSortState.key === key && tableSortState.order === 'asc') ? 'desc' : 'asc';
-            tableSortState.key = key;
+            // Jika sorting key adalah MENGE (dari html lama), map ke WEMNG di data kita
+            const dataKey = (key === 'MENGE') ? 'WEMNG' : key;
+
+            tableSortState.order = (tableSortState.key === dataKey && tableSortState.order === 'asc') ? 'desc' : 'asc';
+            tableSortState.key = dataKey;
             updateSortIndicator();
             renderTableBody();
         });
     });
 
+    // Event Listener Klik Baris (Khusus Mobile)
     tbody.addEventListener('click', function(e) {
-        if (window.innerWidth < 768) {
+        if (window.innerWidth < 768 && itemDetailModal) {
             const row = e.target.closest('tr.detail-row');
             if (row) {
                 const { material, so, soItem, postingDate } = row.dataset;
@@ -462,10 +486,8 @@ function initializeMainDetailTable() {
                     <div class="modal-card-body p-2">
                         <p class="mb-3">${material}</p>
                         <div class="modal-card-grid">
-                            <div><strong>Sales Order:</strong></div>
-                            <div>${so} (${soItem})</div>
-                            <div><strong>Tgl. Posting:</strong></div>
-                            <div>${postingDate}</div>
+                            <div><strong>Sales Order:</strong></div> <div>${so} (${soItem})</div>
+                            <div><strong>Tgl. Posting:</strong></div> <div>${postingDate}</div>
                         </div>
                     </div>`;
                 itemDetailModal.show();
@@ -473,13 +495,10 @@ function initializeMainDetailTable() {
         }
     });
 
-    // Terapkan sort default saat pertama kali dimuat
+    // Init sort awal
     updateSortIndicator();
 }
 
-
-// Panggil kedua fungsi utama setelah halaman dimuat
-document.addEventListener('DOMContentLoaded', function () {
-    initializeGoodReceiptCalendar();
-    initializeMainDetailTable();
-});
+// Ekspor global jika diperlukan oleh modul lain (opsional)
+window.initializeGoodReceiptCalendar = initializeGoodReceiptCalendar;
+window.initializeMainDetailTable = initializeMainDetailTable;

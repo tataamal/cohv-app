@@ -31,7 +31,7 @@ MRP_MAPPING = {
     '1000': ['GW1', 'GW2', 'GW3', 'PN1', 'PN2', 'PV1', 'PV2', 'RW1', 'RW3', 'SM1', 'VN1', 'VN2', 'WE1', 'WE2', 'WM1', 'WW1', 'WW2', 'WW3'],
     '1200': ['WH1'],
     '2000': ['C11', 'C12', 'CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH7', 'CH8', 'CP1', 'CP2', 'CP3', 'CSK', 'EB2', 'GA1', 'GA2', 'GD1', 'GD2', 'GF1', 'GF2', 'GT1', 'GT2', 'GT3', 'GT4', 'GT5', 'GT6', 'GT7', 'GW1', 'GW2', 'GW3', 'MF1', 'MF2', 'MF3', 'MF4', 'MW1', 'MW2', 'MW3', 'RD2', 'RD3', 'RD4', 'RD5', 'UH1', 'UH2'],
-    '3000': ['D21', 'D22', 'D23', 'D24', 'D26', 'D27', 'D28', 'DR1', 'DR2', 'DR3', 'G31', 'MA1', 'MA2', 'MA3', 'MA4', 'MA5', 'MA7', 'MF1', 'MF2', 'MF3', 'MS1', 'MS3', 'MS4', 'MW1', 'MW2', 'MW3', 'PG1', 'PG2', 'PG3']
+    '3000': ['D21', 'D22', 'D23', 'D24', 'D26', 'D27', 'D28', 'D31', 'DR1', 'DR2', 'DR3', 'G31', 'G32', 'MA1', 'MA2', 'MA3', 'MA4', 'MA5', 'MA7', 'MF1', 'MF2', 'MF3', 'MF4', 'MS1', 'MS3', 'MS4', 'MW1', 'MW2', 'MW3', 'PG1', 'PG2', 'PG3']
 }
 
 
@@ -94,9 +94,9 @@ def connect_mysql():
     """Membuka koneksi ke MySQL menggunakan PyMySQL."""
     try:
         cnx = pymysql.connect(
-            host=os.getenv('DB_HOST', '192.168.90.105'),
-            user=os.getenv('DB_USERNAME', 'python_client'),
-            password=os.getenv('DB_PASSWORD', 'singgampang'),
+            host=os.getenv('DB_HOST', '127.0.0.1'),
+            user=os.getenv('DB_USERNAME', 'root'),
+            password=os.getenv('DB_PASSWORD', 'root'),
             database=os.getenv('DB_DATABASE', 'cohv_app'),
             charset='utf8mb4',
             autocommit=False
@@ -280,7 +280,7 @@ def run_historical_sync():
     logger.info("===== MEMULAI SINKRONISASI DATA HISTORIS (PER BULAN) =====")
 
     # 1. Tentukan tanggal mulai dan akhir global
-    current_date_tracker = datetime(2025, 9, 1) # <--- PERBAIKAN (INI YANG ERROR)
+    current_date_tracker = datetime(2025, 11, 1) # <--- PERBAIKAN (INI YANG ERROR)
     today = datetime.now() # <--- PERBAIKAN
     yesterday = today - timedelta(days=1) # <--- PERBAIKAN
 

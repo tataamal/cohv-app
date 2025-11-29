@@ -295,12 +295,15 @@ class ManufactController extends Controller
                 'error' => 'Kode "' . $kode . '" tidak ditemukan.'
             ]);
         }
-        $mrpList = Mrp::where('kode_id', $kodeModel->id)->pluck('mrp');
+        $mrpList = Mrp::where('kode', $kode)->pluck('mrp');
         if ($mrpList->isEmpty()) {
             return view('Admin.list-gr', [
                 'kode' => $kode,
                 'dataGr' => collect(),
                 'processedData' => collect(),
+                'nama_bagian'   => $nama_bagian,
+                'sub_kategori'  => $sub_kategori,
+                'kategori'      => $kategori,
                 'error' => 'Tidak ada MRP yang terhubung dengan kode ' . $kode
             ]);
         }
@@ -309,7 +312,7 @@ class ManufactController extends Controller
         $dataGr = Gr::whereIn('DISPO', $mrpList)
             ->select(
                 'AUFNR', 'MAKTX', 'KDAUF', 'KDPOS', 'PSMNG',
-                'MENGE', 'MEINS', 'BUDAT_MKPF', 'DISPO'
+                'MENGE', 'MEINS', 'BUDAT_MKPF', 'DISPO', 'WEMNG', 'NETPR',
             )
             ->orderBy('BUDAT_MKPF', 'desc')
             ->get();
@@ -320,31 +323,34 @@ class ManufactController extends Controller
 
         $calendarEvents = [];
         foreach ($groupedByDate as $date => $dailyRecords) {
+            
             $totalPro = $dailyRecords->unique('AUFNR')->count();
-            $totalGrCount = $dailyRecords->sum('MENGE');
-            // Asumsi Value adalah SUM dari MENGE * (harga satuan). Sesuaikan ini.
+
+            $totalGrCount = $dailyRecords->sum('WEMNG');
+
             $totalValue = $dailyRecords->sum(function($item) {
-                return $item->MENGE * 10; // Contoh: Asumsi harga satuan 10, ganti sesuai logika Anda
+                // Pastikan tipe datanya numerik untuk menghindari error
+                $harga = $item->NETPR ?? 0; 
+                $qty   = $item->WEMNG ?? 0;
+                return $harga * $qty;
             });
 
-            // Breakdown per DISPO
+            // Update Breakdown per DISPO juga agar konsisten menggunakan WEMNG
             $dispoBreakdown = $dailyRecords->groupBy('DISPO')->map(function ($items, $dispo) {
                 return [
                     'dispo' => $dispo,
-                    'gr_count' => $items->sum('MENGE')
+                    'gr_count' => $items->sum('WEMNG') // Gunakan WEMNG agar sama dengan total utama
                 ];
-            })->values()->all(); // Mengambil hanya value dan mengubahnya jadi array numerik objek
+            })->values()->all();
 
             $calendarEvents[] = [
-                'title'   => '', // Biarkan kosong, kita akan render sepenuhnya dengan eventContent
+                'title'   => '', 
                 'start'   => $date,
-                // 'color'   => '#6f42c1', // Hapus atau jadikan komentar baris ini agar warna default (putih/transparan)
                 'details' => $dailyRecords->toArray(),
-
                 'extendedProps' => [
-                    'totalPro' => $totalPro,
-                    'totalGrCount' => $totalGrCount,
-                    'totalValue' => $totalValue,
+                    'totalPro'       => $totalPro,
+                    'totalGrCount'   => $totalGrCount,
+                    'totalValue'     => $totalValue, // Hasil kali NETPR * WEMNG
                     'dispoBreakdown' => $dispoBreakdown,
                 ]
             ];

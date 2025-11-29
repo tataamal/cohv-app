@@ -14,6 +14,6 @@ class MRP extends Model
 
     public function kode()
     {
-        return $this->belongsTo(Kode::class, 'kode_id');
+        return $this->belongsTo(Kode::class, 'kode');
     }
 }

@@ -85,7 +85,7 @@ class UserandKodeSeeder extends Seeder
                         // MRP dibuat baru karena berelasi dengan Kode yang baru dibuat.
                         MRP::create([
                             'mrp' => $mrp_val,
-                            'kode_id' => $kode->id
+                            'kode' => $kode->id
                         ]);
                     }
                 }

@@ -1,7 +1,7 @@
 <x-layouts.app title="List GR - PT. Kayu Mebel Indonesia">
     @push('styles')
     <style>
-        /* === Kontainer & Header (Tidak Berubah) === */
+        /* === Kontainer & Header === */
         #calendar {
             border: none; background-color: #fff; border-radius: 1rem; padding: 1.5rem;
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.1);
@@ -11,22 +11,22 @@
         .fc .fc-button { background: transparent !important; border: none !important; box-shadow: none !important; color: #888; }
         .fc .fc-button-primary { color: #fff !important; background-color: #6c757d !important; }
         
-        /* === Grid & Teks Tanggal (Tidak Berubah) === */
+        /* === Grid & Teks Tanggal === */
         .fc .fc-view, .fc .fc-scrollgrid { border: none !important; }
         .fc-daygrid-day { border: none !important; }
-        .fc .fc-daygrid-day-number { font-size: 0.875rem; color: #555; padding: 0.5rem; }
+        .fc .fc-daygrid-day-number { font-size: 0.875rem; color: #555; padding: 4px; float: right; }
     
-        /* ✨ [PERBAIKAN] Aturan CSS untuk hari Minggu dibuat lebih kuat */
+        /* Styling Hari Minggu */
         #calendar .fc-day-sun > .fc-daygrid-day-frame {
-            background-color: rgba(220, 53, 69, 0.07) !important; /* Latar belakang merah sangat lembut */
+            background-color: rgba(220, 53, 69, 0.07) !important;
             border-radius: 0.5rem;
         }
         #calendar .fc-day-sun a.fc-daygrid-day-number {
-            color: #b02a37 !important; /* Teks angka merah tua */
+            color: #b02a37 !important;
             font-weight: 600;
         }
     
-        /* Lingkaran untuk Hari Ini (Tidak Berubah) */
+        /* Lingkaran Hari Ini */
         .fc .fc-day-today > .fc-daygrid-day-frame { background-color: transparent; }
         .fc .fc-day-today .fc-daygrid-day-number {
             background-color: #0d6efd; color: #fff; width: 28px; height: 28px;
@@ -34,100 +34,61 @@
             align-items: center; padding: 0; margin: 0.25rem auto 0;
         }
         
-        /* Event Titik (Tidak Berubah) */
+        /* Event Styling */
         .fc-daygrid-day-events { display: flex; justify-content: center; padding-bottom: 5px; }
-        .fc-event-dot-custom { width: 6px; height: 6px; background-color: #0d6efd; border-radius: 50%; }
-        .fc-day-sun .fc-event-dot-custom { background-color: #b02a37; }
-        .fc-day-today .fc-event-dot-custom { background-color: #0d6efd; }
-    
-        /* Penyesuaian Ukuran untuk Mobile (Tidak Berubah) */
-        @media (max-width: 576px) {
-            #calendar { padding: 0.75rem; font-size: 0.7rem; }
-            .fc .fc-toolbar-title { font-size: 1rem; }
-            .fc .fc-daygrid-day-number { padding: 2px; font-size: 0.65rem; }
-            .fc .fc-day-today .fc-daygrid-day-number { width: 20px; height: 20px; margin-top: 2px; }
-            .fc-event-dot-custom { width: 4px; height: 4px; }
-            .fc-col-header-cell-cushion { font-size: 0.7rem; }
-        }
-        .popover {
-            max-width: 300px; /* Atur lebar maksimal popover */
-        }
+        
+        /* Popover Styling */
+        .popover { max-width: 320px; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); border: none; }
+        .popover-header { font-weight: 600; font-size: 0.95rem; background-color: #f8f9fa; border-bottom: 1px solid #eee; }
+        .popover-body { font-size: 0.85rem; padding: 1rem; color: #444; }
 
-        .popover-header {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        .popover-body {
-            font-size: 0.85rem;
-            padding: 0.75rem;
-        }
-        /* [BARU] Styling untuk kartu event GR */
+        /* Kartu Event di Kalender */
         .fc-event-card-gr {
-            background-color: #e7f5ff; /* Warna biru muda */
-            border: 1px solid #b3d9ff; /* Border biru yang lebih gelap */
-            color: #0056b3; /* Warna teks biru tua */
+            background-color: #e7f5ff;
+            border: 1px solid #b3d9ff;
+            color: #0056b3;
             border-radius: 4px;
-            padding: 2px 6px;
-            font-size: 0.7rem;
-            line-height: 1.4;
+            padding: 3px 6px;
+            font-size: 0.75rem;
+            line-height: 1.3;
             text-align: center;
             overflow: hidden;
             white-space: nowrap;
+            transition: transform 0.1s;
+            cursor: pointer;
         }
+        .fc-event-card-gr:hover { transform: scale(1.02); }
 
-        /* [BARU] Aturan warna event untuk hari Minggu */
+        /* Event Minggu */
         .fc-day-sun .fc-event-card-gr {
             background-color: #fbeaea;
             border-color: #f5c6cb;
             color: #721c24;
         }
 
-        /* [BARU] Penyesuaian padding untuk angka tanggal */
-        .fc .fc-daygrid-day-number {
-            font-size: 0.875rem;
-            color: #555;
-            padding: 4px; /* Memberi jarak dari tepian */
-            float: right; /* Memastikan posisi tetap di kanan */
-        }
-        /* [BARU] CSS untuk Tampilan Kartu di Modal Mobile */
+        /* Modal Card Mobile */
         .modal-card {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 0.5rem;
-            margin: 0.75rem;
+            background-color: #f8f9fa; border: 1px solid #dee2e6;
+            border-radius: 0.5rem; margin: 0.75rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-
         .modal-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0.75rem;
-            background-color: #fff;
-            border-bottom: 1px solid #dee2e6;
-            border-top-left-radius: 0.5rem;
-            border-top-right-radius: 0.5rem;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.5rem 0.75rem; background-color: #fff;
+            border-bottom: 1px solid #dee2e6; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem;
         }
+        .modal-card-body { padding: 0.75rem; font-size: 0.9rem; }
+        .modal-card-grid { display: grid; grid-template-columns: 100px 1fr; gap: 0.5rem; }
 
-        .modal-card-body {
-            padding: 0.75rem;
-            font-size: 0.9rem;
-        }
-
-        .modal-card-body p {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: #343a40;
-        }
-
-        .modal-card-grid {
-            display: grid;
-            grid-template-columns: 100px 1fr; /* Kolom label dan kolom nilai */
-            gap: 0.5rem;
+        /* Media Queries */
+        @media (max-width: 576px) {
+            #calendar { padding: 0.75rem; font-size: 0.7rem; }
+            .fc .fc-toolbar-title { font-size: 1rem; }
+            .fc-event-card-gr { font-size: 0.65rem; padding: 1px 2px; }
         }
     </style>
     @endpush
+
     <div class="mb-4">
         <div class="card shadow-sm p-3">
             <div class="d-lg-flex align-items-center justify-content-between">
@@ -165,6 +126,7 @@
     </div>
 
     <div class="row g-4">
+        <!-- Kalender Section -->
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header bg-light-subtle d-flex justify-content-between align-items-center">
@@ -172,7 +134,7 @@
                         <h3 class="h6 card-title mb-1">Kalender Good Receipt</h3>
                         <p class="card-subtitle text-muted small">Klik pada tanggal untuk melihat detail lengkap</p>
                     </div>
-                     <div class="d-flex align-items-center justify-content-center text-primary-emphasis bg-primary-subtle border border-primary-subtle" style="width: 32px; height: 32px; border-radius: 0.5rem;">
+                    <div class="d-flex align-items-center justify-content-center text-primary-emphasis bg-primary-subtle border border-primary-subtle" style="width: 32px; height: 32px; border-radius: 0.5rem;">
                         <i class="bi bi-calendar-week"></i>
                     </div>
                 </div>
@@ -182,6 +144,7 @@
             </div>
         </div>
 
+        <!-- Tabel Detail Section -->
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header bg-light-subtle d-flex justify-content-between align-items-center">
@@ -238,7 +201,7 @@
             </div>
         </div>
         
-        <!-- [BARU] MODAL UNTUK POPUP DETAIL ITEM DI MOBILE -->
+        <!-- Modal Detail Item Mobile -->
         <div class="modal fade" id="itemDetailModal" tabindex="-1" aria-labelledby="itemDetailModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
@@ -247,15 +210,14 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body pt-0">
-                        <div id="itemDetailContent">
-                            <!-- Konten akan diisi oleh JavaScript -->
-                        </div>
+                        <div id="itemDetailContent"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Modal Detail Tanggal -->
     <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
@@ -278,7 +240,7 @@
                                 </tr>
                             </thead>
                             <tbody id="modal-table-body">
-                                </tbody>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -289,13 +251,8 @@
         </div>
     </div>
 
+    {{-- Data Injection untuk JS --}}
     <script>
         window.processedCalendarData = @json($processedData ?? []);
-    </script>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeGoodReceiptCalendar();
-        });
     </script>
 </x-layouts.app>

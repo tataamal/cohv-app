@@ -30,9 +30,9 @@ def load_config():
         'sap_sysnr': '01',
         'sap_client': '300',
 
-        'db_host': '192.168.90.105',
-        'db_user': 'python_client',
-        'db_passwd': 'singgampang',
+        'db_host': '127.0.0.1',
+        'db_user': 'root',
+        'db_passwd': 'root',
         'db_name': 'cohv_app',
         'db_port': 3306,
 

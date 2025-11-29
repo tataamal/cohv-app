@@ -34,8 +34,8 @@ class CogiController extends Controller
         
         if ($kodeModels->isNotEmpty()) {
             
-            $kodeIds = $kodeModels->pluck('id');
-            $mrpList = MRP::whereIn('kode_id', $kodeIds)
+            $kodeIds = $kodeModels->pluck('kode');
+            $mrpList = MRP::whereIn('kode', $kodeIds)
                             ->pluck('mrp')
                             ->unique()
                             ->toArray();

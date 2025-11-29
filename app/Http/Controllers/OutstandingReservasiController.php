@@ -22,7 +22,7 @@ class OutstandingReservasiController extends Controller
         try {
             $outstandingData = DB::table('production_t_data4')
                 ->join('mrps', 'production_t_data4.DISPO', '=', 'mrps.mrp')
-                ->join('kodes', 'mrps.kode_id', '=', 'kodes.id') 
+                ->join('kodes', 'mrps.kode', '=', 'kodes.id') 
                 ->select(
                     'production_t_data4.RSNUM',
                     'production_t_data4.RSPOS',
