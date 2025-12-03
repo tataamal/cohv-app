@@ -35,7 +35,7 @@
             'active_on' => ['search.stock*'] 
         ],
         [
-            'name' => 'Outstanding Reservasi',
+            'name' => 'Create WI',
             'route_name' => 'outstanding.reservasi', 
             'active_on' => ['outstanding.reservasi*']
         ]

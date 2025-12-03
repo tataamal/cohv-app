@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use App\Models\wc_relations;
 use App\Models\workcenter;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ManufactController extends Controller
 {
@@ -283,10 +284,12 @@ class ManufactController extends Controller
 
     public function list_gr($kode)
     {
+        // 1. Cek Kode Model
         $kodeModel = Kode::where('kode', $kode)->first();
         $kategori = Kode::where('kode', $kode)->value('kategori');
         $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
         $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
+
         if (!$kodeModel) {
             return view('Admin.list-gr', [
                 'kode' => $kode,
@@ -295,7 +298,10 @@ class ManufactController extends Controller
                 'error' => 'Kode "' . $kode . '" tidak ditemukan.'
             ]);
         }
+
+        // 2. Cek MRP List (INI HARUS DI ATAS, SEBELUM QUERY GR)
         $mrpList = Mrp::where('kode', $kode)->pluck('mrp');
+
         if ($mrpList->isEmpty()) {
             return view('Admin.list-gr', [
                 'kode' => $kode,
@@ -308,50 +314,70 @@ class ManufactController extends Controller
             ]);
         }
 
-        // [PERBAIKAN 1] Ambil data mentah untuk tabel utama
+        // 3. Ambil Data GR
         $dataGr = Gr::whereIn('DISPO', $mrpList)
             ->select(
                 'AUFNR', 'MAKTX', 'KDAUF', 'KDPOS', 'PSMNG',
                 'MENGE', 'MEINS', 'BUDAT_MKPF', 'DISPO', 'WEMNG', 'NETPR',
+                'ARBPL', 'WAERS' // Wajib ada untuk grouping workcenter
             )
             ->orderBy('BUDAT_MKPF', 'desc')
             ->get();
 
+        // 4. Grouping Data
         $groupedByDate = $dataGr->groupBy(function($item) {
             return Carbon::parse($item->BUDAT_MKPF)->format('Y-m-d');
         });
 
         $calendarEvents = [];
+
         foreach ($groupedByDate as $date => $dailyRecords) {
             
             $totalPro = $dailyRecords->unique('AUFNR')->count();
-
-            $totalGrCount = $dailyRecords->sum('WEMNG');
+            
+            // Konsisten pakai MENGE (Quantity Received) agar sesuai dengan hitungan di bawah
+            $totalGrCount = $dailyRecords->sum('MENGE'); 
 
             $totalValue = $dailyRecords->sum(function($item) {
-                // Pastikan tipe datanya numerik untuk menghindari error
                 $harga = $item->NETPR ?? 0; 
-                $qty   = $item->WEMNG ?? 0;
+                $qty   = $item->MENGE ?? 0; // Pakai WEMNG
                 return $harga * $qty;
             });
 
-            // Update Breakdown per DISPO juga agar konsisten menggunakan WEMNG
+            // A. Breakdown per DISPO
             $dispoBreakdown = $dailyRecords->groupBy('DISPO')->map(function ($items, $dispo) {
                 return [
                     'dispo' => $dispo,
-                    'gr_count' => $items->sum('WEMNG') // Gunakan WEMNG agar sama dengan total utama
+                    'gr_count' => $items->sum('MENGE')
                 ];
             })->values()->all();
 
+            // B. Breakdown per Workcenter & DISPO
+            $workcenterBreakdown = $dailyRecords->groupBy('ARBPL')->map(function ($itemsByWc, $arbpl) {
+                return $itemsByWc->groupBy('DISPO')->map(function($itemsByDispo, $dispo) use ($arbpl) {
+                    return [
+                        'workcenter' => $arbpl, 
+                        'dispo'      => $dispo, 
+                        'total_gr'   => $itemsByDispo->sum('MENGE'),
+                        'jumlah_pro' => $itemsByDispo->unique('AUFNR')->count() 
+                    ];
+                });
+            })->flatten(1)->values()->all();
+
+            // 5. Masukkan ke Array Calendar (STRUKTUR DIPERBAIKI)
             $calendarEvents[] = [
-                'title'   => '', 
-                'start'   => $date,
+                'title' => '', 
+                'start' => $date,
+                'year'  => Carbon::parse($date)->format('Y'),
+                'month' => Carbon::parse($date)->format('m'),
+                'day'   => Carbon::parse($date)->format('d'),
                 'details' => $dailyRecords->toArray(),
                 'extendedProps' => [
-                    'totalPro'       => $totalPro,
-                    'totalGrCount'   => $totalGrCount,
-                    'totalValue'     => $totalValue, // Hasil kali NETPR * WEMNG
-                    'dispoBreakdown' => $dispoBreakdown,
+                    'totalPro'            => $totalPro,
+                    'totalGrCount'        => $totalGrCount,
+                    'totalValue'          => $totalValue,
+                    'dispoBreakdown'      => $dispoBreakdown,
+                    'workcenterBreakdown' => $workcenterBreakdown, 
                 ]
             ];
         }
@@ -359,11 +385,91 @@ class ManufactController extends Controller
         return view('Admin.list-gr', [
             'kode'          => $kode,
             'dataGr'        => $dataGr,
-            'processedData' => $calendarEvents,
+            'processedData' => $calendarEvents, // Kirim data calendar yang sudah diproses
             'nama_bagian'   => $nama_bagian,
             'sub_kategori'  => $sub_kategori,
             'kategori'      => $kategori
         ]);
+    }
+
+    public function printPdf(Request $request)
+    {
+        // 1. Validasi
+        $request->validate([
+            'selected_ids' => 'required|array',
+            'selected_ids.*' => 'string',
+            'date_start' => 'nullable|date',
+            'date_end'   => 'nullable|date',
+            'mrp'        => 'nullable|string',
+            'wc'         => 'nullable|string',
+        ]);
+
+        // 2. Query Dasar
+        $query = Gr::whereIn('AUFNR', $request->selected_ids);
+
+        // 3. Filter Tambahan
+        if ($request->filled('date_start') && $request->filled('date_end')) {
+            $query->whereBetween('BUDAT_MKPF', [$request->date_start, $request->date_end]);
+        }
+        if ($request->filled('mrp')) {
+            $query->where('DISPO', $request->mrp);
+        }
+        if ($request->filled('wc')) {
+            $query->where('ARBPL', $request->wc);
+        }
+
+        // 4. Eksekusi Query
+        $data = $query->orderBy('ARBPL', 'asc')
+                      ->orderBy('BUDAT_MKPF', 'desc')
+                      ->get();
+
+        // 5. Hitung Total Values per Currency (Global Summary)
+        $totalValuesByCurrency = $data->groupBy(function($item) {
+            return $item->WAERS ?? 'IDR';
+        })->map(function ($group) {
+            return $group->sum(function($item) {
+                return ($item->NETPR ?? 0) * ($item->MENGE ?? 0);
+            });
+        });
+
+        // [BARU] 5b. Hitung Total Values per Workcenter (Subtotal)
+        // Struktur: ['WC1' => ['IDR' => 1000, 'USD' => 10], 'WC2' => [...]]
+        $totalValuesByWorkcenter = $data->groupBy(function($item) {
+            return $item->ARBPL ?? 'UNASSIGNED';
+        })->map(function ($wcGroup) {
+            return $wcGroup->groupBy(function($item) {
+                return $item->WAERS ?? 'IDR';
+            })->map(function ($currencyGroup) {
+                return $currencyGroup->sum(function($item) {
+                    return ($item->NETPR ?? 0) * ($item->MENGE ?? 0);
+                });
+            });
+        });
+
+        // 6. Siapkan Summary
+        $username = session('username');
+
+        $summary = [
+            'total_items'  => $data->count(),
+            'total_qty'    => $data->sum('MENGE'),
+            'total_values' => $totalValuesByCurrency,
+            'print_date'   => now()->format('d F Y H:i'),
+            'user'         => $username ?? 'Administrator',
+            'filter_info'  => [
+                'date_start' => $request->date_start,
+                'date_end'   => $request->date_end,
+                'mrp'        => $request->mrp,
+                'wc'         => $request->wc
+            ],
+            // Kirim data subtotal ke view
+            'wc_values'    => $totalValuesByWorkcenter 
+        ];
+
+        // 7. Render PDF
+        $pdf = Pdf::loadView('pdf.gr_report', compact('data', 'summary'));
+        $pdf->setPaper('a4', 'landscape');
+        
+        return $pdf->stream('Laporan_GR.pdf');
     }
 
     public function refreshPro(Request $request): JsonResponse

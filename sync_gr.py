@@ -27,13 +27,33 @@ logging.basicConfig(
 logger = logging.getLogger()
 
 # --- Penambahan Mapping MRP berdasarkan Plant ---
+# Sekarang struktur value = list of list,
+# sehingga bisa ada beberapa grup DISPO per plant (jalan berkali-kali).
 MRP_MAPPING = {
-    '1000': ['GW1', 'GW2', 'GW3', 'PN1', 'PN2', 'PV1', 'PV2', 'RW1', 'RW3', 'SM1', 'VN1', 'VN2', 'WE1', 'WE2', 'WM1', 'WW1', 'WW2', 'WW3'],
-    '1200': ['WH1'],
-    '2000': ['C11', 'C12', 'CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH7', 'CH8', 'CP1', 'CP2', 'CP3', 'CSK', 'EB2', 'GA1', 'GA2', 'GD1', 'GD2', 'GF1', 'GF2', 'GT1', 'GT2', 'GT3', 'GT4', 'GT5', 'GT6', 'GT7', 'GW1', 'GW2', 'GW3', 'MF1', 'MF2', 'MF3', 'MF4', 'MW1', 'MW2', 'MW3', 'RD2', 'RD3', 'RD4', 'RD5', 'UH1', 'UH2'],
-    '3000': ['D21', 'D22', 'D23', 'D24', 'D26', 'D27', 'D28', 'D31', 'DR1', 'DR2', 'DR3', 'G31', 'G32', 'MA1', 'MA2', 'MA3', 'MA4', 'MA5', 'MA7', 'MF1', 'MF2', 'MF3', 'MF4', 'MS1', 'MS3', 'MS4', 'MW1', 'MW2', 'MW3', 'PG1', 'PG2', 'PG3']
+     # Contoh kalau nanti butuh plant lain:
+     '1001': [['WW1', 'WW4', 'WW3', 'WW2']],
+     '1000': [['WE1','WE2','WM1','PN1','PV1','PV2','VN1','VN2','PN2','RW3','RW1',
+               'GW1','GW2','GW3','PJ1','PJ2','PJ3','PJ4']],
+     '1200': [['WH1']],
+     '2000': [['GT1','GT2','GT5','GT6','GT7','CH4','CH5','CH7','C11','C12','UH1',
+               'UH2','CH1','CH2','CH9','CH3','CH4','CH5','MF4','CP2','RW6','CSK',
+               'CP3','GA1','GA2','EB2','GD1','GD2','GD3','GF1','GF2','MF1','MF2',
+               'RD5','RD1','RD2','RD3']],
+    '3000': [
+        # Group 1: semua DISPO lain
+        [
+            'DR3', 'G31', 'D21', 'D26', 'D27', 'D22', 'D23', 'D28',
+            'MF4', 'D31', 'MA4', 'MA7',
+            'MS1', 'MS3', 'MS4',
+            'MA1', 'MA2', 'MA3', 'MA5',
+            'PG1', 'PG2', 'PG3'
+        ],
+        # Group 2: khusus D24 & G32 (mode yang sebelumnya "pasti jalan")
+        [
+            'D24', 'G32'
+        ]
+    ]
 }
-
 
 # --- Fungsi Helper ---
 def safe_convert(value, target_type, default=None):
@@ -48,29 +68,44 @@ def safe_convert(value, target_type, default=None):
             return default
         return target_type(value)
     except (ValueError, TypeError):
-        logger.debug(f"Gagal mengonversi nilai '{value}' ke tipe {target_type}. Menggunakan nilai default.")
+        logger.debug(
+            f"Gagal mengonversi nilai '{value}' ke tipe {target_type}. Menggunakan nilai default."
+        )
         return default
 
+
 def map_plant_code(original_werks):
-    """
-    Memetakan kode plant SAP asli ke kode plant yang disederhanakan.
-    Contoh: 1001 -> 1000, 2005 -> 2000, 1201 -> 1200.
-    """
-    if not isinstance(original_werks, str) or not original_werks.strip():
+    # 1. PEMBERSIHAN DATA (SANITIZATION)
+    if original_werks is None:
+        return None
+
+    # Konversi ke string dan bersihkan karakter aneh
+    werks = str(original_werks).replace('\xa0', '').strip()
+
+    if not werks:
         return original_werks
 
-    werks = original_werks.strip()
+    # 2. MAPPING KHUSUS (EXCEPTIONS)
+    special_cases = {
+        '1201': '1200',
+        '1001': '1001',
+        '3016': '3000',
+    }
 
-    if werks == '1201':
-        return '1200'
-    elif werks.startswith('3'):
+    if werks in special_cases:
+        return special_cases[werks]
+
+    # 3. LOGIKA UMUM (GENERAL RULES)
+    if werks.startswith('30'):
         return '3000'
-    elif werks.startswith('2'):
+    elif werks.startswith('20'):
         return '2000'
-    elif werks.startswith('1'):
+    elif werks.startswith('10'):
         return '1000'
 
-    return original_werks
+    # Jika tidak ada yang cocok, kembalikan nilai yang sudah dibersihkan
+    return werks
+
 
 # --- Fungsi Koneksi ---
 def connect_sap():
@@ -90,14 +125,15 @@ def connect_sap():
         logger.error(f"Gagal terhubung ke SAP: {e}")
         return None
 
+
 def connect_mysql():
     """Membuka koneksi ke MySQL menggunakan PyMySQL."""
     try:
         cnx = pymysql.connect(
             host=os.getenv('DB_HOST', '127.0.0.1'),
             user=os.getenv('DB_USERNAME', 'root'),
-            password=os.getenv('DB_PASSWORD', 'root'),
-            database=os.getenv('DB_DATABASE', 'cohv_app'),
+            password=os.getenv('DB_PASSWORD', ''),
+            database=os.getenv('DB_DATABASE', 'cohv'),
             charset='utf8mb4',
             autocommit=False
         )
@@ -107,9 +143,15 @@ def connect_mysql():
         logger.error(f"Gagal terhubung ke database MySQL: {err}")
         return None
 
+
 # --- Fungsi Sinkronisasi Utama ---
 def sync_data_for_date(target_date):
-    """Fungsi inti untuk sinkronisasi semua data GR untuk TANGGAL TERTENTU."""
+    """
+    Fungsi sinkronisasi dengan metode GRANULAR UPDATE.
+    Strategi: Tarik per Plant -> Hapus spesifik (Date+Werks+Dispo) -> Insert baru.
+    Sekarang, per Plant bisa punya beberapa grup DISPO,
+    dan tiap grup akan diproses (SAP call + delete + insert) terpisah.
+    """
     sap_conn = None
     db_conn = None
     cursor = None
@@ -120,136 +162,223 @@ def sync_data_for_date(target_date):
     logger.info(f"===== TUGAS DIMULAI: Sinkronisasi data GR untuk tanggal {sync_date_mysql} =====")
 
     try:
+        # 1. Buka Koneksi (Sekali saja di awal)
         sap_conn = connect_sap()
-        if not sap_conn: return False
-
-        all_sap_data = []
-        logger.info("Memulai proses penarikan data dari SAP...")
-
-        for mapped_plant, dispo_list in MRP_MAPPING.items():
-            try:
-                dispo_table_param = [{'DISPO': code} for code in dispo_list]
-
-                result = sap_conn.call(
-                    'Z_FM_YPPR009',
-                    IV_BUDAT=sync_date_sap,
-                    IV_WERKS=mapped_plant,
-                    T_DISPO=dispo_table_param
-                )
-
-                plant_data = result.get('T_DATA1', [])
-                if plant_data:
-                    all_sap_data.extend(plant_data)
-
-            except (CommunicationError, ABAPApplicationError) as e:
-                logger.error(f"Gagal mengambil data untuk Plant: {mapped_plant}. Error: {e}")
-
-        sap_data = all_sap_data
-        logger.info(f"Proses penarikan data SAP selesai, ditemukan total {len(sap_data)} record.")
-
-        records_to_insert = []
-        if sap_data:
-            for i, row in enumerate(sap_data):
-                try:
-                    sap_date_str = row.get('BUDAT_MKPF', '').strip()
-                    if not sap_date_str or datetime.strptime(sap_date_str, '%Y%m%d').strftime('%Y-%m-%d') != sync_date_mysql:
-                        continue
-
-                    original_werks = row.get('WERKS')
-                    mapped_werks_from_data = map_plant_code(original_werks)
-
-                    record = {
-                        'MANDT': row.get('MANDT'), 'LGORT': row.get('LGORT'), 'MBLNR': row.get('MBLNR'), 'DISPO': row.get('DISPO'),
-                        'AUFNR': row.get('AUFNR'),
-                        'WERKS': mapped_werks_from_data,
-                        'CHARG': row.get('CHARG'), 'MATNR': row.get('MATNR'),
-                        'MAKTX': row.get('MAKTX'), 'KDAUF': row.get('MAT_KDAUF'), 'KDPOS': row.get('MAT_KDPOS'),
-                        'KUNNR': row.get('KUNNR'), 'NAME2': row.get('NAME2'),
-                        'PSMNG': safe_convert(row.get('PSMNG'), float, 0.0),
-                        'MENGE': safe_convert(row.get('MENGE'), float, 0.0),
-                        'MENGEX': safe_convert(row.get('MENGEX'), float, 0.0),
-                        'MENGE_M': safe_convert(row.get('MENGE_M'), float, 0.0),
-                        'MENGE_M2': safe_convert(row.get('MENGE_M2'), float, 0.0),
-                        'MENGE_M3': safe_convert(row.get('MENGE_M3'), float, 0.0),
-                        'WEMNG': safe_convert(row.get('WEMNG'), float, 0.0),
-                        'MEINS': row.get('MEINS'), 'LINE': row.get('LINE'),
-                        'STPRS': safe_convert(row.get('STPRS'), float, 0.0),
-                        'WAERS': row.get('WAERS'),
-                        'VALUE': safe_convert(row.get('VALUE'), float, 0.0),
-                        'BUDAT_MKPF': sync_date_mysql, 'CPUDT_MKPF': row.get('CPUDT_MKPF'),
-                        'NODAY': safe_convert(row.get('NODAY'), int, 0),
-                        'TXT50': row.get('TXT50'),
-                        'NETPR': safe_convert(row.get('NETPR'), float, 0.0),
-                        'WAERK': row.get('WAERK'),
-                        'VALUSX': safe_convert(row.get('VALUSX'), float, 0.0),
-                        'VALUS': safe_convert(row.get('VALUS'), float, 0.0),
-                        'PERNR': row.get('PERNR'),
-                        'created_at': datetime.now(), 'updated_at': datetime.now()
-                    }
-                    records_to_insert.append(record)
-                except Exception as e:
-                    logger.warning(f"Melewati baris data #{i+1} karena error parsing: {e} - Data: {row}")
-
-        db_conn = connect_mysql()
-        if not db_conn: return False
-        cursor = db_conn.cursor()
-
-        try:
-            logger.info(f"Memulai transaksi database untuk tanggal {sync_date_mysql}...")
-            cursor.execute("DELETE FROM gr WHERE BUDAT_MKPF = %s", (sync_date_mysql,))
-            deleted_count = cursor.rowcount
-
-            if records_to_insert:
-                inserted_count = len(records_to_insert)
-                logger.info(f"Menghapus {deleted_count} record lama dan memasukkan {inserted_count} record baru...")
-
-                cols = '`, `'.join(records_to_insert[0].keys())
-                cols = f"`{cols}`"
-                placeholders = ', '.join(['%s'] * len(records_to_insert[0]))
-                insert_query = f"INSERT INTO gr ({cols}) VALUES ({placeholders})"
-
-                values_to_insert = [tuple(rec.values()) for rec in records_to_insert]
-                cursor.executemany(insert_query, values_to_insert)
-
-                db_conn.commit()
-                logger.info(f"Transaksi berhasil di-commit.")
-            else:
-                db_conn.commit()
-                logger.info("Tidak ada data baru dari SAP. Transaksi penghapusan di-commit.")
-
-        except pymysql.Error as db_err:
-            logger.error(f"Database error terjadi: {db_err}. Melakukan rollback...")
-            db_conn.rollback()
+        if not sap_conn:
             return False
 
+        db_conn = connect_mysql()
+        if not db_conn:
+            sap_conn.close()
+            return False
+
+        cursor = db_conn.cursor()
+
+        # 2. Loop per Plant
+        for mapped_plant, dispo_config in MRP_MAPPING.items():
+            # Normalisasi: boleh list biasa atau list of list.
+            if not dispo_config:
+                logger.warning(f"[{mapped_plant}] Konfigurasi DISPO kosong. Dilewati.")
+                continue
+
+            if isinstance(dispo_config[0], list):
+                dispo_groups = dispo_config  # sudah list of list
+            else:
+                # kalau user isi list biasa ['A','B',...], bungkus jadi satu grup
+                dispo_groups = [dispo_config]
+
+            # 2.b Loop per grup DISPO dalam plant
+            for group_index, dispo_list in enumerate(dispo_groups, start=1):
+                try:
+                    if not dispo_list:
+                        logger.warning(
+                            f"[{mapped_plant}][Group {group_index}] Dispo list kosong. "
+                            "Tidak ada yang dihapus/insert."
+                        )
+                        continue
+
+                    # --- A. TARIK DATA DARI SAP ---
+                    t_dispo_param = [{'DISPO': code} for code in dispo_list]
+
+                    logger.info(
+                        f"[{mapped_plant}][Group {group_index}] Mengambil data SAP untuk "
+                        f"{len(dispo_list)} MRP Controller..."
+                    )
+
+                    result = sap_conn.call(
+                        'Z_FM_YPPR009',
+                        IV_BUDAT=sync_date_sap,
+                        IV_WERKS=mapped_plant,
+                        IV_DISPO='',           # Kosongkan agar membaca T_DISPO
+                        T_DISPO=t_dispo_param  # Kirim list MRP
+                    )
+
+                    sap_data = result.get('T_DATA1', [])
+                    logger.info(
+                        f"[{mapped_plant}][Group {group_index}] Mendapatkan {len(sap_data)} baris data."
+                    )
+
+                    # --- B. PERSIAPAN DATA INSERT ---
+                    records_to_insert = []
+                    for i, row in enumerate(sap_data):
+                        try:
+                            # Validasi Tanggal (Double check)
+                            sap_date_str = row.get('BUDAT_MKPF', '').strip()
+                            if (
+                                not sap_date_str or
+                                datetime.strptime(sap_date_str, '%Y%m%d').strftime('%Y-%m-%d')
+                                != sync_date_mysql
+                            ):
+                                continue
+
+                            # Bersihkan data (pakai fungsi map_plant_code yg baru)
+                            mapped_werks_from_data = map_plant_code(row.get('WERKS'))
+
+                            # Pastikan record ini memang milik Plant yang sedang diproses (Safety check)
+                            if mapped_werks_from_data != mapped_plant:
+                                logger.warning(
+                                    f"Data nyasar? Plant target {mapped_plant} tapi dapat "
+                                    f"{mapped_werks_from_data}. Skip."
+                                )
+                                continue
+
+                            record = {
+                                'MANDT': row.get('MANDT'),
+                                'LGORT': row.get('LGORT'),
+                                'MBLNR': row.get('MBLNR'),
+                                'DISPO': row.get('DISPO'),
+                                'AUFNR': row.get('AUFNR'),
+                                'WERKS': mapped_werks_from_data,
+                                'CHARG': row.get('CHARG'),
+                                'MATNR': row.get('MATNR'),
+                                'MAKTX': row.get('MAKTX'),
+                                'KDAUF': row.get('MAT_KDAUF'),
+                                'KDPOS': row.get('MAT_KDPOS'),
+                                'KUNNR': row.get('KUNNR'),
+                                'NAME2': row.get('NAME2'),
+                                'PSMNG': safe_convert(row.get('PSMNG'), float, 0.0),
+                                'MENGE': safe_convert(row.get('MENGE'), float, 0.0),
+                                'MENGEX': safe_convert(row.get('MENGEX'), float, 0.0),
+                                'MENGE_M': safe_convert(row.get('MENGE_M'), float, 0.0),
+                                'MENGE_M2': safe_convert(row.get('MENGE_M2'), float, 0.0),
+                                'MENGE_M3': safe_convert(row.get('MENGE_M3'), float, 0.0),
+                                'WEMNG': safe_convert(row.get('WEMNG'), float, 0.0),
+                                'MEINS': row.get('MEINS'),
+                                'LINE': row.get('LINE'),
+                                'STPRS': safe_convert(row.get('STPRS'), float, 0.0),
+                                'WAERS': row.get('WAERS'),
+                                'VALUE': safe_convert(row.get('VALUE'), float, 0.0),
+                                'BUDAT_MKPF': sync_date_mysql,
+                                'CPUDT_MKPF': row.get('CPUDT_MKPF'),
+                                'NODAY': safe_convert(row.get('NODAY'), int, 0),
+                                'TXT50': row.get('TXT50'),
+                                'NETPR': safe_convert(row.get('NETPR'), float, 0.0),
+                                'WAERK': row.get('WAERK'),
+                                'VALUSX': safe_convert(row.get('VALUSX'), float, 0.0),
+                                'VALUS': safe_convert(row.get('VALUS'), float, 0.0),
+                                'PERNR': row.get('PERNR'),
+                                'ARBPL': row.get('ARBPL'),
+                                'KTEXT': row.get('KTEXT'),
+                                'created_at': datetime.now(),
+                                'updated_at': datetime.now()
+                            }
+                            records_to_insert.append(record)
+                        except Exception as e:
+                            logger.warning(f"Error parsing row: {e}")
+
+                    # --- C. OPERASI DATABASE (DELETE & INSERT) ---
+                    placeholders = ', '.join(['%s'] * len(dispo_list))
+                    delete_query = f"""
+                        DELETE FROM gr
+                        WHERE BUDAT_MKPF = %s
+                          AND WERKS = %s
+                          AND DISPO IN ({placeholders})
+                    """
+
+                    delete_params = [sync_date_mysql, mapped_plant] + dispo_list
+                    cursor.execute(delete_query, delete_params)
+                    deleted_count = cursor.rowcount
+                    logger.info(
+                        f"[{mapped_plant}][Group {group_index}] Menghapus {deleted_count} record lama "
+                        f"(Scope: Tgl {sync_date_mysql}, Plant {mapped_plant}, "
+                        f"{len(dispo_list)} MRP)."
+                    )
+
+                    # 2. INSERT DATA BARU
+                    if records_to_insert:
+                        cols = '`, `'.join(records_to_insert[0].keys())
+                        cols = f"`{cols}`"
+                        vals_placeholders = ', '.join(['%s'] * len(records_to_insert[0]))
+                        insert_query = f"INSERT INTO gr ({cols}) VALUES ({vals_placeholders})"
+
+                        values_to_insert = [tuple(rec.values()) for rec in records_to_insert]
+                        cursor.executemany(insert_query, values_to_insert)
+                        inserted_count = len(records_to_insert)
+                        logger.info(
+                            f"[{mapped_plant}][Group {group_index}] Memasukkan {inserted_count} "
+                            f"record baru."
+                        )
+                    else:
+                        logger.info(
+                            f"[{mapped_plant}][Group {group_index}] Tidak ada data baru dari SAP "
+                            "untuk dimasukkan."
+                        )
+
+                    # 3. COMMIT PER GROUP DISPO
+                    db_conn.commit()
+
+                except (CommunicationError, ABAPApplicationError) as sap_err:
+                    logger.error(
+                        f"[{mapped_plant}][Group {group_index}] Gagal komunikasi SAP: {sap_err}. "
+                        "Data database TIDAK disentuh untuk grup ini."
+                    )
+                    db_conn.rollback()
+                except pymysql.Error as db_err:
+                    logger.error(
+                        f"[{mapped_plant}][Group {group_index}] Gagal Database: {db_err}. "
+                        "Rollback untuk grup ini."
+                    )
+                    db_conn.rollback()
+
     except Exception as e:
-        logger.error(f"Terjadi error fatal dalam proses sinkronisasi: {str(e)}")
+        logger.error(f"Terjadi error fatal level atas: {str(e)}")
         logger.error(traceback.format_exc())
         return False
     finally:
-        if cursor: cursor.close()
-        if db_conn: db_conn.close()
-        if sap_conn: sap_conn.close()
-        logger.info("Koneksi ke SAP dan MySQL telah ditutup.")
+        if cursor:
+            cursor.close()
+        if db_conn:
+            db_conn.close()
+        if sap_conn:
+            sap_conn.close()
         logger.info(f"===== TUGAS SELESAI untuk tanggal {sync_date_mysql} =====")
+
     return True
+
 
 def run_sync_for_today():
     """Wrapper untuk menjalankan sinkronisasi khusus hari ini."""
     sync_data_for_date(datetime.now())
 
+
 def run_sync_for_one_month(year, month, start_day, end_day_of_month):
     """
     Menjalankan sinkronisasi harian untuk rentang tanggal tertentu dalam satu bulan.
     """
-    logger.info(f"--> Memulai proses untuk BULAN: {year}-{month:02d} (Tanggal {start_day} s.d. {end_day_of_month})")
+    logger.info(
+        f"--> Memulai proses untuk BULAN: {year}-{month:02d} "
+        f"(Tanggal {start_day} s.d. {end_day_of_month})"
+    )
 
     try:
         # Tentukan tanggal mulai dan akhir untuk loop harian
         start_date = datetime(year, month, start_day)
         end_date = datetime(year, month, end_day_of_month)
     except ValueError as e:
-        logger.warning(f"Tanggal tidak valid untuk {year}-{month:02d} (dari {start_day} s.d. {end_day_of_month}). Dilewati. Error: {e}")
+        logger.warning(
+            f"Tanggal tidak valid untuk {year}-{month:02d} "
+            f"(dari {start_day} s.d. {end_day_of_month}). Dilewati. Error: {e}"
+        )
         return True
 
     current_date = start_date
@@ -258,19 +387,25 @@ def run_sync_for_one_month(year, month, start_day, end_day_of_month):
 
     while current_date <= end_date:
         day_count += 1
-        logger.info(f"    --> Memproses hari ke-{day_count} dari {total_days} (di bulan ini): {current_date.strftime('%Y-%m-%d')}")
+        logger.info(
+            f"    --> Memproses hari ke-{day_count} dari {total_days} "
+            f"(di bulan ini): {current_date.strftime('%Y-%m-%d')}"
+        )
 
         success = sync_data_for_date(current_date)
 
         if not success:
-            logger.error(f"Sinkronisasi harian GAGAL untuk {current_date.strftime('%Y-%m-%d')}.")
+            logger.error(
+                f"Sinkronisasi harian GAGAL untuk {current_date.strftime('%Y-%m-%d')}."
+            )
             return False
 
         time.sleep(2)
-        current_date += timedelta(days=1) # <--- PERBAIKAN
+        current_date += timedelta(days=1)
 
     logger.info(f"--> Selesai memproses BULAN: {year}-{month:02d}")
     return True
+
 
 def run_historical_sync():
     """
@@ -280,14 +415,16 @@ def run_historical_sync():
     logger.info("===== MEMULAI SINKRONISASI DATA HISTORIS (PER BULAN) =====")
 
     # 1. Tentukan tanggal mulai dan akhir global
-    current_date_tracker = datetime(2025, 11, 1) # <--- PERBAIKAN (INI YANG ERROR)
-    today = datetime.now() # <--- PERBAIKAN
-    yesterday = today - timedelta(days=1) # <--- PERBAIKAN
+    current_date_tracker = datetime(2025, 11, 1)  # <--- PERBAIKAN (INI YANG ERROR)
+    today = datetime.now()
+    yesterday = today - timedelta(days=1)
 
     # 2. Loop Luar (per bulan)
-    while current_date_tracker.year < yesterday.year or \
-         (current_date_tracker.year == yesterday.year and current_date_tracker.month <= yesterday.month):
-
+    while (
+        current_date_tracker.year < yesterday.year or
+        (current_date_tracker.year == yesterday.year and
+         current_date_tracker.month <= yesterday.month)
+    ):
         year = current_date_tracker.year
         month = current_date_tracker.month
 
@@ -303,11 +440,13 @@ def run_historical_sync():
         success = run_sync_for_one_month(year, month, start_day, end_day)
 
         if not success:
-            logger.error(f"Sinkronisasi untuk bulan {year}-{month:02d} GAGAL. Proses historis dihentikan.")
+            logger.error(
+                f"Sinkronisasi untuk bulan {year}-{month:02d} GAGAL. Proses historis dihentikan."
+            )
             break
 
         # 5. Jeda antar BULAN
-        logger.info(f"Jeda 5 detik sebelum pindah ke bulan berikutnya...")
+        logger.info("Jeda 5 detik sebelum pindah ke bulan berikutnya...")
         time.sleep(5)
 
         # 6. Maju ke bulan berikutnya
@@ -315,6 +454,7 @@ def run_historical_sync():
         current_date_tracker = next_month.replace(day=1)
 
     logger.info("===== SINKRONISASI DATA HISTORIS (PER BULAN) SELESAI =====")
+
 
 # --- Scheduler ---
 def start_scheduler():
@@ -331,28 +471,42 @@ def start_scheduler():
         schedule.run_pending()
         time.sleep(60)
 
+
 # --- Titik Eksekusi Utama ---
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         mode = sys.argv[1]
+
         if mode == 'run_now':
             logger.info("Mode: Eksekusi Manual Sekali Jalan (untuk hari ini).")
             run_sync_for_today()
+
         elif mode == 'run_historical':
-            logger.info("Mode: Eksekusi Sinkronisasi Historis (September 2025 - Sekarang, setiap hari).")
+            logger.info(
+                "Mode: Eksekusi Sinkronisasi Historis (September 2025 - Sekarang, setiap hari)."
+            )
             run_historical_sync()
+
         elif mode == 'run_for_date':
             if len(sys.argv) < 3:
-                logger.error("Mode 'run_for_date' memerlukan argumen tanggal (YYYY-MM-DD).")
-                logger.error("Contoh: python sync_gr.py run_for_date 2025-09-04")
+                logger.error(
+                    "Mode 'run_for_date' memerlukan argumen tanggal (YYYY-MM-DD)."
+                )
+                logger.error(
+                    "Contoh: python sync_gr.py run_for_date 2025-09-04"
+                )
             else:
                 try:
                     date_str = sys.argv[2]
                     target_date = datetime.strptime(date_str, '%Y-%m-%d')
-                    logger.info(f"Mode: Eksekusi Manual untuk tanggal spesifik: {date_str}")
+                    logger.info(
+                        f"Mode: Eksekusi Manual untuk tanggal spesifik: {date_str}"
+                    )
                     sync_data_for_date(target_date)
                 except ValueError:
-                    logger.error(f"Format tanggal salah: '{date_str}'. Gunakan format YYYY-MM-DD.")
+                    logger.error(
+                        f"Format tanggal salah: '{date_str}'. Gunakan format YYYY-MM-DD."
+                    )
     else:
         logger.info("Mode: Menjalankan Scheduler Service (untuk data harian).")
         start_scheduler()

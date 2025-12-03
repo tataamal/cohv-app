@@ -33,9 +33,11 @@
         "bootstrap": "^5.3.8",
         "bootstrap-icons": "^1.13.1",
         "chart.js": "^4.5.0",
+        "flatpickr": "^4.6.13",
         "fullcalendar": "^6.1.19",
         "jquery": "^3.7.1",
         "mixin": "^0.2.0",
+        "sweetalert2": "^11.26.3",
         "tail": "^2.2.6"
     }
 }
