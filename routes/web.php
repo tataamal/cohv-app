@@ -13,7 +13,7 @@ use App\Http\Controllers\WcCompatibilityController;
 use App\Http\Controllers\MonitoringProController;
 use App\Http\Controllers\ProTransactionController;
 use App\Http\Controllers\CogiController;
-use App\Http\Controllers\OutstandingReservasiController;
+use App\Http\Controllers\CreateWiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -98,6 +98,9 @@ Route::middleware('auth')->group(function (){
     Route::get('/search-stock', [StockController::class, 'index'])->name('search.stock');
     Route::get('/search-stock/results', [StockController::class, 'show_stock'])->name('search.stock.show');
     Route::get('/search-stock/data', [StockCOntroller::class, 'show_stock'])->name('search.stock.data');
+
+    // Create WI
+    Route::get('/create-wi/{kode}', [CreateWiController::class, 'index'])->name('create-wi.index');
 
     // Outstanding Reservasi Route
     // Route::get('/outstanding-reservasi/{kode}', [OutstandingReservasiController::class, 'index'])->name('outstanding.reservasi');

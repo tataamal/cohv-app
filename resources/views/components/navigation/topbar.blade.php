@@ -36,8 +36,9 @@
         ],
         [
             'name' => 'Create WI',
-            'route_name' => 'outstanding.reservasi', 
-            'active_on' => ['outstanding.reservasi*']
+            'route_name' => 'create-wi.index', 
+            'active_on' => ['create-wi.*'],
+            'needs_kode' => true
         ]
     ],
 ])

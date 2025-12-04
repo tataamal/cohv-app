@@ -49,9 +49,12 @@ class ProductionTData1 extends Model
             'MENGE2',
             'ORDERX',
             'STATS2',
+            'ARBPL',
+            'QTY_BLALAMCE2',
             'PV1',
             'PV2',
             'PV3',
+            'QTY_BALANCE2 '
     ];
 
     public function tData3()
