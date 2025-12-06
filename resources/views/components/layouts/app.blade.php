@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="sap-username" content="{{ session('username') }}">
     <meta name="sap-password" content="{{ session('password') }}">
-    
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/js/app.js', 'resources/scss/app.scss'])
     
     <title>{{ $title ?? 'COHV-PT.Kayu Mebel Indonesia' }}</title>

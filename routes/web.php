@@ -101,7 +101,9 @@ Route::middleware('auth')->group(function (){
 
     // Create WI
     Route::get('/create-wi/{kode}', [CreateWiController::class, 'index'])->name('create-wi.index');
-
+    Route::get('work-instruction/create/{kode}', [CreateWiController::class, 'index'])->name('wi.create');
+    Route::post('work-instruction/save', [CreateWiController::class, 'saveWorkInstruction'])->name('wi.save');
+    
     // Outstanding Reservasi Route
     // Route::get('/outstanding-reservasi/{kode}', [OutstandingReservasiController::class, 'index'])->name('outstanding.reservasi');
 

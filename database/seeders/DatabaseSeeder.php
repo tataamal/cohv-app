@@ -16,5 +16,6 @@ class DatabaseSeeder extends Seeder
         $this->call(UserandKodeSeeder::class);
         $this->call(WorkcenterSeeder::class);
         $this->call(WcRelationSeeder::class);
+        // $this->call(WorkcenterMappingSeeder::class);
     }
 }

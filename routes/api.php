@@ -24,3 +24,4 @@ Route::get('/health', function () {
         ], 503);
     }
 });
+
