@@ -299,20 +299,19 @@
                                         <th class="text-center p-2">Op. Key</th>
                                         <th class="text-center p-2">Qty Oper</th>
                                         <th class="text-center p-2">Conf-Oper</th>
-                                        <th class="text-center p-2">Sisa Qty</th>
                                         <th class="text-center bg-light" width="40"><i
                                                 class="fa-solid fa-grip-lines text-muted"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="source-list" class="sortable-list" data-group="shared-pro">
                                     @foreach ($tData1 as $item)
-                                    @php
-                                        $soItem = ltrim($item->KDAUF, '0') . ' - ' . ltrim($item->KDPOS, '0');
-                                        $matnr = ctype_digit($item->MATNR)
-                                            ? ltrim($item->MATNR, '0')
-                                            : $item->MATNR;
-                                        $sisaQty = $item->real_sisa_qty ?? ($item->MGVRG2 - $item->LMNGA); 
-                                    @endphp
+                                        @php
+                                            $soItem = ltrim($item->KDAUF, '0') . ' - ' . ltrim($item->KDPOS, '0');
+                                            $matnr = ctype_digit($item->MATNR)
+                                                ? ltrim($item->MATNR, '0')
+                                                : $item->MATNR;
+                                            $sisaQty = $item->real_sisa_qty ?? $item->MGVRG2 - $item->LMNGA;
+                                        @endphp
 
                                         <tr class="pro-item draggable-item" data-id="{{ $item->id }}"
                                             data-aufnr="{{ $item->AUFNR }}" data-vgw01="{{ $item->VGW01 }}"
@@ -320,8 +319,9 @@
                                             data-sisa-qty="{{ $sisaQty }}" data-conf-opr="{{ $item->LMNGA }}"
                                             data-qty-opr="{{ $item->MGVRG2 }}" data-assigned-qty="0"
                                             data-employee-nik="" data-employee-name="" data-child-wc=""
-                                            data-assigned-child-wcs='[]' data-arbpl="{{ $item->ARBPL }}" data-matnr="{{ $item->MATNR }}"
-                                            data-maktx="{{ $item->MAKTX }}" data-meins="{{ $item->MEINS }}" data-vornr="{{ $item->VORNR }}">
+                                            data-assigned-child-wcs='[]' data-arbpl="{{ $item->ARBPL }}"
+                                            data-matnr="{{ $item->MATNR }}" data-maktx="{{ $item->MAKTX }}"
+                                            data-meins="{{ $item->MEINS }}" data-vornr="{{ $item->VORNR }}">
                                             {{-- TAMBAHAN: ARBPL --}}
 
                                             <td class="text-center table-col ps-3"><input
@@ -364,13 +364,9 @@
                                                     class="badge bg-light text-dark border">{{ $item->STEUS }}</span>
                                             </td>
                                             <td class="text-center table-col">
-                                                {{ number_format($item->MGVRG2, 0, ',', '.') }}</td>
+                                                {{ number_format($item->MGVRG2, 2, ',', '.') }}</td>
                                             <td class="text-center table-col">
-                                                {{ number_format($item->LMNGA, 0, ',', '.') }}</td>
-                                            <td
-                                                class="text-center fw-bold table-col col-sisa-qty {{ $sisaQty > 0 ? 'text-danger' : 'text-success' }}">
-                                                {{ number_format($sisaQty, 0, ',', '.') }}
-                                            </td>
+                                                {{ number_format($item->LMNGA, 2, ',', '.') }}</td>
 
                                             <td class="text-center table-col drag-handle" title="Hold to drag">
                                                 <i class="fa-solid fa-grip-vertical"></i>
@@ -568,26 +564,30 @@
                         aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    
+
                     {{-- === FIELD INPUT TANGGAL DAN JAM BARU === --}}
                     <div class="row mb-3 align-items-center g-3">
                         <div class="col-md-3">
-                            <label for="wiDocumentDate" class="form-label fw-bold small text-muted text-uppercase" style="font-size: 0.7rem;">Tanggal Dokumen WI</label>
+                            <label for="wiDocumentDate" class="form-label fw-bold small text-muted text-uppercase"
+                                style="font-size: 0.7rem;">Tanggal Dokumen WI</label>
                             <input type="date" class="form-control form-control-sm" id="wiDocumentDate" required>
                         </div>
-                        
+
                         <div class="col-md-3">
-                            <label for="wiDocumentTime" class="form-label fw-bold small text-muted text-uppercase" style="font-size: 0.7rem;">Jam Mulai Efektif</label>
+                            <label for="wiDocumentTime" class="form-label fw-bold small text-muted text-uppercase"
+                                style="font-size: 0.7rem;">Jam Mulai Efektif</label>
                             <input type="time" class="form-control form-control-sm" id="wiDocumentTime" required>
                         </div>
-                        
+
                         <div class="col-md-6">
-                            <div class="alert alert-info small p-2 mt-4 mb-0 rounded-3 border-0 bg-info bg-opacity-10 text-info">
-                                <i class="fa-solid fa-clock me-1"></i> WI akan **expired** 12 jam setelah Jam Mulai Efektif ini.
+                            <div
+                                class="alert alert-info small p-2 mt-4 mb-0 rounded-3 border-0 bg-info bg-opacity-10 text-info">
+                                <i class="fa-solid fa-clock me-1"></i> WI akan **expired** 12 jam setelah Jam Mulai
+                                Efektif ini.
                             </div>
                         </div>
                     </div>
-    
+
                     <p class="text-muted small">
                         Pastikan semua PRO sudah terisi NIK dan Quantity yang benar sebelum melanjutkan.
                     </p>
@@ -639,7 +639,7 @@
                 console.log("2. Total Unassigned Orders (from Table, tData1):", document.querySelectorAll(
                     '#source-list tr.pro-item').length);
                 console.groupEnd();
-                
+
                 assignmentModalInstance = new bootstrap.Modal(document.getElementById('assignmentModal'));
                 previewModalInstance = new bootstrap.Modal(document.getElementById('previewModal'));
 
@@ -1598,8 +1598,8 @@
                     card.querySelectorAll('.pro-item-card').forEach(item => {
                         const assignedQty = parseFloat(item.dataset.assignedQty) || 0;
                         const qtyOrder = parseFloat(item.dataset.psmng) || 0;
-                        const takTimeMins = parseFloat(item.dataset.calculatedMins) || 0; 
-                        
+                        const takTimeMins = parseFloat(item.dataset.calculatedMins) || 0;
+
                         if (item.dataset.employeeNik && assignedQty > 0) {
                             items.push({
                                 // Data Wajib (dari data drag/modal)
@@ -1608,32 +1608,32 @@
                                 name: item.dataset.employeeName,
                                 assigned_qty: assignedQty,
                                 material_number: item.dataset.matnr || 'N/A',
-                                material_desc: item.dataset.maktx || 'N/A',   
-                                qty_order: qtyOrder,                       
-                                uom: item.dataset.meins || 'EA',             
-                                vornr: item.dataset.vornr || 'N/A',           
-                                calculated_tak_time: takTimeMins.toFixed(2),  
-                                status_pro_wi: 'Created',                    
-                                workcenter_induk: item.dataset.arbpl || wcId, 
-                                child_workcenter: item.dataset.childWc || null 
+                                material_desc: item.dataset.maktx || 'N/A',
+                                qty_order: qtyOrder,
+                                uom: item.dataset.meins || 'EA',
+                                vornr: item.dataset.vornr || 'N/A',
+                                calculated_tak_time: takTimeMins.toFixed(2),
+                                status_pro_wi: 'Created',
+                                workcenter_induk: item.dataset.arbpl || wcId,
+                                child_workcenter: item.dataset.childWc || null
                             });
                         }
                     });
 
                     if (items.length > 0) {
                         totalWcCount++;
-                        
+
                         const labelElement = card.querySelector(`#label-cap-${wcId}`);
                         let loadMinText = '0';
-                        
+
                         if (labelElement) {
                             loadMinText = labelElement.innerText.split('/')[0].trim();
                         }
                         const loadMins = Math.ceil(parseFloat(loadMinText));
-                        
+
                         allocationData.push({
                             workcenter: wcId,
-                            pro_items: items, 
+                            pro_items: items,
                             load_mins: loadMins
                         });
                     }
@@ -1641,8 +1641,8 @@
 
                 if (isFinalSave) {
                     showPreview(allocationData, totalWcCount);
-                } 
-                
+                }
+
                 return allocationData;
             }
 
@@ -1673,46 +1673,46 @@
                     plant_code: PLANT_CODE,
                     document_date: documentDate,
                     document_time: documentTime,
-                    workcenter_allocations: data 
+                    workcenter_allocations: data
                 };
 
                 const url = '{{ route('wi.save') }}'; // Menggunakan helper route Laravel
 
                 fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': csrfToken
-                    },
-                    body: JSON.stringify(finalPayload) 
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(error => {
-                            throw new Error(error.message || `Gagal menyimpan (Status: ${response.status})`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(result => {
-                    if (result.documents) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'WI Berhasil Disimpan!',
-                            html: `Total **${result.documents.length}** dokumen WI berhasil dibuat.`,
-                            confirmButtonText: 'OK'
-                        }).then(() => {
-                            window.location.reload();
-                        });
-                    } else {
-                        Swal.fire('Gagal', result.message || 'Gagal menyimpan data ke server.', 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('AJAX Error:', error);
-                    Swal.fire('Error Koneksi', error.message || 'Terjadi kesalahan jaringan atau server.', 'error');
-                });
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify(finalPayload)
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(error => {
+                                throw new Error(error.message || `Gagal menyimpan (Status: ${response.status})`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        if (result.documents) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'WI Berhasil Disimpan!',
+                                html: `Total **${result.documents.length}** dokumen WI berhasil dibuat.`,
+                                confirmButtonText: 'OK'
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire('Gagal', result.message || 'Gagal menyimpan data ke server.', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('AJAX Error:', error);
+                        Swal.fire('Error Koneksi', error.message || 'Terjadi kesalahan jaringan atau server.', 'error');
+                    });
             }
 
             function showPreview(data, totalWcCount) {
@@ -1722,13 +1722,13 @@
                 const content = document.getElementById('previewContent');
                 const emptyWarning = document.getElementById('emptyPreviewWarning');
                 const dateInput = document.getElementById('wiDocumentDate');
-                const timeInput = document.getElementById('wiDocumentTime'); 
-                
+                const timeInput = document.getElementById('wiDocumentTime');
+
                 const now = new Date();
-                
+
                 // Logika Tanggal
                 const today = now.toISOString().split('T')[0];
-                
+
                 // Logika Jam
                 const hours = String(now.getHours()).padStart(2, '0');
                 const minutes = String(now.getMinutes()).padStart(2, '0');

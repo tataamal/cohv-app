@@ -32,10 +32,15 @@ class CreateWiController extends Controller
             Log::error('Koneksi API NIK Error: ' . $e->getMessage());
         }
 
+        // --- PERBAIKAN DI SINI ---
         $tData1 = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('MGVRG2 > LMNGA')
+            ->where('STATS', 'REL') // <-- HANYA AMBIL PRO YANG BERSTATUS 'REL' (Released)
             ->get();
+        // -------------------------
+
         $assignedProQuantities = $this->getAssignedProQuantities($kode);
+        
         $filteredTData1 = $tData1->filter(function ($item) use ($assignedProQuantities) {
             $aufnr = $item->AUFNR;
             $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
@@ -49,10 +54,13 @@ class CreateWiController extends Controller
             $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
             $qtyAllocatedInWi = $assignedProQuantities[$aufnr] ?? 0;
             $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
-            $item->MGVRG2 = $qtySisaAkhir + $item->LMNGA;
-            $item->real_sisa_qty = $qtySisaAkhir;
+            
+            // Mempertahankan nilai MGVRG2 asli untuk Qty Oper
+            // Kita hanya mengupdate Qty sisa riil
+            $item->real_sisa_qty = $qtySisaAkhir; 
             return $item;
         });
+        
         $workcenters = workcenter::where('werksx', $kode)->get();
         $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
         $parentWorkcenters = $this->buildWorkcenterHierarchy($workcenters, $workcenterMappings);
