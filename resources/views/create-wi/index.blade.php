@@ -243,9 +243,10 @@
                 <p class="text-muted small mb-0">Manage and assign Production Orders efficiently.</p>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-outline-dark btn-sm shadow-sm fw-medium">
+                <a href="{{ route('wi.history', ['kode' => $kode]) }}"
+                    class="btn btn-outline-dark btn-sm shadow-sm fw-medium">
                     <i class="fa-solid fa-clock-rotate-left me-1"></i> History WI
-                </button>
+                </a>
 
                 <button class="btn btn-white btn-sm text-danger border shadow-sm fw-medium"
                     onclick="resetAllAllocations()">
@@ -314,7 +315,8 @@
                                         @endphp
 
                                         <tr class="pro-item draggable-item" data-id="{{ $item->id }}"
-                                            data-aufnr="{{ $item->AUFNR }}" data-vgw01="{{ $item->VGW01 }}"
+                                            data-aufnr="{{ $item->AUFNR }}"
+                                            data-vgw01="{{ number_format($item->VGW01, 3, '.', '') }}"
                                             data-vge01="{{ $item->VGE01 }}" data-psmng="{{ $item->PSMNG }}"
                                             data-sisa-qty="{{ $sisaQty }}" data-conf-opr="{{ $item->LMNGA }}"
                                             data-qty-opr="{{ $item->MGVRG2 }}" data-assigned-qty="0"
@@ -323,7 +325,9 @@
                                             data-matnr="{{ $item->MATNR }}" data-maktx="{{ $item->MAKTX }}"
                                             data-meins="{{ $item->MEINS }}" data-vornr="{{ $item->VORNR }}"
                                             data-kdauf="{{ $item->KDAUF }}" data-kdpos="{{ $item->KDPOS }}"
-                                            data-dispo="{{ $item->DISPO }}" data-steus="{{ $item->STEUS }}">
+                                            data-dispo="{{ $item->DISPO }}" data-steus="{{ $item->STEUS }}"
+                                            data-sssld="{{ $item->SSSLD }}" data-ssavd="{{ $item->SSAVD }}"
+                                            data-kapaz="{{ $item->KAPAZ }}"> 
                                             {{-- TAMBAHAN: ARBPL --}}
 
                                             <td class="text-center table-col ps-3"><input
@@ -1120,6 +1124,7 @@
                 const kapazHours = parseFloat(wcContainer.dataset.kapazWc) || 0;
                 const maxMins = kapazHours * 60;
                 let currentLoadMins = 0;
+
                 wcContainer.querySelectorAll('.pro-item-card').forEach(item => {
                     currentLoadMins += parseFloat(item.dataset.calculatedMins) || 0;
                 });
@@ -1128,7 +1133,7 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Over Capacity!',
-                        text: `Tidak dapat memproses. Total beban dari alokasi baru akan melebihi kapasitas Workcenter (${Math.ceil(maxMins)} menit).`,
+                        text: `Tidak dapat memproses. Total beban dari alokasi baru (${Math.ceil(currentLoadMins)} menit) akan melebihi kapasitas Workcenter (${Math.ceil(maxMins)} menit).`,
                         confirmButtonText: 'OK'
                     });
                     return; // Jangan lanjutkan jika melebihi kapasitas
@@ -1485,23 +1490,55 @@
             }
 
             function calculateItemMinutes(row, qtyOverride = null) {
-                const parseNum = (str) => parseFloat(String(str).replace(/\./g, '').replace(/,/g, '.')) || 0;
+                // --- FUNGSI PARSE ANGKA YANG LEBIH CERDAS ---
+                const parseNum = (str) => {
+                    if (!str) return 0;
+                    let stringVal = String(str).trim();
+
+                    // Cek apakah angka mengandung koma (Indikasi Format Indonesia/Eropa: 1.000,00)
+                    if (stringVal.includes(',')) {
+                        // Hapus titik (pemisah ribuan), lalu ubah koma jadi titik desimal
+                        // Contoh: "1.000,50" -> "1000.50"
+                        stringVal = stringVal.replace(/\./g, '').replace(/,/g, '.');
+                    }
+                    // Jika TIDAK ada koma, asumsikan Format Database/Internasional (1000.50)
+                    // JANGAN APA-APAKAN TITIKNYA! Biarkan "4.033" tetap "4.033"
+
+                    return parseFloat(stringVal) || 0;
+                };
+                // ---------------------------------------------
+
+                // 1. Ambil Data Waktu Standar (VGW01)
                 const vgw01 = parseNum(row.dataset.vgw01);
-                const vge01 = row.dataset.vge01 || '';
-                const qty = (qtyOverride !== null) ? qtyOverride : (parseFloat(row.dataset.sisaQty) || 0);
+
+                // 2. Ambil Satuan (VGE01)
+                const vge01 = (row.dataset.vge01 || '').toUpperCase();
+
+                // 3. Ambil Quantity (Prioritaskan Override jika ada)
+                let rawQty = (qtyOverride !== null) ? qtyOverride : row.dataset.sisaQty;
+                const qty = parseNum(rawQty);
+
+                // --- LOGGING UNTUK DEBUGGING (Cek Console Browser Anda F12) ---
+                console.log(`Item: ${row.dataset.material}`, {
+                    Raw_VGW: row.dataset.vgw01,
+                    Parsed_VGW: vgw01,
+                    Raw_Qty: rawQty,
+                    Parsed_Qty: qty,
+                    Unit: vge01
+                });
 
                 if (vgw01 > 0 && qty > 0) {
                     let totalRaw = vgw01 * qty;
-                    const unit = vge01.toUpperCase();
 
-                    if (unit === 'S') {
-                        return totalRaw / 60; // Second -> Minute
-                    } else if (unit === 'MIN') {
-                        return totalRaw; // Minute -> Minute
-                    } else if (unit === 'H') {
-                        return totalRaw * 60; // Hour -> Minute
+                    // Konversi ke Menit berdasarkan Satuan
+                    if (vge01 === 'S' || vge01 === 'SEC') {
+                        return totalRaw / 60; // Detik -> Menit
+                    } else if (vge01 === 'MIN') {
+                        return totalRaw; // Menit -> Menit
+                    } else if (vge01 === 'H' || vge01 === 'HUR') {
+                        return totalRaw * 60; // Jam -> Menit
                     } else {
-                        // Default berdasarkan kode sebelumnya: Asumsi Jam
+                        // Default jika satuan tidak dikenali/kosong, asumsikan JAM (sesuai logika awal)
                         return totalRaw * 60;
                     }
                 }
@@ -1611,7 +1648,7 @@
                                 assigned_qty: assignedQty,
                                 material_number: item.dataset.matnr || 'N/A',
                                 material_desc: item.dataset.maktx || 'N/A',
-                                qty_order: qtyOrder,
+                                qty_order: item.dataset.sisaQty,
                                 confirmed_qty: 0,
                                 uom: item.dataset.meins || 'EA',
                                 vornr: item.dataset.vornr || 'N/A',
@@ -1619,6 +1656,11 @@
                                 kdpos: item.dataset.kdpos || 'N/A',
                                 dispo: item.dataset.dispo || 'N/A',
                                 steus: item.dataset.steus || 'N/A',
+                                sssld: item.dataset.sssld || 'N/A',
+                                ssavd: item.dataset.ssavd || 'N/A',
+                                kapaz: item.dataset.kapaz || '0',
+                                vgw01: item.dataset.vgw01 || '0',
+                                vge01: item.dataset.vge01 || '',
                                 calculated_tak_time: takTimeMins.toFixed(2),
                                 status_pro_wi: 'Created',
                                 workcenter_induk: item.dataset.arbpl || wcId,

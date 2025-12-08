@@ -54,9 +54,6 @@ class CreateWiController extends Controller
             $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
             $qtyAllocatedInWi = $assignedProQuantities[$aufnr] ?? 0;
             $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
-            
-            // Mempertahankan nilai MGVRG2 asli untuk Qty Oper
-            // Kita hanya mengupdate Qty sisa riil
             $item->real_sisa_qty = $qtySisaAkhir; 
             return $item;
         });
@@ -141,44 +138,6 @@ class CreateWiController extends Controller
     }
 
     /**
-     * Mendapatkan kode Plant dari kode Workcenter.
-     */
-    protected function mapPlantToLocationCode(string $plantCode): string
-    {
-        $plantCode = trim($plantCode);
-        $plantNumericCode = '';
-
-        if ($plantCode === '1001') {
-            $plantNumericCode = '1001';
-        } 
-
-        elseif (is_numeric($plantCode) && strlen($plantCode) >= 4) {
-            $prefix = substr($plantCode, 0, 1);
-            $plantNumericCode = $prefix . '000'; 
-            $plantNumericCode = substr($plantCode, 0, 4); 
-
-            if (str_starts_with($plantCode, '1')) {
-                $plantNumericCode = '1000'; // Mencakup 1004, 1005, dll.
-            } elseif (str_starts_with($plantCode, '2')) {
-                $plantNumericCode = '2000'; // Mencakup 2002, dll.
-            } elseif (str_starts_with($plantCode, '3')) {
-                $plantNumericCode = '3000'; // Mencakup 3016, dll.
-            }
-
-        } else {
-            return 'XXXX'; 
-        }
-        if ($plantNumericCode === '3000' || $plantNumericCode === '3016') { 
-            return 'SMG';
-        } 
-        if ($plantNumericCode !== 'XXXX') {
-            return 'SBY';
-        }
-        
-        return 'XXXX';
-    }
-
-    /**
      * Menyimpan alokasi Work Instruction (WI) dan membuat kode dokumen unik.
      */
     public function saveWorkInstruction(Request $request)
@@ -192,45 +151,43 @@ class CreateWiController extends Controller
         if (empty($payload) || !$plantCode || !$inputDate) {
             return response()->json(['message' => 'Data tidak lengkap. Tanggal/Plant/alokasi kosong.'], 400);
         }
-        
+        $docPrefix = str_starts_with($plantCode, '3') ? 'WIH' : 'WIW';
+
         $dateTime = Carbon::parse($inputDate . ' ' . $inputTime);
         $expiredAt = $dateTime->copy()->addHours(12);
-        $dateForCode = $dateTime->format('ymd'); 
         $dateForDb = $dateTime->toDateString();
         $timeForDb = $dateTime->toTimeString();
         
         $wiDocuments = [];
-        $locationCode = $this->mapPlantToLocationCode($plantCode);
 
         try {
             foreach ($payload as $wcAllocation) {
                 $workcenterCode = $wcAllocation['workcenter'];
-                
-                DB::transaction(function () use ($workcenterCode, $dateForDb, $plantCode, $wcAllocation, $locationCode, $dateForCode, $timeForDb, $expiredAt, &$wiDocuments) {
-                    $latestHistory = HistoryWi::where('workcenter_code', $workcenterCode)
-                        ->where('document_date', $dateForDb) 
-                        ->orderByDesc('sequence_number')
+                DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $expiredAt, $wcAllocation, &$wiDocuments) {
+                    $latestHistory = HistoryWi::where('wi_document_code', 'LIKE', $docPrefix . '%')
+                        ->orderByRaw('LENGTH(wi_document_code) DESC')
+                        ->orderBy('wi_document_code', 'desc')
                         ->lockForUpdate() 
                         ->first();
     
-                    $sequence = $latestHistory ? $latestHistory->sequence_number + 1 : 1;
-                    $documentCode = sprintf(
-                        '%s%s%s%03d',
-                        $workcenterCode, 
-                        $locationCode,    
-                        $dateForCode,     
-                        $sequence         
-                    );
+                    $nextNumber = 1;
+                    
+                    if ($latestHistory) {
+                        $currentCode = $latestHistory->wi_document_code;
+                        $numberPart = substr($currentCode, 3); 
+                        $nextNumber = intval($numberPart) + 1;
+                    }
+                    $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
 
                     HistoryWi::create([
                         'wi_document_code' => $documentCode,
                         'workcenter_code' => $workcenterCode,
                         'plant_code' => $plantCode,
                         'document_date' => $dateForDb,
-                        'document_time' => $timeForDb,       // <-- BARU: Simpan Jam Mulai
-                        'expired_at' => $expiredAt->toDateTimeString(), // <-- BARU: Simpan Waktu Expired
-                        'sequence_number' => $sequence,
-                        'payload_data' => $wcAllocation['pro_items'], 
+                        'document_time' => $timeForDb,       
+                        'expired_at' => $expiredAt->toDateTimeString(),
+                        'sequence_number' => $nextNumber, // Simpan urutan angka saja
+                        'payload_data' => $wcAllocation['pro_items'], // Asumsi kolom ini sudah dicasting array/json di Model
                     ]);
                     
                     $wiDocuments[] = [
@@ -256,6 +213,211 @@ class CreateWiController extends Controller
                 'message' => 'Terjadi kesalahan saat menyimpan Work Instructions.',
                 'error_detail' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function history(Request $request, $kode) 
+    {
+        $plantCode = $kode; 
+        $now = Carbon::now();
+        $query = HistoryWi::where('plant_code', $plantCode);
+
+        if ($request->filled('date')) {
+            $query->whereDate('document_date', $request->date);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('wi_document_code', 'like', "%{$search}%")
+                ->orWhere('workcenter_code', 'like', "%{$search}%");
+            });
+        }
+        $wiDocuments = $query->orderBy('document_date', 'desc')
+                            ->orderBy('document_time', 'desc')
+                            ->get();
+
+        $activeWIDocuments = collect();
+        $expiredWIDocuments = collect();
+
+        foreach ($wiDocuments as $doc) {
+            $expiredAt = $doc->expired_at; 
+            if ($expiredAt) {
+                $expirationTime = Carbon::parse($expiredAt); 
+                $doc->is_expired = $now->greaterThan($expirationTime);
+            } else {
+                try {
+                    $effectiveStart = Carbon::parse($doc->document_date . ' ' . $doc->document_time);
+                    $expirationTime = $effectiveStart->copy()->addHours(12);
+                    $doc->is_expired = $now->greaterThan($expirationTime);
+                } catch (\Exception $e) {
+                    $doc->is_expired = true;
+                }
+            }
+
+            $rawData = $doc->payload_data;
+            if (is_array($rawData)) {
+                $payloadItems = $rawData;
+            } else {
+                $payloadItems = json_decode($rawData, true);
+            }
+            $payloadItems = $payloadItems ?? [];
+            $firstItem = $payloadItems[0] ?? [];
+            $rawKapaz = str_replace(',', '.', $firstItem['kapaz'] ?? 0);
+            $kapazHours = floatval($rawKapaz);
+            $maxMins = $kapazHours * 60; 
+            $summary = [
+                'total_items' => 0,
+                'total_load_mins' => 0, 
+                'details' => [] 
+            ];
+
+            foreach ($payloadItems as $item) {
+                $summary['total_items']++;
+                $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
+                $confirmedQty = floatval(str_replace(',', '.', $item['confirmed_qty'] ?? 0));
+                $qtyOrderRaw = floatval(str_replace(',', '.', $item['qty_order'] ?? $assignedQty));
+                $takTime = floatval(str_replace(',', '.', $item['calculated_tak_time'] ?? 0));
+                $summary['total_load_mins'] += $takTime;
+                $progressPct = $assignedQty > 0 ? ($confirmedQty / $assignedQty) * 100 : 0;
+
+                if ($progressPct >= 100) $statusItem = 'Completed';
+                elseif ($confirmedQty > 0) $statusItem = 'On Progress';
+                else $statusItem = 'Created';
+
+                $summary['details'][] = [
+                    'aufnr'         => $item['aufnr'] ?? '-',
+                    'material'      => $item['material_desc'] ?? ($item['material'] ?? '-'), // Sesuaikan key JSON
+                    'description'   => $item['material_desc'] ?? '', 
+                    'assigned_qty'  => $assignedQty,
+                    'confirmed_qty' => $confirmedQty,
+                    'qty_order'     => $qtyOrderRaw,
+                    'uom'           => $item['uom'] ?? 'EA',
+                    'progress_pct'  => $progressPct,
+                    'status'        => $statusItem,
+                    'item_mins'     => $takTime 
+                ];
+            }
+
+            $percentageLoad = $maxMins > 0 ? ($summary['total_load_mins'] / $maxMins) * 100 : 0;
+
+            $doc->capacity_info = [
+                'max_mins'   => $maxMins,
+                'used_mins'  => $summary['total_load_mins'],
+                'percentage' => $percentageLoad
+            ];
+
+            $doc->pro_summary = $summary;
+
+            if ($doc->is_expired) {
+                $expiredWIDocuments->push($doc);
+            } else {
+                $activeWIDocuments->push($doc);
+            }
+        }
+
+        return view('create-wi.history', [
+            'plantCode' => $plantCode,
+            'activeWIDocuments' => $activeWIDocuments,
+            'expiredWIDocuments' => $expiredWIDocuments,
+            'search' => $request->search,
+            'date' => $request->date
+        ]);
+    }
+
+    public function updateQty(Request $request)
+    {
+        $request->validate([
+            'wi_code' => 'required|string',
+            'aufnr'   => 'required|string',
+            'new_qty' => 'required|numeric|min:0',
+        ]);
+
+        try {
+            // 1. Cari Dokumen
+            $doc = HistoryWi::where('wi_document_code', $request->wi_code)->firstOrFail();
+
+            // 2. Decode Payload
+            $payload = is_array($doc->payload_data) 
+                        ? $doc->payload_data 
+                        : json_decode($doc->payload_data, true);
+
+            $updated = false;
+            $materialName = '';
+
+            // --- FUNGSI HELPER PARSING ANGKA (Sama dengan logika History) ---
+            $parseNumber = function($value) {
+                if (is_numeric($value)) return floatval($value);
+                $string = (string) $value;
+                
+                // Deteksi format Indonesia (Ribuan titik, Desimal koma) vs Inggris
+                if (strpos($string, '.') !== false && strpos($string, ',') !== false) {
+                    if (strrpos($string, ',') > strrpos($string, '.')) {
+                        $string = str_replace('.', '', $string); 
+                        $string = str_replace(',', '.', $string);
+                    } else {
+                        $string = str_replace(',', '', $string); 
+                    }
+                } elseif (strpos($string, ',') !== false) {
+                    $string = str_replace(',', '.', $string);
+                }
+                return floatval($string);
+            };
+            // ---------------------------------------------------
+
+            // 3. Loop Item & Update
+            foreach ($payload as &$item) {
+                if ($item['aufnr'] === $request->aufnr) {
+                $maxQty = $parseNumber($item['qty_order'] ?? 0);
+                $newQty = floatval($request->new_qty);
+
+                if ($maxQty > 0 && $newQty > $maxQty) {
+                    return back()->with('error', "Gagal! Quantity ($newQty) melebihi Order ($maxQty).");
+                }
+                $vgw01 = $parseNumber($item['vgw01'] ?? 0);
+                $unit = strtoupper($item['vge01'] ?? '');
+                if ($vgw01 == 0) {
+                    $oldTakTime = floatval($item['calculated_tak_time'] ?? 0);
+                    $oldQty = floatval($item['assigned_qty'] ?? 0);
+                    
+                    if ($oldQty > 0) {
+                        $vgw01 = $oldTakTime / $oldQty; 
+                        $unit = 'MIN'; 
+                    }
+                }
+
+                $totalRaw = $vgw01 * $newQty;
+                $newMinutes = 0;
+
+                if ($unit === 'S' || $unit === 'SEC') {
+                    $newMinutes = $totalRaw / 60;
+                } elseif ($unit === 'H' || $unit === 'HUR') {
+                    $newMinutes = $totalRaw * 60;
+                } else {
+                    $newMinutes = $totalRaw; // Default MIN
+                }
+
+                $item['assigned_qty'] = $newQty;
+                $item['calculated_tak_time'] = number_format($newMinutes, 2, '.', '');
+                $item['vgw01'] = $vgw01; 
+                $item['vge01'] = $unit;
+                $updated = true;
+                $materialName = $item['material_desc'] ?? $item['aufnr'];
+                break; 
+            }
+            }
+
+            if ($updated) {
+                $doc->payload_data = $payload; 
+                $doc->save();
+
+                return back()->with('success', "Qty $materialName diupdate menjadi $newQty. Kapasitas diperbarui.");
+            }
+
+            return back()->with('error', 'Item tidak ditemukan.');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 }

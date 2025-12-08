@@ -12,6 +12,7 @@ class WorkInstructionApiController extends Controller
     public function getUniqueUnexpiredAufnrs()
     {
         $unexpiredHistories = HistoryWi::where('expired_at', '>', Carbon::now())->get();
+        
         $groupedAufnrs = [];
         $allUniqueAufnrs = [];
 
@@ -22,6 +23,8 @@ class WorkInstructionApiController extends Controller
             if (is_array($proItems)) {
                 foreach ($proItems as $item) {
                     $aufnr = $item['aufnr'] ?? null;
+                    $vornr = $item['vornr'] ?? null;
+                    
                     $status = $item['status_pro_wi'] ?? 'Created';
 
                     if ($aufnr && $status !== 'Completed') {
@@ -29,9 +32,11 @@ class WorkInstructionApiController extends Controller
                         if (!isset($groupedAufnrs[$wiCode])) {
                             $groupedAufnrs[$wiCode] = [];
                         }
-                        
                         if (!isset($allUniqueAufnrs[$aufnr])) {
-                            $groupedAufnrs[$wiCode][] = $aufnr;
+                            $groupedAufnrs[$wiCode][] = [
+                                'aufnr' => $aufnr,
+                                'vornr' => $vornr
+                            ];
                             $allUniqueAufnrs[$aufnr] = true;
                         }
                     }
