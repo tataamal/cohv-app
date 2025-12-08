@@ -321,7 +321,9 @@
                                             data-employee-nik="" data-employee-name="" data-child-wc=""
                                             data-assigned-child-wcs='[]' data-arbpl="{{ $item->ARBPL }}"
                                             data-matnr="{{ $item->MATNR }}" data-maktx="{{ $item->MAKTX }}"
-                                            data-meins="{{ $item->MEINS }}" data-vornr="{{ $item->VORNR }}">
+                                            data-meins="{{ $item->MEINS }}" data-vornr="{{ $item->VORNR }}"
+                                            data-kdauf="{{ $item->KDAUF }}" data-kdpos="{{ $item->KDPOS }}"
+                                            data-dispo="{{ $item->DISPO }}" data-steus="{{ $item->STEUS }}">
                                             {{-- TAMBAHAN: ARBPL --}}
 
                                             <td class="text-center table-col ps-3"><input
@@ -1610,8 +1612,13 @@
                                 material_number: item.dataset.matnr || 'N/A',
                                 material_desc: item.dataset.maktx || 'N/A',
                                 qty_order: qtyOrder,
+                                confirmed_qty: 0,
                                 uom: item.dataset.meins || 'EA',
                                 vornr: item.dataset.vornr || 'N/A',
+                                kdauf: item.dataset.kdauf || 'N/A',
+                                kdpos: item.dataset.kdpos || 'N/A',
+                                dispo: item.dataset.dispo || 'N/A',
+                                steus: item.dataset.steus || 'N/A',
                                 calculated_tak_time: takTimeMins.toFixed(2),
                                 status_pro_wi: 'Created',
                                 workcenter_induk: item.dataset.arbpl || wcId,
