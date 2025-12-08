@@ -1,20 +1,18 @@
 <?php
 
-use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
-define('LARAVEL_START', microtime(true));
+// 1. Definisikan Base Path & Public Path
+// Ini penting agar FrankenPHP tahu posisi root folder project Anda
+$_SERVER['APP_BASE_PATH'] = $_ENV['APP_BASE_PATH'] ?? $_SERVER['APP_BASE_PATH'] ?? __DIR__.'/..';
+$_SERVER['APP_PUBLIC_PATH'] = $_ENV['APP_PUBLIC_PATH'] ?? $_SERVER['APP_BASE_PATH'] ?? __DIR__;
 
-// Determine if the application is in maintenance mode...
-if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
-    require $maintenance;
-}
-
-// Register the Composer autoloader...
+// 2. Load Auto Loader (Standar)
 require __DIR__.'/../vendor/autoload.php';
 
-// Bootstrap Laravel and handle the request...
-/** @var Application $app */
-$app = require_once __DIR__.'/../bootstrap/app.php';
+// 3. Bootstrapping Aplikasi (Standar)
+$app = require __DIR__.'/../bootstrap/app.php';
 
-$app->handleRequest(Request::capture());
+// 4. Panggil Worker FrankenPHP bawaan Octane
+// File ini yang melakukan "Magic" looping request agar aplikasi tetap hidup di RAM
+require __DIR__.'/../vendor/laravel/octane/bin/frankenphp-worker.php';
