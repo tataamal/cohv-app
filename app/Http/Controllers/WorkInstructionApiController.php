@@ -12,25 +12,39 @@ class WorkInstructionApiController extends Controller
     public function getUniqueUnexpiredAufnrs()
     {
         $unexpiredHistories = HistoryWi::where('expired_at', '>', Carbon::now())->get();
-        $uniqueAufnrs = [];
+        $groupedAufnrs = [];
+        $allUniqueAufnrs = [];
 
         foreach ($unexpiredHistories as $history) {
+            $wiCode = $history->wi_document_code;
             $proItems = $history->payload_data;
 
             if (is_array($proItems)) {
                 foreach ($proItems as $item) {
                     $aufnr = $item['aufnr'] ?? null;
-                    if ($aufnr) {
-                        $uniqueAufnrs[$aufnr] = true; 
+                    $status = $item['status_pro_wi'] ?? 'Created';
+
+                    if ($aufnr && $status !== 'Completed') {
+                        
+                        if (!isset($groupedAufnrs[$wiCode])) {
+                            $groupedAufnrs[$wiCode] = [];
+                        }
+                        
+                        if (!isset($allUniqueAufnrs[$aufnr])) {
+                            $groupedAufnrs[$wiCode][] = $aufnr;
+                            $allUniqueAufnrs[$aufnr] = true;
+                        }
                     }
                 }
             }
         }
         
+        $totalCount = count($allUniqueAufnrs);
+
         return response()->json([
             'status' => 'success',
-            'data' => array_keys($uniqueAufnrs),
-            'count' => count($uniqueAufnrs)
+            'data' => $groupedAufnrs, 
+            'count' => $totalCount
         ]);
     }
 
@@ -70,62 +84,70 @@ class WorkInstructionApiController extends Controller
         $request->validate([
             'wi_code' => 'required|string|exists:db_history_wi,wi_document_code',
             'aufnr' => 'required|string',
-            'confirmed_qty' => 'required|numeric|min:1',
+            'confirmed_qty' => 'required|numeric', 
         ]);
-    
+
         $wiCode = $request->input('wi_code');
         $aufnrToComplete = $request->input('aufnr');
-        $confQty = $request->input('confirmed_qty');
-    
+        $confQty = (float) $request->input('confirmed_qty'); 
+        
+        if ($confQty <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'Qty konfirmasi harus lebih besar dari 0.'], 400);
+        }
+
         try {
             DB::beginTransaction();
-    
+
             $document = HistoryWi::where('wi_document_code', $wiCode)->lockForUpdate()->first();
-    
+
             if (!$document) {
                 DB::rollBack();
                 return response()->json(['status' => 'error', 'message' => 'Dokumen WI tidak ditemukan.'], 404);
             }
-    
+
             $payload = $document->payload_data;
             $updated = false;
             $documentCompleted = false;
+            
             foreach ($payload as $key => $item) {
                 if (($item['aufnr'] ?? null) === $aufnrToComplete) {
                     
-                    $assignedQty = $item['assigned_qty'] ?? 0;
-                    $currentConfirmedQty = $item['confirmed_qty'] ?? 0;
+                    $assignedQty = (float) ($item['assigned_qty'] ?? 0);
+                    $currentConfirmedQty = (float) ($item['confirmed_qty'] ?? 0);
 
                     if (($currentConfirmedQty + $confQty) > $assignedQty) {
-                         DB::rollBack();
-                         return response()->json([
+                        DB::rollBack();
+                        return response()->json([
                             'status' => 'error', 
                             'message' => "Total Qty konfirmasi ({$currentConfirmedQty} + {$confQty}) melebihi Qty dialokasikan ({$assignedQty})."
                         ], 400);
                     }
-                    
+
                     $newConfirmedQty = $currentConfirmedQty + $confQty;
+                    $newConfirmedQty = round($newConfirmedQty, 4); 
+                    $assignedQty = round($assignedQty, 4);
+                    
                     $payload[$key]['confirmed_qty'] = $newConfirmedQty;
-                    $payload[$key]['last_confirmed_at'] = Carbon::now()->toDateTimeString(); // Untuk audit
+                    $payload[$key]['last_confirmed_at'] = Carbon::now()->toDateTimeString();
 
                     if ($newConfirmedQty === $assignedQty) {
                         $payload[$key]['status_pro_wi'] = 'Completed';
                         $payload[$key]['completed_at'] = Carbon::now()->toDateTimeString();
                         $documentCompleted = true;
-    
+
                     } elseif ($newConfirmedQty > 0) {
                         $payload[$key]['status_pro_wi'] = 'Progress';
                         $documentCompleted = false; 
-    
+
                     } else {
-                         $payload[$key]['status_pro_wi'] = 'Created';
+                        $payload[$key]['status_pro_wi'] = 'Created';
                     }
                     
                     $updated = true;
                     break; 
                 }
             }
-    
+
             if (!$updated) {
                 DB::rollBack();
                 return response()->json(['status' => 'error', 'message' => 'AUFNR tidak ditemukan di dalam dokumen ini.'], 404);
@@ -133,9 +155,9 @@ class WorkInstructionApiController extends Controller
             
             $document->payload_data = $payload;
             $document->save();
-    
+
             DB::commit();
-    
+
             $finalStatusMessage = $documentCompleted ? 'berhasil diselesaikan (Completed).' : 'diperbarui secara parsial (Progress).';
             
             return response()->json([
