@@ -10,6 +10,7 @@
                 --text-secondary: #64748b;
                 --success-color: #10b981;
                 --danger-color: #ef4444;
+                --info-color: #3b82f6;
             }
 
             body { background-color: var(--bg-app) !important; color: var(--primary-dark); }
@@ -94,17 +95,33 @@
             .item-list-container {
                 background-color: #f8fafc;
                 border-top: 1px solid var(--border-color);
-                padding: 10px 20px 20px 20px;
+                padding: 15px 20px;
             }
+            
+            /* --- ITEM CARD DI DALAM ACCORDION (LEBIH DETIL) --- */
             .pro-item-row {
-                padding: 10px;
                 background: white;
                 border: 1px solid var(--border-color);
-                border-radius: 6px;
-                margin-bottom: 8px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
+                border-radius: 8px;
+                padding: 12px;
+                margin-bottom: 10px;
+                position: relative;
+            }
+            
+            /* Progress Bar Styling */
+            .progress-label {
+                font-size: 0.65rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: var(--text-secondary);
+                margin-bottom: 2px;
+                display: block;
+            }
+            .progress-custom {
+                height: 6px;
+                background-color: #e2e8f0;
+                border-radius: 3px;
+                overflow: hidden;
             }
 
             /* --- 4. UTILITIES --- */
@@ -145,7 +162,6 @@
                 <p class="text-muted small mb-0">Plant Access: <b>{{ $plantCode }}</b></p>
             </div>
             <div class="d-flex gap-2">
-                {{-- TOMBOL PRINT LOG UTAMA (Sesuai Permintaan) --}}
                 <button type="button" class="btn btn-dark shadow-sm fw-bold px-3 rounded-pill" onclick="openPrintModal('log')">
                     <i class="fa-solid fa-file-pdf me-2"></i> Export Log
                 </button>
@@ -271,25 +287,52 @@
                             </button>
                         </div>
 
-                        {{-- ACCORDION CONTENT --}}
+                        {{-- ACCORDION CONTENT (DENGAN PROGRESS BAR PER ITEM) --}}
                         <div class="collapse item-list-container" id="collapse-{{ $document->id }}">
                             @if($payload)
                                 @foreach($payload as $item)
-                                <div class="pro-item-row">
-                                    <div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-dark" style="font-size: 0.65rem;">{{ $item['aufnr'] ?? 'N/A' }}</span>
-                                            <span class="fw-bold text-dark small">{{ $item['material_desc'] ?? 'No Description' }}</span>
+                                    @php
+                                        // --- HITUNG PROGRESS CONFIRMATION ---
+                                        $confirmed = isset($item['confirmed_qty']) ? (float)$item['confirmed_qty'] : 0;
+                                        $assigned = isset($item['assigned_qty']) ? (float)$item['assigned_qty'] : 0;
+                                        
+                                        $percentage = ($assigned > 0) ? ($confirmed / $assigned) * 100 : 0;
+                                        $percentage = min(100, max(0, $percentage)); // Clamp 0-100
+                                        
+                                        $barColor = $percentage >= 100 ? 'bg-success' : 'bg-primary';
+                                        $textClass = $percentage >= 100 ? 'text-success' : 'text-primary';
+                                    @endphp
+
+                                    <div class="pro-item-row">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="badge bg-dark" style="font-size: 0.65rem;">{{ $item['aufnr'] ?? 'N/A' }}</span>
+                                                    <span class="fw-bold text-dark small">{{ $item['material_desc'] ?? 'No Description' }}</span>
+                                                </div>
+                                                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
+                                                    Mat: {{ $item['material_number'] ?? '-' }} • SO: {{ $item['kdauf'] ?? '-' }}
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="fw-bold text-primary">{{ $assigned }}</div>
+                                                <div class="text-muted" style="font-size: 0.7rem;">TARGET</div>
+                                            </div>
                                         </div>
-                                        <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                                            Mat: {{ $item['material_number'] ?? '-' }} • SO: {{ $item['kdauf'] ?? '-' }}
+
+                                        {{-- PROGRESS BAR CONFIRMATION (RE-ADDED) --}}
+                                        <div class="mt-2">
+                                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                                <span class="progress-label">Production Progress</span>
+                                                <span class="small fw-bold {{ $textClass }}">
+                                                    {{ $confirmed }} / {{ $assigned }} ({{ round($percentage) }}%)
+                                                </span>
+                                            </div>
+                                            <div class="progress-custom">
+                                                <div class="progress-bar {{ $barColor }}" role="progressbar" style="width: {{ $percentage }}%"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="text-end">
-                                        <div class="fw-bold text-primary">{{ isset($item['assigned_qty']) ? (float)$item['assigned_qty'] : 0 }}</div>
-                                        <div class="text-muted" style="font-size: 0.7rem;">QTY</div>
-                                    </div>
-                                </div>
                                 @endforeach
                             @endif
                         </div>
@@ -377,22 +420,48 @@
                             </button>
                         </div>
 
-                        {{-- COLLAPSE --}}
+                        {{-- COLLAPSE CONTENT (DENGAN PROGRESS BAR PER ITEM) --}}
                         <div class="collapse item-list-container" id="collapse-exp-{{ $document->id }}">
                              @if($payload)
                                 @foreach($payload as $item)
-                                <div class="pro-item-row" style="background-color: #fdf2f2; border-color: #fecaca;">
-                                    <div>
-                                        <div class="fw-bold text-dark small">{{ $item['material_desc'] ?? '-' }}</div>
-                                        <div class="text-muted small" style="font-size: 0.7rem;">PRO: {{ $item['aufnr'] ?? '-' }}</div>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="fw-bold text-danger">
-                                            {{ isset($item['confirmed_qty']) ? (float)$item['confirmed_qty'] : 0 }} / {{ isset($item['assigned_qty']) ? (float)$item['assigned_qty'] : 0 }}
+                                    @php
+                                        // --- HITUNG PROGRESS CONFIRMATION ---
+                                        $confirmed = isset($item['confirmed_qty']) ? (float)$item['confirmed_qty'] : 0;
+                                        $assigned = isset($item['assigned_qty']) ? (float)$item['assigned_qty'] : 0;
+                                        
+                                        $percentage = ($assigned > 0) ? ($confirmed / $assigned) * 100 : 0;
+                                        $percentage = min(100, max(0, $percentage)); 
+                                        
+                                        // Expired biasanya merah jika belum 100%
+                                        $barColor = $percentage >= 100 ? 'bg-success' : 'bg-danger';
+                                        $textClass = $percentage >= 100 ? 'text-success' : 'text-danger';
+                                    @endphp
+
+                                    <div class="pro-item-row" style="background-color: #fffafa; border-color: #fecaca;">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <div class="fw-bold text-dark small">{{ $item['material_desc'] ?? '-' }}</div>
+                                                <div class="text-muted small" style="font-size: 0.7rem;">PRO: {{ $item['aufnr'] ?? '-' }}</div>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="fw-bold text-danger">{{ $confirmed }}</div>
+                                                <div class="text-muted" style="font-size: 0.65rem;">ACTUAL</div>
+                                            </div>
                                         </div>
-                                        <div class="text-muted" style="font-size: 0.65rem;">CONFIRMED</div>
+
+                                        {{-- PROGRESS BAR EXPIRED --}}
+                                        <div class="mt-2">
+                                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                                <span class="progress-label text-danger">Final Status</span>
+                                                <span class="small fw-bold {{ $textClass }}">
+                                                    {{ $confirmed }} / {{ $assigned }} ({{ round($percentage) }}%)
+                                                </span>
+                                            </div>
+                                            <div class="progress-custom">
+                                                <div class="progress-bar {{ $barColor }}" role="progressbar" style="width: {{ $percentage }}%"></div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
                                 @endforeach
                             @endif
                         </div>
@@ -423,7 +492,7 @@
                         {{-- Input Hidden untuk kode WI --}}
                         <input type="hidden" name="wi_codes" id="inputWiCodes">
                         
-                        {{-- Input Hidden untuk Filter Log (Jaga-jaga jika mode Log) --}}
+                        {{-- Input Hidden untuk Filter Log --}}
                         <input type="hidden" name="filter_date" value="{{ request('date') }}">
                         <input type="hidden" name="filter_search" value="{{ request('search') }}">
                         
@@ -470,22 +539,18 @@
         }
 
         // --- 2. SINGLE PRINT HELPER ---
-        // Dipanggil langsung dari tombol Print di kartu
         function setupSinglePrint(wiCode, type) {
             const inputCodes = document.getElementById('inputWiCodes');
             inputCodes.value = wiCode; // Set single code
             
             // Buka Modal dengan konfigurasi type tersebut
             const modalEl = document.getElementById('universalPrintModal');
-            
-            // Kita panggil setup UI nya
             setupModalUI(type, 1);
-
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
         }
 
-        // --- 3. UI SETUP FOR MODAL (Menghandle 3 Tipe: Active, Expired, Log) ---
+        // --- 3. UI SETUP FOR MODAL ---
         function setupModalUI(type, count) {
             const form = document.getElementById('printForm');
             const alertMsg = document.getElementById('modalAlert');
@@ -494,7 +559,6 @@
             const headerBg = document.getElementById('modalHeaderBg');
 
             if (type === 'active') {
-                // Mode: Cetak WI Kerja
                 form.action = "{{ route('wi.print-single') }}"; 
                 modalTitle.innerText = 'CETAK WORK INSTRUCTION';
                 headerBg.style.background = '#10b981'; // Green
@@ -506,7 +570,6 @@
                 btnSubmit.innerHTML = '<i class="fa-solid fa-download me-2"></i>Download WI';
 
             } else if (type === 'expired') {
-                // Mode: Cetak Laporan Expired
                 form.action = "{{ route('wi.print-expired-report') }}"; 
                 modalTitle.innerText = 'CETAK LAPORAN HASIL';
                 headerBg.style.background = '#ef4444'; // Red
@@ -518,7 +581,6 @@
                 btnSubmit.innerHTML = '<i class="fa-solid fa-file-export me-2"></i>Export Report';
 
             } else if (type === 'log') {
-                // Mode: Cetak Log Global
                 form.action = "{{ route('wi.print-pdf', ['kode' => $plantCode]) }}"; 
                 modalTitle.innerText = 'EXPORT LOG HISTORY';
                 headerBg.style.background = '#1e293b'; // Dark
@@ -531,12 +593,11 @@
             }
         }
 
-        // --- 4. GLOBAL OPEN MODAL (Untuk Bulk Action & Log Button) ---
+        // --- 4. GLOBAL OPEN MODAL ---
         window.openPrintModal = function(type) {
             const modalEl = document.getElementById('universalPrintModal');
             const inputCodes = document.getElementById('inputWiCodes');
 
-            // Jika Log, tidak perlu cek checkbox
             if (type === 'log') {
                 setupModalUI('log', 0);
                 const modal = new bootstrap.Modal(modalEl);
@@ -544,7 +605,6 @@
                 return;
             }
 
-            // Jika Active/Expired Bulk, cek checkbox
             let selector = (type === 'active') ? '.cb-active:checked' : '.cb-expired:checked';
             const checked = document.querySelectorAll(selector);
             let codes = [];
