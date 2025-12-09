@@ -2,427 +2,428 @@
 
     @push('styles')
         <style>
+            /* --- 1. THEME VARIABLES (MATCHING HISTORY PAGE) --- */
             :root {
-                --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                --glass-bg: rgba(255, 255, 255, 0.95);
-                --border-color: #dfe3e8;
+                --bg-app: #eef2f6;
+                --card-bg: #ffffff;
+                --card-header-bg: #f8fafc;
+                --border-color: #e2e8f0;
+                --primary-dark: #1e293b;
+                --primary-blue: #3b82f6;
+                --text-secondary: #64748b;
+                --success-color: #10b981;
+                --warning-bg: #fff7ed;
+                --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+                --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
             }
 
-            body {
-                background-color: #f4f6f8;
+            body { 
+                background-color: var(--bg-app) !important; 
+                color: var(--primary-dark); 
             }
 
-            body.dragging-active {
+            /* --- 2. GLOBAL UTILITIES --- */
+            .icon-box {
+                width: 32px; height: 32px;
+                display: flex; align-items: center; justify-content: center;
+                border-radius: 8px;
+            }
+            .fw-bolder { font-weight: 700 !important; }
+            .text-xs { font-size: 0.75rem; }
+            
+            /* PREVENT TEXT SELECTION DURING DRAG (FIXED) */
+            body.dragging-active, 
+            body.dragging-active * {
                 user-select: none !important;
+                -webkit-user-select: none !important;
+                -moz-user-select: none !important;
+                -ms-user-select: none !important;
                 cursor: grabbing !important;
             }
 
-            body.dragging-active * {
-                user-select: none !important;
-            }
-
-            /* TABLE STYLING */
-            .custom-table-card {
+            /* --- 3. SOURCE TABLE CARD (LEFT COLUMN) --- */
+            .source-panel {
+                background: var(--card-bg);
+                border-radius: 12px;
                 border: 1px solid var(--border-color);
-                border-radius: 8px;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-                background: white;
+                box-shadow: var(--shadow-soft);
+                height: calc(100vh - 140px); /* Fixed height for dashboard feel */
+                display: flex;
+                flex-direction: column;
                 overflow: hidden;
             }
 
-            .table-responsive-custom {
-                height: calc(100vh - 240px);
-                min-height: 500px;
-                overflow-y: auto;
+            .source-header {
+                background: var(--card-bg);
+                padding: 15px 20px;
+                border-bottom: 1px solid var(--border-color);
+                z-index: 20;
             }
 
-            thead.sticky-header th {
+            /* Custom Input Search */
+            .search-input-group {
+                background: #f1f5f9;
+                border-radius: 8px;
+                border: 1px solid transparent;
+                transition: all 0.2s;
+            }
+            .search-input-group:focus-within {
+                background: #ffffff;
+                border-color: var(--primary-blue);
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            }
+            .search-input-group input { background: transparent; border: none; font-size: 0.9rem; }
+            .search-input-group input:focus { box-shadow: none; }
+
+            /* Table Area */
+            .table-scroll-area {
+                flex-grow: 1;
+                overflow-y: auto;
+                background-color: #ffffff;
+            }
+            
+            /* Table Styling */
+            .table-custom thead th {
+                background: #f8fafc;
+                color: var(--text-secondary);
+                font-weight: 600;
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                padding: 12px 10px;
+                border-bottom: 2px solid var(--border-color);
                 position: sticky;
                 top: 0;
-                background-color: #f8f9fa;
                 z-index: 10;
-                border-bottom: 2px solid #e9ecef;
-                font-weight: 600;
-                text-transform: uppercase;
-                font-size: 0.75rem;
-                letter-spacing: 0.5px;
-                color: #64748b;
-                padding-top: 1rem;
-                padding-bottom: 1rem;
             }
-
+            
+            /* Row Styling */
             tr.pro-item {
-                transition: all 0.1s ease;
                 border-bottom: 1px solid #f1f5f9;
+                transition: background 0.15s;
+                cursor: grab; /* Show grab cursor */
             }
-
-            tr.pro-item:hover {
-                background-color: #f8fafc;
-                z-index: 5;
-                position: relative;
-            }
-
+            tr.pro-item:hover { background-color: #f8fafc; }
+            tr.pro-item:last-child { border-bottom: none; }
+            
             tr.selected-row {
-                background-color: #eff6ff !important;
-                border-left: 3px solid #3b82f6 !important;
+                background-color: #eff6ff !important; /* Light Blue */
+                border-left: 3px solid var(--primary-blue);
             }
 
-            /* DRAG HANDLE */
+            /* Drag Handle */
             .drag-handle {
+                color: #cbd5e1;
                 cursor: grab;
-                color: #94a3b8;
                 transition: color 0.2s;
-                padding: 10px;
-                width: 40px;
-                text-align: center;
-                user-select: none;
             }
+            tr.pro-item:hover .drag-handle { color: var(--text-secondary); }
+            .drag-handle:active { cursor: grabbing; color: var(--primary-blue); }
 
-            .drag-handle:hover {
-                color: #3b82f6;
-                background-color: #f1f5f9;
-            }
-
-            .drag-handle:active {
-                cursor: grabbing;
-            }
-
-            /* DRAG PREVIEW */
-            tr.sortable-drag {
-                background: transparent !important;
-                border: none !important;
-                box-shadow: none !important;
-                display: block !important;
-                width: auto !important;
-                opacity: 1 !important;
-            }
-
-            tr.sortable-drag td {
-                display: none !important;
-            }
-
-            tr.sortable-drag td.preview-container {
-                display: block !important;
-                border: none !important;
-                padding: 0 !important;
-                background: transparent !important;
-            }
-
-            tr.sortable-drag td.preview-container>.original-content {
-                display: none !important;
-            }
-
-            tr.sortable-drag .drag-preview-icon {
-                display: flex !important;
-                align-items: center;
-                gap: 12px;
-                background: white;
-                padding: 12px 20px;
-                border-radius: 8px;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-                border: 1px solid #e2e8f0;
-                width: max-content;
-                transform: rotate(2deg) scale(1.02);
-                pointer-events: none;
-            }
-
-            .sortable-ghost {
-                opacity: 0.2;
-                background-color: #3b82f6 !important;
-            }
-
-            /* SIDEBAR WORKCENTER STYLING */
-            .workcenter-sidebar {
-                height: calc(100vh - 170px);
+            /* --- 4. TARGET WORKCENTER CARDS (RIGHT COLUMN) --- */
+            .target-scroll-area {
+                height: calc(100vh - 140px);
                 overflow-y: auto;
                 padding-right: 5px;
-                padding-bottom: 20px;
-            }
-
-            .workcenter-sidebar::-webkit-scrollbar,
-            .table-responsive-custom::-webkit-scrollbar {
-                width: 6px;
-                height: 6px;
-            }
-
-            .workcenter-sidebar::-webkit-scrollbar-thumb,
-            .table-responsive-custom::-webkit-scrollbar-thumb {
-                background-color: #cbd5e0;
-                border-radius: 3px;
             }
 
             .wc-card-container {
-                transition: all 0.2s;
+                background: var(--card-bg);
+                border-radius: 10px;
                 border: 1px solid var(--border-color);
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+                box-shadow: var(--shadow-soft);
+                margin-bottom: 1rem;
+                transition: transform 0.2s, box-shadow 0.2s;
             }
-
             .wc-card-container:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.1);
-                border-color: #b0b8c3;
+                box-shadow: var(--shadow-hover);
+                border-color: #cbd5e1;
             }
 
+            .wc-header {
+                padding: 12px 15px;
+                border-bottom: 1px solid #f1f5f9;
+                background: var(--card-header-bg);
+                border-radius: 10px 10px 0 0;
+            }
+
+            .wc-body { padding: 12px 15px; }
+
+            /* Drop Zone Styling */
             .wc-drop-zone {
-                min-height: 100px;
+                min-height: 80px;
                 max-height: 300px;
                 overflow-y: auto;
                 background-color: #f8fafc;
                 border: 2px dashed #cbd5e1;
                 border-radius: 8px;
+                transition: all 0.2s;
+                padding: 5px;
             }
-
             .wc-drop-zone.drag-over {
                 background-color: #eff6ff;
-                border-color: #3b82f6;
+                border-color: var(--primary-blue);
                 box-shadow: inset 0 0 0 4px rgba(59, 130, 246, 0.1);
             }
 
-            /* Item inside Drop Zone */
+            /* Empty Placeholder */
+            .empty-placeholder {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 70px;
+                color: #94a3b8;
+                font-size: 0.8rem;
+                font-weight: 500;
+            }
+
+            /* --- 5. DROPPED ITEM CARD (MINI CARD) --- */
             .wc-drop-zone .pro-item-card {
-                display: block;
-                width: 100%;
                 background: white;
-                border: 1px solid #e2e8f0;
+                border: 1px solid var(--border-color);
+                border-left: 4px solid var(--primary-blue); /* Accent */
                 border-radius: 6px;
-                padding: 8px 12px;
-                margin-bottom: 6px;
+                padding: 10px;
+                margin-bottom: 8px;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
                 cursor: grab;
                 position: relative;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
             }
-
             .wc-drop-zone .pro-item-card:hover {
                 border-color: #cbd5e1;
+                border-left-color: var(--primary-blue);
             }
 
-            /* PERBAIKAN VISUAL PENTING */
+            /* --- 6. DRAG PREVIEW (GHOST) --- */
+            .sortable-ghost {
+                opacity: 0.4;
+                background-color: #e2e8f0 !important;
+                border: 2px dashed var(--text-secondary) !important;
+            }
+            .sortable-drag { opacity: 1 !important; background: transparent; }
+            
+            /* Custom Drag Preview Element */
+            .drag-preview-icon {
+                background: white;
+                padding: 10px 15px;
+                border-radius: 8px;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+                border: 1px solid var(--primary-blue);
+                display: flex; align-items: center; gap: 10px;
+                width: max-content;
+                transform: rotate(2deg);
+            }
+
+            /* --- 7. HIDE/SHOW LOGIC (LOGIC JS DEPENDENCY) --- */
+            /* Ini css kritis agar logika JS sebelumnya tetap jalan */
             .wc-drop-zone .pro-item-card .table-col,
             .wc-drop-zone .pro-item-card .drag-handle,
             .wc-drop-zone .pro-item-card .preview-container .original-content,
-            .wc-drop-zone .pro-item-card .row-checkbox {
-                display: none !important;
-            }
+            .wc-drop-zone .pro-item-card .row-checkbox { display: none !important; }
 
-            .wc-drop-zone .pro-item-card .card-view-content {
-                display: block !important;
-            }
+            .wc-drop-zone .pro-item-card .card-view-content { display: block !important; }
+            .wc-drop-zone .pro-item-card .drag-preview-icon { display: none !important; }
 
-            .wc-drop-zone .pro-item-card .drag-preview-icon,
-            .wc-drop-zone .pro-item .drag-preview-icon {
-                display: none !important;
-            }
+            .source-table .pro-item .card-view-content { display: none; }
+            .source-table .pro-item .drag-preview-icon { display: none; }
 
-            .source-table .pro-item .card-view-content {
-                display: none;
-            }
-
-            .source-table .pro-item .drag-preview-icon {
-                display: none;
-            }
+            /* Scrollbar Refinement */
+            ::-webkit-scrollbar { width: 6px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+            ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         </style>
     @endpush
 
-    {{-- HAPUS: Blok PHP Kondisional PV2/PV3 --}}
+    <div class="container-fluid p-3 p-lg-4" style="max-width: 1600px;">
 
-    <div class="container-fluid p-3 p-lg-4">
-
-        <div class="alert alert-info py-1 mb-3 rounded-3 border-0 bg-info bg-opacity-10">
-            <marquee class="small text-info fw-medium">
-                <i class="fa-solid fa-circle-info me-2"></i> Document WI hanya digunakan untuk tim Produksi bekerja,
-                untuk melihat perubahan quantity GR anda bisa lihat dengan menekan history WI.
-            </marquee>
-        </div>
-
-        {{-- HEADER SECTION --}}
+        {{-- PAGE HEADER & ACTIONS --}}
         <div class="d-flex justify-content-between align-items-end mb-4">
             <div>
-                <h1 class="h3 fw-bold text-dark mb-1">
-                    <i class="fa-solid fa-layer-group me-2 text-primary"></i>Work Instruction
-                </h1>
-                <p class="text-muted small mb-0">Manage and assign Production Orders efficiently.</p>
+                <h1 class="h4 fw-bolder text-dark mb-1">Create Work Instruction</h1>
+                <p class="text-muted small mb-0">Drag PRO from the list and drop into target Workcenters.</p>
             </div>
-            <div class="d-flex gap-2">
-                <a href="{{ route('wi.history', ['kode' => $kode]) }}"
-                    class="btn btn-outline-dark btn-sm shadow-sm fw-medium">
-                    <i class="fa-solid fa-clock-rotate-left me-1"></i> History WI
+            
+            <div class="d-flex gap-2 bg-white p-1 rounded-pill shadow-sm border">
+                <a href="{{ route('wi.history', ['kode' => $kode]) }}" class="btn btn-white text-secondary fw-bold rounded-pill px-3 btn-sm">
+                    <i class="fa-solid fa-clock-rotate-left me-2"></i>History
                 </a>
-
-                <button class="btn btn-white btn-sm text-danger border shadow-sm fw-medium"
-                    onclick="resetAllAllocations()">
-                    <i class="fa-solid fa-arrow-rotate-left me-1"></i> Reset Allocation
+                <div class="vr my-1"></div>
+                <button onclick="resetAllAllocations()" class="btn btn-white text-danger fw-bold rounded-pill px-3 btn-sm">
+                    <i class="fa-solid fa-arrow-rotate-left me-2"></i>Reset
                 </button>
-                {{-- PERUBAHAN: Tombol Review & Save --}}
-                <button class="btn btn-primary btn-sm shadow-sm px-4 fw-semibold" onclick="saveAllocation(true)">
-                    <i class="fa-solid fa-floppy-disk me-2"></i> Review & Save
+                <button onclick="saveAllocation(true)" class="btn btn-primary fw-bold rounded-pill px-4 btn-sm shadow-sm">
+                    <i class="fa-solid fa-floppy-disk me-2"></i>Review & Save
                 </button>
             </div>
         </div>
 
         <div class="row g-4">
-            {{-- KOLOM KIRI: TABLE SUMBER --}}
+            
+            {{-- COLUMN 1: SOURCE LIST (PANEL) --}}
             <div class="col-lg-9 col-md-8">
-                <div class="card custom-table-card h-100">
-                    <div class="card-header bg-white py-3 border-bottom">
-                        <div class="row align-items-center g-2">
-                            <div class="col-md-5">
-                                <h6 class="mb-0 fw-bold text-dark d-flex align-items-center">
-                                    <span
-                                        class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex justify-content-center align-items-center me-2"
-                                        style="width: 28px; height: 28px; font-size: 0.85rem;">1</span>
-                                    Unassigned Orders
-                                </h6>
+                <div class="source-panel">
+                    
+                    {{-- Panel Header (Search & Stats) --}}
+                    <div class="source-header d-flex justify-content-between align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="icon-box bg-primary bg-opacity-10 text-primary">
+                                <i class="fa-solid fa-list-ul"></i>
                             </div>
-                            <div class="col-md-7">
-                                <div class="input-group input-group-sm shadow-sm">
-                                    <span class="input-group-text bg-white border-end-0 ps-3 text-muted"><i
-                                            class="fa-solid fa-search"></i></span>
-                                    <input type="text" id="searchInput"
-                                        class="form-control border-start-0 ps-0 bg-white"
-                                        placeholder="Type to search PRO, Material, SO...">
+                            <div>
+                                <h6 class="mb-0 fw-bold text-dark">Unassigned Orders</h6>
+                                <small class="text-muted">Production Request Orders (PRO)</small>
+                            </div>
+                        </div>
 
-                                </div>
-                            </div>
+                        <div class="search-input-group px-3 py-1 d-flex align-items-center" style="width: 350px;">
+                            <i class="fa-solid fa-magnifying-glass text-muted me-2"></i>
+                            <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Search Material, PRO, or SO...">
                         </div>
                     </div>
 
-                    <div class="card-body p-0">
-                        <div class="table-responsive table-responsive-custom">
-                            <table class="table mb-0 align-middle small source-table" id="proTable">
-                                <thead class="sticky-header">
-                                    <tr>
-                                        <th class="text-center p-2 ps-3" width="40"><input
-                                                class="form-check-input pointer" type="checkbox" id="selectAll"></th>
-                                        <th class="p-2 ps-3">PRO (AUFNR)</th>
-                                        <th class="text-center p-2">SO - Item</th>
-                                        <th class="p-2">Material / Description</th>
-                                        <th class="text-center p-2">WC</th>
-                                        <th class="text-center p-2">Op. Key</th>
-                                        <th class="text-center p-2">Qty Oper</th>
-                                        <th class="text-center p-2">Conf-Oper</th>
-                                        <th class="text-center bg-light" width="40"><i
-                                                class="fa-solid fa-grip-lines text-muted"></i></th>
+                    {{-- Table Content --}}
+                    <div class="table-scroll-area">
+                        <table class="table table-custom mb-0 w-100 align-middle source-table" id="proTable">
+                            <thead class="sticky-top">
+                                <tr>
+                                    <th class="text-center ps-3" width="40">
+                                        <input class="form-check-input pointer" type="checkbox" id="selectAll">
+                                    </th>
+                                    <th class="ps-3">PRO Number</th>
+                                    <th>Sales Order</th>
+                                    <th>Material Description</th>
+                                    <th class="text-center">Origin WC</th>
+                                    <th class="text-center">Op. Key</th>
+                                    <th class="text-center">Qty Total</th>
+                                    <th class="text-center">Qty Confirmed</th>
+                                    <th class="text-center bg-white" width="40"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="source-list" class="sortable-list" data-group="shared-pro">
+                                @foreach ($tData1 as $item)
+                                    @php
+                                        $soItem = ltrim($item->KDAUF, '0') . ' - ' . ltrim($item->KDPOS, '0');
+                                        $matnr = ctype_digit($item->MATNR) ? ltrim($item->MATNR, '0') : $item->MATNR;
+                                        $sisaQty = $item->real_sisa_qty ?? $item->MGVRG2 - $item->LMNGA;
+                                    @endphp
+
+                                    <tr class="pro-item draggable-item" 
+                                        data-id="{{ $item->id }}"
+                                        data-aufnr="{{ $item->AUFNR }}"
+                                        data-vgw01="{{ number_format($item->VGW01, 3, '.', '') }}"
+                                        data-vge01="{{ $item->VGE01 }}" 
+                                        data-psmng="{{ $item->PSMNG }}"
+                                        data-sisa-qty="{{ $sisaQty }}" 
+                                        data-conf-opr="{{ $item->LMNGA }}"
+                                        data-qty-opr="{{ $item->MGVRG2 }}" 
+                                        data-assigned-qty="0"
+                                        data-employee-nik="" 
+                                        data-employee-name="" 
+                                        data-child-wc=""
+                                        data-assigned-child-wcs='[]' 
+                                        data-arbpl="{{ $item->ARBPL }}"
+                                        data-matnr="{{ $item->MATNR }}" 
+                                        data-maktx="{{ $item->MAKTX }}"
+                                        data-meins="{{ $item->MEINS }}" 
+                                        data-vornr="{{ $item->VORNR }}"
+                                        data-kdauf="{{ $item->KDAUF }}" 
+                                        data-kdpos="{{ $item->KDPOS }}"
+                                        data-dispo="{{ $item->DISPO }}" 
+                                        data-steus="{{ $item->STEUS }}"
+                                        data-sssld="{{ $item->SSSLD }}" 
+                                        data-ssavd="{{ $item->SSAVD }}"
+                                        data-kapaz="{{ $item->KAPAZ }}"> 
+
+                                        {{-- 1. Checkbox --}}
+                                        <td class="text-center table-col ps-3">
+                                            <input class="form-check-input row-checkbox pointer" type="checkbox">
+                                        </td>
+
+                                        {{-- 2. PRO (Drag Visual Wrapper) --}}
+                                        <td class="table-col preview-container ps-3">
+                                            <div class="original-content">
+                                                <span class="fw-bold text-primary">{{ $item->AUFNR }}</span>
+                                            </div>
+                                            {{-- Custom Drag Preview (Hidden by default, shown by JS on drag) --}}
+                                            <div class="drag-preview-icon">
+                                                <div class="icon-box bg-primary text-white rounded shadow-sm">
+                                                    <i class="fa-solid fa-file-invoice"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold text-dark">{{ $item->AUFNR }}</div>
+                                                    <div class="text-muted text-xs">Assigning to Workcenter...</div>
+                                                </div>
+                                                <div class="ms-3 ps-3 border-start">
+                                                    <span class="badge bg-light text-dark border">{{ $item->STEUS }}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        {{-- 3. Info Columns --}}
+                                        <td class="table-col text-muted small">{{ $soItem }}</td>
+                                        <td class="table-col">
+                                            <div class="d-flex flex-column">
+                                                <span class="fw-bold text-dark small">{{ $matnr }}</span>
+                                                <span class="text-secondary text-truncate small" style="max-width: 200px;">{{ $item->MAKTX }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="text-center table-col"><span class="badge bg-light text-dark border">{{ $item->ARBPL }}</span></td>
+                                        <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>
+                                        <td class="text-center table-col fw-bold text-dark">{{ number_format($item->MGVRG2, 2, ',', '.') }}</td>
+                                        <td class="text-center table-col text-muted">{{ number_format($item->LMNGA, 2, ',', '.') }}</td>
+                                        
+                                        {{-- 4. Drag Handle --}}
+                                        <td class="text-center table-col drag-handle">
+                                            <i class="fa-solid fa-grip-vertical"></i>
+                                        </td>
+
+                                        {{-- 5. CARD VIEW CONTENT (Hanya muncul saat di-drop ke kanan) --}}
+                                        <td class="card-view-content" colspan="9">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10">{{ $item->AUFNR }}</span>
+                                                        <span class="badge bg-white text-dark border assigned-qty-badge">Qty: -</span>
+                                                    </div>
+                                                    <div class="d-flex flex-column ps-1">
+                                                        <span class="text-dark fw-bold small employee-name-text">-</span>
+                                                        <span class="text-primary fw-bold text-xs child-wc-display mt-1"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="text-end">
+                                                    <button type="button" class="btn btn-link p-0 text-muted" onclick="handleReturnToTable(this.closest('.pro-item-card'), this.closest('.wc-drop-zone'))">
+                                                        <i class="fa-solid fa-xmark"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="bg-light p-2 rounded small text-secondary text-truncate">
+                                                {{ $item->MAKTX }}
+                                            </div>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody id="source-list" class="sortable-list" data-group="shared-pro">
-                                    @foreach ($tData1 as $item)
-                                        @php
-                                            $soItem = ltrim($item->KDAUF, '0') . ' - ' . ltrim($item->KDPOS, '0');
-                                            $matnr = ctype_digit($item->MATNR)
-                                                ? ltrim($item->MATNR, '0')
-                                                : $item->MATNR;
-                                            $sisaQty = $item->real_sisa_qty ?? $item->MGVRG2 - $item->LMNGA;
-                                        @endphp
-
-                                        <tr class="pro-item draggable-item" data-id="{{ $item->id }}"
-                                            data-aufnr="{{ $item->AUFNR }}"
-                                            data-vgw01="{{ number_format($item->VGW01, 3, '.', '') }}"
-                                            data-vge01="{{ $item->VGE01 }}" data-psmng="{{ $item->PSMNG }}"
-                                            data-sisa-qty="{{ $sisaQty }}" data-conf-opr="{{ $item->LMNGA }}"
-                                            data-qty-opr="{{ $item->MGVRG2 }}" data-assigned-qty="0"
-                                            data-employee-nik="" data-employee-name="" data-child-wc=""
-                                            data-assigned-child-wcs='[]' data-arbpl="{{ $item->ARBPL }}"
-                                            data-matnr="{{ $item->MATNR }}" data-maktx="{{ $item->MAKTX }}"
-                                            data-meins="{{ $item->MEINS }}" data-vornr="{{ $item->VORNR }}"
-                                            data-kdauf="{{ $item->KDAUF }}" data-kdpos="{{ $item->KDPOS }}"
-                                            data-dispo="{{ $item->DISPO }}" data-steus="{{ $item->STEUS }}"
-                                            data-sssld="{{ $item->SSSLD }}" data-ssavd="{{ $item->SSAVD }}"
-                                            data-kapaz="{{ $item->KAPAZ }}"> 
-                                            {{-- TAMBAHAN: ARBPL --}}
-
-                                            <td class="text-center table-col ps-3"><input
-                                                    class="form-check-input row-checkbox pointer" type="checkbox"></td>
-
-                                            <td class="table-col preview-container ps-3">
-                                                <div class="original-content">
-                                                    <span class="fw-bold text-primary">{{ $item->AUFNR }}</span>
-                                                </div>
-
-                                                <div class="drag-preview-icon">
-                                                    <div class="bg-primary text-white rounded-3 d-flex align-items-center justify-content-center shadow-sm"
-                                                        style="width: 40px; height: 40px;">
-                                                        <i class="fa-solid fa-file-invoice fa-lg"></i>
-                                                    </div>
-                                                    <div>
-                                                        <div class="fw-bold text-dark fs-6">{{ $item->AUFNR }}</div>
-                                                        <div class="text-muted small" style="font-size: 0.75rem;">Moving
-                                                            to Workcenter...</div>
-                                                    </div>
-                                                    <div class="ms-3 ps-3 border-start">
-                                                        <span
-                                                            class="badge bg-light text-dark border">{{ $item->STEUS }}</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            <td class="text-center table-col text-muted">{{ $soItem }}</td>
-                                            <td class="table-col">
-                                                <div class="d-flex flex-column">
-                                                    <span class="fw-bold text-dark">{{ $matnr }}</span>
-                                                    <span class="text-muted text-truncate"
-                                                        style="max-width: 200px; font-size: 0.7rem;">{{ $item->MAKTX }}</span>
-                                                </div>
-                                            </td>
-
-                                            <td class="text-center table-col text-dark">{{ $item->ARBPL }}
-                                            </td>
-                                            <td class="text-center table-col"><span
-                                                    class="badge bg-light text-dark border">{{ $item->STEUS }}</span>
-                                            </td>
-                                            <td class="text-center table-col">
-                                                {{ number_format($item->MGVRG2, 2, ',', '.') }}</td>
-                                            <td class="text-center table-col">
-                                                {{ number_format($item->LMNGA, 2, ',', '.') }}</td>
-
-                                            <td class="text-center table-col drag-handle" title="Hold to drag">
-                                                <i class="fa-solid fa-grip-vertical"></i>
-                                            </td>
-
-                                            {{-- TAMPILAN KARTU (SAAT MASUK KANAN) --}}
-                                            <td class="card-view-content" colspan="9">
-                                                <div class="d-flex align-items-center gap-1 mb-1">
-                                                    <span
-                                                        class="badge bg-primary text-white border border-primary bg-opacity-75"
-                                                        style="font-size: 0.7rem;">
-                                                        {{ $item->AUFNR }}
-                                                    </span>
-                                                    <span
-                                                        class="badge bg-light text-dark border border-secondary assigned-qty-badge"
-                                                        style="font-size: 0.7rem;">
-                                                        Qty: -
-                                                    </span>
-                                                </div>
-                                                <div class="employee-info-display ps-1">
-                                                    <div class="text-muted small employee-name-text text-truncate"
-                                                        style="font-size: 0.75rem; max-width: 200px;">
-                                                        -
-                                                    </div>
-                                                    {{-- Tampilkan Child WC jika ada --}}
-                                                    <div class="text-primary fw-medium small child-wc-display"
-                                                        style="font-size: 0.75rem;">
-
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            {{-- KOLOM KANAN: WORKCENTER LIST --}}
+            {{-- COLUMN 2: TARGET WORKCENTERS --}}
             <div class="col-lg-3 col-md-4">
-                <div class="d-flex align-items-center mb-3 ps-1">
-                    <span
-                        class="bg-dark text-white rounded-circle d-inline-flex justify-content-center align-items-center me-2 shadow-sm"
-                        style="width: 28px; height: 28px; font-size: 0.85rem;">2</span>
-                    <h6 class="mb-0 fw-bold">Target Workcenters</h6>
+                <div class="d-flex align-items-center justify-content-between mb-3 px-1">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="icon-box bg-dark text-white shadow-sm" style="width: 28px; height: 28px;">
+                            <i class="fa-solid fa-bullseye text-xs"></i>
+                        </div>
+                        <h6 class="mb-0 fw-bold">Target Lines</h6>
+                    </div>
+                    <span class="badge bg-white border text-muted rounded-pill">{{ count($workcenters) }} WC</span>
                 </div>
 
-                <div class="workcenter-sidebar custom-scrollbar pe-2">
+                <div class="target-scroll-area custom-scrollbar">
                     @foreach ($workcenters as $wc)
                         @php
                             $refItem = $tData1->firstWhere('ARBPL', $wc->kode_wc);
@@ -432,36 +433,29 @@
                         @endphp
 
                         @if (!$isUnknown)
-                            <div class="card mb-3 wc-card-container rounded-4 overflow-hidden"
-                                data-wc-id="{{ $wc->kode_wc }}" data-kapaz-wc="{{ $kapazHours }}">
-
-                                <div class="card-header bg-white pt-3 pb-2 border-0">
-                                    <div class="d-flex justify-content-between align-items-start">
+                            <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-kapaz-wc="{{ $kapazHours }}">
+                                {{-- Card Header --}}
+                                <div class="wc-header">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
                                         <div>
                                             <h6 class="fw-bold text-dark mb-0">{{ $wc->kode_wc }}</h6>
-                                            <small class="text-muted"
-                                                style="font-size: 0.7rem;">{{ Str::limit($wc->description, 20) }}</small>
+                                            <div class="text-muted text-xs text-truncate" style="max-width: 150px;">{{ $wc->description }}</div>
                                         </div>
-                                        <div class="text-end">
-                                            <span class="badge bg-light text-secondary border fw-normal"
-                                                id="label-cap-{{ $wc->kode_wc }}" style="font-size: 0.65rem;">0 / 0
-                                                Min</span>
-                                        </div>
+                                        <span class="badge bg-white text-dark border" id="label-cap-{{ $wc->kode_wc }}">0 / 0 Min</span>
                                     </div>
-                                    <div class="progress mt-2 rounded-pill bg-light" style="height: 6px;">
-                                        <div id="progress-{{ $wc->kode_wc }}"
-                                            class="progress-bar bg-success rounded-pill" role="progressbar"
-                                            style="width: 0%"></div>
+                                    
+                                    {{-- Progress Bar --}}
+                                    <div class="progress bg-white border" style="height: 8px; border-radius: 4px;">
+                                        <div id="progress-{{ $wc->kode_wc }}" class="progress-bar rounded-pill bg-success" role="progressbar" style="width: 0%"></div>
                                     </div>
                                 </div>
 
-                                <div class="card-body p-2 bg-light border-top">
-                                    <div id="zone-{{ $wc->kode_wc }}" class="wc-drop-zone p-2 sortable-list"
-                                        data-group="shared-pro">
-                                        <div class="text-center text-muted py-4 empty-placeholder">
-                                            <div class="mb-2 opacity-50"><i class="fa-solid fa-arrow-down-long"></i>
-                                            </div>
-                                            <small style="font-size: 0.75rem;">Drop Here</small>
+                                {{-- Card Body (Drop Zone) --}}
+                                <div class="wc-body bg-white">
+                                    <div id="zone-{{ $wc->kode_wc }}" class="wc-drop-zone sortable-list" data-group="shared-pro">
+                                        <div class="empty-placeholder">
+                                            <i class="fa-solid fa-arrow-down mb-1 opacity-50"></i>
+                                            <span>Drop Items Here</span>
                                         </div>
                                     </div>
                                 </div>
@@ -473,141 +467,123 @@
         </div>
     </div>
 
-    {{-- MODAL ASSIGNMENT --}}
+    {{-- MODAL ASSIGNMENT (STYLE UPDATE) --}}
     <div class="modal fade" id="assignmentModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-0 pb-0 pt-3 px-3">
-                    <h5 class="modal-title fw-bold fs-6">Assign Details (<span id="modalProAufnr"></span>)</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-dark text-white border-0 py-3">
+                    <h6 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>Assign Operator</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body pt-3">
-                    <div id="bulkWarning"
-                        class="alert alert-warning d-none small p-2 mb-3 border-0 bg-warning bg-opacity-10 text-warning rounded-3">
-                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
-                        <strong>Bulk Move:</strong> Applied to all items.
-                    </div>
-                    <div id="remainingQtyWarning"
-                        class="alert alert-info small p-2 mb-3 border-0 bg-info bg-opacity-10 text-info rounded-3">
-                        <i class="fa-solid fa-circle-info me-1"></i>
-                        Sisa Qty: <strong id="remainingQtyDisplay">0</strong>
-                    </div>
-
-                    {{-- Split Input Section --}}
-                    <div class="card mb-3 p-3 bg-light rounded-3">
-                        <h6 class="small fw-bold text-uppercase text-muted mb-2"
-                            style="font-size: 0.7rem; letter-spacing: 0.5px;">New Split Allocation</h6>
-
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-uppercase text-muted"
-                                style="font-size: 0.7rem; letter-spacing: 0.5px;">Operator (NIK)</label>
-                            <select class="form-select form-select-sm" id="employeeSelect">
-                                <option value="" selected disabled>Select Operator...</option>
-                                @foreach ($employees as $emp)
-                                    <option value="{{ $emp['pernr'] }}" data-name="{{ $emp['stext'] }}">
-                                        {{ $emp['pernr'] }} - {{ $emp['stext'] }}
-                                    </option>
-                                @endforeach
-                            </select>
+                <div class="modal-body bg-light p-3">
+                    <div class="bg-white p-3 rounded-3 shadow-sm border mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10" id="modalProAufnr"></span>
+                            <span class="text-xs text-muted fw-bold">REMAINING: <span id="remainingQtyDisplay" class="text-dark">0</span></span>
                         </div>
-
-                        {{-- PERUBAHAN: Field Workcenter Anak (Child Workcenter) --}}
-                        <div class="mb-3" id="childWorkcenterField">
-                            <label class="form-label small fw-bold text-uppercase text-muted"
-                                style="font-size: 0.7rem; letter-spacing: 0.5px;">Target Line/Sub-WC</label>
-                            <select class="form-select form-select-sm" id="childWorkcenterSelect">
-                                <option value="" selected disabled>Pilih Workcenter Anak...</option>
-                                {{-- Opsi akan diisi oleh JavaScript --}}
-                            </select>
-                            <div id="childWorkcenterHelp" class="form-text small text-muted d-none">
-                                Workcenter ini adalah Induk, wajib pilih Sub-WC.
-                            </div>
+                        
+                        <div id="bulkWarning" class="alert alert-warning d-none text-xs p-2 mb-0 border-0 bg-warning bg-opacity-10 text-warning rounded fw-bold">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> Bulk Assignment Mode
                         </div>
-
-                        <div class="mb-2">
-                            <label class="form-label small fw-bold text-uppercase text-muted"
-                                style="font-size: 0.7rem; letter-spacing: 0.5px;">Quantity</label>
-                            <div class="input-group input-group-sm">
-                                <input type="number" class="form-control" id="inputAssignQty" min="1"
-                                    placeholder="Qty">
-                                <span class="input-group-text bg-light text-muted" id="maxQtyLabel"
-                                    style="font-size: 0.7rem;">Max: -</span>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-secondary w-100 mt-2" id="btnAddSplit" disabled>
-                            <i class="fa-solid fa-plus me-1"></i> Add Split
-                        </button>
                     </div>
 
-                    {{-- Split Review Section --}}
-                    <div id="splitReviewSection" class="mt-3 d-none">
-                        <h6 class="small fw-bold text-uppercase text-muted mb-2"
-                            style="font-size: 0.7rem; letter-spacing: 0.5px;">Current Splits (<span
-                                id="totalSplitsCount">0</span>)</h6>
-                        <ul class="list-group list-group-flush small" id="tempSplitList">
-                            {{-- Split items will be added here --}}
-                        </ul>
+                    {{-- Form --}}
+                    <div class="mb-3">
+                        <label class="form-label text-xs fw-bold text-uppercase text-muted">Select Operator</label>
+                        <select class="form-select form-select-sm" id="employeeSelect">
+                            <option value="" selected disabled>Choose Person...</option>
+                            @foreach ($employees as $emp)
+                                <option value="{{ $emp['pernr'] }}" data-name="{{ $emp['stext'] }}">
+                                    {{ $emp['pernr'] }} - {{ $emp['stext'] }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
 
+                    <div class="mb-3" id="childWorkcenterField">
+                        <label class="form-label text-xs fw-bold text-uppercase text-muted">Target Line (Sub-WC)</label>
+                        <select class="form-select form-select-sm" id="childWorkcenterSelect">
+                            <option value="" selected disabled>Select Sub-WC...</option>
+                        </select>
+                        <div id="childWorkcenterHelp" class="form-text text-xs d-none text-info">
+                            <i class="fa-solid fa-circle-info me-1"></i> Parent WC requires Sub-WC selection.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-xs fw-bold text-uppercase text-muted">Quantity</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" class="form-control" id="inputAssignQty" min="1" placeholder="0">
+                            <span class="input-group-text bg-white text-muted" id="maxQtyLabel">Max: -</span>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-dark btn-sm w-100 mb-3" id="btnAddSplit" disabled>
+                        <i class="fa-solid fa-plus-circle me-1"></i> Add Allocation
+                    </button>
+
+                    {{-- Splits List --}}
+                    <div id="splitReviewSection" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-1">
+                            <span class="text-xs fw-bold text-muted">ALLOCATIONS</span>
+                            <span class="badge bg-secondary rounded-pill" id="totalSplitsCount">0</span>
+                        </div>
+                        <div class="bg-white rounded border overflow-hidden">
+                            <ul class="list-group list-group-flush small" id="tempSplitList"></ul>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer border-0 pt-0 pb-3 px-3 d-flex flex-column">
-                    <button type="button" class="btn btn-danger btn-sm w-100 mb-2 rounded-3"
-                        id="btnCancelDrop">Cancel & Reset</button>
-                    <button type="button" class="btn btn-primary btn-sm w-100 m-0 rounded-3 shadow-sm"
-                        id="btnConfirmFinalAssignment" disabled>Confirm Assignment</button>
+                <div class="modal-footer border-0 p-2 bg-white d-flex">
+                    <button type="button" class="btn btn-light btn-sm flex-fill text-muted fw-bold" id="btnCancelDrop">Cancel</button>
+                    <button type="button" class="btn btn-success btn-sm flex-fill fw-bold shadow-sm" id="btnConfirmFinalAssignment" disabled>Confirm</button>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- MODAL PREVIEW (BARU) --}}
+    {{-- MODAL PREVIEW (STYLE UPDATE) --}}
     <div class="modal fade" id="previewModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content rounded-4 border-0 shadow-lg">
-                <div class="modal-header bg-primary text-white border-0 rounded-top-4">
-                    <h5 class="modal-title fw-bold">Review Work Instructions (WI)</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+            <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+                <div class="modal-header bg-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-clipboard-check me-2"></i>Review & Finalize</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-4">
-
-                    {{-- === FIELD INPUT TANGGAL DAN JAM BARU === --}}
-                    <div class="row mb-3 align-items-center g-3">
-                        <div class="col-md-3">
-                            <label for="wiDocumentDate" class="form-label fw-bold small text-muted text-uppercase"
-                                style="font-size: 0.7rem;">Tanggal Dokumen WI</label>
-                            <input type="date" class="form-control form-control-sm" id="wiDocumentDate" required>
-                        </div>
-
-                        <div class="col-md-3">
-                            <label for="wiDocumentTime" class="form-label fw-bold small text-muted text-uppercase"
-                                style="font-size: 0.7rem;">Jam Mulai Efektif</label>
-                            <input type="time" class="form-control form-control-sm" id="wiDocumentTime" required>
-                        </div>
-
-                        <div class="col-md-6">
-                            <div
-                                class="alert alert-info small p-2 mt-4 mb-0 rounded-3 border-0 bg-info bg-opacity-10 text-info">
-                                <i class="fa-solid fa-clock me-1"></i> WI akan **expired** 12 jam setelah Jam Mulai
-                                Efektif ini.
+                <div class="modal-body p-4 bg-light">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body p-3">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Document Date</label>
+                                    <input type="date" class="form-control form-control-sm fw-bold text-dark" id="wiDocumentDate" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Effective Time</label>
+                                    <input type="time" class="form-control form-control-sm fw-bold text-dark" id="wiDocumentTime" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center text-info small bg-info bg-opacity-10 p-2 rounded">
+                                        <i class="fa-solid fa-circle-info me-2 fs-5"></i>
+                                        <div>Document expires <strong>12 hours</strong> after the effective time. Ensure operator shifts are covered.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <p class="text-muted small">
-                        Pastikan semua PRO sudah terisi NIK dan Quantity yang benar sebelum melanjutkan.
-                    </p>
+                    <h6 class="fw-bold text-dark mb-3 ps-1">Assignment Summary</h6>
                     <div id="previewContent" class="row g-3">
-                        {{-- Content will be injected here --}}
+                        {{-- Content Injected Here --}}
                     </div>
-                    <div id="emptyPreviewWarning" class="alert alert-info d-none mt-3 text-center">
-                        Tidak ada Workcenter yang memiliki PRO yang di-assign. Silakan drag PRO terlebih dahulu.
+                    
+                    <div id="emptyPreviewWarning" class="alert alert-warning d-none mt-3 text-center border-0 shadow-sm">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i> No Work Instructions generated. Please drag PROs to Workcenters first.
                     </div>
                 </div>
-                <div class="modal-footer border-0 pt-0 pb-3 px-4">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close & Edit</button>
-                    <button type="button" class="btn btn-success fw-semibold" id="btnFinalSave">
-                        <i class="fa-solid fa-file-export me-2"></i>Generate & Save WI Documents
+                <div class="modal-footer bg-white border-top-0 py-3">
+                    <button type="button" class="btn btn-light fw-bold text-muted" data-bs-dismiss="modal">Go Back</button>
+                    <button type="button" class="btn btn-primary fw-bold px-4 shadow-sm" id="btnFinalSave">
+                        <i class="fa-solid fa-paper-plane me-2"></i>Generate & Save WI
                     </button>
                 </div>
             </div>
@@ -678,29 +654,23 @@
 
                 new Sortable(sourceList, {
                     group: 'shared-pro',
-                    animation: 0,
+                    animation: 150,
                     handle: '.drag-handle',
                     forceFallback: true,
                     fallbackClass: "sortable-drag",
                     ghostClass: "sortable-ghost",
                     selectedClass: 'selected-row',
                     sort: false,
-                    onStart: function(evt) {
-                        document.body.classList.add('dragging-active');
-                    },
-                    onEnd: function(evt) {
-                        document.body.classList.remove('dragging-active');
-                    }
+                    onStart: function(evt) { document.body.classList.add('dragging-active'); },
+                    onEnd: function(evt) { document.body.classList.remove('dragging-active'); }
                 });
 
                 wcZones.forEach(zone => {
                     new Sortable(zone, {
                         group: 'shared-pro',
-                        animation: 0,
+                        animation: 150,
                         forceFallback: true,
-                        onStart: function(evt) {
-                            document.body.classList.add('dragging-active');
-                        },
+                        onStart: function(evt) { document.body.classList.add('dragging-active'); },
                         onAdd: function(evt) {
                             document.body.classList.remove('dragging-active');
                             handleDropToWc(evt);
@@ -1490,72 +1460,37 @@
             }
 
             function calculateItemMinutes(row, qtyOverride = null) {
-                // --- FUNGSI PARSE ANGKA YANG LEBIH CERDAS ---
                 const parseNum = (str) => {
                     if (!str) return 0;
                     let stringVal = String(str).trim();
-
-                    // Cek apakah angka mengandung koma (Indikasi Format Indonesia/Eropa: 1.000,00)
                     if (stringVal.includes(',')) {
-                        // Hapus titik (pemisah ribuan), lalu ubah koma jadi titik desimal
-                        // Contoh: "1.000,50" -> "1000.50"
                         stringVal = stringVal.replace(/\./g, '').replace(/,/g, '.');
                     }
-                    // Jika TIDAK ada koma, asumsikan Format Database/Internasional (1000.50)
-                    // JANGAN APA-APAKAN TITIKNYA! Biarkan "4.033" tetap "4.033"
-
                     return parseFloat(stringVal) || 0;
                 };
-                // ---------------------------------------------
-
-                // 1. Ambil Data Waktu Standar (VGW01)
                 const vgw01 = parseNum(row.dataset.vgw01);
-
-                // 2. Ambil Satuan (VGE01)
                 const vge01 = (row.dataset.vge01 || '').toUpperCase();
-
-                // 3. Ambil Quantity (Prioritaskan Override jika ada)
                 let rawQty = (qtyOverride !== null) ? qtyOverride : row.dataset.sisaQty;
                 const qty = parseNum(rawQty);
 
-                // --- LOGGING UNTUK DEBUGGING (Cek Console Browser Anda F12) ---
-                console.log(`Item: ${row.dataset.material}`, {
-                    Raw_VGW: row.dataset.vgw01,
-                    Parsed_VGW: vgw01,
-                    Raw_Qty: rawQty,
-                    Parsed_Qty: qty,
-                    Unit: vge01
-                });
-
                 if (vgw01 > 0 && qty > 0) {
                     let totalRaw = vgw01 * qty;
-
-                    // Konversi ke Menit berdasarkan Satuan
-                    if (vge01 === 'S' || vge01 === 'SEC') {
-                        return totalRaw / 60; // Detik -> Menit
-                    } else if (vge01 === 'MIN') {
-                        return totalRaw; // Menit -> Menit
-                    } else if (vge01 === 'H' || vge01 === 'HUR') {
-                        return totalRaw * 60; // Jam -> Menit
-                    } else {
-                        // Default jika satuan tidak dikenali/kosong, asumsikan JAM (sesuai logika awal)
-                        return totalRaw * 60;
-                    }
+                    if (vge01 === 'S' || vge01 === 'SEC') return totalRaw / 60;
+                    else if (vge01 === 'MIN') return totalRaw;
+                    else if (vge01 === 'H' || vge01 === 'HUR') return totalRaw * 60;
+                    else return totalRaw * 60;
                 }
                 return 0;
             }
 
             function calculateAllRows() {
-                // Ini untuk memastikan semua data-attributes terisi saat page load
-                document.querySelectorAll('#source-list tr.pro-item').forEach(row => {
-                    const sisaQty = parseFloat(row.dataset.sisaQty) || 0;
-                    const mins = calculateItemMinutes(row, sisaQty);
-                    row.dataset.calculatedMins = mins;
-                    row.dataset.currentQty = sisaQty; // Simpan Qty awal untuk reset
-                });
-
-                // Perbarui kapasitas semua WC saat load
-                document.querySelectorAll('.wc-card-container').forEach(updateCapacity);
+               document.querySelectorAll('#source-list tr.pro-item').forEach(row => {
+                   const sisaQty = parseFloat(row.dataset.sisaQty) || 0;
+                   const mins = calculateItemMinutes(row, sisaQty);
+                   row.dataset.calculatedMins = mins;
+                   row.dataset.currentQty = sisaQty; 
+               });
+               document.querySelectorAll('.wc-card-container').forEach(updateCapacity);
             }
 
             function updateCapacity(cardContainer) {
@@ -1576,16 +1511,12 @@
                 if (lbl) lbl.innerText = `${Math.ceil(currentLoad)} / ${Math.ceil(maxMins)} Min`;
                 if (bar) {
                     bar.style.width = Math.min(pct, 100) + "%";
-                    bar.className = 'progress-bar rounded-pill ' + (pct < 70 ? 'bg-success' : pct < 95 ? 'bg-warning' :
-                        'bg-danger');
+                    bar.className = 'progress-bar rounded-pill ' + (pct < 70 ? 'bg-success' : pct < 95 ? 'bg-warning' : 'bg-danger');
                 }
-
-                // LOGGING: Kapasitas
-                // console.log(`Capacity WC ${wcId}: Load ${Math.ceil(currentLoad)} / ${Math.ceil(maxMins)} Mins (${pct.toFixed(1)}%)`);
-
+                
                 const placeholder = cardContainer.querySelector('.empty-placeholder');
                 const hasItems = cardContainer.querySelectorAll('.pro-item-card').length > 0;
-                if (placeholder) placeholder.style.display = hasItems ? 'none' : 'block';
+                if (placeholder) placeholder.style.display = hasItems ? 'none' : 'flex'; // Changed to flex for centering
             }
 
             function checkEmptyPlaceholder(container) {
@@ -1607,14 +1538,12 @@
             function setupCheckboxes() {
                 const selectAll = document.getElementById('selectAll');
                 selectAll.addEventListener('change', function() {
-                    const visibleRows = Array.from(document.querySelectorAll('#source-list tr.draggable-item')).filter(
-                        r => r.style.display !== 'none');
+                    const visibleRows = Array.from(document.querySelectorAll('#source-list tr.draggable-item')).filter(r => r.style.display !== 'none');
                     visibleRows.forEach(row => {
                         const cb = row.querySelector('.row-checkbox');
                         if (cb) {
                             cb.checked = this.checked;
-                            this.checked ? row.classList.add('selected-row') : row.classList.remove(
-                                'selected-row');
+                            this.checked ? row.classList.add('selected-row') : row.classList.remove('selected-row');
                         }
                     });
                 });
@@ -1765,30 +1694,17 @@
             }
 
             function showPreview(data, totalWcCount) {
-                // LOGGING: Preview Modal
-                console.log(`Showing Preview: ${totalWcCount} Workcenters have assigned items.`);
-
                 const content = document.getElementById('previewContent');
                 const emptyWarning = document.getElementById('emptyPreviewWarning');
                 const dateInput = document.getElementById('wiDocumentDate');
                 const timeInput = document.getElementById('wiDocumentTime');
-
+                
+                // Set default time logic (sama)
                 const now = new Date();
-
-                // Logika Tanggal
-                const today = now.toISOString().split('T')[0];
-
-                // Logika Jam
+                dateInput.value = now.toISOString().split('T')[0];
                 const hours = String(now.getHours()).padStart(2, '0');
                 const minutes = String(now.getMinutes()).padStart(2, '0');
-                const currentTime = `${hours}:${minutes}`;
-
-                // --- Mengatur Nilai Default ---
-                dateInput.value = today;
-                if (timeInput) { // Cek keamanan tambahan
-                    timeInput.value = currentTime;
-                }
-                // ----------------------------
+                if(timeInput) timeInput.value = `${hours}:${minutes}`;
 
                 content.innerHTML = '';
 
@@ -1803,42 +1719,42 @@
                 document.getElementById('btnFinalSave').disabled = false;
 
                 let html = '';
-
                 data.forEach(wc => {
                     const wcCard = document.querySelector(`[data-wc-id="${wc.workcenter}"]`);
                     const maxLoad = wcCard ? Math.ceil(parseFloat(wcCard.dataset.kapazWc) * 60) : 0;
 
-                    // Ganti col-md-6 menjadi col-lg-4 di sini
                     html += `
                         <div class="col-lg-4 col-md-6"> 
-                            <div class="card border-primary border-3 shadow-sm rounded-3">
-                                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0 fw-bold">${wc.workcenter}</h6>
-                                    <span class="badge bg-light text-primary border border-primary">
-                                        Load: ${wc.load_mins} / ${maxLoad} Min
-                                    </span>
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-white border-bottom pt-3 pb-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0 fw-bold text-dark">${wc.workcenter}</h6>
+                                        <span class="badge bg-light text-primary border border-primary border-opacity-25">
+                                            Load: ${wc.load_mins} / ${maxLoad} Min
+                                        </span>
+                                    </div>
                                 </div>
-                                <div class="card-body p-3">
-                                    <p class="small fw-bold text-muted border-bottom pb-1 mb-2">PRO Assignments:</p>
+                                <div class="card-body p-0">
                                     <ul class="list-group list-group-flush small">
                     `;
 
                     wc.pro_items.forEach(item => {
-                        // Tentukan nama Workcenter yang ditampilkan
-                        const targetWcName = item.child_workcenter ?
-                            `<i class="fa-solid fa-arrow-right-long mx-1"></i> ${item.child_workcenter}` :
-                            '';
+                        const targetWcName = item.child_workcenter ? 
+                            `<i class="fa-solid fa-arrow-right-long mx-1 text-muted"></i> <span class="text-primary fw-bold">${item.child_workcenter}</span>` : '';
 
                         html += `
-                            <li class="list-group-item d-flex justify-content-between align-items-center px-1">
-                                <div>
-                                    <i class="fa-solid fa-tag me-2 text-primary"></i>
-                                    <strong>${item.aufnr}</strong>
-                                    <span class="text-secondary small">${targetWcName}</span>
-                                </div>
-                                <div class="text-end">
-                                    <span class="badge bg-success me-2">Qty: ${item.assigned_qty.toLocaleString('id-ID')}</span>
-                                    <span class="text-muted" style="font-size: 0.7rem;">(${item.name})</span>
+                            <li class="list-group-item px-3 py-2 border-bottom-0 border-top">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="fw-bold text-dark">${item.aufnr}</div>
+                                        <div class="text-xs text-muted">${targetWcName}</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10 mb-1">
+                                            ${item.assigned_qty.toLocaleString('id-ID')}
+                                        </div>
+                                        <div class="text-xs text-muted">${item.name}</div>
+                                    </div>
                                 </div>
                             </li>
                         `;

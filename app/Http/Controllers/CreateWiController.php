@@ -11,6 +11,7 @@ use App\Models\ProductionTData1;
 use App\Models\WorkcenterMapping;
 use App\Models\HistoryWi; // Model History WI
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class CreateWiController extends Controller
 {
@@ -419,5 +420,168 @@ class CreateWiController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
+    }
+    
+    public function printPdf(Request $request, $plantCode)
+    {
+        $date = $request->input('filter_date');
+        $search = $request->input('filter_search');
+        $query = HistoryWi::where('plant_code', $plantCode);
+
+        if ($date) {
+            $query->whereDate('created_at', $date);
+        }
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('wi_document_code', 'like', "%$search%") // Sesuaikan nama kolom
+                ->orWhere('payload_data', 'like', "%$search%"); // Search di dalam JSON
+            });
+        }
+        $rawDocuments = $query->orderBy('created_at', 'desc')->get();
+        $reportData = [];
+
+        foreach ($rawDocuments as $doc) {
+            if (empty($doc->payload_data) || !is_array($doc->payload_data)) {
+                continue;
+            }
+
+            foreach ($doc->payload_data as $item) {
+                $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
+                $kdauf = $item['kdauf'] ?? '';
+                $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                $soItem = $kdauf . '-' . $kdpos;
+                $matnr = $item['material_number'] ?? '';
+                if(ctype_digit($matnr)) { 
+                    $matnr = ltrim($matnr, '0'); 
+                }
+                $qtyOper = isset($item['qty_order']) ? floatval($item['qty_order']) : 0;
+                $qtyWi = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
+                $baseTime = isset($item['vgw01']) ? floatval($item['vgw01']) : 0;
+                $unit = isset($item['vge01']) ? strtoupper($item['vge01']) : '';
+                $totalTime = $baseTime * $qtyWi;
+                if ($unit == 'S' || $unit == 'SEC') {
+                    $finalTime = $totalTime / 60; 
+                    $finalUnit = 'Menit';
+                } else {
+                    $finalTime = $totalTime;
+                    $finalUnit = $unit;
+                }
+                $taktDisplay = (fmod($finalTime, 1) !== 0.00) ? number_format($finalTime, 2) : number_format($finalTime, 0);
+                $taktFull = $taktDisplay . ' ' . $finalUnit;
+                $reportData[] = [
+                    'doc_no'        => $doc->wi_document_code,
+                    'created_at'    => $doc->created_at, // atau document_date
+                    'status'        => ($doc->expired_at > now()) ? 'Active' : 'Expired',
+                    'workcenter'    => $wc,
+                    'so_item'       => $soItem,
+                    'aufnr'         => $item['aufnr'] ?? '-',
+                    'material'      => $matnr,
+                    'description'   => $item['material_desc'] ?? '-',
+                    'qty_op'        => $qtyOper,
+                    'qty_wi'        => $qtyWi,
+                    'takt_time'     => $taktFull
+                ];
+            }
+        }
+        $data = [
+            'reportRows' => $reportData, 
+            'plantCode' => $plantCode,
+            'printedBy' => $request->input('printed_by'),
+            'department' => $request->input('department'),
+            'printDate' => now()->format('d-M-Y H:i'),
+            'filterDate' => $date ? Carbon::parse($date)->format('d-M-Y') : 'All Dates'
+        ];
+
+        // 5. Generate PDF
+        $pdf = Pdf::loadView('pdf.wi_history_report', $data)
+                ->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Laporan_Log_WI.pdf');
+    }
+    public function printSingleWi(Request $request)
+    {
+        $request->validate([
+            'wi_codes' => 'required',
+            'printed_by' => 'required',
+            'department' => 'required',
+        ]);
+        $rawInput = $request->input('wi_codes');
+        $wiCodes = explode(',', $rawInput);
+        $documents = HistoryWi::whereIn('wi_document_code', $wiCodes)
+                    ->where('expired_at', '>', now()) 
+                    ->get();
+
+        if ($documents->isEmpty()) {
+            return back()->with('error', 'Dokumen tidak ditemukan atau sudah expired.');
+        }
+        $data = [
+            'documents' => $documents, // Kirim Collection dokumen, bukan single doc
+            'printedBy' => $request->input('printed_by'),
+            'department' => $request->input('department'),
+            'printTime' => now(),
+        ];
+        $pdf = Pdf::loadView('pdf.wi_single_document', $data)
+                ->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Work_Instruction_Print.pdf');
+    }
+
+    public function printExpiredReport(Request $request)
+    {
+        $rawInput = $request->input('wi_codes'); // Ganti nama input agar konsisten dg JS baru
+        $wiCodes = explode(',', $rawInput);
+        $documents = HistoryWi::whereIn('wi_document_code', $wiCodes)->get();
+        $reportItems = [];
+        $grandTotalAssigned = 0;
+        $grandTotalConfirmed = 0;
+
+        foreach ($documents as $doc) {
+            if (empty($doc->payload_data) || !is_array($doc->payload_data)) continue;
+
+            foreach ($doc->payload_data as $item) {
+                // Data Dasar
+                $matnr = isset($item['material_number']) && ctype_digit($item['material_number']) 
+                        ? ltrim($item['material_number'], '0') 
+                        : ($item['material_number'] ?? '');
+                        
+                $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
+                $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
+                $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
+                $balance = $assigned - $confirmed;
+                $grandTotalAssigned += $assigned;
+                $grandTotalConfirmed += $confirmed;
+                $reportItems[] = [
+                    'wi_code'     => $doc->wi_document_code,
+                    'expired_at'  => $doc->expired_at,
+                    'workcenter'  => $wc,
+                    'aufnr'       => $item['aufnr'] ?? '-',
+                    'material'    => $matnr,
+                    'description' => $item['material_desc'] ?? '-',
+                    'assigned'    => $assigned,
+                    'confirmed'   => $confirmed,
+                    'balance'     => $balance,
+                    'remark'      => ($balance > 0) ? 'Not Completed' : 'Completed' // Status per baris
+                ];
+            }
+        }
+
+        $summary = [
+            'total_assigned' => $grandTotalAssigned,
+            'total_confirmed' => $grandTotalConfirmed,
+            'total_balance' => $grandTotalAssigned - $grandTotalConfirmed,
+            'achievement_rate' => ($grandTotalAssigned > 0) ? round(($grandTotalConfirmed / $grandTotalAssigned) * 100, 1) : 0
+        ];
+
+        $data = [
+            'items' => $reportItems,
+            'summary' => $summary,
+            'printedBy' => $request->input('printed_by'),
+            'department' => $request->input('department'),
+            'printDate' => now()->format('d-M-Y H:i'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.wi_expired_report', $data)
+                ->setPaper('a4', 'landscape');
+        return $pdf->stream('Laporan_Produksi_Expired.pdf');
     }
 }

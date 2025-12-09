@@ -63,10 +63,15 @@
             </div>
             
             {{-- TOMBOL TOGGLE DETAIL --}}
-            <button class="btn btn-outline-secondary btn-sm no-print ms-2" type="button" data-bs-toggle="collapse"
-                data-bs-target="#collapse-{{ $document->wi_document_code }}">
-                Details <i class="fa-solid fa-chevron-down ms-1"></i>
-            </button>
+            @if($statusClass == 'wi-card-active')
+                <button type="button" 
+                        class="btn btn-dark btn-sm shadow-sm"
+                        data-bs-toggle="modal" 
+                        data-bs-target="#printSingleModal"
+                        data-wi-code="{{ $document->wi_document_code }}">
+                    <i class="fa-solid fa-print"></i>
+                </button>
+            @endif
         </div>
 
         <hr class="text-muted opacity-25">
