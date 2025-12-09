@@ -230,114 +230,196 @@
 
                 {{-- LOOP CARD ACTIVE --}}
                 @forelse ($activeWIDocuments as $document)
-                <div class="wi-row-wrapper">
-                    <div class="pt-2">
-                        <input type="checkbox" class="form-check-input wi-checkbox cb-active" value="{{ $document->wi_document_code }}">
-                    </div>
-                    
-                    <div class="wi-item-card flex-grow-1 status-active">
-                        {{-- HEADER AREA --}}
-                        <div class="card-header-area">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="text-center">
-                                    <small class="d-block text-muted" style="font-size: 0.7rem; font-weight: 700;">WORKCENTER</small>
-                                    <span class="h5 fw-bolder text-dark mb-0">{{ $document->workcenter_code }}</span>
-                                </div>
-                                <div style="border-left: 1px solid #cbd5e1; height: 30px; margin: 0 10px;"></div>
-                                <div>
-                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                        <span class="fw-bold text-primary" style="letter-spacing: 0.5px;">{{ $document->wi_document_code }}</span>
-                                        <span class="badge-soft bg-soft-success">ACTIVE</span>
+                    @php
+                        // --- 1. AMBIL DATA PAYLOAD ---
+                        $payload = is_array($document->payload_data) ? $document->payload_data : json_decode($document->payload_data, true);
+                        
+                        // Inisialisasi Variable
+                        $totalLoadMinutes = 0;
+                        $capacityMinutes = 0;
+                        $kapaz = 0;
+
+                        if ($payload && count($payload) > 0) {
+                            // Ambil Kapasitas dari item pertama (Asumsi 1 Dokumen = 1 Workcenter = Kapasitas Sama)
+                            $firstItem = $payload[0];
+                            $kapaz = floatval($firstItem['kapaz'] ?? 0);
+                            $capacityMinutes = $kapaz * 60; // Konversi Jam ke Menit
+
+                            // Loop untuk hitung Total Load (Takt Time)
+                            foreach($payload as $p) {
+                                // Ambil data raw sesuai JSON
+                                $vgw01 = floatval($p['vgw01'] ?? 0);        // Std Value
+                                $qty   = floatval($p['assigned_qty'] ?? 0); // Assigned
+                                $unit  = strtoupper($p['vge01'] ?? '');     // Unit (S/MIN)
+
+                                // RUMUS: VGW01 * Assigned Qty
+                                $timePerItem = $vgw01 * $qty;
+
+                                // Jika Unit 'S' (Detik), bagi 60 jadi Menit
+                                if ($unit === 'S') {
+                                    $timePerItem = $timePerItem / 60;
+                                }
+
+                                $totalLoadMinutes += $timePerItem;
+                            }
+                        }
+
+                        // Hitung Persentase Kapasitas
+                        $loadPercentage = ($capacityMinutes > 0) ? ($totalLoadMinutes / $capacityMinutes) * 100 : 0;
+                        
+                        // Visual
+                        $loadBarColor = $loadPercentage > 100 ? 'bg-danger' : 'bg-success';
+                        $loadBarWidth = min($loadPercentage, 100); 
+                    @endphp
+
+                    <div class="wi-row-wrapper">
+                        <div class="pt-2">
+                            <input type="checkbox" class="form-check-input wi-checkbox cb-active" value="{{ $document->wi_document_code }}">
+                        </div>
+                        
+                        <div class="wi-item-card flex-grow-1 status-active">
+                            {{-- HEADER AREA --}}
+                            <div class="card-header-area">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="text-center">
+                                        <small class="d-block text-muted" style="font-size: 0.7rem; font-weight: 700;">WORKCENTER</small>
+                                        {{-- Ambil Workcenter dari payload item pertama jika di document tidak ada, atau gunakan default --}}
+                                        <span class="h5 fw-bolder text-dark mb-0">{{ $document->workcenter_code }}</span>
                                     </div>
-                                    <div class="small text-muted">
-                                        <i class="fa-regular fa-clock me-1"></i> {{ \Carbon\Carbon::parse($document->created_at)->format('H:i') }}
-                                        <span class="mx-1">•</span> 
-                                        {{ \Carbon\Carbon::parse($document->document_date)->format('d M Y') }}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- PRINT SINGLE (Active) --}}
-                            <button type="button" 
-                                    class="btn btn-light bg-white border shadow-sm btn-sm fw-bold text-dark" 
-                                    onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'active')">
-                                <i class="fa-solid fa-print me-1"></i> Print
-                            </button>
-                        </div>
-
-                        {{-- BODY AREA (Logic Capacity) --}}
-                        <div class="card-body-area">
-                            @php
-                                $payload = is_array($document->payload_data) ? $document->payload_data : json_decode($document->payload_data, true);
-                                $itemCount = $payload ? count($payload) : 0;
-                            @endphp
-                             <div class="d-flex justify-content-between small fw-bold text-muted mb-1">
-                                <span>Capacity Load</span>
-                                <span>{{ $itemCount }} Items Queued</span>
-                            </div>
-                            <div class="progress" style="height: 6px; border-radius: 4px;">
-                                <div class="progress-bar bg-success" role="progressbar" style="width: 40%"></div>
-                            </div>
-                        </div>
-
-                        {{-- ACCORDION TRIGGER --}}
-                        <div class="accordion-trigger-area">
-                            <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ $document->id }}" aria-expanded="false">
-                                Lihat Rincian Produksi
-                            </button>
-                        </div>
-
-                        {{-- ACCORDION CONTENT (DENGAN PROGRESS BAR PER ITEM) --}}
-                        <div class="collapse item-list-container" id="collapse-{{ $document->id }}">
-                            @if($payload)
-                                @foreach($payload as $item)
-                                    @php
-                                        // --- HITUNG PROGRESS CONFIRMATION ---
-                                        $confirmed = isset($item['confirmed_qty']) ? (float)$item['confirmed_qty'] : 0;
-                                        $assigned = isset($item['assigned_qty']) ? (float)$item['assigned_qty'] : 0;
-                                        
-                                        $percentage = ($assigned > 0) ? ($confirmed / $assigned) * 100 : 0;
-                                        $percentage = min(100, max(0, $percentage)); // Clamp 0-100
-                                        
-                                        $barColor = $percentage >= 100 ? 'bg-success' : 'bg-primary';
-                                        $textClass = $percentage >= 100 ? 'text-success' : 'text-primary';
-                                    @endphp
-
-                                    <div class="pro-item-row">
-                                        <div class="d-flex justify-content-between align-items-start mb-2">
-                                            <div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="badge bg-dark" style="font-size: 0.65rem;">{{ $item['aufnr'] ?? 'N/A' }}</span>
-                                                    <span class="fw-bold text-dark small">{{ $item['material_desc'] ?? 'No Description' }}</span>
-                                                </div>
-                                                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                                                    Mat: {{ $item['material_number'] ?? '-' }} • SO: {{ $item['kdauf'] ?? '-' }}
-                                                </div>
-                                            </div>
-                                            <div class="text-end">
-                                                <div class="fw-bold text-primary">{{ $assigned }}</div>
-                                                <div class="text-muted" style="font-size: 0.7rem;">TARGET</div>
-                                            </div>
+                                    <div style="border-left: 1px solid #cbd5e1; height: 30px; margin: 0 10px;"></div>
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="fw-bold text-primary" style="letter-spacing: 0.5px;">{{ $document->wi_document_code }}</span>
+                                            <span class="badge-soft bg-soft-success">ACTIVE</span>
                                         </div>
-
-                                        {{-- PROGRESS BAR CONFIRMATION (RE-ADDED) --}}
-                                        <div class="mt-2">
-                                            <div class="d-flex justify-content-between align-items-end mb-1">
-                                                <span class="progress-label">Production Progress</span>
-                                                <span class="small fw-bold {{ $textClass }}">
-                                                    {{ $confirmed }} / {{ $assigned }} ({{ round($percentage) }}%)
-                                                </span>
-                                            </div>
-                                            <div class="progress-custom">
-                                                <div class="progress-bar {{ $barColor }}" role="progressbar" style="width: {{ $percentage }}%"></div>
-                                            </div>
+                                        <div class="small text-muted">
+                                            <i class="fa-regular fa-clock me-1"></i> {{ \Carbon\Carbon::parse($document->created_at)->format('H:i') }}
+                                            <span class="mx-1">•</span> 
+                                            {{ \Carbon\Carbon::parse($document->document_date)->format('d M Y') }}
                                         </div>
                                     </div>
-                                @endforeach
-                            @endif
+                                </div>
+
+                                <button type="button" 
+                                        class="btn btn-light bg-white border shadow-sm btn-sm fw-bold text-dark" 
+                                        onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'active')">
+                                    <i class="fa-solid fa-print me-1"></i> Print
+                                </button>
+                            </div>
+
+                            {{-- BODY AREA (Capacity Load Progress) --}}
+                            <div class="card-body-area">
+                                <div class="d-flex justify-content-between small fw-bold text-muted mb-1">
+                                    <span>
+                                        Capacity Load 
+                                        <span class="fw-normal text-secondary ms-1">
+                                            ({{ number_format($totalLoadMinutes, 0) }} / {{ number_format($capacityMinutes, 0) }} Min)
+                                        </span>
+                                    </span>
+                                    <span class="{{ $loadPercentage > 100 ? 'text-danger' : 'text-primary' }}">
+                                        {{ number_format($loadPercentage, 1) }}%
+                                    </span>
+                                </div>
+                                <div class="progress" style="height: 6px; border-radius: 4px;">
+                                    <div class="progress-bar {{ $loadBarColor }}" role="progressbar" style="width: {{ $loadBarWidth }}%"></div>
+                                </div>
+                            </div>
+
+                            {{-- ACCORDION TRIGGER --}}
+                            <div class="accordion-trigger-area">
+                                <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ $document->id }}" aria-expanded="false">
+                                    Lihat Rincian Produksi
+                                </button>
+                            </div>
+
+                            {{-- ACCORDION CONTENT --}}
+                            <div class="collapse item-list-container" id="collapse-{{ $document->id }}">
+                                @if($payload)
+                                    @foreach($payload as $item)
+                                        @php
+                                            // 1. Ambil Data & Pastikan Angka (Float)
+                                            $confirmed = isset($item['confirmed_qty']) ? (float)$item['confirmed_qty'] : 0;
+                                            $assigned  = isset($item['assigned_qty']) ? (float)$item['assigned_qty'] : 0;
+
+                                            // 2. Hitung Persentase (Cegah pembagian dengan nol)
+                                            if ($assigned > 0) {
+                                                $percentage = ($confirmed / $assigned) * 100;
+                                            } else {
+                                                $percentage = 0;
+                                            }
+
+                                            // 3. Tentukan Warna & Lebar Bar Visual
+                                            $visualPercent = min(100, max(0, $percentage)); // Clamp 0-100
+                                            
+                                            // Logika Warna: 
+                                            // - Jika 0% = Abu-abu (Secondary)
+                                            // - Jika < 100% = Biru (Primary)
+                                            // - Jika >= 100% = Hijau (Success)
+                                            if ($percentage == 0) {
+                                                $barColor = 'bg-secondary';
+                                                $textClass = 'text-secondary';
+                                                $statusText = 'Belum Mulai';
+                                            } elseif ($percentage >= 100) {
+                                                $barColor = 'bg-success';
+                                                $textClass = 'text-success';
+                                                $statusText = number_format($percentage, 0) . '% Selesai';
+                                            } else {
+                                                $barColor = 'bg-primary';
+                                                $textClass = 'text-primary';
+                                                $statusText = number_format($percentage, 0) . '% On Progress';
+                                            }
+                                        @endphp
+
+                                        <div class="pro-item-row">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        {{-- Badge Nomor PRO --}}
+                                                        <span class="badge bg-dark" style="font-size: 0.65rem;">
+                                                            {{ $item['aufnr'] ?? 'N/A' }}
+                                                        </span>
+                                                        {{-- Deskripsi Material --}}
+                                                        <span class="fw-bold text-dark small">
+                                                            {{ $item['material_desc'] ?? 'No Description' }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">
+                                                        Mat: {{ $item['material_number'] ?? '-' }} • SO: {{ $item['kdauf'] ?? '-' }}
+                                                    </div>
+                                                </div>
+                                                
+                                                {{-- Indikator Angka Kanan Atas --}}
+                                                <div class="text-end">
+                                                    <div class="fw-bold {{ $textClass }}">
+                                                        {{ number_format($confirmed, 0) }} / {{ number_format($assigned, 0) }}
+                                                    </div>
+                                                    <div class="text-muted" style="font-size: 0.7rem;">QTY TERKONFIRMASI</div>
+                                                </div>
+                                            </div>
+
+                                            {{-- PROGRESS BAR AREA --}}
+                                            <div class="mt-2">
+                                                <div class="d-flex justify-content-between align-items-end mb-1">
+                                                    <span class="progress-label text-muted">Production Progress</span>
+                                                    <span class="small fw-bold {{ $textClass }}" style="font-size: 0.7rem;">
+                                                        {{ number_format($percentage, 0) }}% {{ $percentage >= 100 ? 'Selesai' : 'On Progress' }}
+                                                    </span>
+                                                </div>
+                                                
+                                                <div class="progress-custom">
+                                                    {{-- PERBAIKAN: Tambahkan 'height: 100%' di style agar bar muncul --}}
+                                                    <div class="progress-bar {{ $barColor }}" 
+                                                        role="progressbar" 
+                                                        style="width: {{ $visualPercent }}%; height: 100%; transition: width 0.6s ease;">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                @endif
+                            </div>
                         </div>
                     </div>
-                </div>
                 @empty
                     <div class="text-center py-5 border rounded-3 bg-white border-dashed">
                         <i class="fa-solid fa-clipboard-check fs-1 text-secondary mb-3 opacity-25"></i>
@@ -369,104 +451,130 @@
                 </div>
 
                 @forelse ($expiredWIDocuments as $document)
-                <div class="wi-row-wrapper">
-                    <div class="pt-2">
-                        <input type="checkbox" class="form-check-input wi-checkbox cb-expired" value="{{ $document->wi_document_code }}">
-                    </div>
-                    
-                    <div class="wi-item-card flex-grow-1 status-expired">
-                        {{-- HEADER --}}
-                        <div class="card-header-area">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="text-center">
-                                    <small class="d-block text-muted" style="font-size: 0.7rem; font-weight: 700;">WORKCENTER</small>
-                                    <span class="h5 fw-bolder text-dark mb-0">{{ $document->workcenter_code }}</span>
-                                </div>
-                                <div style="border-left: 1px solid #cbd5e1; height: 30px; margin: 0 10px;"></div>
-                                <div>
-                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                        <span class="fw-bold text-dark">{{ $document->wi_document_code }}</span>
-                                        <span class="badge-soft bg-soft-danger">EXPIRED</span>
+                    @php
+                        // --- AMBIL DATA PAYLOAD ---
+                        $payload = is_array($document->payload_data) ? $document->payload_data : json_decode($document->payload_data, true);
+                        
+                        $totalLoadMinutes = 0;
+                        $capacityMinutes = 0;
+
+                        if ($payload && count($payload) > 0) {
+                            // Ambil Kapaz dari item pertama
+                            $firstItem = $payload[0];
+                            $kapaz = floatval($firstItem['kapaz'] ?? 0);
+                            $capacityMinutes = $kapaz * 60;
+
+                            foreach($payload as $p) {
+                                $vgw01 = floatval($p['vgw01'] ?? 0);
+                                $qty   = floatval($p['assigned_qty'] ?? 0);
+                                $unit  = strtoupper($p['vge01'] ?? '');
+
+                                $timePerItem = $vgw01 * $qty;
+                                if ($unit === 'S') {
+                                    $timePerItem = $timePerItem / 60;
+                                }
+                                $totalLoadMinutes += $timePerItem;
+                            }
+                        }
+
+                        $loadPercentage = ($capacityMinutes > 0) ? ($totalLoadMinutes / $capacityMinutes) * 100 : 0;
+                        $loadBarWidth = min($loadPercentage, 100);
+                    @endphp
+
+                    <div class="wi-row-wrapper">
+                        <div class="pt-2">
+                            <input type="checkbox" class="form-check-input wi-checkbox cb-expired" value="{{ $document->wi_document_code }}">
+                        </div>
+                        
+                        <div class="wi-item-card flex-grow-1 status-expired">
+                            {{-- HEADER --}}
+                            <div class="card-header-area">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="text-center">
+                                        <small class="d-block text-muted" style="font-size: 0.7rem; font-weight: 700;">WORKCENTER</small>
+                                        <span class="h5 fw-bolder text-dark mb-0">{{ $document->workcenter_code }}</span>
                                     </div>
-                                    <div class="small text-muted">
-                                        Exp: {{ \Carbon\Carbon::parse($document->expired_at)->format('d M H:i') }}
-                                    </div>
-                                </div>
-                            </div>
-                             {{-- PRINT SINGLE (Expired Report) --}}
-                            <button type="button" 
-                                    class="btn btn-light bg-white border shadow-sm btn-sm fw-bold text-danger" 
-                                    onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'expired')">
-                                <i class="fa-solid fa-file-invoice me-1"></i> Report
-                            </button>
-                        </div>
-
-                        {{-- BODY --}}
-                        <div class="card-body-area">
-                            @php
-                                $payload = is_array($document->payload_data) ? $document->payload_data : json_decode($document->payload_data, true);
-                                $itemCount = $payload ? count($payload) : 0;
-                            @endphp
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="small fw-bold text-muted">Status Produksi</span>
-                                <span class="badge bg-light text-dark border">{{ $itemCount }} Item Selesai</span>
-                            </div>
-                        </div>
-
-                         {{-- ACCORDION --}}
-                        <div class="accordion-trigger-area">
-                            <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-exp-{{ $document->id }}" aria-expanded="false">
-                                Lihat Hasil Produksi
-                            </button>
-                        </div>
-
-                        {{-- COLLAPSE CONTENT (DENGAN PROGRESS BAR PER ITEM) --}}
-                        <div class="collapse item-list-container" id="collapse-exp-{{ $document->id }}">
-                             @if($payload)
-                                @foreach($payload as $item)
-                                    @php
-                                        // --- HITUNG PROGRESS CONFIRMATION ---
-                                        $confirmed = isset($item['confirmed_qty']) ? (float)$item['confirmed_qty'] : 0;
-                                        $assigned = isset($item['assigned_qty']) ? (float)$item['assigned_qty'] : 0;
-                                        
-                                        $percentage = ($assigned > 0) ? ($confirmed / $assigned) * 100 : 0;
-                                        $percentage = min(100, max(0, $percentage)); 
-                                        
-                                        // Expired biasanya merah jika belum 100%
-                                        $barColor = $percentage >= 100 ? 'bg-success' : 'bg-danger';
-                                        $textClass = $percentage >= 100 ? 'text-success' : 'text-danger';
-                                    @endphp
-
-                                    <div class="pro-item-row" style="background-color: #fffafa; border-color: #fecaca;">
-                                        <div class="d-flex justify-content-between align-items-start mb-2">
-                                            <div>
-                                                <div class="fw-bold text-dark small">{{ $item['material_desc'] ?? '-' }}</div>
-                                                <div class="text-muted small" style="font-size: 0.7rem;">PRO: {{ $item['aufnr'] ?? '-' }}</div>
-                                            </div>
-                                            <div class="text-end">
-                                                <div class="fw-bold text-danger">{{ $confirmed }}</div>
-                                                <div class="text-muted" style="font-size: 0.65rem;">ACTUAL</div>
-                                            </div>
+                                    <div style="border-left: 1px solid #cbd5e1; height: 30px; margin: 0 10px;"></div>
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="fw-bold text-dark">{{ $document->wi_document_code }}</span>
+                                            <span class="badge-soft bg-soft-danger">EXPIRED</span>
                                         </div>
-
-                                        {{-- PROGRESS BAR EXPIRED --}}
-                                        <div class="mt-2">
-                                            <div class="d-flex justify-content-between align-items-end mb-1">
-                                                <span class="progress-label text-danger">Final Status</span>
-                                                <span class="small fw-bold {{ $textClass }}">
-                                                    {{ $confirmed }} / {{ $assigned }} ({{ round($percentage) }}%)
-                                                </span>
-                                            </div>
-                                            <div class="progress-custom">
-                                                <div class="progress-bar {{ $barColor }}" role="progressbar" style="width: {{ $percentage }}%"></div>
-                                            </div>
+                                        <div class="small text-muted">
+                                            Exp: {{ \Carbon\Carbon::parse($document->expired_at)->format('d M H:i') }}
                                         </div>
                                     </div>
-                                @endforeach
-                            @endif
+                                </div>
+                                <button type="button" 
+                                        class="btn btn-light bg-white border shadow-sm btn-sm fw-bold text-danger" 
+                                        onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'expired')">
+                                    <i class="fa-solid fa-file-invoice me-1"></i> Report
+                                </button>
+                            </div>
+
+                            {{-- BODY (Capacity Load) --}}
+                            <div class="card-body-area">
+                                <div class="d-flex justify-content-between small fw-bold text-muted mb-1">
+                                    <span>Final Load ({{ number_format($totalLoadMinutes, 0) }} / {{ number_format($capacityMinutes, 0) }} Min)</span>
+                                    <span>{{ number_format($loadPercentage, 1) }}%</span>
+                                </div>
+                                <div class="progress" style="height: 6px; border-radius: 4px;">
+                                    <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ $loadBarWidth }}%"></div>
+                                </div>
+                            </div>
+
+                            {{-- ACCORDION --}}
+                            <div class="accordion-trigger-area">
+                                <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-exp-{{ $document->id }}" aria-expanded="false">
+                                    Lihat Hasil Produksi
+                                </button>
+                            </div>
+
+                            {{-- COLLAPSE CONTENT --}}
+                            <div class="collapse item-list-container" id="collapse-exp-{{ $document->id }}">
+                                @if($payload)
+                                    @foreach($payload as $item)
+                                        @php
+                                            $confirmed = isset($item['confirmed_qty']) ? (float)$item['confirmed_qty'] : 0;
+                                            $assigned  = isset($item['assigned_qty']) ? (float)$item['assigned_qty'] : 0;
+                                            
+                                            $percentage = ($assigned > 0) ? ($confirmed / $assigned) * 100 : 0;
+                                            $visualPercent = min(100, max(0, $percentage)); 
+                                            
+                                            $barColor = $percentage >= 100 ? 'bg-success' : 'bg-danger';
+                                            $textClass = $percentage >= 100 ? 'text-success' : 'text-danger';
+                                        @endphp
+
+                                        <div class="pro-item-row" style="background-color: #fffafa; border-color: #fecaca;">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <div class="fw-bold text-dark small">{{ $item['material_desc'] ?? '-' }}</div>
+                                                    <div class="text-muted small" style="font-size: 0.7rem;">PRO: {{ $item['aufnr'] ?? '-' }}</div>
+                                                </div>
+                                                <div class="text-end">
+                                                    <div class="fw-bold {{ $textClass }}">{{ number_format($confirmed, 0) }} / {{ number_format($assigned, 0) }}</div>
+                                                    <div class="text-muted" style="font-size: 0.65rem;">ACTUAL</div>
+                                                </div>
+                                            </div>
+
+                                            {{-- PROGRESS BAR EXPIRED --}}
+                                            <div class="mt-2">
+                                                <div class="d-flex justify-content-between align-items-end mb-1">
+                                                    <span class="progress-label text-danger">Final Status</span>
+                                                    <span class="small fw-bold {{ $textClass }}">
+                                                        {{ number_format($percentage, 0) }}%
+                                                    </span>
+                                                </div>
+                                                <div class="progress-custom">
+                                                    <div class="progress-bar {{ $barColor }}" role="progressbar" style="width: {{ $visualPercent }}%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                @endif
+                            </div>
                         </div>
                     </div>
-                </div>
                 @empty
                     <div class="text-center py-5 border rounded-3 bg-white border-dashed">
                         <i class="fa-solid fa-box-open fs-1 text-secondary mb-3 opacity-25"></i>
