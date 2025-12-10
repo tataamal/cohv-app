@@ -222,9 +222,14 @@
                             <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllActive">Pilih Semua</label>
                         </div>
                         {{-- PRINT SELECTED (BULK) --}}
-                        <button type="button" id="btnActiveAction" class="btn btn-success btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="openPrintModal('active')">
-                            <i class="fa-solid fa-print me-1"></i> Cetak Terpilih (<span id="countActive">0</span>)
-                        </button>
+                        <div class="d-flex gap-2" id="actionGroupActive">
+                            <button type="button" id="btnActiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('active')">
+                                <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countActiveDel">0</span>)
+                            </button>
+                            <button type="button" id="btnActiveAction" class="btn btn-success btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="openPrintModal('active')">
+                                <i class="fa-solid fa-print me-1"></i> Cetak Terpilih (<span id="countActive">0</span>)
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -397,6 +402,25 @@
                                                 </div>
                                             </div>
 
+                                            <div class="d-flex justify-content-end mb-2">
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-link text-decoration-none p-0 text-primary small fw-bold"
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editQtyModal"
+                                                        data-wi-code="{{ $document->wi_document_code }}"
+                                                        data-aufnr="{{ $item['aufnr'] ?? '' }}"
+                                                        data-desc="{{ $item['material_desc'] ?? '' }}"
+                                                        data-current-qty="{{ $assigned }}"
+                                                        data-max-qty="{{ $item['qty_order'] ?? 0 }}"
+                                                        @php
+                                                            $uom = $item['uom'] ?? 'EA';
+                                                            if ($uom === 'ST') $uom = 'PC';
+                                                        @endphp
+                                                        data-uom="{{ $uom }}">
+                                                    <i class="fa-solid fa-pen-to-square me-1"></i> Edit Quantity
+                                                </button>
+                                            </div>
+
                                             {{-- PROGRESS BAR AREA --}}
                                             <div class="mt-2">
                                                 <div class="d-flex justify-content-between align-items-end mb-1">
@@ -444,9 +468,14 @@
                             <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllExpired">Pilih Semua</label>
                         </div>
                         {{-- PRINT SELECTED (EXPIRED) --}}
-                        <button type="button" id="btnExpiredAction" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="openPrintModal('expired')">
-                            <i class="fa-solid fa-file-invoice me-1"></i> Report (<span id="countExpired">0</span>)
-                        </button>
+                        <div class="d-flex gap-2" id="actionGroupExpired">
+                            <button type="button" id="btnExpiredDelete" class="btn btn-outline-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('expired')">
+                                <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countExpiredDel">0</span>)
+                            </button>
+                            <button type="button" id="btnExpiredAction" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="openPrintModal('expired')">
+                                <i class="fa-solid fa-file-invoice me-1"></i> Report (<span id="countExpired">0</span>)
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -725,6 +754,51 @@
             modal.show();
         };
 
+        // --- 4.5 DELETE FUNCTION ---
+        window.confirmDelete = function(type) {
+            let selector = (type === 'active') ? '.cb-active:checked' : '.cb-expired:checked';
+            const checked = document.querySelectorAll(selector);
+            let codes = [];
+            checked.forEach(cb => codes.push(cb.value));
+
+            if(codes.length === 0) return;
+
+            Swal.fire({
+                title: 'Hapus Dokumen?',
+                text: `Anda akan menghapus ${codes.length} dokumen ini secara permanen.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Send Request
+                    fetch('{{ route('wi.delete') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ wi_codes: codes })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if(data.message) {
+                            Swal.fire('Terhapus!', data.message, 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Gagal', 'Gagal menghapus data', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        Swal.fire('Error', 'Terjadi kesalahan server.', 'error');
+                    });
+                }
+            });
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             // --- 5. HIGHLIGHT CARD LOGIC ---
             function toggleCardHighlight(checkbox) {
@@ -756,8 +830,26 @@
                     
                     if(checked.length > 0) {
                         btnAction.classList.remove('d-none');
+                        // Show Delete Button too
+                        if(btnId === 'btnActiveAction') {
+                            const btnDel = document.getElementById('btnActiveDelete');
+                            const countDel = document.getElementById('countActiveDel');
+                            if(btnDel) { btnDel.classList.remove('d-none'); countDel.innerText = checked.length; }
+                        } else if(btnId === 'btnExpiredAction') {
+                            const btnDel = document.getElementById('btnExpiredDelete');
+                            const countDel = document.getElementById('countExpiredDel');
+                            if(btnDel) { btnDel.classList.remove('d-none'); countDel.innerText = checked.length; }
+                        }
                     } else {
                         btnAction.classList.add('d-none');
+                         // Hide Delete Button too
+                        if(btnId === 'btnActiveAction') {
+                            const btnDel = document.getElementById('btnActiveDelete');
+                            if(btnDel) btnDel.classList.add('d-none');
+                        } else if(btnId === 'btnExpiredAction') {
+                             const btnDel = document.getElementById('btnExpiredDelete');
+                            if(btnDel) btnDel.classList.add('d-none');
+                        }
                     }
                 }
 

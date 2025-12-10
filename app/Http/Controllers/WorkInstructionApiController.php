@@ -11,7 +11,7 @@ class WorkInstructionApiController extends Controller
 {
     public function getUniqueUnexpiredAufnrs()
     {
-        $unexpiredHistories = HistoryWi::where('expired_at', '>', Carbon::now())->get();
+        $unexpiredHistories = HistoryWi::where('expired_at', '>', Carbon::now())->where('document_date','<', Carbon::now())->get();
         
         $groupedAufnrs = [];
         $allUniqueAufnrs = [];
@@ -62,12 +62,12 @@ class WorkInstructionApiController extends Controller
         $code = $request->input('wi_code');
         $document = HistoryWi::where('wi_document_code', $code)
                               ->where('expired_at', '>', Carbon::now())
+                              ->where('document_date','<', Carbon::now())
                               ->first();
-
         if (!$document) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Dokumen WI tidak ditemukan, atau sudah expired.'
+                'message' => 'Dokumen WI tidak ditemukan, WI Inactiveatau sudah expired.'
             ], 404);
         }
 

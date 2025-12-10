@@ -16,10 +16,33 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class CreateWiController extends Controller
 {
     /**
+     * Delete WI Documents.
+     */
+    public function delete(Request $request) {
+        $ids = $request->input('wi_codes');
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['message' => 'Invalid data provided.'], 400);
+        }
+
+        try {
+            DB::beginTransaction();
+            // Delete based on wi_document_code
+            HistoryWi::whereIn('wi_document_code', $ids)->delete();
+            DB::commit();
+            return response()->json(['message' => 'Documents deleted successfully.', 'count' => count($ids)]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Delete WI Error: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to delete documents: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Menampilkan halaman utama Work Instruction (Drag & Drop).
      */
-    public function index($kode)
+    public function index(Request $request, $kode)
     {
+        $filter = $request->query('filter', 'all'); // Default filter: all (modified from today)
         $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
         $apiToken = env('API_TOKEN_NIK'); 
         $employees = []; 
@@ -32,12 +55,17 @@ class CreateWiController extends Controller
         } catch (\Exception $e) {
             Log::error('Koneksi API NIK Error: ' . $e->getMessage());
         }
-
-        // --- PERBAIKAN DI SINI ---
         $tData1 = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('MGVRG2 > LMNGA')
-            ->where('STATS', 'REL') // <-- HANYA AMBIL PRO YANG BERSTATUS 'REL' (Released)
-            ->get();
+            ->where('STATS', 'REL');
+
+        if ($filter === 'today') {
+            $tData1->whereDate('SSAVD', now());
+        } elseif ($filter === 'week') {
+            $tData1->whereBetween('SSAVD', [now()->startOfWeek(), now()->endOfWeek()]);
+        }
+        
+        $tData1 = $tData1->get();
         // -------------------------
 
         $assignedProQuantities = $this->getAssignedProQuantities($kode);
@@ -56,6 +84,7 @@ class CreateWiController extends Controller
             $qtyAllocatedInWi = $assignedProQuantities[$aufnr] ?? 0;
             $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
             $item->real_sisa_qty = $qtySisaAkhir; 
+            $item->qty_wi = $qtyAllocatedInWi; // Add Allocated Qty for Display
             return $item;
         });
         
@@ -69,6 +98,7 @@ class CreateWiController extends Controller
             'tData1'               => $finalTData1,
             'workcenters'          => $workcenters,
             'parentWorkcenters'    => $parentWorkcenters,
+            'currentFilter'        => $filter,
         ]);
     }
 

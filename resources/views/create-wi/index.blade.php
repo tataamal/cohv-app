@@ -101,24 +101,19 @@
             tr.pro-item {
                 border-bottom: 1px solid #f1f5f9;
                 transition: background 0.15s;
-                cursor: grab; /* Show grab cursor */
-            }
-            tr.pro-item:hover { background-color: #f8fafc; }
-            tr.pro-item:last-child { border-bottom: none; }
-            
-            tr.selected-row {
-                background-color: #eff6ff !important; /* Light Blue */
-                border-left: 3px solid var(--primary-blue);
+                cursor: grab; /* Kursor tangan terbuka */
+                position: relative;
             }
 
-            /* Drag Handle */
-            .drag-handle {
-                color: #cbd5e1;
-                cursor: grab;
-                transition: color 0.2s;
+            /* Agar text tetap bisa dicopy/highlight saat tidak sedang dragging */
+            tr.pro-item * {
+                user-select: text; 
             }
-            tr.pro-item:hover .drag-handle { color: var(--text-secondary); }
-            .drag-handle:active { cursor: grabbing; color: var(--primary-blue); }
+
+            /* Saat sedang dragging, ubah kursor */
+            tr.pro-item:active {
+                cursor: grabbing;
+            }
 
             /* --- 4. TARGET WORKCENTER CARDS (RIGHT COLUMN) --- */
             .target-scroll-area {
@@ -234,6 +229,34 @@
             ::-webkit-scrollbar-track { background: transparent; }
             ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
             ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+            /* FIX EMPTY TABLE DRAG BUG */
+            #source-list {
+                /* table-row-group ignores height, so we use block when empty or rely on content */
+            }
+            #source-list:empty {
+               display: block;
+               min-height: 150px;
+               width: 100%;
+               background-image: linear-gradient(45deg, #f8fafc 25%, transparent 25%, transparent 75%, #f8fafc 75%, #f8fafc), linear-gradient(45deg, #f8fafc 25%, transparent 25%, transparent 75%, #f8fafc 75%, #f8fafc);
+               background-size: 20px 20px;
+               background-position: 0 0, 10px 10px;
+            }
+            /* Add content to tell user they can drop back */
+            #source-list:empty::after {
+                content: "Drag items back here";
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 150px;
+                color: #cbd5e1;
+                font-weight: 600;
+                font-size: 0.9rem;
+            }
+            
+            .table-scroll-area {
+                min-height: 200px;
+            }
         </style>
     @endpush
 
@@ -274,7 +297,6 @@
                             </div>
                             <div>
                                 <h6 class="mb-0 fw-bold text-dark">Unassigned Orders</h6>
-                                <small class="text-muted">Production Request Orders (PRO)</small>
                             </div>
                         </div>
 
@@ -282,24 +304,36 @@
                             <i class="fa-solid fa-magnifying-glass text-muted me-2"></i>
                             <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Search Material, PRO, or SO...">
                         </div>
+
+                        {{-- FILTER DISABLED TEMPORARILY (DEFAULT ALL) --}}
+                        {{-- 
+                        <div class="ms-auto me-3">
+                             <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'today']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'today' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">Today</a>
+                                <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'week']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'week' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">Week</a>
+                                <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'all']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'all' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">All</a>
+                            </div>
+                        </div> 
+                        --}}
                     </div>
 
                     {{-- Table Content --}}
-                    <div class="table-scroll-area">
-                        <table class="table table-custom mb-0 w-100 align-middle source-table" id="proTable">
-                            <thead class="sticky-top">
+                    <div class="table-scroll-area custom-scrollbar" style="max-height: 700px; overflow-y: auto;">
+                        <table class="table table-hover table-striped source-table mb-0 w-100" style="font-size: 0.8rem;">
+                            <thead class="bg-light sticky-top" style="z-index: 5;">
                                 <tr>
                                     <th class="text-center ps-3" width="40">
                                         <input class="form-check-input pointer" type="checkbox" id="selectAll">
                                     </th>
                                     <th class="ps-3">PRO Number</th>
-                                    <th>Sales Order</th>
+                                    <th>SO-Item</th>
                                     <th>Material Description</th>
-                                    <th class="text-center">Origin WC</th>
-                                    <th class="text-center">Op. Key</th>
-                                    <th class="text-center">Qty Total</th>
-                                    <th class="text-center">Qty Confirmed</th>
-                                    <th class="text-center bg-white" width="40"></th>
+                                    <th class="text-center">WC</th>
+                                    <th class="text-center">Op.Key</th>
+                                    <th class="text-center">Qty Opt</th>
+                                    <th class="text-center">Qty Conf</th>
+                                    <th class="text-center">Qty WI</th> {{-- NEW COLUMN --}}
+                                    <th class="text-center">Tak Time</th>
                                 </tr>
                             </thead>
                             <tbody id="source-list" class="sortable-list" data-group="shared-pro">
@@ -362,8 +396,10 @@
                                             </div>
                                         </td>
 
+                                        </td>
+
                                         {{-- 3. Info Columns --}}
-                                        <td class="table-col text-muted small">{{ $soItem }}</td>
+                                        <td class="table-col text-muted">{{ $soItem }}</td>
                                         <td class="table-col">
                                             <div class="d-flex flex-column">
                                                 <span class="fw-bold text-dark small">{{ $matnr }}</span>
@@ -372,14 +408,27 @@
                                         </td>
                                         <td class="text-center table-col"><span class="badge bg-light text-dark border">{{ $item->ARBPL }}</span></td>
                                         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>
-                                        <td class="text-center table-col fw-bold text-dark">{{ number_format($item->MGVRG2, 2, ',', '.') }}</td>
-                                        <td class="text-center table-col text-muted">{{ number_format($item->LMNGA, 2, ',', '.') }}</td>
+                                        @php
+                                            $showUnit = $item->MEINS;
+                                            if ($showUnit == 'ST') { $showUnit = 'PC'; }
+                                            $decimals = in_array($item->MEINS, ['ST', 'SET']) ? 0 : 2;
+                                        @endphp
+                                        <td class="text-center table-col fw-bold text-dark">{{ number_format($item->MGVRG2, $decimals, ',', '.') }} {{ $showUnit }}</td>
+                                        <td class="text-center table-col text-muted">{{ number_format($item->LMNGA, $decimals, ',', '.') }} {{ $showUnit }}</td>
                                         
-                                        {{-- 4. Drag Handle --}}
-                                        <td class="text-center table-col drag-handle">
-                                            <i class="fa-solid fa-grip-vertical"></i>
-                                        </td>
-
+                                        {{-- NEW COLUMN QTY WI --}}
+                                        <td class="text-center table-col text-primary fw-bold">{{ number_format($item->qty_wi, $decimals, ',', '.') }} {{ $showUnit }}</td>
+                                        
+                                        @php
+                                            $taktTime = $item->VGW01 * $item->MGVRG2;
+                                            if ($item->VGE01 == 'S') {
+                                                $taktTime = $taktTime / 60;
+                                            }
+                                            // Format: Remove trailing zeros (e.g. 5.00 -> 5, 5.50 -> 5.5)
+                                            $taktTimeDisplay = (float) number_format($taktTime, 2, '.', '');
+                                            $taktTimeDisplay = str_replace('.', ',', (string) $taktTimeDisplay);
+                                        @endphp
+                                        <td class="text-center table-col">{{ $taktTimeDisplay }} Min</td>
                                         {{-- 5. CARD VIEW CONTENT (Hanya muncul saat di-drop ke kanan) --}}
                                         <td class="card-view-content" colspan="9">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
@@ -432,7 +481,7 @@
                             $isUnknown = $kapazHours <= 0;
                         @endphp
 
-                        @if (!$isUnknown)
+                        {{-- @if (!$isUnknown) --}}
                             <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-kapaz-wc="{{ $kapazHours }}">
                                 {{-- Card Header --}}
                                 <div class="wc-header">
@@ -460,8 +509,44 @@
                                     </div>
                                 </div>
                             </div>
-                        @endif
+                        {{-- @endif --}}
                     @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- MODAL MISMATCH (NEW) --}}
+    <div class="modal fade" id="mismatchModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header bg-warning bg-opacity-10 border-0">
+                    <h6 class="modal-title fw-bold text-warning"><i class="fa-solid fa-triangle-exclamation me-2"></i>Workcenter Mismatch</h6>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted mb-4 small">PRO yang Anda drop memiliki Workcenter asal yang berbeda dengan target. Apakah Anda ingin mengubah Workcenter?</p>
+                    
+                    <div class="row g-3 align-items-center mb-3">
+                        <div class="col-5">
+                            <label class="small fw-bold text-muted mb-1">Current WC</label>
+                            <input type="text" class="form-control bg-light" id="mismatchCurrentWC" readonly>
+                        </div>
+                        <div class="col-2 text-center">
+                            <i class="fa-solid fa-arrow-right text-muted"></i>
+                        </div>
+                        <div class="col-5">
+                            <label class="small fw-bold text-primary mb-1">New Target WC</label>
+                            <input type="text" class="form-control border-primary bg-primary bg-opacity-10 text-primary fw-bold" id="mismatchTargetWC" readonly>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light p-2">
+                    <button type="button" class="btn btn-white text-muted fw-bold btn-sm shadow-sm border" id="btnCancelMismatch">
+                        Cancel Drop
+                    </button>
+                    <button type="button" class="btn btn-warning fw-bold btn-sm shadow-sm" id="btnChangeWC">
+                        Change Workcenter
+                    </button>
                 </div>
             </div>
         </div>
@@ -500,13 +585,14 @@
                         </select>
                     </div>
 
-                    <div class="mb-3" id="childWorkcenterField">
+                    <div class="mb-3 d-none" id="childWorkcenterField">
                         <label class="form-label text-xs fw-bold text-uppercase text-muted">Target Line (Sub-WC)</label>
                         <select class="form-select form-select-sm" id="childWorkcenterSelect">
                             <option value="" selected disabled>Select Sub-WC...</option>
+                            {{-- Option akan diisi oleh Javascript --}}
                         </select>
-                        <div id="childWorkcenterHelp" class="form-text text-xs d-none text-info">
-                            <i class="fa-solid fa-circle-info me-1"></i> Parent WC requires Sub-WC selection.
+                        <div class="form-text text-xs text-info">
+                            <i class="fa-solid fa-circle-info me-1"></i> WC Induk ini membutuhkan pemilihan Line/Mesin.
                         </div>
                     </div>
 
@@ -598,51 +684,39 @@
         <script>
             const PARENT_WORKCENTERS = @json($parentWorkcenters);
             const PLANT_CODE = '{{ $kode }}';
-            console.groupCollapsed("INITIAL DATA LOAD & PROCESSING COUNTS");
-            console.log("1. Final Workcenter Hierarchy (from Backend):", Object.keys(PARENT_WORKCENTERS).length,
-                PARENT_WORKCENTERS);
-            console.log("2. Total Unassigned Orders (from Table, tData1):", document.querySelectorAll(
-                '#source-list tr.pro-item').length);
-            console.groupEnd();
 
             let draggedItemsCache = [];
             let targetContainerCache = null;
             let sourceContainerCache = null;
             let assignmentModalInstance = null;
             let previewModalInstance = null;
+            let mismatchModalInstance = null; // New Modal Instance
             let tempSplits = [];
             let currentSisaQty = 0;
+            let pendingMismatchItem = null;
+            let pendingMismatchEvent = null;
 
 
             document.addEventListener('DOMContentLoaded', function() {
-                console.groupCollapsed("INITIAL DATA LOAD & PROCESSING COUNTS");
-                console.log("1. Final Workcenter Hierarchy (from Backend):", Object.keys(PARENT_WORKCENTERS).length,
-                    PARENT_WORKCENTERS);
-                console.log("2. Total Unassigned Orders (from Table, tData1):", document.querySelectorAll(
-                    '#source-list tr.pro-item').length);
-                console.groupEnd();
-
                 assignmentModalInstance = new bootstrap.Modal(document.getElementById('assignmentModal'));
                 previewModalInstance = new bootstrap.Modal(document.getElementById('previewModal'));
+                mismatchModalInstance = new bootstrap.Modal(document.getElementById('mismatchModal')); // Init New Modal
 
                 calculateAllRows();
                 setupSearch();
                 setupCheckboxes();
                 setupDragAndDrop();
                 setupModalLogic();
+                setupMismatchLogic(); // New Logic
 
                 document.getElementById('btnFinalSave').addEventListener('click', function() {
-                    const finalData = saveAllocation(false);
-                    console.groupCollapsed("FINAL DATA PAYLOAD");
-                    console.log("Final Allocation Data:", finalData);
-                    console.log("Total Assigned Workcenters:", finalData.length);
-                    console.groupEnd();
-
+                    const finalData = saveAllocation(false); // False = get data only
                     sendFinalAllocation(finalData);
                 });
-
+                
+                // Reset modal state on close
                 document.getElementById('assignmentModal').addEventListener('hide.bs.modal', function() {
-                    if (draggedItemsCache.length > 0 && tempSplits.length === 0) {
+                    if(draggedItemsCache.length > 0 && tempSplits.length === 0) {
                         cancelDrop();
                     }
                 });
@@ -655,16 +729,20 @@
                 new Sortable(sourceList, {
                     group: 'shared-pro',
                     animation: 150,
-                    handle: '.drag-handle',
                     forceFallback: true,
                     fallbackClass: "sortable-drag",
                     ghostClass: "sortable-ghost",
-                    selectedClass: 'selected-row',
                     sort: false,
                     onStart: function(evt) { document.body.classList.add('dragging-active'); },
+                    onAdd: function(evt) {
+                        // FIX 3: HANDLE DRAG BACK TO TABLE
+                        document.body.classList.remove('dragging-active');
+                        handleReturnToTable(evt.item, null); // null source container, logic handled inside
+                    },
                     onEnd: function(evt) { document.body.classList.remove('dragging-active'); }
                 });
 
+                // CONFIG 2: TARGET ZONES
                 wcZones.forEach(zone => {
                     new Sortable(zone, {
                         group: 'shared-pro',
@@ -675,10 +753,7 @@
                             document.body.classList.remove('dragging-active');
                             handleDropToWc(evt);
                         },
-                        onRemove: function(evt) {
-                            document.body.classList.remove('dragging-active');
-                            handleReturnToTable(evt.item, evt.from);
-                        },
+                        // onRemove removed, logic moved to onAdd in sourceList to prevent conflict
                         onEnd: function(evt) {
                             document.body.classList.remove('dragging-active');
                             updateCapacity(zone.closest('.wc-card-container'));
@@ -688,10 +763,6 @@
                 });
             }
 
-            /**
-             * Mengumpulkan Workcenter Anak yang sudah di-assign untuk PRO spesifik (aufnr)
-             * dari SEMUA Workcenter drop zone dan dari tempSplits.
-             */
             function getAssignedChildWCs(aufnr) {
                 const assignedWCs = [];
 
@@ -734,121 +805,92 @@
                 const toList = evt.to;
                 const fromList = evt.from;
                 const targetWcId = toList.closest('.wc-card-container').dataset.wcId;
-                const normalizedTargetWcId = targetWcId.toUpperCase();
-                const proAufnr = item.dataset.aufnr;
-                const proArbpl = item.dataset.arbpl; // Ambil ARBPL dari data-attribute
+                const originWc = item.dataset.arbpl; // Ambil Origin WC
 
-                // 1. VALIDASI ARBPL (Pastikan PRO hanya bisa di-drop ke WC yang sesuai dengan ARBPL-nya)
-                const normalizedProArbpl = proArbpl.toUpperCase();
-
-                if (normalizedProArbpl !== normalizedTargetWcId) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Workcenter Tidak Cocok',
-                        text: `PRO ini berasal dari Workcenter ${proArbpl}. Tidak dapat dialokasikan ke Workcenter ${targetWcId}.`,
-                        confirmButtonText: 'OK'
-                    });
-                    // Kembalikan item ke tempat asal
-                    if (fromList) fromList.appendChild(item);
-                    transformToTableView(item);
-                    return;
+                // FIX 1: MISMATCH CHECK
+                if (originWc && targetWcId && originWc !== targetWcId) {
+                    // Simpan state untuk mismatch modal
+                    pendingMismatchItem = item;
+                    targetContainerCache = toList; // Cache needed to revert if cancelled
+                    sourceContainerCache = fromList;
+                    draggedItemsCache = [item]; // Hack agar cancelDrop() bekerja
+                    
+                    document.getElementById('mismatchCurrentWC').value = originWc;
+                    document.getElementById('mismatchTargetWC').value = targetWcId;
+                    
+                    mismatchModalInstance.show();
+                    return; // Stop execution
                 }
 
+                // Normal Flow
+                processDrop(evt, item, toList, fromList, targetWcId);
+            }
 
+            // Extracted logic to support resume after mismatch check
+            function processDrop(evt, item, toList, fromList, targetWcId) {
+                const proAufnr = item.dataset.aufnr;
+                
                 targetContainerCache = toList;
                 sourceContainerCache = fromList;
                 draggedItemsCache = [];
-                tempSplits = []; // RESET SPLIT SEMENTARA
-
-                // Set Qty Awal untuk split
+                tempSplits = []; 
                 currentSisaQty = parseFloat(item.dataset.sisaQty) || 0;
                 document.getElementById('modalProAufnr').innerText = proAufnr;
-
-                // SEGERA UBAH TAMPILAN JADI CARD SUPAYA RAPI DI KOTAK
+                document.getElementById('remainingQtyDisplay').innerText = currentSisaQty.toLocaleString('id-ID');
+                
                 transformToCardView(item);
-
+                
                 const checkbox = item.querySelector('.row-checkbox');
                 if (checkbox && checkbox.checked) {
-                    const allChecked = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
-                    allChecked.forEach(cb => {
+                    document.querySelectorAll('#source-list .pro-item .row-checkbox:checked').forEach(cb => {
                         draggedItemsCache.push(cb.closest('.pro-item'));
                     });
                     if (!draggedItemsCache.includes(item)) draggedItemsCache.push(item);
                 } else {
                     draggedItemsCache.push(item);
                 }
-
-                // Tampilkan Sisa Qty awal
-                document.getElementById('remainingQtyDisplay').innerText = currentSisaQty.toLocaleString('id-ID');
-
-
-                // --- LOGIC UNTUK WORKCENTER ANAK ---
-                const isParentWC = PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWcId);
-                const childWcField = document.getElementById('childWorkcenterField');
-                const childWcSelect = document.getElementById('childWorkcenterSelect');
-                const childWcHelp = document.getElementById('childWorkcenterHelp');
-                const qtyInput = document.getElementById('inputAssignQty');
-
-                childWcSelect.innerHTML = '<option value="" selected disabled>Pilih Workcenter Anak...</option>';
-                childWcSelect.disabled = true;
-
-                // Logic Multi-Split hanya bekerja untuk Single Item Drop
-                const isSingleItemDrop = draggedItemsCache.length === 1;
-
-                if (isParentWC && isSingleItemDrop) {
-                    childWcField.classList.remove('d-none');
-                    childWcHelp.classList.remove('d-none');
-                    childWcSelect.disabled = false;
-
-                    updateChildWCDropdown(normalizedTargetWcId, proAufnr); // Panggil fungsi pembaruan dropdown
-
+                
+                const normalizedTargetWc = targetWcId.toUpperCase();
+                const childField = document.getElementById('childWorkcenterField');
+                const childSelect = document.getElementById('childWorkcenterSelect');
+                childSelect.innerHTML = '<option value="" selected disabled>Select Sub-WC...</option>';
+                
+                if (PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWc)) {
+                    childField.classList.remove('d-none');
+                    const children = PARENT_WORKCENTERS[normalizedTargetWc];
+                    children.forEach(child => {
+                        const opt = document.createElement('option');
+                        opt.value = child.code; 
+                        opt.innerText = `${child.code} - ${child.name}`; 
+                        childSelect.appendChild(opt);
+                    });
                 } else {
-                    childWcField.classList.add('d-none');
-                    childWcHelp.classList.add('d-none');
-
-                    // Disable Add Split dan Confirm untuk Bulk Mode (saat ini tidak didukung)
-                    if (!isSingleItemDrop) {
-                        document.getElementById('btnAddSplit').disabled = true;
-                        document.getElementById('btnConfirmFinalAssignment').disabled = true;
-                        qtyInput.disabled = true;
-                    }
-
-                    // LOGGING: Workcenter Drop
-                    console.log(`Drop ke WC Non-Induk (${targetWcId}). No children dropdown needed.`);
-                }
-                // --- END LOGIC UNTUK WORKCENTER ANAK ---
-
-                const empSelect = document.getElementById('employeeSelect');
-                const bulkWarning = document.getElementById('bulkWarning');
-                const maxQtyLabel = document.getElementById('maxQtyLabel');
-
-                empSelect.value = "";
-                childWcSelect.value = ""; // Reset Child WC selection
-                qtyInput.value = currentSisaQty; // Set Qty default ke sisa
-
-                if (!isSingleItemDrop) {
-                    bulkWarning.classList.remove('d-none');
-                    maxQtyLabel.innerText = "Bulk Mode";
-                    qtyInput.placeholder = "Qty per Item";
-                    document.getElementById('btnAddSplit').disabled = true;
-
-                    // LOGGING: Bulk Drop
-                    console.log(`Drop Mode: BULK (${draggedItemsCache.length} items)`);
-                } else {
-                    bulkWarning.classList.add('d-none');
-                    maxQtyLabel.innerText = "Max: " + currentSisaQty.toLocaleString('id-ID'); // Format angka
-                    qtyInput.max = currentSisaQty;
-                    document.getElementById('btnAddSplit').disabled = true; // Akan divalidasi oleh validateForm
-
-                    // LOGGING: Single Drop
-                    console.log(`Drop Mode: SINGLE. PRO: ${item.dataset.aufnr}, Sisa Qty: ${currentSisaQty}`);
+                    childField.classList.add('d-none');
                 }
 
-                // Sembunyikan review section jika tidak ada split
-                document.getElementById('splitReviewSection').classList.add('d-none');
-                document.getElementById('btnConfirmFinalAssignment').disabled = true;
+                document.getElementById('employeeSelect').value = "";
+                document.getElementById('inputAssignQty').value = currentSisaQty;
+                document.getElementById('inputAssignQty').max = currentSisaQty;
+                document.getElementById('maxQtyLabel').innerText = "Max: " + currentSisaQty;
+                document.getElementById('btnAddSplit').disabled = true;
 
+                // Show Modal
                 assignmentModalInstance.show();
+            }
+
+            function setupMismatchLogic() {
+                // Button Cancel di Mismatch Modal
+                document.getElementById('btnCancelMismatch').addEventListener('click', function() {
+                    mismatchModalInstance.hide();
+                    cancelDrop(); // Reuse existing cancel logic
+                });
+
+                // Button Change WC
+                document.getElementById('btnChangeWC').addEventListener('click', function() {
+                    alert('Fitur sedang dalam masa pengembangan');
+                    mismatchModalInstance.hide();
+                    cancelDrop(); // Tetap batalkan drop setelah alert
+                });
             }
 
             function updateChildWCDropdown(normalizedTargetWcId, proAufnr) {
@@ -880,80 +922,49 @@
 
             function updateTempSplitList() {
                 const list = document.getElementById('tempSplitList');
-                const countSpan = document.getElementById('totalSplitsCount');
+                const reviewSec = document.getElementById('splitReviewSection');
+                const countBadge = document.getElementById('totalSplitsCount');
+                const btnConfirm = document.getElementById('btnConfirmFinalAssignment');
+
                 list.innerHTML = '';
-                countSpan.innerText = tempSplits.length;
+                countBadge.innerText = tempSplits.length;
 
                 if (tempSplits.length > 0) {
-                    document.getElementById('splitReviewSection').classList.remove('d-none');
+                    reviewSec.classList.remove('d-none');
+                    btnConfirm.disabled = false;
                 } else {
-                    document.getElementById('splitReviewSection').classList.add('d-none');
+                    reviewSec.classList.add('d-none');
+                    btnConfirm.disabled = true;
                 }
-
-                // PERBAIKAN: Tombol konfirmasi aktif jika ada split (tidak perlu Qty habis)
-                document.getElementById('btnConfirmFinalAssignment').disabled = (tempSplits.length === 0);
-
-
-                tempSplits.forEach((split, index) => {
-                    const listItem = document.createElement('li');
-                    listItem.className = 'list-group-item d-flex justify-content-between align-items-center px-0';
-                    listItem.innerHTML = `
-                        <div class="d-flex flex-column">
-                            <strong>Qty: ${split.qty.toLocaleString('id-ID')}</strong> 
-                            <span class="text-muted" style="font-size: 0.75rem;">Opr: ${split.name} (${split.nik})</span>
-                            ${split.childWc ? `<span class="text-primary small">Line: ${split.childWc}</span>` : ''}
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1" data-index="${index}" onclick="removeSplit(${index})">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    `;
-                    list.appendChild(listItem);
-                });
-
-                // Update sisa Qty display
                 document.getElementById('remainingQtyDisplay').innerText = currentSisaQty.toLocaleString('id-ID');
-
-                // Update Max Qty label pada input
-                document.getElementById('maxQtyLabel').innerText = "Max: " + currentSisaQty.toLocaleString('id-ID');
                 document.getElementById('inputAssignQty').max = currentSisaQty;
 
-                // Re-validate Add Split button
-                validateForm();
+                tempSplits.forEach((split, index) => {
+                    const childWcBadge = split.child_wc ? `<span class="badge bg-info text-dark ms-1">${split.child_wc}</span>` : '';
+                    
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center px-0';
+                    li.innerHTML = `
+                        <div class="d-flex flex-column">
+                            <div class="d-flex align-items-center">
+                                <strong>Qty: ${split.qty}</strong> 
+                                ${childWcBadge}
+                            </div>
+                            <span class="text-muted" style="font-size: 0.75rem;">${split.name}</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger border-0" onclick="removeSplit(${index})"><i class="fa-solid fa-times"></i></button>
+                    `;
+                    list.appendChild(li);
+                });
             }
 
             function removeSplit(index) {
-                // Tambahkan Qty kembali ke currentSisaQty
-                const removedQty = tempSplits[index].qty;
-                currentSisaQty += removedQty;
-
-                // Hapus split dari array
+                // Kembalikan Qty, gunakan floating point fix
+                currentSisaQty = parseFloat((currentSisaQty + tempSplits[index].qty).toFixed(3));
                 tempSplits.splice(index, 1);
-
-                // Update UI dan tracking
+                document.getElementById('inputAssignQty').disabled = false;
+                document.getElementById('inputAssignQty').value = currentSisaQty;
                 updateTempSplitList();
-
-                // Jika Workcenter Induk, update dropdown WC Anak
-                const item = draggedItemsCache[0];
-                const targetWcId = targetContainerCache.closest('.wc-card-container').dataset.wcId;
-                const normalizedTargetWcId = targetWcId.toUpperCase();
-                const isParentWC = PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWcId);
-
-                if (isParentWC && item) {
-                    // Logic ini akan diatasi oleh updateChildWCDropdown yang memanggil getAssignedChildWCs
-                    updateChildWCDropdown(normalizedTargetWcId, item.dataset.aufnr);
-                }
-
-                // Jika Qty sudah habis, nonaktifkan input Qty
-                const qtyInput = document.getElementById('inputAssignQty');
-                if (currentSisaQty > 0) {
-                    qtyInput.disabled = false;
-                    qtyInput.value = currentSisaQty;
-                } else {
-                    qtyInput.disabled = true;
-                    qtyInput.value = 0;
-                }
-
-                console.log(`Split removed. Returned Qty: ${removedQty}. New Sisa Qty: ${currentSisaQty}`);
             }
 
 
@@ -961,255 +972,115 @@
                 const empSelect = document.getElementById('employeeSelect');
                 const qtyInput = document.getElementById('inputAssignQty');
                 const btnAddSplit = document.getElementById('btnAddSplit');
-                const btnConfirmFinalAssignment = document.getElementById('btnConfirmFinalAssignment');
+                const btnConfirm = document.getElementById('btnConfirmFinalAssignment');
                 const btnCancel = document.getElementById('btnCancelDrop');
-                const childWcSelect = document.getElementById('childWorkcenterSelect');
-
-                window.validateForm = function() { // Exposed globally for use in updateTempSplitList
+                const childSelect = document.getElementById('childWorkcenterSelect'); 
+                const validateForm = () => {
                     const hasEmp = empSelect.value !== "";
                     const hasQty = qtyInput.value !== "" && parseFloat(qtyInput.value) > 0;
+                    const isChildRequired = !document.getElementById('childWorkcenterField').classList.contains('d-none');
+                    const hasChild = isChildRequired ? childSelect.value !== "" : true;
 
-                    // Handle single item drop only
-                    const isSingleItemDrop = draggedItemsCache.length === 1;
-                    if (!isSingleItemDrop) return; // Nonaktifkan validasi form jika bulk drop
-
-                    const targetWcId = targetContainerCache.closest('.wc-card-container').dataset.wcId;
-                    const isParentWC = PARENT_WORKCENTERS.hasOwnProperty(targetWcId.toUpperCase());
-
-                    let hasChildWc = true;
-                    if (isParentWC) {
-                        // Wajib pilih Child WC jika Induk dan masih ada opsi yang tersedia
-                        hasChildWc = childWcSelect.value !== "" && !childWcSelect.disabled;
+                    if (hasEmp && hasQty && hasChild) {
+                        btnAddSplit.disabled = false;
+                    } else {
+                        btnAddSplit.disabled = true;
                     }
-
-                    const isValidInput = hasEmp && hasQty && hasChildWc;
-
-                    // Batasi Qty agar tidak melebihi sisa
-                    const requestedQty = parseFloat(qtyInput.value);
-                    const isQtyValidRange = requestedQty <= currentSisaQty;
-
-                    // Tombol Add Split hanya aktif jika input valid dan Qty dalam jangkauan
-                    btnAddSplit.disabled = !(isValidInput && isQtyValidRange);
-
-                    // PERBAIKAN: Tombol Confirm Assignment aktif jika ada split (tidak perlu Qty habis)
-                    btnConfirmFinalAssignment.disabled = (tempSplits.length === 0);
-                }
+                };
 
                 empSelect.addEventListener('change', validateForm);
                 qtyInput.addEventListener('input', validateForm);
-                childWcSelect.addEventListener('change', validateForm);
-
-                // Menghindari konflik dengan btnConfirmDrop lama, ganti ID ke btnAddSplit
+                childSelect.addEventListener('change', validateForm); 
                 btnAddSplit.addEventListener('click', function() {
-                    if (btnAddSplit.disabled) return;
-
                     const inputQty = parseFloat(qtyInput.value);
-                    const maxQty = currentSisaQty;
-
-                    if (inputQty > maxQty) {
-                        Swal.fire({
-                            icon: 'warning',
-                            text: 'Kuantitas melebihi sisa yang tersedia.',
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                        return;
+                    
+                    // FIX 2: BUG QTY - Floating point precision fix
+                    // Menggunakan toFixed(3) dan Number() untuk memastikan perbandingan akurat
+                    const safeSisa = Number(currentSisaQty.toFixed(3));
+                    
+                    if(inputQty > safeSisa) {
+                        Swal.fire('Error', 'Qty melebihi sisa!', 'warning'); return;
                     }
 
                     const nik = empSelect.value;
                     const name = empSelect.options[empSelect.selectedIndex].dataset.name;
-                    const selectedChildWc = childWcSelect.value || '';
-
-                    // Simpan Split Sementara
+                    const childWcValue = childSelect.value; 
                     tempSplits.push({
                         nik: nik,
                         name: name,
                         qty: inputQty,
-                        childWc: selectedChildWc
+                        child_wc: childWcValue
                     });
+                    
+                    // Update sisa qty dengan presisi
+                    currentSisaQty = parseFloat((currentSisaQty - inputQty).toFixed(3));
 
-                    // Update Sisa Qty
-                    currentSisaQty -= inputQty;
-
-                    // Reset Input Form
                     empSelect.value = "";
-                    // childWcSelect.value = ""; // JANGAN reset WC Anak agar bisa menambah split ke WC Anak yang sama
-                    qtyInput.value = currentSisaQty > 0 ? currentSisaQty : 0;
-
-                    // Update tampilan list split dan dropdown WC Anak
+                    qtyInput.value = currentSisaQty;
+                    
                     updateTempSplitList();
+                    validateForm(); 
 
-                    const item = draggedItemsCache[0];
-                    const targetWcId = targetContainerCache.closest('.wc-card-container').dataset.wcId;
-                    const normalizedTargetWcId = targetWcId.toUpperCase();
-
-                    // Update dropdown untuk Workcenter Induk
-                    if (PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWcId)) {
-                        updateChildWCDropdown(normalizedTargetWcId, item.dataset.aufnr);
-                    }
-
-                    // Jika Qty sudah habis, nonaktifkan input Qty
-                    if (currentSisaQty === 0) {
+                    if (currentSisaQty <= 0) {
                         qtyInput.disabled = true;
-                        qtyInput.value = 0;
-                    } else {
-                        qtyInput.disabled = false;
                     }
-
-                    console.log(`Split added. Remaining Qty: ${currentSisaQty}`);
                 });
 
-                // Tombol Confirm Final Assignment
-                btnConfirmFinalAssignment.addEventListener('click', confirmFinalAssignment);
-
-                // Tombol Cancel Drop
+                btnConfirm.addEventListener('click', confirmFinalAssignment);
                 btnCancel.addEventListener('click', cancelDrop);
-
             }
 
             function confirmFinalAssignment() {
-                // TIDAK PERLU CEK currentSisaQty > 0 lagi, karena partial split diperbolehkan
-                if (tempSplits.length === 0) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Tidak Ada Alokasi',
-                        text: `Harap tambahkan setidaknya satu alokasi Quantity sebelum konfirmasi.`,
-                        confirmButtonText: 'OK'
-                    });
-                    return;
-                }
-
-                // Ambil item PRO asli yang di-drag (hanya satu, karena mode single split)
-                const originalRow = draggedItemsCache[0];
-                const originalSisaQty = parseFloat(originalRow.dataset.sisaQty) || 0;
-                const targetWcId = targetContainerCache.closest('.wc-card-container').dataset.wcId;
-
-                // Menghitung total added minutes untuk pengecekan kapasitas final
-                let totalAddedMinutes = 0;
-                tempSplits.forEach(split => {
-                    totalAddedMinutes += calculateItemMinutes(originalRow, split.qty);
-                });
-
-                const wcContainer = targetContainerCache.closest('.wc-card-container');
-                const kapazHours = parseFloat(wcContainer.dataset.kapazWc) || 0;
-                const maxMins = kapazHours * 60;
-                let currentLoadMins = 0;
-
-                wcContainer.querySelectorAll('.pro-item-card').forEach(item => {
-                    currentLoadMins += parseFloat(item.dataset.calculatedMins) || 0;
-                });
-
-                if ((currentLoadMins + totalAddedMinutes) > maxMins) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Over Capacity!',
-                        text: `Tidak dapat memproses. Total beban dari alokasi baru (${Math.ceil(currentLoadMins)} menit) akan melebihi kapasitas Workcenter (${Math.ceil(maxMins)} menit).`,
-                        confirmButtonText: 'OK'
-                    });
-                    return; // Jangan lanjutkan jika melebihi kapasitas
-                }
-
-
-                // --- Proses Implementasi Split ---
-
-                let firstSplit = true;
-                let finalAssignedChildWcs = [];
-                let totalAssignedQty = 0;
+                if(tempSplits.length === 0) return;
+                const originalRow = draggedItemsCache[0]; 
+                let isFirst = true;
 
                 tempSplits.forEach(split => {
-                    let rowToUpdate;
-                    totalAssignedQty += split.qty;
-
-                    if (firstSplit) {
-                        // BARIS ASLI (Diperlakukan sebagai split pertama)
-                        rowToUpdate = originalRow;
-                        targetContainerCache.appendChild(originalRow); // Pindahkan baris asli ke drop zone
-                        firstSplit = false;
-
-                        // Karena baris asli pindah, kita perlu mereset status baris di tabel sumber
-                        originalRow.classList.remove('selected-row');
-                        const cb = originalRow.querySelector('.row-checkbox');
-                        if (cb) cb.checked = false;
-
+                    let rowNode;
+                    if(isFirst) {
+                        rowNode = originalRow;
+                        isFirst = false;
                     } else {
-                        // BARIS CLONE (Untuk split kedua dst.)
-                        const clonedRow = originalRow.cloneNode(true);
-                        clonedRow.dataset.id = Date.now() + Math.random(); // Beri ID unik
-                        clonedRow.dataset.currentQty = originalRow.dataset.qtyOpr; // Quantity total PRO tetap sama
-                        clonedRow.dataset.assignedChildWcs = originalRow.dataset
-                            .assignedChildWcs; // Warisi tracking WC Anak
-
-                        targetContainerCache.appendChild(clonedRow);
-                        rowToUpdate = clonedRow;
+                        rowNode = originalRow.cloneNode(true); 
+                        rowNode.dataset.id = Date.now() + Math.random(); 
+                        targetContainerCache.appendChild(rowNode);
                     }
 
-                    // Update data-attributes untuk baris saat ini (asli atau clone)
-                    rowToUpdate.dataset.assignedQty = split.qty;
-                    // rowToUpdate.dataset.sisaQty = 0; // TIDAK PERLU DISET 0 DI SINI
-                    rowToUpdate.dataset.childWc = split.childWc;
+                    rowNode.dataset.assignedQty = split.qty;
+                    rowNode.dataset.employeeNik = split.nik;
+                    rowNode.dataset.employeeName = split.name;
+                    rowNode.dataset.childWc = split.child_wc || ''; // Simpan Child WC di atribut
 
-                    // PERBAIKAN BUG BADGE TIDAK MUNCUL:
-                    // Pastikan transformToCardView sudah diterapkan dan data di-update di sini
-                    transformToCardView(rowToUpdate);
-                    updateRowUI(rowToUpdate, split.nik, split.name, split.qty, split.childWc);
-
-                    // Kumpulkan Workcenter Anak yang digunakan
-                    if (split.childWc && !finalAssignedChildWcs.includes(split.childWc)) {
-                        finalAssignedChildWcs.push(split.childWc);
-                    }
+                    updateRowUI(rowNode, split.name, split.qty, split.child_wc);
                 });
 
-                // UPDATE TRACKING CHILD WC PADA SEMUA ITEM DENGAN AUFNR YANG SAMA
-                finalAssignedChildWcs.forEach(wc => updateAssignedChildWCs(originalRow.dataset.aufnr, wc));
-
-                // LOGIKA PENTING UNTUK PARTIAL SPLIT
-                const finalSisaQty = currentSisaQty;
-                const sourceItemInTable = document.querySelector(
-                    `#source-list .pro-item[data-aufnr="${originalRow.dataset.aufnr}"]`);
-
-                if (finalSisaQty > 0 && sourceItemInTable) {
-                    // Jika masih ada sisa, kloning item ASLI kembali ke tabel sumber dengan sisa Qty
+                if(currentSisaQty > 0) {
                     const remainingRow = originalRow.cloneNode(true);
-                    remainingRow.dataset.id = Date.now() + Math.random() + 1;
-                    remainingRow.dataset.sisaQty = finalSisaQty;
-                    remainingRow.dataset.assignedQty = 0; // Tidak ada yang di-assign di sini
-                    remainingRow.dataset.assignedChildWcs = originalRow.dataset
-                        .assignedChildWcs; // Pertahankan tracking WC Anak
-
-                    // Reset data assignment untuk item sisa
-                    remainingRow.dataset.employeeNik = "";
-                    remainingRow.dataset.employeeName = "";
-                    remainingRow.dataset.childWc = "";
-
-                    // Pastikan item sisa kembali ke Table View
+                    remainingRow.dataset.id = Date.now() + Math.random();
+                    remainingRow.dataset.sisaQty = currentSisaQty;
+                    remainingRow.dataset.assignedQty = 0;
+                    
+                    // Reset visual ke tampilan tabel
                     transformToTableView(remainingRow);
-
-                    // Perbarui tampilan sisa qty di item sisa
-                    const sisaCell = remainingRow.querySelector('.col-sisa-qty');
-                    if (sisaCell) {
-                        sisaCell.innerText = finalSisaQty.toLocaleString('id-ID');
-                        sisaCell.classList.remove('text-success');
-                        sisaCell.classList.add('text-danger');
-                    }
-
-                    // Masukkan kembali ke table sumber
+                    
+                    // Update kolom sisa qty text
+                    // Note: Pastikan struktur HTML Anda punya class/id untuk update text kolom ini jika diperlukan
+                    const sisaCell = remainingRow.querySelector('.col-sisa-qty') || remainingRow.children[7]; // Asumsi index kolom
+                    // Jika Anda punya class spesifik untuk sisa qty di HTML awal, gunakan itu. 
+                    // Di kode ini saya update data attribut, tampilan biasanya dirender ulang atau pakai DOM manipulation
+                    
                     document.getElementById('source-list').appendChild(remainingRow);
-
                 }
 
-                // Clear splits dan tutup modal
+                // Cleanup
                 tempSplits = [];
-                currentSisaQty = 0; // Reset state global
+                currentSisaQty = 0;
                 draggedItemsCache = [];
-
                 document.getElementById('selectAll').checked = false;
-                updateCapacity(wcContainer);
+                updateCapacity(targetContainerCache.closest('.wc-card-container'));
                 checkEmptyPlaceholder(targetContainerCache);
+                
                 assignmentModalInstance.hide();
-
-                console.log(
-                    `Final Assignment Confirmed. Total Qty Assigned: ${totalAssignedQty}. Qty Remaining: ${finalSisaQty}`
-                );
             }
 
             /**
@@ -1348,42 +1219,62 @@
             }
 
             function handleReturnToTable(item, fromContainer) {
+                // Modifikasi: Mendukung pemanggilan dari onAdd Sortable (dimana item sudah pindah secara DOM)
+                // Jika dipanggil dari onAdd, item sudah ada di source-list, jadi tidak perlu appendChild lagi.
+                
                 const wcId = fromContainer ? fromContainer.closest('.wc-card-container').dataset.wcId : 'Unknown';
                 const returnedChildWc = item.dataset.childWc;
-                const sourceItem = document.querySelector(`#source-list .pro-item[data-aufnr="${item.dataset.aufnr}"]`);
+                // Cari apakah ada item induk/sisa lain di source list
+                const existingSourceItems = document.querySelectorAll(`#source-list .pro-item[data-aufnr="${item.dataset.aufnr}"]`);
+                let sourceItem = null;
+                
+                // Cari item lain selain item yang sedang di-return (jika ada)
+                existingSourceItems.forEach(el => {
+                    if(el !== item) sourceItem = el;
+                });
+
                 const returnedQty = parseFloat(item.dataset.assignedQty) || 0;
-                if (fromContainer && fromContainer.id !== 'source-list') {
-                    const targetItemToUpdate = sourceItem || item;
-                    let sisaQtyOriginal = parseFloat(targetItemToUpdate.dataset.sisaQty) || 0;
-                    sisaQtyOriginal += returnedQty;
+                
+                // Jika item sudah di table (via drag back), kita update logicnya
+                const targetItemToUpdate = sourceItem || item;
+                let sisaQtyOriginal = parseFloat(targetItemToUpdate.dataset.sisaQty) || 0;
+                
+                // Jangan tambah Qty jika targetnya adalah item itu sendiri dan qty-nya belum dikurangi (masih full)
+                // Tapi logika di sini asumsinya item yang balik adalah item 'Allocated' yang assignedQty-nya > 0
+                if (returnedQty > 0) {
+                     sisaQtyOriginal = parseFloat((sisaQtyOriginal + returnedQty).toFixed(3));
+                } else if (targetItemToUpdate === item && returnedQty === 0) {
+                     // Ini kasus item baru di drag tapi belum di assign (misal cancel modal), biasanya dicover cancelDrop
+                     // Tapi jika via drag back, kita pastikan qty sisa benar.
+                }
 
-                    targetItemToUpdate.dataset.sisaQty = sisaQtyOriginal;
+                targetItemToUpdate.dataset.sisaQty = sisaQtyOriginal;
 
-                    const sisaCell = targetItemToUpdate.querySelector('.col-sisa-qty');
-                    if (sisaCell) {
-                        sisaCell.innerText = sisaQtyOriginal.toLocaleString('id-ID');
-                        sisaCell.classList.remove('text-success');
-                        sisaCell.classList.add('text-danger');
-                    }
+                const sisaCell = targetItemToUpdate.querySelector('.col-sisa-qty');
+                if (sisaCell) {
+                    sisaCell.innerText = sisaQtyOriginal.toLocaleString('id-ID');
+                    sisaCell.classList.remove('text-success');
+                    sisaCell.classList.add('text-danger');
+                }
 
-                    if (returnedChildWc) {
-                        removeAssignedChildWC(item.dataset.aufnr, returnedChildWc);
-                    }
+                if (returnedChildWc) {
+                    removeAssignedChildWC(item.dataset.aufnr, returnedChildWc);
+                }
 
-                    if (targetItemToUpdate !== item) {
-                        item.remove();
-                    } else {
-                        targetItemToUpdate.dataset.employeeNik = "";
-                        targetItemToUpdate.dataset.employeeName = "";
-                        targetItemToUpdate.dataset.childWc = "";
-                        targetItemToUpdate.dataset.assignedQty = 0;
-                        transformToTableView(targetItemToUpdate);
-                    }
+                if (targetItemToUpdate !== item) {
+                    item.remove(); // Merge ke item yang sudah ada
+                } else {
+                    // Reset item ini menjadi item source normal
+                    targetItemToUpdate.dataset.employeeNik = "";
+                    targetItemToUpdate.dataset.employeeName = "";
+                    targetItemToUpdate.dataset.childWc = "";
+                    targetItemToUpdate.dataset.assignedQty = 0;
+                    transformToTableView(targetItemToUpdate);
+                }
 
-                    if (fromContainer) {
-                        updateCapacity(fromContainer.closest('.wc-card-container'));
-                        checkEmptyPlaceholder(fromContainer);
-                    }
+                if (fromContainer) {
+                    updateCapacity(fromContainer.closest('.wc-card-container'));
+                    checkEmptyPlaceholder(fromContainer);
                 }
             }
 
@@ -1403,43 +1294,27 @@
 
                     // Simpan kembali sebagai string JSON
                     row.dataset.assignedChildWcs = JSON.stringify(assignedWCs);
-
-                    // LOGGING: Child WC Removed
-                    console.log(
-                        `Tracking update for PRO ${aufnr}: Removed Child WC ${childWcToRemove}. Remaining: ${assignedWCs.join(', ')}`
-                    );
                 });
             }
 
-            function updateRowUI(row, nik, name, qty, childWc, childWcName) {
-                row.dataset.employeeNik = nik;
-                row.dataset.employeeName = name;
-                row.dataset.childWc = childWc; // Simpan kode Child WC
-
-                // PERBAIKAN BUG BADGE: Pastikan data untuk badge diisi
-                row.querySelector('.employee-name-text').innerText = `${name} (${nik || '-'})`;
-                row.querySelector('.assigned-qty-badge').innerText = 'Qty: ' + qty.toLocaleString('id-ID');
-
-                const childWcDisplay = row.querySelector('.child-wc-display');
-                if (childWc) {
-                    // Tampilkan Child WC jika ada
-                    childWcDisplay.innerText = `Line: ${childWc}`;
-                    childWcDisplay.classList.remove('d-none');
+            function updateRowUI(row, name, qty, childWc) {
+                row.querySelector('.employee-name-text').innerText = name;
+                row.querySelector('.assigned-qty-badge').innerText = 'Qty: ' + qty;
+                
+                const childDisplay = row.querySelector('.child-wc-display');
+                if(childWc) {
+                    childDisplay.innerText = childWc;
+                    childDisplay.classList.remove('d-none');
                 } else {
-                    childWcDisplay.innerText = '';
-                    childWcDisplay.classList.add('d-none');
+                    childDisplay.classList.add('d-none');
                 }
-
+                
+                // Hitung ulang menit beban
                 const mins = calculateItemMinutes(row, qty);
                 row.dataset.calculatedMins = mins;
-
-                // LOGGING: Update UI/Data
-                // console.log(`PRO ${row.dataset.aufnr} updated. Qty: ${qty}, Mins: ${mins.toFixed(2)}, Child WC: ${childWc || 'None'}`);
             }
 
             function transformToCardView(row) {
-                // LOGGING: Perubahan Tampilan
-                // console.log(`PRO ${row.dataset.aufnr} transitioned to Card View.`);
                 row.classList.remove('draggable-item');
                 row.classList.add('pro-item-card');
                 row.querySelectorAll('.table-col').forEach(el => el.style.display = 'none');
@@ -1449,8 +1324,6 @@
             }
 
             function transformToTableView(row) {
-                // LOGGING: Perubahan Tampilan
-                // console.log(`PRO ${row.dataset.aufnr} transitioned to Table View.`);
                 row.classList.add('draggable-item');
                 row.classList.remove('pro-item-card');
                 row.querySelectorAll('.table-col').forEach(el => el.style.display = '');
@@ -1630,9 +1503,9 @@
                 const documentDate = documentDateInput ? documentDateInput.value : '';
                 const documentTime = document.getElementById('wiDocumentTime').value;
 
-                if (!documentDate || !documentTime) { // <-- Validasi Tanggal DAN Jam
+                if (!documentDate || !documentTime) { 
                     Swal.fire('Perhatian!', 'Tanggal dan Jam Dokumen harus diisi.', 'warning');
-                    return; // Hentikan proses
+                    return; 
                 }
                 if (data.length === 0) {
                     Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning');
@@ -1654,7 +1527,7 @@
                     workcenter_allocations: data
                 };
 
-                const url = '{{ route('wi.save') }}'; // Menggunakan helper route Laravel
+                const url = '{{ route('wi.save') }}'; 
 
                 fetch(url, {
                         method: 'POST',
