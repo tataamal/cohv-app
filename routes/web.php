@@ -80,6 +80,7 @@ Route::middleware('auth')->group(function (){
     Route::post('/bulk-schedule-process', [bulkController::class, 'processBulkSchedule'])->name('bulk.schedule.process');
     Route::post('/bulk-change-and-refresh', [bulkController::class, 'handleBulkChangeAndRefresh']);
     Route::post('/changeWCBulk/{kode}/{wc_tujuan}', [Data1Controller::class, 'changeWcBulk'])->name('wc.change.bulk');
+    Route::post('/changeWCBulkStream/{kode}/{wc_tujuan}', [Data1Controller::class, 'changeWcBulkStream'])->name('wc.change.bulk.stream');
     Route::post('/bulk-change-quantity', [bulkController::class, 'bulkChangeQuantity'])->name('order.bulkChangeQuantity');
 
     Route::get('/monitoring-pro/{kode}', [MonitoringProController::class, 'index'])->name('monitoring-pro.index');

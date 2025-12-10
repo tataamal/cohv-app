@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Carbon\Carbon;
 use App\Models\ProductionTData;
 use App\Models\ProductionTData1;
@@ -204,6 +205,159 @@ class Data1Controller extends Controller
         elseif ($successCount == 0 && $failureCount > 0) session()->flash('error', "Data berhasil dipindahkan namun gagal disinkronkan karena Make Stock, Silahkan Refresh PRO untuk Update Data.");
 
         return redirect()->back();
+    }
+
+    public function changeWcBulkStream(Request $request)
+    {
+        // Increase memory limit for this long running process
+        ini_set('memory_limit', '512M');
+        set_time_limit(0);
+
+        $bulkPros = $request->input('bulk_pros');
+        $wc_tujuan = $request->route('wc_tujuan');
+        $kode = $request->route('kode');
+
+        $response = new StreamedResponse(function () use ($bulkPros, $wc_tujuan, $kode) {
+            $sapUser = session('username');
+            $sapPass = session('password');
+            
+            // Helper function to send SSE event
+            $sendEvent = function ($data) {
+                echo "data: " . json_encode($data) . "\n\n";
+                ob_flush();
+                flush();
+            };
+
+            if (!$sapUser || !$sapPass) {
+                $sendEvent(['type' => 'error', 'message' => 'Otentikasi SAP tidak valid.']);
+                return;
+            }
+
+            $prosToMove = json_decode($bulkPros, true);
+            if (empty($prosToMove)) {
+                $sendEvent(['type' => 'error', 'message' => 'Tidak ada PRO yang dipilih.']);
+                return;
+            }
+
+            $flaskBase = rtrim(env('FLASK_API_URL'), '/');
+            $total = count($prosToMove);
+            $processed = 0;
+
+            try {
+                // LANGKAH 1: Ambil deskripsi WC Tujuan (Sekali saja di awal)
+                $firstPro = $prosToMove[0];
+                $pwwrk = $firstPro['pwwrk'] ?? ''; // Ensure pwwrk exists
+                
+                $descResponse = Http::timeout(30)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
+                    ->get($flaskBase . '/api/get_wc_desc', ['wc' => $wc_tujuan, 'pwwrk' => $pwwrk]);
+                
+                $shortText = '';
+                if ($descResponse->successful()) {
+                    $shortText = $descResponse->json()['E_DESC'] ?? '';
+                } else {
+                    $sendEvent(['type' => 'warning', 'message' => 'Gagal mengambil deskripsi WC, menggunakan default.']);
+                }
+
+                foreach ($prosToMove as $index => $pro) {
+                    $proCode = $pro['proCode'];
+                    $oper    = $pro['oper'];
+                    
+                    try {
+                        // Notify start processing
+                        $sendEvent([
+                            'type' => 'progress',
+                            'pro' => $proCode,
+                            'status' => 'processing',
+                            'message' => "Memproses PRO {$proCode}...",
+                            'progress' => round(($processed / $total) * 100)
+                        ]);
+
+                        // LANGKAH 2: Ubah WC di SAP
+                        $payload = [
+                            "IV_AUFNR" => $proCode, 
+                            "IV_COMMIT" => "X", 
+                            "IT_OPERATION" => [[
+                                "SEQUEN" => "0", 
+                                "OPER" => $oper, 
+                                "WORK_CEN" => $wc_tujuan, 
+                                "W" => "X", 
+                                "SHORT_T" => $shortText, 
+                                "S" => "X"
+                            ]]
+                        ];
+
+                        $changeResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
+                            ->post($flaskBase . '/api/save_edit', $payload);
+
+                        if ($changeResponse->failed()) {
+                            throw new \Exception("Gagal mengubah WC di SAP: " . $changeResponse->body());
+                        }
+
+                        // LANGKAH 3: Refresh data dengan mekanisme RETRY
+                        $maxRetries = 5; 
+                        $retryDelay = 3; 
+                        $refreshedData = null;
+                        
+                        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+                             if ($attempt > 1) sleep($retryDelay);
+                             
+                             $refreshResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
+                                ->get($flaskBase . '/api/refresh-pro', ['plant' => $kode, 'aufnr' => $proCode]);
+                             
+                             if ($refreshResponse->successful()) {
+                                 $tempData = $refreshResponse->json();
+                                 if (!empty($tempData['T_DATA'])) {
+                                     $refreshedData = $tempData;
+                                     // Ensure arrays exist
+                                     $refreshedData['T_DATA2'] = $tempData['T_DATA2'] ?? [];
+                                     $refreshedData['T_DATA3'] = $tempData['T_DATA3'] ?? [];
+                                     break;
+                                 }
+                             }
+                        }
+
+                        if (is_null($refreshedData)) {
+                             throw new \Exception("Gagal men-refresh data setelah {$maxRetries} percobaan.");
+                        }
+
+                        // LANGKAH 4: Sinkronisasi ke DB Lokal
+                        DB::transaction(function () use ($refreshedData, $kode) {
+                            $this->_syncSingleProData($refreshedData, $kode);
+                        });
+
+                        $processed++;
+                        $sendEvent([
+                            'type' => 'success',
+                            'pro' => $proCode,
+                            'message' => "Berhasil dipindahkan ke {$wc_tujuan}",
+                            'progress' => round(($processed / $total) * 100)
+                        ]);
+
+                    } catch (\Throwable $e) {
+                         $processed++; // Tetap hitung sebagai processed meski gagal
+                         Log::error("Stream Bulk Error PRO {$proCode}: " . $e->getMessage());
+                         $sendEvent([
+                            'type' => 'failure',
+                            'pro' => $proCode,
+                            'message' => $e->getMessage(),
+                            'progress' => round(($processed / $total) * 100)
+                        ]);
+                    }
+                }
+                
+                // Final Event
+                $sendEvent(['type' => 'complete', 'message' => 'Proses selesai.']);
+
+            } catch (\Throwable $e) {
+                $sendEvent(['type' => 'error', 'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()]);
+            }
+        });
+
+        $response->headers->set('Content-Type', 'text/event-stream');
+        $response->headers->set('Cache-Control', 'no-cache');
+        $response->headers->set('X-Accel-Buffering', 'no'); // Disable Nginx buffering
+
+        return $response;
     }
 
     public function changePv(Request $request)

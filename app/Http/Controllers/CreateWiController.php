@@ -55,9 +55,24 @@ class CreateWiController extends Controller
         } catch (\Exception $e) {
             Log::error('Koneksi API NIK Error: ' . $e->getMessage());
         }
+        $search = $request->query('search'); // Add search param
+        
         $tData1 = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('MGVRG2 > LMNGA')
             ->where('STATS', 'REL');
+
+        if ($search) {
+             $tData1->where(function($q) use ($search) {
+                 $q->where('AUFNR', 'like', "%{$search}%")
+                   ->orWhere('MATNR', 'like', "%{$search}%")
+                   ->orWhere('MAKTX', 'like', "%{$search}%")
+                   ->orWhere('KDAUF', 'like', "%{$search}%")
+                   ->orWhere('KDPOS', 'like', "%{$search}%")
+                   ->orWhere('ARBPL', 'like', "%{$search}%")
+                   ->orWhere('STEUS', 'like', "%{$search}%")
+                   ->orWhere('VORNR', 'like', "%{$search}%");
+             });
+        }
 
         if ($filter === 'today') {
             $tData1->whereDate('SSAVD', now());
@@ -65,28 +80,50 @@ class CreateWiController extends Controller
             $tData1->whereBetween('SSAVD', [now()->startOfWeek(), now()->endOfWeek()]);
         }
         
-        $tData1 = $tData1->get();
-        // -------------------------
-
+        // Use pagination instead of get() to handle lazy loading
+        // We need to fetch all matching IDs first to do the filtering logic (because filtering depends on Relation/Calculation not DB column)
+        // OR, we can try to filter AFTER GET, but that breaks pagination count.
+        // For accurate pagination with custom filtering (assigned Check), we load potentially more and slice manualy 
+        // OR we just paginate the DB query and filter the result. This might result in pages with fewer items than Limit.
+        // Let's stick to paginate the initial query, filter it, and if it's empty, user scrolls more. Simple for now.
+        
+        // Actually, the request is for lazy loading. 
+        $perPage = 50;
+        $page = $request->input('page', 1);
+        
+        // Get data
+        $tDataQuery = $tData1; // Keep builder
+        // We cannot use standard paginate() easily if we are going to filter items out in PHP after fetching.
+        // So we will fetch a chunk, filter it, and return.
+        
+        // Improved approach: Fetch with skip/take but we need to account for filtered items? 
+        // No, standard pagination on DB level is safer for performance. Filtered items (fully assigned) will just be hidden.
+        
+        // Let's paginate the query
+        $pagination = $tDataQuery->paginate($perPage); 
+    
         $assignedProQuantities = $this->getAssignedProQuantities($kode);
-        
-        $filteredTData1 = $tData1->filter(function ($item) use ($assignedProQuantities) {
-            $aufnr = $item->AUFNR;
-            $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
-            $qtyAllocatedInWi = $assignedProQuantities[$aufnr] ?? 0;
-            $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
-            return $qtySisaAkhir > 0;
-        });
-        
-        $finalTData1 = $filteredTData1->map(function ($item) use ($assignedProQuantities) {
+
+        // Transform collection (Add Qty Info & Filter)
+        $processedCollection = $pagination->getCollection()->transform(function ($item) use ($assignedProQuantities) {
             $aufnr = $item->AUFNR;
             $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
             $qtyAllocatedInWi = $assignedProQuantities[$aufnr] ?? 0;
             $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
             $item->real_sisa_qty = $qtySisaAkhir; 
-            $item->qty_wi = $qtyAllocatedInWi; // Add Allocated Qty for Display
+            $item->qty_wi = $qtyAllocatedInWi; 
             return $item;
+        })->filter(function ($item) {
+             return $item->real_sisa_qty > 0.001; // Filter out completed items
         });
+
+        if ($request->ajax()) {
+            $html = view('create-wi.partials.source_table_rows', ['tData1' => $processedCollection])->render();
+            return response()->json([
+                'html' => $html,
+                'next_page' => $pagination->hasMorePages() ? $pagination->currentPage() + 1 : null
+            ]);
+        }
         
         $workcenters = workcenter::where('werksx', $kode)->get();
         $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
@@ -95,10 +132,11 @@ class CreateWiController extends Controller
         return view('create-wi.index', [
             'kode'                 => $kode,
             'employees'            => $employees,
-            'tData1'               => $finalTData1,
+            'tData1'               => $processedCollection, // Send first page processed
             'workcenters'          => $workcenters,
             'parentWorkcenters'    => $parentWorkcenters,
             'currentFilter'        => $filter,
+            'nextPage'             => $pagination->hasMorePages() ? 2 : null
         ]);
     }
 
@@ -268,11 +306,17 @@ class CreateWiController extends Controller
                             ->orderBy('document_time', 'desc')
                             ->get();
 
-        $activeWIDocuments = collect();
-        $expiredWIDocuments = collect();
-
+        // Initialize Collections
+        $activeWIDocuments = collect();   // Today
+        $inactiveWIDocuments = collect(); // Future
+        $expiredWIDocuments = collect();  // Expired
+        $completedWIDocuments = collect(); // Completed
+        
+        // Loop and Categorize
         foreach ($wiDocuments as $doc) {
+            $now = Carbon::now();
             $expiredAt = $doc->expired_at; 
+            
             if ($expiredAt) {
                 $expirationTime = Carbon::parse($expiredAt); 
                 $doc->is_expired = $now->greaterThan($expirationTime);
@@ -285,6 +329,12 @@ class CreateWiController extends Controller
                     $doc->is_expired = true;
                 }
             }
+
+            $docDate = Carbon::parse($doc->document_date)->startOfDay();
+            $today = Carbon::today();
+
+            $doc->is_inactive = $docDate->greaterThan($today) && !$doc->is_expired; // Future & Not Expired
+            $doc->is_active = $docDate->equalTo($today) && !$doc->is_expired;      // Today & Not Expired
 
             $rawData = $doc->payload_data;
             if (is_array($rawData)) {
@@ -302,6 +352,9 @@ class CreateWiController extends Controller
                 'total_load_mins' => 0, 
                 'details' => [] 
             ];
+
+            $isFullyCompleted = true;
+            if (empty($payloadItems)) $isFullyCompleted = false;
 
             foreach ($payloadItems as $item) {
                 $summary['total_items']++;
@@ -328,7 +381,17 @@ class CreateWiController extends Controller
                     'status'        => $statusItem,
                     'item_mins'     => $takTime 
                 ];
+
+                // Check for completion status for the document
+                if ($confirmedQty < $assignedQty) {
+                    $isFullyCompleted = false;
+                }
             }
+
+            // Get max capacity for the workcenter
+            $firstItem = $payloadItems[0] ?? [];
+            $rawKapaz = str_replace(',', '.', $firstItem['kapaz'] ?? 0);
+            $maxMins = floatval($rawKapaz) * 60; // Convert hours to minutes
 
             $percentageLoad = $maxMins > 0 ? ($summary['total_load_mins'] / $maxMins) * 100 : 0;
 
@@ -340,9 +403,15 @@ class CreateWiController extends Controller
 
             $doc->pro_summary = $summary;
 
-            if ($doc->is_expired) {
+            // Categorization Logic (Priority: Completed -> Expired -> Inactive -> Active)
+            if ($isFullyCompleted) {
+                $completedWIDocuments->push($doc);
+            } elseif ($doc->is_expired) {
                 $expiredWIDocuments->push($doc);
+            } elseif ($doc->is_inactive) {
+                $inactiveWIDocuments->push($doc);
             } else {
+                // Default / Active (includes current day and past unexpired)
                 $activeWIDocuments->push($doc);
             }
         }
@@ -350,7 +419,9 @@ class CreateWiController extends Controller
         return view('create-wi.history', [
             'plantCode' => $plantCode,
             'activeWIDocuments' => $activeWIDocuments,
+            'inactiveWIDocuments' => $inactiveWIDocuments,
             'expiredWIDocuments' => $expiredWIDocuments,
+            'completedWIDocuments' => $completedWIDocuments, // PASS TO VIEW
             'search' => $request->search,
             'date' => $request->date
         ]);
@@ -500,6 +571,8 @@ class CreateWiController extends Controller
                 $taktFull = $taktDisplay . ' ' . $finalUnit;
                 $reportData[] = [
                     'doc_no'        => $doc->wi_document_code,
+                    'nik'           => $item['nik'] ?? '-',
+                    'name'          => $item['name'] ?? '-',
                     'created_at'    => $doc->created_at, // atau document_date
                     'status'        => ($doc->expired_at > now()) ? 'Active' : 'Expired',
                     'workcenter'    => $wc,
@@ -582,6 +655,8 @@ class CreateWiController extends Controller
                 $grandTotalConfirmed += $confirmed;
                 $reportItems[] = [
                     'wi_code'     => $doc->wi_document_code,
+                    'nik'         => $item['nik'] ?? '-',
+                    'name'        => $item['name'] ?? '-',
                     'expired_at'  => $doc->expired_at,
                     'workcenter'  => $wc,
                     'aufnr'       => $item['aufnr'] ?? '-',

@@ -3,7 +3,6 @@
 <head>
     <title>Cetak WI</title>
     <style>
-        /* --- PAGE SETUP --- */
         @page {
             size: A4 landscape;
             margin: 5mm; 
@@ -20,7 +19,6 @@
         .container-frame {
             width: 100%;
             border: 2px solid #000;
-            /* PENTING: Agar border tidak putus saat page break, kita atur per halaman */
             height: 98%; 
             display: block;
         }
@@ -163,14 +161,15 @@
             <thead>
                 <tr class="data-header">
                     <th width="3%">NO</th>
-                    <th width="10%">WORK CENTER</th>
-                    <th width="12%">SO-ITEM</th>
-                    <th width="12%">PRO</th>
-                    <th width="12%">MATERIAL NO</th>
-                    <th width="31%">DESCRIPTION</th>
-                    <th width="6%">QTY OPT</th>
+                    <th width="8%">WORK CENTER</th>
+                    <th width="10%">SO-ITEM</th>
+                    <th width="10%">PRO</th>
+                    <th width="10%">MATERIAL NO</th>
+                    <th width="23%">DESCRIPTION</th>
                     <th width="6%">QTY WI</th>
-                    <th width="8%">TAKT TIME</th>
+                    <th width="7%">Time Required</th>
+                    <th width="8%">NIK</th>
+                    <th width="15%">NAME</th>
                 </tr>
             </thead>
             <tbody>
@@ -192,7 +191,6 @@
                     $matnr = $item['material_number'] ?? '';
                     if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
 
-                    $qtyOper = isset($item['qty_order']) ? floatval($item['qty_order']) : 0;
                     $qtyWi = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
 
                     $baseTime = isset($item['vgw01']) ? floatval($item['vgw01']) : 0;
@@ -209,6 +207,10 @@
                     }
                     
                     $taktDisplay = (fmod($finalTime, 1) !== 0.00) ? number_format($finalTime, 2) : number_format($finalTime, 0);
+
+                    // NIK & Name
+                    $nik = $item['nik'] ?? '-';
+                    $empName = $item['employee_name'] ?? ($item['name'] ?? '-');
                 @endphp
                 <tr class="data-row">
                     <td class="text-center">{{ $index + 1 }}</td>
@@ -217,9 +219,10 @@
                     <td class="text-center">{{ $item['aufnr'] ?? '-' }}</td>
                     <td class="text-center">{{ $matnr }}</td>
                     <td>{{ $item['material_desc'] ?? '-' }}</td>
-                    <td class="text-center">{{ $qtyOper }}</td>
                     <td class="text-center fw-bold">{{ $qtyWi }}</td>
                     <td class="text-center fw-bold">{{ $taktDisplay }} {{ $finalUnit }}</td>
+                    <td class="text-center">{{ $nik }}</td>
+                    <td>{{ $empName }}</td>
                 </tr>
                 @endforeach
 
@@ -227,6 +230,7 @@
                 @for($i = 0; $i < $rowsToFill; $i++)
                 <tr class="data-row">
                     <td class="text-center">&nbsp;</td>
+                    <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>

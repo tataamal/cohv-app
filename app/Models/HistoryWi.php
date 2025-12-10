@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HistoryWi extends Model
 {
+    use SoftDeletes;
     /**
      * Nama tabel di database.
      * @var string
@@ -23,8 +25,9 @@ class HistoryWi extends Model
         'document_date',
         'sequence_number',
         'payload_data',
-        'document_time', // <-- TAMBAHKAN INI
+        'document_time',
         'expired_at',
+        'deleted_at'
     ];
 
     /**

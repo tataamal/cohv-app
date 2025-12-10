@@ -12,7 +12,6 @@ class WorkInstructionApiController extends Controller
     public function getUniqueUnexpiredAufnrs()
     {
         $unexpiredHistories = HistoryWi::where('expired_at', '>', Carbon::now())->where('document_date','<', Carbon::now())->get();
-        
         $groupedAufnrs = [];
         $allUniqueAufnrs = [];
 
@@ -24,11 +23,8 @@ class WorkInstructionApiController extends Controller
                 foreach ($proItems as $item) {
                     $aufnr = $item['aufnr'] ?? null;
                     $vornr = $item['vornr'] ?? null;
-                    
                     $status = $item['status_pro_wi'] ?? 'Created';
-
                     if ($aufnr && $status !== 'Completed') {
-                        
                         if (!isset($groupedAufnrs[$wiCode])) {
                             $groupedAufnrs[$wiCode] = [];
                         }
@@ -43,7 +39,6 @@ class WorkInstructionApiController extends Controller
                 }
             }
         }
-        
         $totalCount = count($allUniqueAufnrs);
 
         return response()->json([
@@ -90,11 +85,13 @@ class WorkInstructionApiController extends Controller
             'wi_code' => 'required|string|exists:db_history_wi,wi_document_code',
             'aufnr' => 'required|string',
             'confirmed_qty' => 'required|numeric', 
+            'nik' => 'required|string',
         ]);
 
         $wiCode = $request->input('wi_code');
         $aufnrToComplete = $request->input('aufnr');
         $confQty = (float) $request->input('confirmed_qty'); 
+        $nik = $request->input('nik');
         
         if ($confQty <= 0) {
             return response()->json(['status' => 'error', 'message' => 'Qty konfirmasi harus lebih besar dari 0.'], 400);
@@ -110,12 +107,15 @@ class WorkInstructionApiController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Dokumen WI tidak ditemukan.'], 404);
             }
 
+            // $document->nik_last_updated = $nik; // Removed to avoid SQL error if column missing
+
             $payload = $document->payload_data;
             $updated = false;
             $documentCompleted = false;
             
             foreach ($payload as $key => $item) {
-                if (($item['aufnr'] ?? null) === $aufnrToComplete) {
+                // Modified: Check both AUFNR and NIK
+                if (($item['aufnr'] ?? null) === $aufnrToComplete && ($item['nik'] ?? null) === $nik) {
                     
                     $assignedQty = (float) ($item['assigned_qty'] ?? 0);
                     $currentConfirmedQty = (float) ($item['confirmed_qty'] ?? 0);
@@ -134,10 +134,12 @@ class WorkInstructionApiController extends Controller
                     
                     $payload[$key]['confirmed_qty'] = $newConfirmedQty;
                     $payload[$key]['last_confirmed_at'] = Carbon::now()->toDateTimeString();
+                    $payload[$key]['last_confirmed_by_nik'] = $nik;
 
                     if ($newConfirmedQty === $assignedQty) {
                         $payload[$key]['status_pro_wi'] = 'Completed';
                         $payload[$key]['completed_at'] = Carbon::now()->toDateTimeString();
+                        $payload[$key]['completed_by_nik'] = $nik;
                         $documentCompleted = true;
 
                     } elseif ($newConfirmedQty > 0) {
@@ -155,7 +157,7 @@ class WorkInstructionApiController extends Controller
 
             if (!$updated) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'AUFNR tidak ditemukan di dalam dokumen ini.'], 404);
+                return response()->json(['status' => 'error', 'message' => 'Kombinasi AUFNR dan NIK tidak ditemukan di dalam dokumen ini.'], 404);
             }
             
             $document->payload_data = $payload;

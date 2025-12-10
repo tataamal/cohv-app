@@ -98,15 +98,17 @@
         <thead>
             <tr class="data-header">
                 <th width="3%">NO</th>
-                <th width="10%">DOC NO</th>
-                <th width="8%">WC</th>
-                <th width="10%">SO-ITEM</th>
-                <th width="9%">PRO</th>
-                <th width="9%">MATERIAL</th>
-                <th width="23%">DESCRIPTION</th>
-                <th width="6%">QTY WI</th>
-                <th width="10%">TAK TIME</th>
-                <th width="7%">STATUS</th>
+                <th width="9%">DOC NO</th>
+                <th width="6%">WC</th>
+                <th width="9%">SO-ITEM</th>
+                <th width="8%">PRO</th>
+                <th width="8%">MATERIAL</th>
+                <th width="16%">DESCRIPTION</th>
+                <th width="5%">QTY WI</th>
+                <th width="8%">NIK</th>
+                <th width="16%">NAME</th>
+                <th width="6%">Time Required</th>
+                <th width="6%">STATUS</th>
             </tr>
         </thead>
         <tbody>
@@ -126,6 +128,8 @@
                 <td class="text-center">{{ $row['material'] }}</td>
                 <td>{{ $row['description'] }}</td>
                 <td class="text-center fw-bold">{{ $row['qty_wi'] }}</td>
+                <td class="text-center">{{ $row['nik'] ?? '-' }}</td>
+                <td>{{ $row['employee_name'] ?? ($row['name'] ?? '-') }}</td>
                 <td class="text-center">{{ $row['takt_time'] }}</td>
                 <td class="text-center">
                     <span class="{{ $row['status'] == 'Expired' ? 'text-danger' : 'text-success' }}">
@@ -139,6 +143,8 @@
             @for($i = 0; $i < $rowsToFill; $i++)
             <tr class="data-row">
                 <td class="text-center">&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>

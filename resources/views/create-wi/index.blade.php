@@ -321,7 +321,7 @@
                     <div class="table-scroll-area custom-scrollbar" style="max-height: 700px; overflow-y: auto;">
                         <table class="table table-hover table-striped source-table mb-0 w-100" style="font-size: 0.8rem;">
                             <thead class="bg-light sticky-top" style="z-index: 5;">
-                                <tr>
+                                <tr class="align-middle">
                                     <th class="text-center ps-3" width="40">
                                         <input class="form-check-input pointer" type="checkbox" id="selectAll">
                                     </th>
@@ -332,130 +332,24 @@
                                     <th class="text-center">Op.Key</th>
                                     <th class="text-center">Qty Opt</th>
                                     <th class="text-center">Qty Conf</th>
-                                    <th class="text-center">Qty WI</th> {{-- NEW COLUMN --}}
-                                    <th class="text-center">Tak Time</th>
+                                    <th class="text-center">Qty Sisa</th> {{-- RENAMED FROM QTY WI --}}
+                                    <th class="text-center">Time Req</th>
                                 </tr>
                             </thead>
                             <tbody id="source-list" class="sortable-list" data-group="shared-pro">
-                                @foreach ($tData1 as $item)
-                                    @php
-                                        $soItem = ltrim($item->KDAUF, '0') . ' - ' . ltrim($item->KDPOS, '0');
-                                        $matnr = ctype_digit($item->MATNR) ? ltrim($item->MATNR, '0') : $item->MATNR;
-                                        $sisaQty = $item->real_sisa_qty ?? $item->MGVRG2 - $item->LMNGA;
-                                    @endphp
-
-                                    <tr class="pro-item draggable-item" 
-                                        data-id="{{ $item->id }}"
-                                        data-aufnr="{{ $item->AUFNR }}"
-                                        data-vgw01="{{ number_format($item->VGW01, 3, '.', '') }}"
-                                        data-vge01="{{ $item->VGE01 }}" 
-                                        data-psmng="{{ $item->PSMNG }}"
-                                        data-sisa-qty="{{ $sisaQty }}" 
-                                        data-conf-opr="{{ $item->LMNGA }}"
-                                        data-qty-opr="{{ $item->MGVRG2 }}" 
-                                        data-assigned-qty="0"
-                                        data-employee-nik="" 
-                                        data-employee-name="" 
-                                        data-child-wc=""
-                                        data-assigned-child-wcs='[]' 
-                                        data-arbpl="{{ $item->ARBPL }}"
-                                        data-matnr="{{ $item->MATNR }}" 
-                                        data-maktx="{{ $item->MAKTX }}"
-                                        data-meins="{{ $item->MEINS }}" 
-                                        data-vornr="{{ $item->VORNR }}"
-                                        data-kdauf="{{ $item->KDAUF }}" 
-                                        data-kdpos="{{ $item->KDPOS }}"
-                                        data-dispo="{{ $item->DISPO }}" 
-                                        data-steus="{{ $item->STEUS }}"
-                                        data-sssld="{{ $item->SSSLD }}" 
-                                        data-ssavd="{{ $item->SSAVD }}"
-                                        data-kapaz="{{ $item->KAPAZ }}"> 
-
-                                        {{-- 1. Checkbox --}}
-                                        <td class="text-center table-col ps-3">
-                                            <input class="form-check-input row-checkbox pointer" type="checkbox">
-                                        </td>
-
-                                        {{-- 2. PRO (Drag Visual Wrapper) --}}
-                                        <td class="table-col preview-container ps-3">
-                                            <div class="original-content">
-                                                <span class="fw-bold text-primary">{{ $item->AUFNR }}</span>
-                                            </div>
-                                            {{-- Custom Drag Preview (Hidden by default, shown by JS on drag) --}}
-                                            <div class="drag-preview-icon">
-                                                <div class="icon-box bg-primary text-white rounded shadow-sm">
-                                                    <i class="fa-solid fa-file-invoice"></i>
-                                                </div>
-                                                <div>
-                                                    <div class="fw-bold text-dark">{{ $item->AUFNR }}</div>
-                                                    <div class="text-muted text-xs">Assigning to Workcenter...</div>
-                                                </div>
-                                                <div class="ms-3 ps-3 border-start">
-                                                    <span class="badge bg-light text-dark border">{{ $item->STEUS }}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        </td>
-
-                                        {{-- 3. Info Columns --}}
-                                        <td class="table-col text-muted">{{ $soItem }}</td>
-                                        <td class="table-col">
-                                            <div class="d-flex flex-column">
-                                                <span class="fw-bold text-dark small">{{ $matnr }}</span>
-                                                <span class="text-secondary text-truncate small" style="max-width: 200px;">{{ $item->MAKTX }}</span>
-                                            </div>
-                                        </td>
-                                        <td class="text-center table-col"><span class="badge bg-light text-dark border">{{ $item->ARBPL }}</span></td>
-                                        <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>
-                                        @php
-                                            $showUnit = $item->MEINS;
-                                            if ($showUnit == 'ST') { $showUnit = 'PC'; }
-                                            $decimals = in_array($item->MEINS, ['ST', 'SET']) ? 0 : 2;
-                                        @endphp
-                                        <td class="text-center table-col fw-bold text-dark">{{ number_format($item->MGVRG2, $decimals, ',', '.') }} {{ $showUnit }}</td>
-                                        <td class="text-center table-col text-muted">{{ number_format($item->LMNGA, $decimals, ',', '.') }} {{ $showUnit }}</td>
-                                        
-                                        {{-- NEW COLUMN QTY WI --}}
-                                        <td class="text-center table-col text-primary fw-bold">{{ number_format($item->qty_wi, $decimals, ',', '.') }} {{ $showUnit }}</td>
-                                        
-                                        @php
-                                            $taktTime = $item->VGW01 * $item->MGVRG2;
-                                            if ($item->VGE01 == 'S') {
-                                                $taktTime = $taktTime / 60;
-                                            }
-                                            // Format: Remove trailing zeros (e.g. 5.00 -> 5, 5.50 -> 5.5)
-                                            $taktTimeDisplay = (float) number_format($taktTime, 2, '.', '');
-                                            $taktTimeDisplay = str_replace('.', ',', (string) $taktTimeDisplay);
-                                        @endphp
-                                        <td class="text-center table-col">{{ $taktTimeDisplay }} Min</td>
-                                        {{-- 5. CARD VIEW CONTENT (Hanya muncul saat di-drop ke kanan) --}}
-                                        <td class="card-view-content" colspan="9">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <div>
-                                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10">{{ $item->AUFNR }}</span>
-                                                        <span class="badge bg-white text-dark border assigned-qty-badge">Qty: -</span>
-                                                    </div>
-                                                    <div class="d-flex flex-column ps-1">
-                                                        <span class="text-dark fw-bold small employee-name-text">-</span>
-                                                        <span class="text-primary fw-bold text-xs child-wc-display mt-1"></span>
-                                                    </div>
-                                                </div>
-                                                <div class="text-end">
-                                                    <button type="button" class="btn btn-link p-0 text-muted" onclick="handleReturnToTable(this.closest('.pro-item-card'), this.closest('.wc-drop-zone'))">
-                                                        <i class="fa-solid fa-xmark"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div class="bg-light p-2 rounded small text-secondary text-truncate">
-                                                {{ $item->MAKTX }}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
+                                @include('create-wi.partials.source_table_rows', ['tData1' => $tData1])
                             </tbody>
                         </table>
+                        {{-- Loading Spinner --}}
+                        <div id="loadingSpinner" class="text-center py-3 d-none">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2 text-muted small">Loading more data...</span>
+                        </div>
+                        <div id="endOfData" class="text-center py-2 text-muted small d-none">
+                            End of results.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -552,76 +446,41 @@
         </div>
     </div>
 
-    {{-- MODAL ASSIGNMENT (STYLE UPDATE) --}}
-    <div class="modal fade" id="assignmentModal" data-bs-backdrop="static" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+    {{-- MODAL ASSIGNMENT --}}
+    <div class="modal fade" id="uniqueAssignmentModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-dark text-white border-0 py-3">
                     <h6 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>Assign Operator</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
+                {{-- Helper Select Template (Hidden) --}}
+                <select id="employeeTemplateSelect" class="d-none">
+                    <option value="" selected disabled>Choose Person...</option>
+                    @foreach ($employees as $emp)
+                        <option value="{{ $emp['pernr'] }}" data-name="{{ $emp['stext'] }}">
+                            {{ $emp['pernr'] }} - {{ $emp['stext'] }}
+                        </option>
+                    @endforeach
+                </select>
                 <div class="modal-body bg-light p-3">
                     <div class="bg-white p-3 rounded-3 shadow-sm border mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10" id="modalProAufnr"></span>
-                            <span class="text-xs text-muted fw-bold">REMAINING: <span id="remainingQtyDisplay" class="text-dark">0</span></span>
+                             <div class="fw-bold" id="modalProDetails"></div> {{-- Dynamic Title --}}
                         </div>
-                        
-                        <div id="bulkWarning" class="alert alert-warning d-none text-xs p-2 mb-0 border-0 bg-warning bg-opacity-10 text-warning rounded fw-bold">
-                            <i class="fa-solid fa-triangle-exclamation me-1"></i> Bulk Assignment Mode
+                        <div id="bulkWarning" class="alert alert-info d-none text-xs p-2 mb-0 border-0 bg-info bg-opacity-10 text-info rounded fw-bold">
+                            <i class="fa-solid fa-list-check me-1"></i> Bulk Assignment Mode
                         </div>
                     </div>
 
-                    {{-- Form --}}
-                    <div class="mb-3">
-                        <label class="form-label text-xs fw-bold text-uppercase text-muted">Select Operator</label>
-                        <select class="form-select form-select-sm" id="employeeSelect">
-                            <option value="" selected disabled>Choose Person...</option>
-                            @foreach ($employees as $emp)
-                                <option value="{{ $emp['pernr'] }}" data-name="{{ $emp['stext'] }}">
-                                    {{ $emp['pernr'] }} - {{ $emp['stext'] }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3 d-none" id="childWorkcenterField">
-                        <label class="form-label text-xs fw-bold text-uppercase text-muted">Target Line (Sub-WC)</label>
-                        <select class="form-select form-select-sm" id="childWorkcenterSelect">
-                            <option value="" selected disabled>Select Sub-WC...</option>
-                            {{-- Option akan diisi oleh Javascript --}}
-                        </select>
-                        <div class="form-text text-xs text-info">
-                            <i class="fa-solid fa-circle-info me-1"></i> WC Induk ini membutuhkan pemilihan Line/Mesin.
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-xs fw-bold text-uppercase text-muted">Quantity</label>
-                        <div class="input-group input-group-sm">
-                            <input type="number" class="form-control" id="inputAssignQty" min="1" placeholder="0">
-                            <span class="input-group-text bg-white text-muted" id="maxQtyLabel">Max: -</span>
-                        </div>
-                    </div>
-
-                    <button type="button" class="btn btn-dark btn-sm w-100 mb-3" id="btnAddSplit" disabled>
-                        <i class="fa-solid fa-plus-circle me-1"></i> Add Allocation
-                    </button>
-
-                    {{-- Splits List --}}
-                    <div id="splitReviewSection" class="d-none">
-                        <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-1">
-                            <span class="text-xs fw-bold text-muted">ALLOCATIONS</span>
-                            <span class="badge bg-secondary rounded-pill" id="totalSplitsCount">0</span>
-                        </div>
-                        <div class="bg-white rounded border overflow-hidden">
-                            <ul class="list-group list-group-flush small" id="tempSplitList"></ul>
-                        </div>
+                    {{-- Card Container for Assignments --}}
+                    <div id="assignmentCardContainer" class="bg-white rounded border shadow-sm p-3 custom-scrollbar" style="max-height: 500px; overflow-y: auto;">
+                        {{-- Cards injected by JS --}}
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-2 bg-white d-flex">
-                    <button type="button" class="btn btn-light btn-sm flex-fill text-muted fw-bold" id="btnCancelDrop">Cancel</button>
-                    <button type="button" class="btn btn-success btn-sm flex-fill fw-bold shadow-sm" id="btnConfirmFinalAssignment" disabled>Confirm</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm flex-fill fw-bold" id="btnCancelDrop">Cancel</button>
+                    <button type="button" class="btn btn-success btn-sm flex-fill fw-bold shadow-sm" id="btnConfirmFinalAssignment">Confirm</button>
                 </div>
             </div>
         </div>
@@ -698,7 +557,7 @@
 
 
             document.addEventListener('DOMContentLoaded', function() {
-                assignmentModalInstance = new bootstrap.Modal(document.getElementById('assignmentModal'));
+                assignmentModalInstance = new bootstrap.Modal(document.getElementById('uniqueAssignmentModal'));
                 previewModalInstance = new bootstrap.Modal(document.getElementById('previewModal'));
                 mismatchModalInstance = new bootstrap.Modal(document.getElementById('mismatchModal')); // Init New Modal
 
@@ -715,7 +574,7 @@
                 });
                 
                 // Reset modal state on close
-                document.getElementById('assignmentModal').addEventListener('hide.bs.modal', function() {
+                document.getElementById('uniqueAssignmentModal').addEventListener('hide.bs.modal', function() {
                     if(draggedItemsCache.length > 0 && tempSplits.length === 0) {
                         cancelDrop();
                     }
@@ -733,7 +592,40 @@
                     fallbackClass: "sortable-drag",
                     ghostClass: "sortable-ghost",
                     sort: false,
-                    onStart: function(evt) { document.body.classList.add('dragging-active'); },
+                    onStart: function(evt) { 
+                        document.body.classList.add('dragging-active');
+                                               // CUSTOM VISUAL FOR BULK DRAG
+                        const checked = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
+                        const draggedIsChecked = evt.item.querySelector('.row-checkbox')?.checked;
+                        
+                        // FIX: Populate draggedItemsCache based on selection
+                        if (checked.length > 0 && draggedIsChecked) {
+                            draggedItemsCache = Array.from(checked).map(cb => cb.closest('.pro-item'));
+                        } else {
+                            draggedItemsCache = [evt.item];
+                        }
+                        
+                        // FIX: Count Logic - Only use checked length if dragged item is checked. 
+                        // If it matches, the count is accurate because Sortable 'ghost' is in the list, but 'drag' mirror is NOT.
+                        // So checking #source-list is correct.
+                        
+                        if (checked.length > 1 && draggedIsChecked) {
+                            setTimeout(() => {
+                                const mirror = document.querySelector('.sortable-drag');
+                                if (mirror) {
+                                    const badge = document.createElement('div');
+                                    badge.innerText = checked.length + " Items";
+                                    badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white shadow-sm';
+                                    badge.style.zIndex = '9999';
+                                    badge.style.fontSize = '0.7rem';
+                                    
+                                    mirror.style.position = 'fixed'; 
+                                    mirror.style.overflow = 'visible'; 
+                                    mirror.appendChild(badge);
+                                }
+                            }, 10);
+                        }
+                    },
                     onAdd: function(evt) {
                         // FIX 3: HANDLE DRAG BACK TO TABLE
                         document.body.classList.remove('dragging-active');
@@ -813,7 +705,11 @@
                     pendingMismatchItem = item;
                     targetContainerCache = toList; // Cache needed to revert if cancelled
                     sourceContainerCache = fromList;
-                    draggedItemsCache = [item]; // Hack agar cancelDrop() bekerja
+                    
+                    // FIX: Don't overwrite cache if it was populated by Bulk Drag (onStart)
+                    if (!draggedItemsCache || draggedItemsCache.length === 0) {
+                        draggedItemsCache = [item]; 
+                    }
                     
                     document.getElementById('mismatchCurrentWC').value = originWc;
                     document.getElementById('mismatchTargetWC').value = targetWcId;
@@ -824,7 +720,7 @@
 
                 // Normal Flow
                 processDrop(evt, item, toList, fromList, targetWcId);
-            }
+            } // End setupDragAndDrop
 
             // Extracted logic to support resume after mismatch check
             function processDrop(evt, item, toList, fromList, targetWcId) {
@@ -835,48 +731,316 @@
                 draggedItemsCache = [];
                 tempSplits = []; 
                 currentSisaQty = parseFloat(item.dataset.sisaQty) || 0;
-                document.getElementById('modalProAufnr').innerText = proAufnr;
-                document.getElementById('remainingQtyDisplay').innerText = currentSisaQty.toLocaleString('id-ID');
                 
                 transformToCardView(item);
                 
                 const checkbox = item.querySelector('.row-checkbox');
                 if (checkbox && checkbox.checked) {
                     document.querySelectorAll('#source-list .pro-item .row-checkbox:checked').forEach(cb => {
-                        draggedItemsCache.push(cb.closest('.pro-item'));
+                         const row = cb.closest('.pro-item');
+                         if(row && !draggedItemsCache.includes(row)) draggedItemsCache.push(row);
                     });
                     if (!draggedItemsCache.includes(item)) draggedItemsCache.push(item);
                 } else {
                     draggedItemsCache.push(item);
                 }
-                
-                const normalizedTargetWc = targetWcId.toUpperCase();
-                const childField = document.getElementById('childWorkcenterField');
-                const childSelect = document.getElementById('childWorkcenterSelect');
-                childSelect.innerHTML = '<option value="" selected disabled>Select Sub-WC...</option>';
-                
-                if (PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWc)) {
-                    childField.classList.remove('d-none');
-                    const children = PARENT_WORKCENTERS[normalizedTargetWc];
-                    children.forEach(child => {
-                        const opt = document.createElement('option');
-                        opt.value = child.code; 
-                        opt.innerText = `${child.code} - ${child.name}`; 
-                        childSelect.appendChild(opt);
-                    });
+
+                // Setup Modal Title
+                const proTitle = draggedItemsCache.length > 1 
+                    ? `<span class="badge bg-primary">${draggedItemsCache.length} Items Selected</span>` 
+                    : `<span class="badge bg-primary text-wrap">${proAufnr}</span>`;
+                document.getElementById('modalProDetails').innerHTML = proTitle;
+
+                const bulkWarning = document.getElementById('bulkWarning');
+                if(draggedItemsCache.length > 1) {
+                    if(bulkWarning) bulkWarning.classList.remove('d-none');
                 } else {
-                    childField.classList.add('d-none');
+                    if(bulkWarning) bulkWarning.classList.add('d-none');
                 }
 
-                document.getElementById('employeeSelect').value = "";
-                document.getElementById('inputAssignQty').value = currentSisaQty;
-                document.getElementById('inputAssignQty').max = currentSisaQty;
-                document.getElementById('maxQtyLabel').innerText = "Max: " + currentSisaQty;
-                document.getElementById('btnAddSplit').disabled = true;
+                // CLEAR CONTAINER
+                const container = document.getElementById('assignmentCardContainer');
+                container.innerHTML = '';
 
-                // Show Modal
+                // Get Child WC Options for this Target WC
+                const normalizedTargetWc = targetWcId.toUpperCase();
+                let childOptionsHtml = '<option value="">- Induk/None -</option>';
+                const hasChildren = PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWc);
+                if (hasChildren) {
+                    const children = PARENT_WORKCENTERS[normalizedTargetWc];
+                    children.forEach(child => {
+                        childOptionsHtml += `<option value="${child.code}">${child.code}</option>`;
+                    });
+                }
+
+                // Helper for Employee Options
+                const empOptions = document.getElementById('employeeTemplateSelect').innerHTML;
+                
+                // GENERATE CARDS
+                draggedItemsCache.forEach((row, index) => {
+                    const rAufnr = row.dataset.aufnr;
+                    const rSisa = parseFloat(row.dataset.sisaQty) || 0;
+                    const rQtyOpr = row.dataset.qtyOpr || '-'; // Max Display
+                    
+                    // Create Card Element
+                    const card = document.createElement('div');
+                    card.className = 'card mb-3 border-0 shadow-sm pro-card';
+                    card.dataset.refAufnr = rAufnr;
+                    card.dataset.maxQty = rSisa; // Total Available for this PRO
+                    
+                    card.innerHTML = `
+                        <div class="card-header bg-dark text-white py-2 px-3 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold small"><i class="fa-solid fa-box me-1"></i> ${rAufnr}</span>
+                            <span class="badge bg-secondary border border-light">Max: ${rSisa}</span>
+                        </div>
+                        <div class="card-body p-2 bg-light">
+                            <!-- Summary Bar -->
+                            <div class="d-flex justify-content-between small px-2 mb-2 text-muted fw-bold">
+                                <span>Assigned: <span class="text-success qty-assigned">0</span></span>
+                                <span>Remaining: <span class="text-danger qty-remaining">${rSisa}</span></span>
+                            </div>
+                            
+                            <!-- Rows Container -->
+                            <div class="assignment-rows">
+                                <!-- Initial Row -->
+                                <div class="row g-2 align-items-center mb-2 assignment-row">
+                                    <div class="col-md-5">
+                                        <label class="small text-muted fw-bold mb-0 d-none d-md-block">Operator</label>
+                                        <select class="form-select form-select-sm emp-select shadow-none border-secondary" required onchange="updateEmpOptions('${rAufnr}')">
+                                            ${empOptions}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small text-muted fw-bold mb-0 d-none d-md-block">Sub-WC</label>
+                                        <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateChildWCOptions('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
+                                            ${childOptionsHtml}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small text-muted fw-bold mb-0 d-none d-md-block">Qty</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control qty-input shadow-none border-secondary fw-bold text-center" 
+                                                value="${rSisa}" max="${rSisa}" min="0.1" step="any" oninput="updateCardSummary('${rAufnr}')">
+                                            <button class="btn btn-outline-danger btn-remove-row d-none" type="button" onclick="removeAssignmentRow(this)" title="Remove">
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Add Button -->
+                            <button class="btn btn-sm btn-outline-primary w-100 border-dashed fw-bold" type="button" onclick="addAssignmentRow('${rAufnr}')">
+                                <i class="fa-solid fa-plus-circle me-1"></i> Add Split
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                    
+                    // Initial update for uniqueness
+                    if(hasChildren) updateChildWCOptions(rAufnr);
+                    updateEmpOptions(rAufnr); // Init NIK filter
+                });
+
                 assignmentModalInstance.show();
             }
+
+            // NEW: Add Split Row Function (With Lock Logic)
+            // REDESIGN: Add Assignment Row to Card
+            window.addAssignmentRow = function(aufnr) {
+                // Find Card
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                if (!card) return;
+
+                const rowsContainer = card.querySelector('.assignment-rows');
+                const lastRow = rowsContainer.lastElementChild;
+                
+                // Clone last row (to keep select options)
+                const newRow = lastRow.cloneNode(true);
+                
+                // Reset inputs in new row
+                const empSelect = newRow.querySelector('.emp-select');
+                empSelect.value = "";
+                empSelect.onchange = function() { updateEmpOptions(aufnr); }; // Re-attach listener
+                
+                const childSelect = newRow.querySelector('.child-select');
+                childSelect.value = "";
+                childSelect.disabled = false; // Enable initially
+                childSelect.onchange = function() { updateChildWCOptions(aufnr); }; // Re-attach listener
+                // Note: cloneNode(true) copies inline listeners so 'onchange' is preserved, 
+                // but if disabled was copied, we need to handle that.
+                // Assuming child select content is static for now, we will refresh options in updateChildWCOptions.
+                
+                const qtyInput = newRow.querySelector('.qty-input');
+                qtyInput.value = ""; // Empty for user to fill
+                qtyInput.placeholder = "0";
+                
+                const removeBtn = newRow.querySelector('.btn-remove-row');
+                removeBtn.classList.remove('d-none');
+                
+                // Append
+                rowsContainer.appendChild(newRow);
+                
+                // Update Logic
+                updateChildWCOptions(aufnr);
+                updateCardSummary(aufnr);
+                updateEmpOptions(aufnr); // Refresh disable status for new row
+            };
+
+            // GLOBAL VALIDATION: Check all cards to enable/disable Confirm Button
+            window.validateGlobalAssignmentState = function() {
+                const confirmBtn = document.getElementById('btnConfirmAssignment');
+                if (!confirmBtn) return;
+
+                let hasError = false;
+                const cards = document.querySelectorAll('#assignmentCardContainer .pro-card');
+                
+                cards.forEach(card => {
+                     const maxQty = parseFloat(card.dataset.maxQty) || 0;
+                     const inputs = card.querySelectorAll('.qty-input');
+                     let totalAssigned = 0;
+                     inputs.forEach(inp => totalAssigned += parseFloat(inp.value) || 0);
+                     
+                     // Allow small tolerance
+                     if (totalAssigned > maxQty + 0.0001) {
+                         hasError = true;
+                     }
+                });
+
+                if (hasError) {
+                    confirmBtn.disabled = true;
+                    confirmBtn.classList.add('disabled');
+                    confirmBtn.innerHTML = '<i class="fa-solid fa-ban me-2"></i> Limit Exceeded';
+                } else {
+                    confirmBtn.disabled = false;
+                    confirmBtn.classList.remove('disabled');
+                    confirmBtn.innerHTML = 'Confirm';
+                }
+            };
+
+            // REDESIGN: Remove Assignment Row
+            window.removeAssignmentRow = function(btn) {
+                const row = btn.closest('.assignment-row');
+                const card = row.closest('.pro-card');
+                const aufnr = card.dataset.refAufnr;
+                
+                row.remove();
+                
+                updateChildWCOptions(aufnr);
+                updateCardSummary(aufnr);
+                updateEmpOptions(aufnr); // Refresh disable status
+            };
+
+            // REDESIGN: Update Card Summary & Validation
+            window.updateCardSummary = function(aufnr) {
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                if (!card) return;
+
+                const maxQty = parseFloat(card.dataset.maxQty);
+                const assignedSpan = card.querySelector('.qty-assigned');
+                const remainingSpan = card.querySelector('.qty-remaining');
+                const inputs = card.querySelectorAll('.qty-input');
+                const addBtn = card.querySelector('.btn-outline-primary.w-100'); // Selection strategy
+
+                let totalAssigned = 0;
+                inputs.forEach(inp => totalAssigned += parseFloat(inp.value) || 0);
+
+                const remaining = maxQty - totalAssigned;
+                
+                assignedSpan.innerText = totalAssigned.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+                remainingSpan.innerText = remaining.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+                
+                // Styling
+                if(remaining < 0) {
+                     remainingSpan.classList.add('fw-bold');
+                     
+                     // USER REQUEST: Immediate Feedback & Return
+                     // If total exceeds max, show alert and reset functionality could be complex because we don't know which input triggered it.
+                     // But this function is called onInput.
+                     // Using Active Element to identify the culprit.
+                     const activeInput = document.activeElement;
+                     if (activeInput && activeInput.classList.contains('qty-input') && card.contains(activeInput)) {
+                         // Calculate max allowable for this specific input
+                         // Max Allowable = (Max Qty - (Total Assigned - Current Input Value))
+                         const currentVal = parseFloat(activeInput.value) || 0;
+                         const otherAssigned = totalAssigned - currentVal;
+                         const maxAllowable = maxQty - otherAssigned;
+                         
+                         // Alert
+                         Swal.fire({
+                            icon: 'warning',
+                            title: 'Melebihi Batas!',
+                            text: `Jumlah total tidak boleh melebihi ${maxQty}. Sisa tersedia: ${maxAllowable}`,
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 3000
+                         });
+                         
+                         // Reset value to max allowable
+                         activeInput.value = maxAllowable > 0 ? maxAllowable : 0;
+                         
+                         // Re-calculate to update summary immediately
+                         // Use setTimeout to avoid recursion loop if needed, but direct call is fine if value changed
+                         // Actually, we should just update variables manually to reflect the reset
+                         totalAssigned = otherAssigned + (parseFloat(activeInput.value) || 0);
+                         assignedSpan.innerText = totalAssigned.toLocaleString('en-US');
+                         remainingSpan.innerText = (maxQty - totalAssigned).toLocaleString('en-US');
+                         remainingSpan.classList.remove('fw-bold');
+                     }
+                } else {
+                     remainingSpan.classList.remove('fw-bold');
+                }
+                
+                if (remaining <= 0.0001) {
+                    if(addBtn) {
+                        addBtn.disabled = true;
+                        addBtn.classList.add('disabled');
+                        addBtn.innerHTML = '<i class="fa-solid fa-ban me-1"></i> Limit Reached';
+                    }
+                } else {
+                     if(addBtn) {
+                        addBtn.disabled = false;
+                        addBtn.classList.remove('disabled');
+                        addBtn.innerHTML = '<i class="fa-solid fa-plus-circle me-1"></i> Add Split';
+                    }
+                }
+                
+                // Trigger Global Validation
+                validateGlobalAssignmentState();
+            };
+
+            // REDESIGN: Unique Child WC Logic
+            window.updateChildWCOptions = function(aufnr) {
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                if (!card) return;
+
+                const selects = card.querySelectorAll('.child-select');
+                
+                // 1. Collect all currently selected values
+                const selectedValues = [];
+                selects.forEach(sel => {
+                    if (sel.value) selectedValues.push(sel.value);
+                });
+
+                // 2. Update each select
+                selects.forEach(sel => {
+                    const myValue = sel.value;
+                    const options = sel.querySelectorAll('option');
+                    
+                    options.forEach(opt => {
+                        if (opt.value === "") return; // Skip placeholder
+                        
+                        // Disable if selected elsewhere AND not selected by me
+                        if (selectedValues.includes(opt.value) && opt.value !== myValue) {
+                            opt.disabled = true;
+                            // Optional: style it
+                        } else {
+                            opt.disabled = false;
+                        }
+                    });
+                });
+            };
 
             function setupMismatchLogic() {
                 // Button Cancel di Mismatch Modal
@@ -886,32 +1050,85 @@
                 });
 
                 // Button Change WC
-                document.getElementById('btnChangeWC').addEventListener('click', function() {
-                    alert('Fitur sedang dalam masa pengembangan');
+                document.getElementById('btnChangeWC').addEventListener('click', async function() {
+                    // Use Cache if available (Bulk Drag), otherwise single item
+                    const itemsToProcess = (draggedItemsCache && draggedItemsCache.length > 0) 
+                        ? draggedItemsCache 
+                        : (pendingMismatchItem ? [pendingMismatchItem] : []);
+
+                    if (itemsToProcess.length === 0) return;
+
+                    const targetWc = document.getElementById('mismatchTargetWC').value;
+                    
+                    // Construct PRO data matching the structure needed by backend
+                    const proData = itemsToProcess.map(item => ({
+                        proCode: item.dataset.aufnr,
+                        oper: item.dataset.vornr || '0010',
+                        pwwrk: item.dataset.pwwrk || ''
+                    }));
+
                     mismatchModalInstance.hide();
-                    cancelDrop(); // Tetap batalkan drop setelah alert
+                    cancelDrop(); // Revert drag visual
+
+                    // Trigger Streaming Process
+                    await executeBulkChangeStream(targetWc, proData);
+
+                    // CHAIN: Auto-Proceed to Drop logic after change
+                    // 1. Manually update DOM items to reflect new WC
+                    itemsToProcess.forEach(item => {
+                         const pendingRows = document.querySelectorAll(`[data-aufnr="${item.dataset.aufnr}"]`);
+                         pendingRows.forEach(r => {
+                            r.dataset.arbpl = targetWc;
+                            const badge = r.querySelector('.badge.bg-light.text-dark'); // WC Badge
+                            // Also update badge inside card preview if exists?
+                            // No, source_table_rows structure: td -> span.badge
+                            // Card preview structure doesn't show Arbpl currently (simplified).
+                            // But table row does.
+                            // The selector `.badge.bg-light.text-dark` targets the Arbpl badge in the table row (col 5/6).
+                            // Let's be safe.
+                            if(badge && badge.innerText.trim() !== targetWc) badge.innerText = targetWc; 
+                        });
+                    });
+
+                    // 2. Call processDrop to open assignment modal
+                    // We use cached containers from the initial drag
+                    // Pass the first item as 'item' argument, processDrop will check cache.
+                    processDrop(
+                        null, // evt null
+                        itemsToProcess[0],
+                        targetContainerCache,
+                        sourceContainerCache,
+                        targetWc
+                    );
                 });
             }
 
             function updateChildWCDropdown(normalizedTargetWcId, proAufnr) {
+                // Modified: Also trigger NIK filtering when UI updates
+                updateEmpOptions(proAufnr);
+
                 const childWcSelect = document.getElementById('childWorkcenterSelect');
+                if(!childWcSelect) return; // Guard clause
+
                 childWcSelect.innerHTML = '<option value="" selected disabled>Pilih Workcenter Anak...</option>';
                 childWcSelect.disabled = false;
 
                 // AMBIL SEMUA CHILD WC YANG SUDAH DIALOKASIKAN/DIPILIH SEMENTARA
                 const usedChildWCs = getAssignedChildWCs(proAufnr);
                 let optionsAdded = 0;
-
-                PARENT_WORKCENTERS[normalizedTargetWcId].forEach(child => {
-                    // HANYA TAMBAHKAN JIKA BELUM DIGUNAKAN
-                    if (!usedChildWCs.includes(child.code)) {
-                        const option = document.createElement('option');
-                        option.value = child.code;
-                        option.innerText = `${child.code} - ${child.name}`;
-                        childWcSelect.appendChild(option);
-                        optionsAdded++;
-                    }
-                });
+                
+                if (PARENT_WORKCENTERS[normalizedTargetWcId]) {
+                    PARENT_WORKCENTERS[normalizedTargetWcId].forEach(child => {
+                         // HANYA TAMBAHKAN JIKA BELUM DIGUNAKAN
+                        if (!usedChildWCs.includes(child.code)) {
+                            const option = document.createElement('option');
+                            option.value = child.code;
+                            option.innerText = `${child.code} - ${child.name}`;
+                            childWcSelect.appendChild(option);
+                            optionsAdded++;
+                        }
+                    });
+                }
 
                 if (optionsAdded === 0) {
                     childWcSelect.innerHTML =
@@ -919,169 +1136,175 @@
                     childWcSelect.disabled = true;
                 }
             }
+            
+            function updateEmpOptions(aufnr) {
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                if (!card) return;
 
-            function updateTempSplitList() {
-                const list = document.getElementById('tempSplitList');
-                const reviewSec = document.getElementById('splitReviewSection');
-                const countBadge = document.getElementById('totalSplitsCount');
-                const btnConfirm = document.getElementById('btnConfirmFinalAssignment');
+                const allSelects = Array.from(card.querySelectorAll('.emp-select'));
 
-                list.innerHTML = '';
-                countBadge.innerText = tempSplits.length;
+                const selectedNiks = allSelects
+                    .map(sel => sel.value)
+                    .filter(val => val !== "");
 
-                if (tempSplits.length > 0) {
-                    reviewSec.classList.remove('d-none');
-                    btnConfirm.disabled = false;
-                } else {
-                    reviewSec.classList.add('d-none');
-                    btnConfirm.disabled = true;
-                }
-                document.getElementById('remainingQtyDisplay').innerText = currentSisaQty.toLocaleString('id-ID');
-                document.getElementById('inputAssignQty').max = currentSisaQty;
+                allSelects.forEach(select => {
+                    const currentVal = select.value;
+                    const options = Array.from(select.options);
 
-                tempSplits.forEach((split, index) => {
-                    const childWcBadge = split.child_wc ? `<span class="badge bg-info text-dark ms-1">${split.child_wc}</span>` : '';
-                    
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item d-flex justify-content-between align-items-center px-0';
-                    li.innerHTML = `
-                        <div class="d-flex flex-column">
-                            <div class="d-flex align-items-center">
-                                <strong>Qty: ${split.qty}</strong> 
-                                ${childWcBadge}
-                            </div>
-                            <span class="text-muted" style="font-size: 0.75rem;">${split.name}</span>
-                        </div>
-                        <button class="btn btn-sm btn-outline-danger border-0" onclick="removeSplit(${index})"><i class="fa-solid fa-times"></i></button>
-                    `;
-                    list.appendChild(li);
+                    options.forEach(opt => {
+                        if (!opt.value) return;
+                        if (selectedNiks.includes(opt.value) && opt.value !== currentVal) {
+                             opt.disabled = true;
+                             if(!opt.innerText.includes('(Selected)')) {
+                                 opt.innerText += ' (Selected)';
+                             }
+                        } else {
+                             opt.disabled = false;
+                             opt.innerText = opt.innerText.replace(' (Selected)', '');
+                        }
+                    });
                 });
             }
-
-            function removeSplit(index) {
-                // Kembalikan Qty, gunakan floating point fix
-                currentSisaQty = parseFloat((currentSisaQty + tempSplits[index].qty).toFixed(3));
-                tempSplits.splice(index, 1);
-                document.getElementById('inputAssignQty').disabled = false;
-                document.getElementById('inputAssignQty').value = currentSisaQty;
-                updateTempSplitList();
-            }
-
 
             function setupModalLogic() {
-                const empSelect = document.getElementById('employeeSelect');
-                const qtyInput = document.getElementById('inputAssignQty');
-                const btnAddSplit = document.getElementById('btnAddSplit');
                 const btnConfirm = document.getElementById('btnConfirmFinalAssignment');
                 const btnCancel = document.getElementById('btnCancelDrop');
-                const childSelect = document.getElementById('childWorkcenterSelect'); 
-                const validateForm = () => {
-                    const hasEmp = empSelect.value !== "";
-                    const hasQty = qtyInput.value !== "" && parseFloat(qtyInput.value) > 0;
-                    const isChildRequired = !document.getElementById('childWorkcenterField').classList.contains('d-none');
-                    const hasChild = isChildRequired ? childSelect.value !== "" : true;
-
-                    if (hasEmp && hasQty && hasChild) {
-                        btnAddSplit.disabled = false;
-                    } else {
-                        btnAddSplit.disabled = true;
-                    }
-                };
-
-                empSelect.addEventListener('change', validateForm);
-                qtyInput.addEventListener('input', validateForm);
-                childSelect.addEventListener('change', validateForm); 
-                btnAddSplit.addEventListener('click', function() {
-                    const inputQty = parseFloat(qtyInput.value);
-                    
-                    // FIX 2: BUG QTY - Floating point precision fix
-                    // Menggunakan toFixed(3) dan Number() untuk memastikan perbandingan akurat
-                    const safeSisa = Number(currentSisaQty.toFixed(3));
-                    
-                    if(inputQty > safeSisa) {
-                        Swal.fire('Error', 'Qty melebihi sisa!', 'warning'); return;
-                    }
-
-                    const nik = empSelect.value;
-                    const name = empSelect.options[empSelect.selectedIndex].dataset.name;
-                    const childWcValue = childSelect.value; 
-                    tempSplits.push({
-                        nik: nik,
-                        name: name,
-                        qty: inputQty,
-                        child_wc: childWcValue
-                    });
-                    
-                    // Update sisa qty dengan presisi
-                    currentSisaQty = parseFloat((currentSisaQty - inputQty).toFixed(3));
-
-                    empSelect.value = "";
-                    qtyInput.value = currentSisaQty;
-                    
-                    updateTempSplitList();
-                    validateForm(); 
-
-                    if (currentSisaQty <= 0) {
-                        qtyInput.disabled = true;
-                    }
-                });
-
-                btnConfirm.addEventListener('click', confirmFinalAssignment);
-                btnCancel.addEventListener('click', cancelDrop);
+                if (btnConfirm) btnConfirm.onclick = confirmFinalAssignment;
+                if (btnCancel) btnCancel.onclick = cancelDrop;
             }
 
+
             function confirmFinalAssignment() {
-                if(tempSplits.length === 0) return;
-                const originalRow = draggedItemsCache[0]; 
-                let isFirst = true;
-
-                tempSplits.forEach(split => {
-                    let rowNode;
-                    if(isFirst) {
-                        rowNode = originalRow;
-                        isFirst = false;
+                const cards = document.querySelectorAll('#assignmentCardContainer .pro-card');
+                let allValid = true;
+                let assignments = [];
+                let validationErrors = [];
+                
+                cards.forEach(card => {
+                    const aufnr = card.dataset.refAufnr;
+                    const maxQty = parseFloat(card.dataset.maxQty) || 0;
+                    
+                    const rows = card.querySelectorAll('.assignment-rows .assignment-row');
+                    let currentSum = 0;
+                    
+                    rows.forEach(row => {
+                        const empSelect = row.querySelector('.emp-select');
+                        const childSelect = row.querySelector('.child-select');
+                        const qtyInput = row.querySelector('.qty-input');
+                        
+                        const nik = empSelect.value;
+                        const name = empSelect.options[empSelect.selectedIndex]?.dataset.name || ''; // Assuming options have data-name or innerText
+                        // Fallback name extraction if template used value - text format
+                        const rawText = empSelect.options[empSelect.selectedIndex]?.innerText || '';
+                        
+                        const childWc = childSelect.value;
+                        const qty = parseFloat(qtyInput.value) || 0;
+                        
+                        // Row Validation
+                        if (!nik || qty <= 0) {
+                            allValid = false;
+                            row.classList.add('border', 'border-danger'); // Add visual error
+                        } else {
+                            row.classList.remove('border', 'border-danger');
+                        }
+                        
+                        // Collect Assignment
+                        if (nik && qty > 0) {
+                            // Find original Item for this AUFNR from Cache
+                            // Logic: draggedItemsCache contains items. We need to find the one matching AUFNR.
+                            // If bulk dragging multiple items with same PRO/AUFNR is impossible (it is), then finding by AUFNR is safe.
+                            const item = draggedItemsCache.find(i => i.dataset.aufnr == aufnr); 
+                            
+                            if (item) {
+                                assignments.push({ item, nik, name: name || rawText, childWc, qty });
+                            }
+                        }
+                        
+                        currentSum += qty;
+                    });
+                    
+                    // Card Total Validation
+                    if (currentSum > maxQty) {
+                        allValid = false;
+                        validationErrors.push(`Total Qty for ${aufnr} exceeds limit (${currentSum} > ${maxQty})`);
+                        // Highlight card border
+                        card.classList.remove('border-0');
+                        card.classList.add('border-danger');
                     } else {
-                        rowNode = originalRow.cloneNode(true); 
-                        rowNode.dataset.id = Date.now() + Math.random(); 
-                        targetContainerCache.appendChild(rowNode);
+                        card.classList.add('border-0');
+                        card.classList.remove('border-danger');
                     }
-
-                    rowNode.dataset.assignedQty = split.qty;
-                    rowNode.dataset.employeeNik = split.nik;
-                    rowNode.dataset.employeeName = split.name;
-                    rowNode.dataset.childWc = split.child_wc || ''; // Simpan Child WC di atribut
-
-                    updateRowUI(rowNode, split.name, split.qty, split.child_wc);
                 });
 
-                if(currentSisaQty > 0) {
-                    const remainingRow = originalRow.cloneNode(true);
-                    remainingRow.dataset.id = Date.now() + Math.random();
-                    remainingRow.dataset.sisaQty = currentSisaQty;
-                    remainingRow.dataset.assignedQty = 0;
-                    
-                    // Reset visual ke tampilan tabel
-                    transformToTableView(remainingRow);
-                    
-                    // Update kolom sisa qty text
-                    // Note: Pastikan struktur HTML Anda punya class/id untuk update text kolom ini jika diperlukan
-                    const sisaCell = remainingRow.querySelector('.col-sisa-qty') || remainingRow.children[7]; // Asumsi index kolom
-                    // Jika Anda punya class spesifik untuk sisa qty di HTML awal, gunakan itu. 
-                    // Di kode ini saya update data attribut, tampilan biasanya dirender ulang atau pakai DOM manipulation
-                    
-                    document.getElementById('source-list').appendChild(remainingRow);
+                if (!allValid) {
+                     Swal.fire('Validation Error', validationErrors.length > 0 ? validationErrors.join('<br>') : 'Please complete all fields correctly.', 'warning');
+                     return;
+                }
+
+                // EXECUTE MOVE
+                // Group assignments by Item (using Item DOM reference as key/id)
+                 const groupedAssignments = {};
+                assignments.forEach(a => {
+                    // Use a unique ID on the dataset to group. If not present, use AUFNR (safe if unique in drag list).
+                    // Best is AUFNR.
+                    if (!groupedAssignments[a.item.dataset.aufnr]) groupedAssignments[a.item.dataset.aufnr] = [];
+                    groupedAssignments[a.item.dataset.aufnr].push(a);
+                });
+
+                for (const [aufnr, group] of Object.entries(groupedAssignments)) {
+                     const item = group[0].item; // Original Item
+                     const sisaOriginal = parseFloat(item.dataset.sisaQty) || 0;
+                     const totalAssigned = group.reduce((sum, a) => sum + a.qty, 0);
+                     
+                     // 1. Check Remaining
+                     if (parseFloat(totalAssigned.toFixed(3)) < parseFloat(sisaOriginal.toFixed(3))) {
+                         const remainingQty = sisaOriginal - totalAssigned;
+                         const remainingRow = item.cloneNode(true);
+                         remainingRow.dataset.id = Date.now() + Math.random();
+                         remainingRow.dataset.sisaQty = remainingQty;
+                         remainingRow.dataset.assignedQty = 0;
+                         
+                         transformToTableView(remainingRow);
+                         const sisaCell = remainingRow.querySelector('.col-sisa-qty');
+                         if(sisaCell) sisaCell.innerText = remainingQty.toLocaleString('id-ID');
+                         
+                         sourceContainerCache.appendChild(remainingRow);
+                     }
+                     
+                     // 2. Process Assignments
+                     group.forEach((assign, idx) => {
+                         let targetItem;
+                         if (idx === 0) {
+                             targetItem = item; // Use Original
+                         } else {
+                             targetItem = item.cloneNode(true); // Clone for split
+                             targetItem.dataset.id = Date.now() + Math.random();
+                         }
+                         
+                         // Move & Update
+                         transformToCardView(targetItem);
+                         targetContainerCache.appendChild(targetItem);
+                         
+                         targetItem.dataset.sisaQty = assign.qty; // Adjusted to assigned portion
+                         targetItem.dataset.assignedQty = assign.qty;
+                         targetItem.dataset.employeeNik = assign.nik;
+                         targetItem.dataset.employeeName = assign.name;
+                         targetItem.dataset.childWc = assign.childWc || '';
+                         
+                         updateRowUI(targetItem, assign.name, assign.qty, assign.childWc);
+                     });
                 }
 
                 // Cleanup
-                tempSplits = [];
-                currentSisaQty = 0;
                 draggedItemsCache = [];
                 document.getElementById('selectAll').checked = false;
                 updateCapacity(targetContainerCache.closest('.wc-card-container'));
                 checkEmptyPlaceholder(targetContainerCache);
+                checkEmptyPlaceholder(sourceContainerCache);
                 
                 assignmentModalInstance.hide();
             }
+
 
             /**
              * Memperbarui atribut data-assigned-child-wcs pada SEMUA row dengan AUFNR yang sama.
@@ -1315,7 +1538,7 @@
             }
 
             function transformToCardView(row) {
-                row.classList.remove('draggable-item');
+                row.classList.remove('draggable-item');3015
                 row.classList.add('pro-item-card');
                 row.querySelectorAll('.table-col').forEach(el => el.style.display = 'none');
                 row.querySelector('.card-view-content').style.display = 'block';
@@ -1399,13 +1622,90 @@
             }
 
             function setupSearch() {
-                document.getElementById('searchInput').addEventListener('keyup', function() {
-                    const filter = this.value.toLowerCase();
-                    document.querySelectorAll('#source-list tr.draggable-item').forEach(row => {
-                        const text = row.innerText.toLowerCase();
-                        row.style.display = text.includes(filter) ? '' : 'none';
-                    });
+                // Modified for Server-Side Search
+                let timeout = null;
+                const searchInput = document.getElementById('searchInput');
+                const scrollArea = document.querySelector('.table-scroll-area');
+                const spinner = document.getElementById('loadingSpinner');
+                const endOfData = document.getElementById('endOfData');
+                const tbody = document.getElementById('source-list');
+
+                let nextPage = {{ $nextPage ?? 'null' }};
+                let isLoading = false;
+                let currentSearch = '';
+
+                // 1. Search Logic (Debounced)
+                searchInput.addEventListener('keyup', function() {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => {
+                        currentSearch = this.value;
+                        resetAndFetch();
+                    }, 500); 
                 });
+
+                 // 2. Infinite Scroll Logic
+                scrollArea.addEventListener('scroll', function() {
+                    if (isLoading || !nextPage) return;
+                    
+                    const threshold = 100; // px from bottom
+                    if (this.scrollHeight - this.scrollTop - this.clientHeight < threshold) {
+                         fetchMore();
+                    }
+                });
+
+                function resetAndFetch() {
+                    nextPage = 1; 
+                    isLoading = true;
+                    tbody.innerHTML = ''; // Clear current
+                    spinner.classList.remove('d-none');
+                    endOfData.classList.add('d-none');
+                    
+                    fetchData(1, currentSearch, true);
+                }
+
+                function fetchMore() {
+                    isLoading = true;
+                    spinner.classList.remove('d-none');
+                    fetchData(nextPage, currentSearch, false);
+                }
+
+                function fetchData(page, search, isReset) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', page);
+                    if(search) url.searchParams.set('search', search);
+                    else url.searchParams.delete('search');
+
+                    fetch(url, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (isReset) {
+                            tbody.innerHTML = data.html;
+                        } else {
+                            tbody.insertAdjacentHTML('beforeend', data.html); // Append
+                        }
+                        
+                        nextPage = data.next_page;
+                        
+                        // Show "End" if no more pages
+                        if (!nextPage) {
+                            endOfData.classList.remove('d-none');
+                        }
+
+                        // Re-initialize Drag (Sortable) if necessary?
+                        // Sortable usually observes DOM, but checks if new items are draggable.
+                        // Since we append to #source-list which is the Sortable container, it should work.
+                        
+                    })
+                    .catch(e => console.error('Load Error:', e))
+                    .finally(() => {
+                        isLoading = false;
+                        spinner.classList.add('d-none');
+                    });
+                }
             }
 
             function setupCheckboxes() {
@@ -1644,7 +1944,242 @@
                 content.innerHTML = html;
                 previewModalInstance.show();
             }
+            // 1. Tombol "Change WC" diklik
+            function requestChangeWc() {
+                // Cek item yang dicentang di tabel sumber
+                const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
+                if (checkboxes.length === 0) {
+                    Swal.fire('Info', 'Pilih setidaknya satu PRO dari tabel kiri.', 'info');
+                    return;
+                }
+
+                document.getElementById('selectedCountMsg').innerText = `${checkboxes.length} PRO terpilih.`;
+                
+                // Simpan data terpilih ke variabel global sementara
+                window.selectedProsForChange = [];
+                checkboxes.forEach(cb => {
+                    const tr = cb.closest('tr');
+                    if(tr) {
+                        window.selectedProsForChange.push({
+                            proCode: tr.dataset.aufnr ?? '', 
+                            oper: tr.dataset.vornr ?? '0010', // Default if missing
+                            pwwrk: tr.dataset.pwwrk ?? ''
+                        });
+                    }
+                });
+
+                const modal = new bootstrap.Modal(document.getElementById('changeWcModal'));
+                modal.show();
+            }
+
+            // 2. Tombol "Mulai Proses" diklik
+            async function startBulkChangeStream() {
+                const targetWc = document.getElementById('targetWcSelect').value;
+                if (!targetWc) {
+                    Swal.fire('Error', 'Silakan pilih Workcenter tujuan.', 'error');
+                    return;
+                }
+
+                // Tutup modal selection
+                bootstrap.Modal.getInstance(document.getElementById('changeWcModal')).hide();
+                
+                // Execute Stream
+                await executeBulkChangeStream(targetWc, window.selectedProsForChange);
+            }
+
+            // CORE STREAMING LOGIC (Reusable)
+            async function executeBulkChangeStream(targetWc, prosList) {
+                // Validasi data
+                if (!prosList || prosList.length === 0) {
+                    Swal.fire('Error', 'Data PRO tidak valid.', 'error');
+                    return;
+                }
+
+                // Buka Modal Progress
+                const progressModal = new bootstrap.Modal(document.getElementById('bulkProgressModal'));
+                progressModal.show();
+
+                // Reset UI Progress
+                const logContainer = document.getElementById('streamLogContainer');
+                const progressBar = document.getElementById('streamProgressBar');
+                const statusText = document.getElementById('streamStatusText');
+                const btnClose = document.getElementById('btnCloseStreamModal');
+                const percentText = document.getElementById('streamPercent');
+
+                logContainer.innerHTML = '';
+                progressBar.style.width = '0%';
+                progressBar.classList.add('progress-bar-animated', 'bg-primary');
+                progressBar.classList.remove('bg-success', 'bg-danger');
+                statusText.innerText = 'Memulai koneksi...';
+                btnClose.classList.add('d-none');
+                percentText.innerText = '0%';
+
+                const kode = "{{ $kode }}"; // Blade Variable
+                const url = `/changeWCBulkStream/${kode}/${targetWc}`;
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({
+                            bulk_pros: JSON.stringify(prosList)
+                        })
+                    });
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder("utf-8");
+                    
+                    let buffer = '';
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value, { stream: true });
+                        buffer += chunk;
+                        
+                        const lines = buffer.split('\n\n');
+                        buffer = lines.pop(); // Keep the remaining part
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const jsonStr = line.substring(6);
+                                    const data = JSON.parse(jsonStr);
+                                    handleStreamData(data, logContainer, progressBar, statusText, percentText, btnClose);
+                                } catch (e) {
+                                    console.error('Error parsing JSON stream', e);
+                                }
+                            }
+                        }
+                    }
+
+                } catch (error) {
+                    logContainer.innerHTML += `<div class="text-danger mb-1"><i class="fa-solid fa-circle-xmark me-2"></i>Network Error: ${error.message}</div>`;
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-danger');
+                    progressBar.classList.remove('progress-bar-animated');
+                    btnClose.classList.remove('d-none');
+                }
+            }
+
+            // 3. Handle Data Stream
+            function handleStreamData(data, container, bar, statusLabel, percentLabel, closeBtn) {
+                const type = data.type;
+                let icon = '';
+                let color = 'text-dark';
+
+                if (type === 'progress') {
+                    icon = '<i class="fa-solid fa-spinner fa-spin text-primary me-2"></i>';
+                    statusLabel.innerText = 'Memproses...';
+                } else if (type === 'success') {
+                    icon = '<i class="fa-solid fa-check text-success me-2"></i>';
+                    color = 'text-success';
+                } else if (type === 'failure' || type === 'error' || type === 'warning') {
+                    icon = type === 'warning' ? '<i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>' : '<i class="fa-solid fa-circle-xmark text-danger me-2"></i>';
+                    color = type === 'warning' ? 'text-warning' : 'text-danger';
+                } else if (type === 'complete') {
+                    bar.style.width = '100%';
+                    bar.classList.remove('progress-bar-animated');
+                    bar.classList.add('bg-success');
+                    statusLabel.innerText = 'Selesai!';
+                    percentLabel.innerText = '100%';
+                    closeBtn.classList.remove('d-none');
+                    container.scrollTop = container.scrollHeight;
+                    
+                    // Show completion message in log
+                    const item = document.createElement('div');
+                    item.className = `text-success fw-bold mb-1 pt-2 border-top`;
+                    item.innerHTML = `<i class="fa-solid fa-flag-checkered me-2"></i> ${data.message}`;
+                    container.appendChild(item);
+                    return; 
+                }
+
+                // Update Progress
+                if (data.progress !== undefined) {
+                    bar.style.width = `${data.progress}%`;
+                    percentLabel.innerText = `${data.progress}%`;
+                }
+
+                // Append Log
+                if (data.message && type !== 'complete') {
+                    const item = document.createElement('div');
+                    item.className = `${color} mb-1 border-bottom pb-1 border-light`;
+                    item.innerHTML = `${icon} <span class="fw-bold me-1">${data.pro ? data.pro + ':' : ''}</span> ${data.message}`;
+                    container.appendChild(item);
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
         </script>
     @endpush
 
+    {{-- MODAL CHANGE WC SELECTION --}}
+    <div class="modal fade" id="changeWcModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h6 class="modal-title fw-bold">Pindah Workcenter Massal</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">TARGET WORKCENTER</label>
+                        <select class="form-select" id="targetWcSelect">
+                            <option value="" selected disabled>-- Pilih Workcenter Tujuan --</option>
+                            @foreach ($workcenters as $wc)
+                                <option value="{{ $wc->kode_wc }}">{{ $wc->kode_wc }} - {{ $wc->description }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="alert alert-info small mb-0">
+                        <i class="fa-solid fa-info-circle me-1"></i>
+                        <span id="selectedCountMsg">0 PRO terpilih.</span> Proses ini akan dilakukan secara bertahap.
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-link text-muted fw-bold text-decoration-none" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary fw-bold px-4 rounded-pill shadow-sm" onclick="startBulkChangeStream()">
+                        <i class="fa-solid fa-play me-1"></i> Mulai Proses
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- MODAL PROGRESS STREAMING --}}
+    <div class="modal fade" id="bulkProgressModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h6 class="modal-title fw-bold text-dark">Memproses Perubahan...</h6>
+                </div>
+                <div class="modal-body p-4">
+                    {{-- Progress Bar --}}
+                    <div class="progress mb-3" style="height: 10px; border-radius: 5px;">
+                        <div id="streamProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    
+                    {{-- Status Text --}}
+                    <div class="d-flex justify-content-between small text-muted fw-bold mb-3">
+                        <span id="streamStatusText">Menyiapkan...</span>
+                        <span id="streamPercent">0%</span>
+                    </div>
+
+                    {{-- Log Area --}}
+                    <div class="p-3 bg-light rounded-3 border custom-scrollbar" style="height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.8rem;" id="streamLogContainer">
+                        {{-- Log items will be appended here --}}
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 justify-content-center">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 fw-bold d-none" id="btnCloseStreamModal" data-bs-dismiss="modal">
+                        <i class="fa-solid fa-check me-1"></i> Selesai & Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </x-layouts.app>

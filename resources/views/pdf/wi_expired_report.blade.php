@@ -120,16 +120,18 @@
         <thead>
             <tr class="data-header">
                 <th width="3%">NO</th>
-                <th width="10%">WI CODE</th>
-                <th width="8%">EXPIRED AT</th>
-                <th width="6%">WC</th>
-                <th width="9%">PRO</th>
-                <th width="9%">MATERIAL</th>
-                <th width="23%">DESCRIPTION</th>
-                <th width="8%">ASSIGNED</th>
-                <th width="8%">CONFIRMED</th>
-                <th width="8%">BALANCE</th>
-                <th width="8%">STATUS</th>
+                <th width="9%">WI CODE</th>
+                <th width="7%">EXPIRED AT</th>
+                <th width="4%">WC</th>
+                <th width="7%">PRO</th>
+                <th width="7%">MATERIAL</th>
+                <th width="17%">DESCRIPTION</th>
+                <th width="6%">ASSIGNED</th>
+                <th width="7%">CONFIRMED</th>
+                <th width="6%">BALANCE</th>
+                <th width="7%">NIK</th>
+                <th width="15%">NAME</th>
+                <th width="5%">STATUS</th>
             </tr>
         </thead>
         <tbody>
@@ -160,6 +162,8 @@
                     {{ floatval($row['balance']) }}
                 </td>
 
+                <td class="text-center">{{ $row['nik'] ?? '-' }}</td>
+                <td>{{ $row['employee_name'] ?? ($row['name'] ?? '-') }}</td>
                 <td class="text-center" style="font-size: 7pt;">
                     {{ strtoupper($row['remark']) }}
                 </td>
@@ -170,6 +174,8 @@
             @for($i = 0; $i < $rowsToFill; $i++)
             <tr class="data-row">
                 <td class="text-center">&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
