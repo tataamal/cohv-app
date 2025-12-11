@@ -31,7 +31,10 @@
         data-steus="{{ $item->STEUS }}"
         data-sssld="{{ $item->SSSLD }}" 
         data-ssavd="{{ $item->SSAVD }}"
-        data-kapaz="{{ $item->KAPAZ }}"> 
+        data-kapaz="{{ $item->KAPAZ }}"
+        data-name1="{{ $item->NAME1 }}"
+        data-netpr="{{ $item->NETPR }}"
+        data-waerk="{{ $item->WAERK }}"> 
 
         {{-- 1. Checkbox --}}
         <td class="text-center table-col ps-3">

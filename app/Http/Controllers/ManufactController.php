@@ -67,6 +67,9 @@ class ManufactController extends Controller
                     if (!empty($res['T_DATA4']) && is_array($res['T_DATA4']))  $T4 = array_merge($T4, $res['T_DATA4']);
                 }
                 Log::info(" -> Jumlah data mentah: T_DATA: " . count($T_DATA) . ", T1: " . count($T1) . ", T2: " . count($T2) . ", T3: " . count($T3) . ", T4: " . count($T4));
+                if (!empty($T1)) {
+                    Log::info("Sample T1 Data: " . json_encode($T1[0]));
+                }
 
                 // 3. Hapus Data Lama (Logika dari Controller Lama, lebih aman)
                 Log::info("[Langkah 3/5] Menghapus data lama untuk Plant {$kode}...");

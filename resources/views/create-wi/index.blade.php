@@ -21,8 +21,6 @@
                 background-color: var(--bg-app) !important; 
                 color: var(--primary-dark); 
             }
-
-            /* --- 2. GLOBAL UTILITIES --- */
             .icon-box {
                 width: 32px; height: 32px;
                 display: flex; align-items: center; justify-content: center;
@@ -30,8 +28,6 @@
             }
             .fw-bolder { font-weight: 700 !important; }
             .text-xs { font-size: 0.75rem; }
-            
-            /* PREVENT TEXT SELECTION DURING DRAG (FIXED) */
             body.dragging-active, 
             body.dragging-active * {
                 user-select: none !important;
@@ -40,14 +36,12 @@
                 -ms-user-select: none !important;
                 cursor: grabbing !important;
             }
-
-            /* --- 3. SOURCE TABLE CARD (LEFT COLUMN) --- */
             .source-panel {
                 background: var(--card-bg);
                 border-radius: 12px;
                 border: 1px solid var(--border-color);
                 box-shadow: var(--shadow-soft);
-                height: calc(100vh - 140px); /* Fixed height for dashboard feel */
+                height: calc(100vh - 140px);
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
@@ -59,8 +53,6 @@
                 border-bottom: 1px solid var(--border-color);
                 z-index: 20;
             }
-
-            /* Custom Input Search */
             .search-input-group {
                 background: #f1f5f9;
                 border-radius: 8px;
@@ -74,15 +66,11 @@
             }
             .search-input-group input { background: transparent; border: none; font-size: 0.9rem; }
             .search-input-group input:focus { box-shadow: none; }
-
-            /* Table Area */
             .table-scroll-area {
                 flex-grow: 1;
                 overflow-y: auto;
                 background-color: #ffffff;
             }
-            
-            /* Table Styling */
             .table-custom thead th {
                 background: #f8fafc;
                 color: var(--text-secondary);
@@ -96,26 +84,18 @@
                 top: 0;
                 z-index: 10;
             }
-            
-            /* Row Styling */
             tr.pro-item {
                 border-bottom: 1px solid #f1f5f9;
                 transition: background 0.15s;
-                cursor: grab; /* Kursor tangan terbuka */
+                cursor: grab;
                 position: relative;
             }
-
-            /* Agar text tetap bisa dicopy/highlight saat tidak sedang dragging */
             tr.pro-item * {
                 user-select: text; 
             }
-
-            /* Saat sedang dragging, ubah kursor */
             tr.pro-item:active {
                 cursor: grabbing;
             }
-
-            /* --- 4. TARGET WORKCENTER CARDS (RIGHT COLUMN) --- */
             .target-scroll-area {
                 height: calc(100vh - 140px);
                 overflow-y: auto;
@@ -144,8 +124,6 @@
             }
 
             .wc-body { padding: 12px 15px; }
-
-            /* Drop Zone Styling */
             .wc-drop-zone {
                 min-height: 80px;
                 max-height: 300px;
@@ -161,8 +139,6 @@
                 border-color: var(--primary-blue);
                 box-shadow: inset 0 0 0 4px rgba(59, 130, 246, 0.1);
             }
-
-            /* Empty Placeholder */
             .empty-placeholder {
                 display: flex;
                 flex-direction: column;
@@ -173,8 +149,6 @@
                 font-size: 0.8rem;
                 font-weight: 500;
             }
-
-            /* --- 5. DROPPED ITEM CARD (MINI CARD) --- */
             .wc-drop-zone .pro-item-card {
                 background: white;
                 border: 1px solid var(--border-color);
@@ -190,16 +164,12 @@
                 border-color: #cbd5e1;
                 border-left-color: var(--primary-blue);
             }
-
-            /* --- 6. DRAG PREVIEW (GHOST) --- */
             .sortable-ghost {
                 opacity: 0.4;
                 background-color: #e2e8f0 !important;
                 border: 2px dashed var(--text-secondary) !important;
             }
             .sortable-drag { opacity: 1 !important; background: transparent; }
-            
-            /* Custom Drag Preview Element */
             .drag-preview-icon {
                 background: white;
                 padding: 10px 15px;
@@ -210,9 +180,6 @@
                 width: max-content;
                 transform: rotate(2deg);
             }
-
-            /* --- 7. HIDE/SHOW LOGIC (LOGIC JS DEPENDENCY) --- */
-            /* Ini css kritis agar logika JS sebelumnya tetap jalan */
             .wc-drop-zone .pro-item-card .table-col,
             .wc-drop-zone .pro-item-card .drag-handle,
             .wc-drop-zone .pro-item-card .preview-container .original-content,
@@ -223,16 +190,11 @@
 
             .source-table .pro-item .card-view-content { display: none; }
             .source-table .pro-item .drag-preview-icon { display: none; }
-
-            /* Scrollbar Refinement */
             ::-webkit-scrollbar { width: 6px; }
             ::-webkit-scrollbar-track { background: transparent; }
             ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
             ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-            /* FIX EMPTY TABLE DRAG BUG */
             #source-list {
-                /* table-row-group ignores height, so we use block when empty or rely on content */
             }
             #source-list:empty {
                display: block;
@@ -255,7 +217,7 @@
             }
             
             .table-scroll-area {
-                min-height: 200px;
+                min-height: 150px;
             }
         </style>
     @endpush
@@ -265,8 +227,8 @@
         {{-- PAGE HEADER & ACTIONS --}}
         <div class="d-flex justify-content-between align-items-end mb-4">
             <div>
-                <h1 class="h4 fw-bolder text-dark mb-1">Create Work Instruction</h1>
-                <p class="text-muted small mb-0">Drag PRO from the list and drop into target Workcenters.</p>
+                <h1 class="h4 fw-bolder text-dark mb-1">Work Instruction</h1>
+                <p class="text-muted small mb-0">Drag PRO untuk membuat Work Instruction.</p>
             </div>
             
             <div class="d-flex gap-2 bg-white p-1 rounded-pill shadow-sm border">
@@ -296,13 +258,13 @@
                                 <i class="fa-solid fa-list-ul"></i>
                             </div>
                             <div>
-                                <h6 class="mb-0 fw-bold text-dark">Unassigned Orders</h6>
+                                <h6 class="mb-0 fw-bold text-dark">List PRO Siap WI</h6>
                             </div>
                         </div>
 
                         <div class="search-input-group px-3 py-1 d-flex align-items-center" style="width: 350px;">
                             <i class="fa-solid fa-magnifying-glass text-muted me-2"></i>
-                            <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Search Material, PRO, or SO...">
+                            <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Cari Material, PRO, or SO...">
                         </div>
 
                         {{-- FILTER DISABLED TEMPORARILY (DEFAULT ALL) --}}
@@ -316,8 +278,6 @@
                         </div> 
                         --}}
                     </div>
-
-                    {{-- Table Content --}}
                     <div class="table-scroll-area custom-scrollbar" style="max-height: 700px; overflow-y: auto;">
                         <table class="table table-hover table-striped source-table mb-0 w-100" style="font-size: 0.8rem;">
                             <thead class="bg-light sticky-top" style="z-index: 5;">
@@ -325,14 +285,14 @@
                                     <th class="text-center ps-3" width="40">
                                         <input class="form-check-input pointer" type="checkbox" id="selectAll">
                                     </th>
-                                    <th class="ps-3">PRO Number</th>
+                                    <th class="ps-3">PRO</th>
                                     <th>SO-Item</th>
                                     <th>Material Description</th>
                                     <th class="text-center">WC</th>
                                     <th class="text-center">Op.Key</th>
                                     <th class="text-center">Qty Opt</th>
                                     <th class="text-center">Qty Conf</th>
-                                    <th class="text-center">Qty Sisa</th> {{-- RENAMED FROM QTY WI --}}
+                                    <th class="text-center">Qty Sisa</th> 
                                     <th class="text-center">Time Req</th>
                                 </tr>
                             </thead>
@@ -422,31 +382,30 @@
                     
                     <div class="row g-3 align-items-center mb-3">
                         <div class="col-5">
-                            <label class="small fw-bold text-muted mb-1">Current WC</label>
+                            <label class="small fw-bold text-muted mb-1">Worckenter saat ini</label>
                             <input type="text" class="form-control bg-light" id="mismatchCurrentWC" readonly>
                         </div>
                         <div class="col-2 text-center">
                             <i class="fa-solid fa-arrow-right text-muted"></i>
                         </div>
                         <div class="col-5">
-                            <label class="small fw-bold text-primary mb-1">New Target WC</label>
+                            <label class="small fw-bold text-primary mb-1">Target Workcenter</label>
                             <input type="text" class="form-control border-primary bg-primary bg-opacity-10 text-primary fw-bold" id="mismatchTargetWC" readonly>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light p-2">
                     <button type="button" class="btn btn-white text-muted fw-bold btn-sm shadow-sm border" id="btnCancelMismatch">
-                        Cancel Drop
+                        Batalkan Pemindahan
                     </button>
                     <button type="button" class="btn btn-warning fw-bold btn-sm shadow-sm" id="btnChangeWC">
-                        Change Workcenter
+                        Ubah Workcenter
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- MODAL ASSIGNMENT --}}
     <div class="modal fade" id="uniqueAssignmentModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow-lg">
@@ -454,9 +413,8 @@
                     <h6 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>Assign Operator</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                {{-- Helper Select Template (Hidden) --}}
                 <select id="employeeTemplateSelect" class="d-none">
-                    <option value="" selected disabled>Choose Person...</option>
+                    <option value="" selected disabled>Pilih Operator...</option>
                     @foreach ($employees as $emp)
                         <option value="{{ $emp['pernr'] }}" data-name="{{ $emp['stext'] }}">
                             {{ $emp['pernr'] }} - {{ $emp['stext'] }}
@@ -466,32 +424,30 @@
                 <div class="modal-body bg-light p-3">
                     <div class="bg-white p-3 rounded-3 shadow-sm border mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                             <div class="fw-bold" id="modalProDetails"></div> {{-- Dynamic Title --}}
+                             <div class="fw-bold" id="modalProDetails"></div>
                         </div>
                         <div id="bulkWarning" class="alert alert-info d-none text-xs p-2 mb-0 border-0 bg-info bg-opacity-10 text-info rounded fw-bold">
-                            <i class="fa-solid fa-list-check me-1"></i> Bulk Assignment Mode
+                            <i class="fa-solid fa-list-check me-1"></i> Mode Pemetaan Massal
                         </div>
                     </div>
 
-                    {{-- Card Container for Assignments --}}
                     <div id="assignmentCardContainer" class="bg-white rounded border shadow-sm p-3 custom-scrollbar" style="max-height: 500px; overflow-y: auto;">
                         {{-- Cards injected by JS --}}
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-2 bg-white d-flex">
-                    <button type="button" class="btn btn-outline-danger btn-sm flex-fill fw-bold" id="btnCancelDrop">Cancel</button>
-                    <button type="button" class="btn btn-success btn-sm flex-fill fw-bold shadow-sm" id="btnConfirmFinalAssignment">Confirm</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm flex-fill fw-bold" id="btnCancelDrop">Batal</button>
+                    <button type="button" class="btn btn-success btn-sm flex-fill fw-bold shadow-sm" id="btnConfirmFinalAssignment">Simpan</button>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- MODAL PREVIEW (STYLE UPDATE) --}}
     <div class="modal fade" id="previewModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
                 <div class="modal-header bg-primary text-white border-0 py-3">
-                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-clipboard-check me-2"></i>Review & Finalize</h5>
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-clipboard-check me-2"></i>Tinjau ulang pemetaan</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4 bg-light">
@@ -499,41 +455,60 @@
                         <div class="card-body p-3">
                             <div class="row g-3 align-items-end">
                                 <div class="col-md-3">
-                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Document Date</label>
-                                    <input type="date" class="form-control form-control-sm fw-bold text-dark" id="wiDocumentDate" required>
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Document</label>
+                                    <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-date" id="wiDocumentDate" required>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Effective Time</label>
-                                    <input type="time" class="form-control form-control-sm fw-bold text-dark" id="wiDocumentTime" required>
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Waktu Mulai WI</label>
+                                    <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-time" id="wiDocumentTime" required>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="d-flex align-items-center text-info small bg-info bg-opacity-10 p-2 rounded">
-                                        <i class="fa-solid fa-circle-info me-2 fs-5"></i>
-                                        <div>Document expires <strong>12 hours</strong> after the effective time. Ensure operator shifts are covered.</div>
+                                    <div class="d-flex align-items-center text-danger small bg-danger bg-opacity-10 p-2 rounded">
+                                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i>
+                                        <div>Dokumen akan kadaluarsa <strong>12 Jam</strong> sesuai jadwal. Pastikan jadwal operator sudah benar.</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <h6 class="fw-bold text-dark mb-3 ps-1">Assignment Summary</h6>
+                    <h6 class="fw-bold text-dark mb-3 ps-1">Ringkasan Pembuatan Dokumen WI</h6>
                     <div id="previewContent" class="row g-3">
                         {{-- Content Injected Here --}}
                     </div>
                     
                     <div id="emptyPreviewWarning" class="alert alert-warning d-none mt-3 text-center border-0 shadow-sm">
-                        <i class="fa-solid fa-triangle-exclamation me-2"></i> No Work Instructions generated. Please drag PROs to Workcenters first.
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i> Tidak ada data yang dimasukkan, silahkan cek kembali tim anda
                     </div>
                 </div>
                 <div class="modal-footer bg-white border-top-0 py-3">
-                    <button type="button" class="btn btn-light fw-bold text-muted" data-bs-dismiss="modal">Go Back</button>
+                    <button type="button" class="btn btn-light fw-bold text-muted" data-bs-dismiss="modal">Kembali</button>
                     <button type="button" class="btn btn-primary fw-bold px-4 shadow-sm" id="btnFinalSave">
-                        <i class="fa-solid fa-paper-plane me-2"></i>Generate & Save WI
+                        <i class="fa-solid fa-paper-plane me-2"></i>Buat dan simpan WI
                     </button>
                 </div>
             </div>
         </div>
     </div>
+    
+    @push('scripts')
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            flatpickr(".flatpickr-date", {
+                dateFormat: "Y-m-d",
+                minDate: "today",
+                defaultDate: "today"
+            });
+            flatpickr(".flatpickr-time", {
+                enableTime: true,
+                noCalendar: true,
+                dateFormat: "H:i",
+                time_24hr: true,
+                defaultDate: "07:00"
+            });
+        });
+    </script>
+    @endpush
 
     @push('scripts')
         <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -796,8 +771,8 @@
                         <div class="card-body p-2 bg-light">
                             <!-- Summary Bar -->
                             <div class="d-flex justify-content-between small px-2 mb-2 text-muted fw-bold">
-                                <span>Assigned: <span class="text-success qty-assigned">0</span></span>
-                                <span>Remaining: <span class="text-danger qty-remaining">${rSisa}</span></span>
+                                <span>Ditugaskan: <span class="text-success qty-assigned">0</span></span>
+                                <span>Sisa Qty: <span class="text-danger qty-remaining">${rSisa}</span></span>
                             </div>
                             
                             <!-- Rows Container -->
@@ -836,17 +811,12 @@
                         </div>
                     `;
                     container.appendChild(card);
-                    
-                    // Initial update for uniqueness
                     if(hasChildren) updateChildWCOptions(rAufnr);
-                    updateEmpOptions(rAufnr); // Init NIK filter
+                    updateEmpOptions(rAufnr);
                 });
 
                 assignmentModalInstance.show();
             }
-
-            // NEW: Add Split Row Function (With Lock Logic)
-            // REDESIGN: Add Assignment Row to Card
             window.addAssignmentRow = function(aufnr) {
                 // Find Card
                 const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
@@ -861,16 +831,12 @@
                 // Reset inputs in new row
                 const empSelect = newRow.querySelector('.emp-select');
                 empSelect.value = "";
-                empSelect.onchange = function() { updateEmpOptions(aufnr); }; // Re-attach listener
+                empSelect.onchange = function() { updateEmpOptions(aufnr); };
                 
                 const childSelect = newRow.querySelector('.child-select');
                 childSelect.value = "";
-                childSelect.disabled = false; // Enable initially
-                childSelect.onchange = function() { updateChildWCOptions(aufnr); }; // Re-attach listener
-                // Note: cloneNode(true) copies inline listeners so 'onchange' is preserved, 
-                // but if disabled was copied, we need to handle that.
-                // Assuming child select content is static for now, we will refresh options in updateChildWCOptions.
-                
+                childSelect.disabled = false;
+                childSelect.onchange = function() { updateChildWCOptions(aufnr); };
                 const qtyInput = newRow.querySelector('.qty-input');
                 qtyInput.value = ""; // Empty for user to fill
                 qtyInput.placeholder = "0";
@@ -1072,20 +1038,11 @@
 
                     // Trigger Streaming Process
                     await executeBulkChangeStream(targetWc, proData);
-
-                    // CHAIN: Auto-Proceed to Drop logic after change
-                    // 1. Manually update DOM items to reflect new WC
                     itemsToProcess.forEach(item => {
                          const pendingRows = document.querySelectorAll(`[data-aufnr="${item.dataset.aufnr}"]`);
                          pendingRows.forEach(r => {
                             r.dataset.arbpl = targetWc;
                             const badge = r.querySelector('.badge.bg-light.text-dark'); // WC Badge
-                            // Also update badge inside card preview if exists?
-                            // No, source_table_rows structure: td -> span.badge
-                            // Card preview structure doesn't show Arbpl currently (simplified).
-                            // But table row does.
-                            // The selector `.badge.bg-light.text-dark` targets the Arbpl badge in the table row (col 5/6).
-                            // Let's be safe.
                             if(badge && badge.innerText.trim() !== targetWc) badge.innerText = targetWc; 
                         });
                     });
@@ -1210,9 +1167,6 @@
                         
                         // Collect Assignment
                         if (nik && qty > 0) {
-                            // Find original Item for this AUFNR from Cache
-                            // Logic: draggedItemsCache contains items. We need to find the one matching AUFNR.
-                            // If bulk dragging multiple items with same PRO/AUFNR is impossible (it is), then finding by AUFNR is safe.
                             const item = draggedItemsCache.find(i => i.dataset.aufnr == aufnr); 
                             
                             if (item) {
@@ -1240,13 +1194,8 @@
                      Swal.fire('Validation Error', validationErrors.length > 0 ? validationErrors.join('<br>') : 'Please complete all fields correctly.', 'warning');
                      return;
                 }
-
-                // EXECUTE MOVE
-                // Group assignments by Item (using Item DOM reference as key/id)
                  const groupedAssignments = {};
                 assignments.forEach(a => {
-                    // Use a unique ID on the dataset to group. If not present, use AUFNR (safe if unique in drag list).
-                    // Best is AUFNR.
                     if (!groupedAssignments[a.item.dataset.aufnr]) groupedAssignments[a.item.dataset.aufnr] = [];
                     groupedAssignments[a.item.dataset.aufnr].push(a);
                 });
@@ -1304,12 +1253,6 @@
                 
                 assignmentModalInstance.hide();
             }
-
-
-            /**
-             * Memperbarui atribut data-assigned-child-wcs pada SEMUA row dengan AUFNR yang sama.
-             * Ini penting untuk filtering dropdown pada split selanjutnya.
-             */
             function updateAssignedChildWCs(aufnr, newChildWc) {
                 if (!newChildWc) return;
 
@@ -1331,31 +1274,19 @@
             }
 
 
-            window.cancelDrop = function() { // Exposed globally for button onclick
-                // LOGGING: Drop Dibatalkan
+            window.cancelDrop = function() { 
                 console.log("Assignment cancelled. Returning items to source and resetting splits.");
-
-                // 1. Tambahkan Qty dari tempSplits kembali ke currentSisaQty
                 const qtyToReturn = tempSplits.reduce((sum, split) => sum + split.qty, 0);
                 currentSisaQty += qtyToReturn;
                 tempSplits = [];
-
-                // Dapatkan item asli (hanya ada 1 di draggedItemsCache saat single drop)
                 const item = draggedItemsCache[0];
-
-                // 2. Kembalikan item yang di-drag ke tabel sumber
                 if (sourceContainerCache) sourceContainerCache.appendChild(item);
-
-                // Reset status data yang mungkin sudah terubah di handleDropToWc
                 item.dataset.employeeNik = "";
                 item.dataset.employeeName = "";
                 item.dataset.childWc = "";
                 item.dataset.assignedQty = 0;
                 const originalQtyForModal = (parseFloat(item.dataset.sisaQty) || 0) + qtyToReturn;
-
                 item.dataset.sisaQty = originalQtyForModal;
-
-                // Perbarui tampilan di tabel sumber
                 const sisaCell = item.querySelector('.col-sisa-qty');
                 if (sisaCell) {
                     sisaCell.innerText = originalQtyForModal.toLocaleString('id-ID');
@@ -1364,20 +1295,13 @@
                 }
 
                 transformToTableView(item);
-
-                // Clear cache
                 draggedItemsCache = [];
                 currentSisaQty = 0;
-
-                // 3. Tutup modal
                 assignmentModalInstance.hide();
             }
 
             function resetAllAllocations() {
-                if (!confirm('Are you sure want to reset all assigned PROs to table?')) return;
-
-                console.log("Resetting ALL allocations.");
-
+                if (!confirm('Apakah Anda yakin ingin mereset semua PRO yang ditugaskan ke table?')) return;
                 const allWcContainers = Array.from(document.querySelectorAll('.wc-card-container'));
 
                 allWcContainers.forEach(wcContainer => {
@@ -1388,13 +1312,9 @@
                     items.forEach(item => {
                         const originalQtyOpr = parseFloat(item.dataset.qtyOpr) || 0;
                         const aufnr = item.dataset.aufnr;
-
-                        // Cari item yang tersisa/asli di source list
                         let existingSourceItem = sourceList.querySelector(`tr.pro-item[data-aufnr="${aufnr}"]`);
 
                         if (existingSourceItem) {
-                            // Kasus 1: Item asli sudah dikloning kembali sebagai sisa Qty di sourceList.
-                            // Tambahkan Qty item yang dihapus ke Sisa Qty item yang ADA di source list.
                             let currentSisaQty = parseFloat(existingSourceItem.dataset.sisaQty) || 0;
                             const qtyAssignedDiHapus = parseFloat(item.dataset.assignedQty) || 0;
                             const newSisaQty = currentSisaQty + qtyAssignedDiHapus;
@@ -1413,8 +1333,6 @@
                             item.remove();
 
                         } else {
-                            // Kasus 2: Item asli ADA di WC (terjadi jika tidak ada split, atau item yang ada di WC adalah yang pertama/asli).
-                            // Kembalikan ke source list
                             sourceList.appendChild(item);
 
                             // Reset data atribut
@@ -1442,33 +1360,24 @@
             }
 
             function handleReturnToTable(item, fromContainer) {
-                // Modifikasi: Mendukung pemanggilan dari onAdd Sortable (dimana item sudah pindah secara DOM)
-                // Jika dipanggil dari onAdd, item sudah ada di source-list, jadi tidak perlu appendChild lagi.
                 
                 const wcId = fromContainer ? fromContainer.closest('.wc-card-container').dataset.wcId : 'Unknown';
                 const returnedChildWc = item.dataset.childWc;
-                // Cari apakah ada item induk/sisa lain di source list
                 const existingSourceItems = document.querySelectorAll(`#source-list .pro-item[data-aufnr="${item.dataset.aufnr}"]`);
                 let sourceItem = null;
-                
-                // Cari item lain selain item yang sedang di-return (jika ada)
                 existingSourceItems.forEach(el => {
                     if(el !== item) sourceItem = el;
                 });
 
                 const returnedQty = parseFloat(item.dataset.assignedQty) || 0;
-                
-                // Jika item sudah di table (via drag back), kita update logicnya
+
                 const targetItemToUpdate = sourceItem || item;
                 let sisaQtyOriginal = parseFloat(targetItemToUpdate.dataset.sisaQty) || 0;
-                
-                // Jangan tambah Qty jika targetnya adalah item itu sendiri dan qty-nya belum dikurangi (masih full)
-                // Tapi logika di sini asumsinya item yang balik adalah item 'Allocated' yang assignedQty-nya > 0
+        
                 if (returnedQty > 0) {
                      sisaQtyOriginal = parseFloat((sisaQtyOriginal + returnedQty).toFixed(3));
                 } else if (targetItemToUpdate === item && returnedQty === 0) {
-                     // Ini kasus item baru di drag tapi belum di assign (misal cancel modal), biasanya dicover cancelDrop
-                     // Tapi jika via drag back, kita pastikan qty sisa benar.
+
                 }
 
                 targetItemToUpdate.dataset.sisaQty = sisaQtyOriginal;
@@ -1538,7 +1447,7 @@
             }
 
             function transformToCardView(row) {
-                row.classList.remove('draggable-item');3015
+                row.classList.remove('draggable-item');
                 row.classList.add('pro-item-card');
                 row.querySelectorAll('.table-col').forEach(el => el.style.display = 'none');
                 row.querySelector('.card-view-content').style.display = 'block';
@@ -1763,6 +1672,9 @@
                                 kapaz: item.dataset.kapaz || '0',
                                 vgw01: item.dataset.vgw01 || '0',
                                 vge01: item.dataset.vge01 || '',
+                                name1: item.dataset.name1 || 'N/A',
+                                netpr: item.dataset.netpr || '0',
+                                waerk: item.dataset.waerk || 'N/A',
                                 calculated_tak_time: takTimeMins.toFixed(2),
                                 status_pro_wi: 'Created',
                                 workcenter_induk: item.dataset.arbpl || wcId,

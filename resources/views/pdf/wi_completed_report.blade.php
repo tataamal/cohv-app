@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Production Expired Report</title>
+    <title>Production Completed Report</title>
     <style>
         /* --- PAGE SETUP --- */
         @page { size: A4 landscape; margin: 5mm; }
@@ -30,7 +30,7 @@
         
         /* Judul Laporan di Kanan */
         .report-type-display {
-            font-size: 18pt; font-weight: 900; color: #008000; letter-spacing: 1px; text-transform: uppercase;
+            font-size: 18pt; font-weight: 900; color: #0ea5e9; letter-spacing: 1px; text-transform: uppercase;
         }
 
         /* --- INFO BAR --- */
@@ -40,7 +40,7 @@
         }
         .info-val { color: #000; margin-left: 5px; font-weight: normal; }
 
-        /* --- SUMMARY SECTION (Special for Expired Report) --- */
+        /* --- SUMMARY SECTION --- */
         .summary-header td {
             background-color: #e9ecef; text-align: center; font-size: 8pt; font-weight: bold; text-transform: uppercase;
         }
@@ -87,7 +87,7 @@
                 </table>
             </td>
             <td class="header-right">
-                <div class="report-type-display">EXPIRED SUMMARY</div>
+                <div class="report-type-display">COMPLETED SUMMARY</div>
             </td>
         </tr>
     </table>
@@ -96,8 +96,8 @@
         <tr class="info-bar">
             <td width="25%">BAGIAN: <span class="info-val fw-bold">{{ strtoupper($department) }}</span></td>
             <td width="25%">USER: <span class="info-val fw-bold">{{ strtoupper($printedBy) }}</span></td>
-            <td width="25%">PRINT DATE: <span class="info-val">{{ $printDate }}</span></td>
-            <td width="25%" style="border-right: none;">TOTAL ITEM: <span class="info-val fw-bold">{{ count($items) }} Documents</span></td>
+            <td width="25%">TANGGAL PRINT: <span class="info-val">{{ $printDate }}</span></td>
+            <td width="25%" style="border-right: none;">TOTAL DOCUMENT WI : <span class="info-val fw-bold">{{ collect($items)->unique('wi_code')->count() }}</span></td>
         </tr>
     </table>
 
@@ -130,13 +130,10 @@
                 <th width="4%">Qty. WI</th>
                 <th width="4%">Qty. Conf</th>
                 <th width="4%">Sisa</th>
-                <th width="5%">STATUS</th>
             </tr>
         </thead>
         <tbody>
             @php
-                // Hitung sisa baris agar tabel penuh ke bawah
-                // Summary mengambil tempat, jadi minRows dikurangi sedikit dibanding single doc
                 $minRows = 10; 
                 $itemCount = count($items);
                 $rowsToFill = max(0, $minRows - $itemCount);
@@ -157,13 +154,9 @@
                 <td class="text-center fw-bold {{ $row['balance'] > 0 ? 'text-danger' : '' }}">
                     {{ floatval($row['balance']) }}
                 </td>
-                <td class="text-center" style="font-size: 7pt;">
-                    {{ strtoupper($row['remark']) }}
-                </td>
             </tr>
             @endforeach
 
-            {{-- AUTO FILL ROWS --}}
             @for($i = 0; $i < $rowsToFill; $i++)
             <tr class="data-row">
                 <td class="text-center">&nbsp;</td>

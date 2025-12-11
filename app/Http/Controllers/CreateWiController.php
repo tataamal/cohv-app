@@ -15,9 +15,6 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class CreateWiController extends Controller
 {
-    /**
-     * Delete WI Documents.
-     */
     public function delete(Request $request) {
         $ids = $request->input('wi_codes');
         if (!$ids || !is_array($ids)) {
@@ -36,13 +33,9 @@ class CreateWiController extends Controller
             return response()->json(['message' => 'Failed to delete documents: ' . $e->getMessage()], 500);
         }
     }
-
-    /**
-     * Menampilkan halaman utama Work Instruction (Drag & Drop).
-     */
     public function index(Request $request, $kode)
     {
-        $filter = $request->query('filter', 'all'); // Default filter: all (modified from today)
+        $filter = $request->query('filter', 'all');
         $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
         $apiToken = env('API_TOKEN_NIK'); 
         $employees = []; 
@@ -79,32 +72,11 @@ class CreateWiController extends Controller
         } elseif ($filter === 'week') {
             $tData1->whereBetween('SSAVD', [now()->startOfWeek(), now()->endOfWeek()]);
         }
-        
-        // Use pagination instead of get() to handle lazy loading
-        // We need to fetch all matching IDs first to do the filtering logic (because filtering depends on Relation/Calculation not DB column)
-        // OR, we can try to filter AFTER GET, but that breaks pagination count.
-        // For accurate pagination with custom filtering (assigned Check), we load potentially more and slice manualy 
-        // OR we just paginate the DB query and filter the result. This might result in pages with fewer items than Limit.
-        // Let's stick to paginate the initial query, filter it, and if it's empty, user scrolls more. Simple for now.
-        
-        // Actually, the request is for lazy loading. 
-        $perPage = 50;
+        $perPage = 30;
         $page = $request->input('page', 1);
-        
-        // Get data
-        $tDataQuery = $tData1; // Keep builder
-        // We cannot use standard paginate() easily if we are going to filter items out in PHP after fetching.
-        // So we will fetch a chunk, filter it, and return.
-        
-        // Improved approach: Fetch with skip/take but we need to account for filtered items? 
-        // No, standard pagination on DB level is safer for performance. Filtered items (fully assigned) will just be hidden.
-        
-        // Let's paginate the query
+        $tDataQuery = $tData1;
         $pagination = $tDataQuery->paginate($perPage); 
-    
         $assignedProQuantities = $this->getAssignedProQuantities($kode);
-
-        // Transform collection (Add Qty Info & Filter)
         $processedCollection = $pagination->getCollection()->transform(function ($item) use ($assignedProQuantities) {
             $aufnr = $item->AUFNR;
             $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
@@ -114,7 +86,7 @@ class CreateWiController extends Controller
             $item->qty_wi = $qtyAllocatedInWi; 
             return $item;
         })->filter(function ($item) {
-             return $item->real_sisa_qty > 0.001; // Filter out completed items
+             return $item->real_sisa_qty > 0.001; 
         });
 
         if ($request->ajax()) {
@@ -132,7 +104,7 @@ class CreateWiController extends Controller
         return view('create-wi.index', [
             'kode'                 => $kode,
             'employees'            => $employees,
-            'tData1'               => $processedCollection, // Send first page processed
+            'tData1'               => $processedCollection,
             'workcenters'          => $workcenters,
             'parentWorkcenters'    => $parentWorkcenters,
             'currentFilter'        => $filter,
@@ -226,14 +198,16 @@ class CreateWiController extends Controller
         $expiredAt = $dateTime->copy()->addHours(12);
         $dateForDb = $dateTime->toDateString();
         $timeForDb = $dateTime->toTimeString();
+        $year = $dateTime->year; // Get Year
         
         $wiDocuments = [];
 
         try {
             foreach ($payload as $wcAllocation) {
                 $workcenterCode = $wcAllocation['workcenter'];
-                DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $expiredAt, $wcAllocation, &$wiDocuments) {
+                DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, &$wiDocuments) {
                     $latestHistory = HistoryWi::where('wi_document_code', 'LIKE', $docPrefix . '%')
+                        ->where('year', $year) // Scope to current year
                         ->orderByRaw('LENGTH(wi_document_code) DESC')
                         ->orderBy('wi_document_code', 'desc')
                         ->lockForUpdate() 
@@ -255,8 +229,9 @@ class CreateWiController extends Controller
                         'document_date' => $dateForDb,
                         'document_time' => $timeForDb,       
                         'expired_at' => $expiredAt->toDateTimeString(),
-                        'sequence_number' => $nextNumber, // Simpan urutan angka saja
-                        'payload_data' => $wcAllocation['pro_items'], // Asumsi kolom ini sudah dicasting array/json di Model
+                        'sequence_number' => $nextNumber, 
+                        'payload_data' => $wcAllocation['pro_items'], 
+                        'year' => $year // Save Year
                     ]);
                     
                     $wiDocuments[] = [
@@ -292,7 +267,17 @@ class CreateWiController extends Controller
         $query = HistoryWi::where('plant_code', $plantCode);
 
         if ($request->filled('date')) {
-            $query->whereDate('document_date', $request->date);
+            $dateInput = $request->date;
+            if (strpos($dateInput, ' to ') !== false) {
+                $dates = explode(' to ', $dateInput);
+                if (count($dates) == 2) {
+                    $query->whereBetween('document_date', [$dates[0], $dates[1]]);
+                } elseif (count($dates) == 1) {
+                    $query->whereDate('document_date', $dates[0]);
+                }
+            } else {
+                $query->whereDate('document_date', $dateInput);
+            }
         }
 
         if ($request->filled('search')) {
@@ -371,7 +356,9 @@ class CreateWiController extends Controller
 
                 $summary['details'][] = [
                     'aufnr'         => $item['aufnr'] ?? '-',
-                    'material'      => $item['material_desc'] ?? ($item['material'] ?? '-'), // Sesuaikan key JSON
+                    'material'      => $item['material_desc'] ?? ($item['material'] ?? '-'),
+                    'nik'           => $item['nik'] ?? '-',
+                    'name'          => $item['name'] ?? '-',
                     'description'   => $item['material_desc'] ?? '', 
                     'assigned_qty'  => $assignedQty,
                     'confirmed_qty' => $confirmedQty,
@@ -446,13 +433,9 @@ class CreateWiController extends Controller
 
             $updated = false;
             $materialName = '';
-
-            // --- FUNGSI HELPER PARSING ANGKA (Sama dengan logika History) ---
             $parseNumber = function($value) {
                 if (is_numeric($value)) return floatval($value);
                 $string = (string) $value;
-                
-                // Deteksi format Indonesia (Ribuan titik, Desimal koma) vs Inggris
                 if (strpos($string, '.') !== false && strpos($string, ',') !== false) {
                     if (strrpos($string, ',') > strrpos($string, '.')) {
                         $string = str_replace('.', '', $string); 
@@ -465,9 +448,6 @@ class CreateWiController extends Controller
                 }
                 return floatval($string);
             };
-            // ---------------------------------------------------
-
-            // 3. Loop Item & Update
             foreach ($payload as &$item) {
                 if ($item['aufnr'] === $request->aufnr) {
                 $maxQty = $parseNumber($item['qty_order'] ?? 0);
@@ -522,29 +502,151 @@ class CreateWiController extends Controller
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
-    
-    public function printPdf(Request $request, $plantCode)
+    public function previewLog(Request $request, $plantCode)
     {
         $date = $request->input('filter_date');
         $search = $request->input('filter_search');
         $query = HistoryWi::where('plant_code', $plantCode);
 
         if ($date) {
-            $query->whereDate('created_at', $date);
+            if (strpos($date, ' to ') !== false) {
+                $dates = explode(' to ', $date);
+                if (count($dates) == 2) {
+                    $query->whereBetween('document_date', [$dates[0], $dates[1]]);
+                } else {
+                    $query->whereDate('document_date', $dates[0]);
+                }
+            } else {
+                $query->whereDate('document_date', $date);
+            }
         }
         if ($search) {
             $query->where(function($q) use ($search) {
-                $q->where('wi_document_code', 'like', "%$search%") // Sesuaikan nama kolom
-                ->orWhere('payload_data', 'like', "%$search%"); // Search di dalam JSON
+                $q->where('wi_document_code', 'like', "%$search%") 
+                ->orWhere('payload_data', 'like', "%$search%"); 
             });
         }
-        $rawDocuments = $query->orderBy('created_at', 'desc')->get();
-        $reportData = [];
+        // Limit preview to 50 rows to avoid heavy payload
+        $rawDocuments = $query->orderBy('created_at', 'desc')->take(50)->get();
+        $previewData = $this->_prepareLogData($rawDocuments);
 
-        foreach ($rawDocuments as $doc) {
-            if (empty($doc->payload_data) || !is_array($doc->payload_data)) {
-                continue;
+        return response()->json([
+            'success' => true,
+            'data' => $previewData,
+            'count' => count($previewData), // This is partial count
+            'total_docs' => $query->count()
+        ]);
+    }
+
+    // 2. Email Log (Generate CSV & Send)
+    public function emailLog(Request $request, $plantCode)
+    {
+        $date = $request->input('filter_date');
+        $search = $request->input('filter_search');
+        
+        // --- 1. Generate Data ---
+        $query = HistoryWi::where('plant_code', $plantCode);
+        if ($date) {
+            if (strpos($date, ' to ') !== false) {
+                $dates = explode(' to ', $date);
+                if (count($dates) == 2) {
+                    $query->whereBetween('document_date', [$dates[0], $dates[1]]);
+                } else {
+                    $query->whereDate('document_date', $dates[0]);
+                }
+            } else {
+                $query->whereDate('document_date', $date);
             }
+        }
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('wi_document_code', 'like', "%$search%") 
+                ->orWhere('payload_data', 'like', "%$search%"); 
+            });
+        }
+        $documents = $query->orderBy('created_at', 'desc')->get();
+        $csvData = $this->_prepareLogData($documents);
+
+        if (empty($csvData)) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada data untuk diexport.']);
+        }
+
+        // --- 2. Create PDF File (DOMPDF) ---
+        try {
+            $fileName = 'log_wi_' . now()->format('Ymd_His') . '.pdf';
+            $filePath = storage_path('app/public/' . $fileName);
+            
+            $printedBy = $request->input('printed_by') ?? session('username');
+            $department = $request->input('department') ?? '-';
+            
+            // Filter Info String
+            $filterInfo = [];
+            if($date) $filterInfo[] = "Date: " . $date;
+            if($search) $filterInfo[] = "Search: $search";
+            $filterString = empty($filterInfo) ? "All Data" : implode(', ', $filterInfo);
+
+            // Calculations for Summary
+            $totalAssigned = collect($csvData)->sum('assigned');
+            $totalConfirmed = collect($csvData)->sum('confirmed'); 
+            $totalFailed = $totalAssigned - $totalConfirmed;
+            $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+            
+            // Prepare Data for View
+            $pdfData = [
+                'items' => $csvData,
+                'summary' => [
+                    'total_assigned' => $totalAssigned,
+                    'total_confirmed' => $totalConfirmed,
+                    'total_failed' => $totalFailed,
+                    'achievement_rate' => $achievement
+                ],
+                'printedBy' => $printedBy,
+                'department' => $department,
+                'printDate' => now()->format('d-M-Y H:i'),
+                'filterInfo' => $filterString
+            ];
+            
+            // Generate PDF
+            $pdf = Pdf::loadView('pdf.log_history', $pdfData)
+                    ->setPaper('a4', 'landscape');
+            
+            $pdf->save($filePath);
+
+            // --- 3. Send Email ---
+            $recipients = [
+                // 'finc.smg@pawindo.com',
+                // 'kmi356smg@gmail.com',
+                // 'adm.mkt5.smg@pawindo.com',
+                // 'lily.smg@pawindo.com',
+                'tataamal1128@gmail.com'
+            ];
+            
+            $dateInfo = $date ? $date : 'All History';
+
+            \Illuminate\Support\Facades\Mail::to($recipients)->send(new \App\Mail\LogHistoryMail($filePath, $dateInfo));
+
+            // Clean up file if needed
+            // unlink($filePath); 
+
+            return response()->json(['success' => true, 'message' => 'Log berhasil diexport (PDF) dan dikirim ke email.']);
+
+        } catch (\Exception $e) {
+            Log::error("Email Log Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Gagal mengirim email: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // Helper to format data
+    private function _prepareLogData($documents)
+    {
+        $reportData = [];
+        $today = Carbon::today();
+
+        foreach ($documents as $doc) {
+            if (empty($doc->payload_data) || !is_array($doc->payload_data)) continue;
+
+            $docDate = Carbon::parse($doc->document_date)->startOfDay();
+            $expiredAt = Carbon::parse($doc->expired_at);
 
             foreach ($doc->payload_data as $item) {
                 $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
@@ -552,54 +654,84 @@ class CreateWiController extends Controller
                 $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
                 $soItem = $kdauf . '-' . $kdpos;
                 $matnr = $item['material_number'] ?? '';
-                if(ctype_digit($matnr)) { 
-                    $matnr = ltrim($matnr, '0'); 
+                if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
+                $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
+                $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
+                $balance = $assigned - $confirmed;
+                $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
+                $waerk = isset($item['waerk']) ? $item['waerk'] : '';
+                
+                // Price Calculation
+                $confirmedPrice = $netpr * $confirmed;
+                $failedPrice = $netpr * $balance;
+                
+                if (strtoupper($waerk) === 'USD') {
+                    $priceFormatted = '$ ' . number_format($confirmedPrice, 2);
+                    $prefixInfo = '$ ';
+                } elseif (strtoupper($waerk) === 'IDR') {
+                    $priceFormatted = 'Rp ' . number_format($confirmedPrice, 0, ',', '.');
+                    $prefixInfo = 'Rp ';
+                } else {
+                    $priceFormatted = $confirmedPrice; 
+                    $prefixInfo = '';
                 }
+
                 $qtyOper = isset($item['qty_order']) ? floatval($item['qty_order']) : 0;
-                $qtyWi = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
+
+                // Time Calculation
                 $baseTime = isset($item['vgw01']) ? floatval($item['vgw01']) : 0;
                 $unit = isset($item['vge01']) ? strtoupper($item['vge01']) : '';
-                $totalTime = $baseTime * $qtyWi;
+                
+                $totalTime = $baseTime * $assigned;
                 if ($unit == 'S' || $unit == 'SEC') {
-                    $finalTime = $totalTime / 60; 
-                    $finalUnit = 'Menit';
+                    $finalTime = $totalTime / 60; $finalUnit = 'Menit';
                 } else {
-                    $finalTime = $totalTime;
-                    $finalUnit = $unit;
+                    $finalTime = $totalTime; $finalUnit = $unit;
                 }
                 $taktDisplay = (fmod($finalTime, 1) !== 0.00) ? number_format($finalTime, 2) : number_format($finalTime, 0);
                 $taktFull = $taktDisplay . ' ' . $finalUnit;
+
+                // Status Logic
+                if ($balance <= 0) {
+                    $status = 'COMPLETED';
+                } elseif ($docDate->gt($today)) {
+                    $status = 'INACTIVE';
+                } elseif (now()->gt($expiredAt)) {
+                    $status = 'NOT COMPLETED';
+                } else {
+                    $status = 'ACTIVE';
+                }
+
                 $reportData[] = [
                     'doc_no'        => $doc->wi_document_code,
                     'nik'           => $item['nik'] ?? '-',
                     'name'          => $item['name'] ?? '-',
-                    'created_at'    => $doc->created_at, // atau document_date
-                    'status'        => ($doc->expired_at > now()) ? 'Active' : 'Expired',
+                    'buyer'         => $item['name1'] ?? '-', // Buyer
+                    'created_at'    => $doc->created_at,
+                    'expired_at'    => $expiredAt->format('Y-m-d H:i'),
+                    'status'        => $status,
                     'workcenter'    => $wc,
                     'so_item'       => $soItem,
                     'aufnr'         => $item['aufnr'] ?? '-',
                     'material'      => $matnr,
                     'description'   => $item['material_desc'] ?? '-',
+                    
+                    'assigned'      => $assigned, 
+                    'confirmed'     => $confirmed,
+                    'balance'       => $balance,
+                    
+                    'price_formatted' => $priceFormatted,
+                    'confirmed_price' => $confirmedPrice,
+                    'failed_price'    => $failedPrice,
+                    'currency'        => strtoupper($waerk),
+                    
                     'qty_op'        => $qtyOper,
-                    'qty_wi'        => $qtyWi,
+                    'qty_wi'        => $assigned,
                     'takt_time'     => $taktFull
                 ];
             }
         }
-        $data = [
-            'reportRows' => $reportData, 
-            'plantCode' => $plantCode,
-            'printedBy' => $request->input('printed_by'),
-            'department' => $request->input('department'),
-            'printDate' => now()->format('d-M-Y H:i'),
-            'filterDate' => $date ? Carbon::parse($date)->format('d-M-Y') : 'All Dates'
-        ];
-
-        // 5. Generate PDF
-        $pdf = Pdf::loadView('pdf.wi_history_report', $data)
-                ->setPaper('a4', 'landscape');
-
-        return $pdf->stream('Laporan_Log_WI.pdf');
+        return $reportData;
     }
     public function printSingleWi(Request $request)
     {
@@ -688,5 +820,66 @@ class CreateWiController extends Controller
         $pdf = Pdf::loadView('pdf.wi_expired_report', $data)
                 ->setPaper('a4', 'landscape');
         return $pdf->stream('Laporan_Produksi_Expired.pdf');
+    }
+
+    public function printCompletedReport(Request $request)
+    {
+        $rawInput = $request->input('wi_codes'); 
+        $wiCodes = explode(',', $rawInput);
+        $documents = HistoryWi::whereIn('wi_document_code', $wiCodes)->get();
+        $reportItems = [];
+        $grandTotalAssigned = 0;
+        $grandTotalConfirmed = 0;
+
+        foreach ($documents as $doc) {
+            if (empty($doc->payload_data) || !is_array($doc->payload_data)) continue;
+
+            foreach ($doc->payload_data as $item) {
+                // Data Dasar
+                $matnr = isset($item['material_number']) && ctype_digit($item['material_number']) 
+                        ? ltrim($item['material_number'], '0') 
+                        : ($item['material_number'] ?? '');
+                        
+                $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
+                $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
+                $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
+                $balance = $assigned - $confirmed;
+                $grandTotalAssigned += $assigned;
+                $grandTotalConfirmed += $confirmed;
+                $reportItems[] = [
+                    'wi_code'     => $doc->wi_document_code,
+                    'nik'         => $item['nik'] ?? '-',
+                    'name'        => $item['name'] ?? '-',
+                    'expired_at'  => $doc->expired_at,
+                    'workcenter'  => $wc,
+                    'aufnr'       => $item['aufnr'] ?? '-',
+                    'material'    => $matnr,
+                    'description' => $item['material_desc'] ?? '-',
+                    'assigned'    => $assigned,
+                    'confirmed'   => $confirmed,
+                    'balance'     => $balance,
+                    'remark'      => ($balance > 0) ? 'Not Completed' : 'Completed' 
+                ];
+            }
+        }
+
+        $summary = [
+            'total_assigned' => $grandTotalAssigned,
+            'total_confirmed' => $grandTotalConfirmed,
+            'total_balance' => $grandTotalAssigned - $grandTotalConfirmed,
+            'achievement_rate' => ($grandTotalAssigned > 0) ? round(($grandTotalConfirmed / $grandTotalAssigned) * 100, 1) : 0
+        ];
+
+        $data = [
+            'items' => $reportItems,
+            'summary' => $summary,
+            'printedBy' => $request->input('printed_by'),
+            'department' => $request->input('department'),
+            'printDate' => now()->format('d-M-Y H:i'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.wi_completed_report', $data)
+                ->setPaper('a4', 'landscape');
+        return $pdf->stream('Laporan_Produksi_Completed.pdf');
     }
 }

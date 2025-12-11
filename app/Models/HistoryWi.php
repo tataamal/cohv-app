@@ -27,6 +27,7 @@ class HistoryWi extends Model
         'payload_data',
         'document_time',
         'expired_at',
+        'year',
         'deleted_at'
     ];
 

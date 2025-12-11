@@ -109,6 +109,9 @@ Route::middleware('auth')->group(function (){
     Route::post('/work-instruction/history/print/{kode}', [CreateWiController::class, 'printPdf'])->name('wi.print-pdf');
     Route::post('/work-instruction/print-single', [CreateWiController::class, 'printSingleWi'])->name('wi.print-single');
     Route::post('/work-instruction/print-expired', [CreateWiController::class, 'printExpiredReport'])->name('wi.print-expired-report');
+    Route::post('/work-instruction/print-completed', [CreateWiController::class, 'printCompletedReport'])->name('wi.print-completed-report');
+    Route::get('/work-instruction/history/preview/{kode}', [CreateWiController::class, 'previewLog'])->name('wi.preview-log');
+    Route::post('/work-instruction/history/email/{kode}', [CreateWiController::class, 'emailLog'])->name('wi.email-log');
     Route::post('/work-instruction/delete', [CreateWiController::class, 'delete'])->name('wi.delete'); // Added Delete Route
     
     // Outstanding Reservasi Route

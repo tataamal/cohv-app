@@ -10,8 +10,8 @@
                         </div>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <h5 class="modal-title fw-bold">Update Quantity</h5>
-                    <p class="mb-0 small text-white-50">Sesuaikan jumlah assigned qty untuk PRO ini.</p>
+                    <h5 class="modal-title fw-bold">Perbarui Quantity</h5>
+                    <p class="mb-0 small text-white-50">Sesuaikan jumlah quantity WI untuk PRO ini.</p>
                 </div>
             </div>
             
@@ -24,10 +24,10 @@
                     {{-- Card Material --}}
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-body p-3">
-                            <label class="text-uppercase text-muted text-xs fw-bold mb-1">Material / Description</label>
+                            <label class="text-uppercase text-muted text-xs fw-bold mb-1">Material</label>
                             <input type="text" class="form-control-plaintext fw-bold text-dark p-0" id="modalDesc" readonly style="font-size: 0.95rem;">
-                             <label class="text-uppercase text-muted text-xs fw-bold mt-2 mb-0">AUFNR</label>
-                             <div class="fw-bold text-primary" id="displayAufnr"></div>
+                             <label class="text-uppercase text-muted text-xs fw-bold mt-2 mb-0">PRO</label>
+                             <div class="fw-bold text-dark" id="displayAufnr"></div>
                         </div>
                     </div>
 
@@ -36,10 +36,10 @@
                          <div class="col-6">
                             <div class="card border-0 shadow-sm h-100">
                                 <div class="card-body p-3 text-center">
-                                    <label class="text-uppercase text-muted text-xs fw-bold mb-1 d-block">Max Qty</label>
-                                    <div class="fs-5 fw-bold text-dark" id="displayMaxQty"></div>
+                                    <label class="text-uppercase text-danger text-xs fw-bold mb-1 d-block">Max Qty</label>
+                                    <div class="fs-5 fw-bold text-danger" id="displayMaxQty"></div>
                                     <input type="hidden" id="modalMaxQtyDisplay">
-                                    <small class="text-xs text-muted">Order Qty</small>
+                                    <small class="text-xs text-danger">Quantity WI</small>
                                 </div>
                             </div>
                         </div>
@@ -48,11 +48,10 @@
                          <div class="col-6">
                             <div class="card border-primary shadow-sm h-100 bg-white">
                                 <div class="card-body p-3">
-                                    <label class="text-uppercase text-primary text-xs fw-bold mb-1 d-block">New Qty</label>
+                                    <label class="text-uppercase text-primary text-center text-xs fw-bold mb-1 d-block">New Qty</label>
                                     <div class="input-group input-group-sm">
                                         <input type="number" step="0.001" name="new_qty" id="modalNewQty" class="form-control fw-bold border-0 p-0 fs-5 text-primary text-center" placeholder="0" required>
                                     </div>
-                                    <div class="text-center"><small class="text-xs text-muted" id="modalUom">EA</small></div>
                                 </div>
                             </div>
                         </div>
@@ -64,11 +63,11 @@
                 <div class="modal-footer border-top-0 p-4 pt-0 bg-light">
                     <div class="row w-100 m-0">
                         <div class="col-6 ps-0">
-                             <button type="button" class="btn btn-light w-100 fw-bold rounded-pill text-muted" data-bs-dismiss="modal">Cancel</button>
+                             <button type="button" class="btn btn-light w-100 fw-bold rounded-pill text-muted" data-bs-dismiss="modal">Batal</button>
                         </div>
                         <div class="col-6 pe-0">
                             <button type="submit" class="btn btn-primary w-100 fw-bold rounded-pill shadow-sm" id="btnSaveQty">
-                                Save Update
+                                Simpan Update
                             </button>
                         </div>
                     </div>
