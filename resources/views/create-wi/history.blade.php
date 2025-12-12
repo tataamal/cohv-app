@@ -888,13 +888,19 @@
                             btnSubmit.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div> Mengirim...';
                             btnSubmit.disabled = true;
                             
+                            const departmentVal = document.querySelector('input[name="department"]').value;
+                            const printedByVal = document.querySelector('input[name="printed_by"]').value;
+
                             fetch(`{{ route('wi.email-log', ['kode' => $plantCode]) }}?filter_date=${filterDate}&filter_search=${filterSearch}`, {
                                 method: 'POST',
                                 headers: {
                                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
                                     'Content-Type': 'application/json'
                                 },
-                                body: JSON.stringify({})
+                                body: JSON.stringify({
+                                    department: departmentVal,
+                                    printed_by: printedByVal
+                                })
                             })
                             .then(resp => resp.json())
                             .then(data => {

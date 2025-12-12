@@ -28,7 +28,7 @@ class LogHistoryMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Laporan Log Work Instruction - ' . $this->dateInfo,
+            subject: 'Daily Report WI - ' . $this->dateInfo,
         );
     }
 

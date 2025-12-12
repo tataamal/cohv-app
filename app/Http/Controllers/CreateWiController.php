@@ -596,7 +596,8 @@ class CreateWiController extends Controller
             $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
             
             // Prepare Data for View
-            $pdfData = [
+            // Prepare Data for View (Single Report wrapped in Array)
+            $singleReport = [
                 'items' => $csvData,
                 'summary' => [
                     'total_assigned' => $totalAssigned,
@@ -611,7 +612,7 @@ class CreateWiController extends Controller
             ];
             
             // Generate PDF
-            $pdf = Pdf::loadView('pdf.log_history', $pdfData)
+            $pdf = Pdf::loadView('pdf.log_history', ['reports' => [$singleReport]])
                     ->setPaper('a4', 'landscape');
             
             $pdf->save($filePath);
@@ -622,16 +623,13 @@ class CreateWiController extends Controller
                 // 'kmi356smg@gmail.com',
                 // 'adm.mkt5.smg@pawindo.com',
                 // 'lily.smg@pawindo.com',
+                // 'kmi3.60.smg@gmail.com',
                 'tataamal1128@gmail.com'
             ];
             
-            $dateInfo = $date ? $date : 'All History';
+            $dateInfo = $date ? \Carbon\Carbon::parse($date)->format('d-m-Y') : 'All History';
 
             \Illuminate\Support\Facades\Mail::to($recipients)->send(new \App\Mail\LogHistoryMail($filePath, $dateInfo));
-
-            // Clean up file if needed
-            // unlink($filePath); 
-
             return response()->json(['success' => true, 'message' => 'Log berhasil diexport (PDF) dan dikirim ke email.']);
 
         } catch (\Exception $e) {
