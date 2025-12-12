@@ -737,82 +737,142 @@
                 const container = document.getElementById('assignmentCardContainer');
                 container.innerHTML = '';
 
-                // Get Child WC Options for this Target WC
+                // NEW: CAPACITY INFO CARD (TOP OF MODAL)
+                // Determine if Parent and get children data
                 const normalizedTargetWc = targetWcId.toUpperCase();
-                let childOptionsHtml = '<option value="">- Induk/None -</option>';
                 const hasChildren = PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWc);
+                
+                let childOptionsHtml = '<option value="">- Induk/None -</option>';
+                let capacityInfoHtml = '';
+
                 if (hasChildren) {
                     const children = PARENT_WORKCENTERS[normalizedTargetWc];
+                    
+                    // Capacity Logic
+                    const wcContainer = document.querySelector(`.wc-card-container[data-wc-id="${targetWcId}"]`);
+                    const kapazHours = parseFloat(wcContainer ? wcContainer.dataset.kapazWc : 0) || 0;
+                    const totalMins = kapazHours * 60;
+                    const childLimitMins = children.length > 0 ? (totalMins / children.length) : 0;
+                    
+                    // Build Child Options
                     children.forEach(child => {
                         childOptionsHtml += `<option value="${child.code}">${child.code}</option>`;
                     });
+                    
+                    // Build Top Info Card
+                    capacityInfoHtml = `
+                        <div class="card mb-3 border-secondary bg-light border-opacity-25">
+                            <div class="card-body p-2"> 
+                                <h6 class="text-uppercase fw-bold small text-muted mb-2">
+                                    <i class="fa-solid fa-network-wired me-1"></i> ${targetWcId} Capacity Distribution
+                                </h6>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge bg-dark text-white pt-1 pb-1">Total: ${totalMins.toLocaleString()} Min</span>
+                                    <i class="fa-solid fa-arrow-right text-muted small"></i>
+                                    <span class="badge bg-success text-white pt-1 pb-1">Limit/Child: ${childLimitMins.toLocaleString('en-US', {maximumFractionDigits: 1})} Min</span>
+                                </div>
+                                <div class="row g-2" id="topCapacityContainer">
+                                    <!-- Child Status Bars Injected Here Dynamically via updateCardSummary -->
+                                    ${children.map(child => `
+                                        <div class="col-md-6">
+                                            <div class="d-flex justify-content-between text-xs fw-bold mb-1">
+                                                <span>${child.code}</span>
+                                                <span id="cap-text-${child.code}">0 / ${childLimitMins.toFixed(1)} Min</span>
+                                            </div>
+                                            <div class="progress" style="height: 6px;">
+                                                <div id="cap-bar-${child.code}" class="progress-bar bg-secondary" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Inject Top Card
+                if (capacityInfoHtml) {
+                    const capDiv = document.createElement('div');
+                    capDiv.innerHTML = capacityInfoHtml;
+                    container.appendChild(capDiv);
                 }
 
                 // Helper for Employee Options
                 const empOptions = document.getElementById('employeeTemplateSelect').innerHTML;
                 
-                // GENERATE CARDS
+                // GENERATE PRO CARDS
                 draggedItemsCache.forEach((row, index) => {
                     const rAufnr = row.dataset.aufnr;
                     const rSisa = parseFloat(row.dataset.sisaQty) || 0;
-                    const rQtyOpr = row.dataset.qtyOpr || '-'; // Max Display
-                    
+                    // NEW: Time Calculation Data
+                    const rVgw01 = parseFloat(row.dataset.vgw01) || 0; // Base time per 1 Qty
+                    const rVge01 = row.dataset.vge01 || ''; // Unit (e.g. S)
+
                     // Create Card Element
                     const card = document.createElement('div');
                     card.className = 'card mb-3 border-0 shadow-sm pro-card';
                     card.dataset.refAufnr = rAufnr;
-                    card.dataset.maxQty = rSisa; // Total Available for this PRO
-                    
+                    card.dataset.maxQty = rSisa; 
+                    card.dataset.vgw01 = rVgw01; 
+                    card.dataset.vge01 = rVge01; 
+                    card.dataset.targetWc = targetWcId; 
+                    card.dataset.hasChildren = hasChildren;
+
                     card.innerHTML = `
                         <div class="card-header bg-dark text-white py-2 px-3 d-flex justify-content-between align-items-center">
                             <span class="fw-bold small"><i class="fa-solid fa-box me-1"></i> ${rAufnr}</span>
                             <span class="badge bg-secondary border border-light">Max: ${rSisa}</span>
                         </div>
                         <div class="card-body p-2 bg-light">
-                            <!-- Summary Bar -->
-                            <div class="d-flex justify-content-between small px-2 mb-2 text-muted fw-bold">
-                                <span>Ditugaskan: <span class="text-success qty-assigned">0</span></span>
-                                <span>Sisa Qty: <span class="text-danger qty-remaining">${rSisa}</span></span>
-                            </div>
-                            
                             <!-- Rows Container -->
                             <div class="assignment-rows">
                                 <!-- Initial Row -->
-                                <div class="row g-2 align-items-center mb-2 assignment-row">
-                                    <div class="col-md-5">
+                                <div class="row g-2 align-items-end mb-2 assignment-row">
+                                    <div class="col-md-4">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Operator</label>
                                         <select class="form-select form-select-sm emp-select shadow-none border-secondary" required onchange="updateEmpOptions('${rAufnr}')">
                                             ${empOptions}
                                         </select>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Sub-WC</label>
-                                        <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateChildWCOptions('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
+                                        <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateCardSummary('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
                                             ${childOptionsHtml}
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Qty</label>
-                                        <div class="input-group input-group-sm">
-                                            <input type="number" class="form-control qty-input shadow-none border-secondary fw-bold text-center" 
-                                                value="${rSisa}" max="${rSisa}" min="0.1" step="any" oninput="updateCardSummary('${rAufnr}')">
-                                            <button class="btn btn-outline-danger btn-remove-row d-none" type="button" onclick="removeAssignmentRow(this)" title="Remove">
-                                                <i class="fa-solid fa-xmark"></i>
-                                            </button>
-                                        </div>
+                                        <input type="number" class="form-control form-control-sm qty-input shadow-none border-secondary fw-bold text-center" 
+                                            value="${rSisa}" max="${rSisa}" min="0.1" step="any" oninput="updateCardSummary('${rAufnr}')" ${hasChildren ? 'disabled title="Pilih Sub-WC terlebih dahulu"' : ''}>
+                                    </div>
+                                    <!-- NEW: Time Field (Auto Calc) -->
+                                    <div class="col-md-2">
+                                        <label class="small text-muted fw-bold mb-0 d-none d-md-block">Time (Min)</label>
+                                        <input type="text" class="form-control form-control-sm time-input shadow-none border-secondary text-center bg-white text-dark fw-bold" value="0" readonly>
+                                    </div>
+                                    <div class="col-md-1 text-center">
+                                        <button class="btn btn-outline-danger btn-sm btn-remove-row d-none w-100 p-1 mb-1" type="button" onclick="removeAssignmentRow(this)" title="Remove">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                             
-                            <!-- Add Button -->
-                            <button class="btn btn-sm btn-outline-primary w-100 border-dashed fw-bold" type="button" onclick="addAssignmentRow('${rAufnr}')">
-                                <i class="fa-solid fa-plus-circle me-1"></i> Add Split
-                            </button>
+                            <!-- Add Button / Summary -->
+                             <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                                <button class="btn btn-sm btn-outline-primary border-dashed fw-bold px-3 btn-add-split" type="button" onclick="addAssignmentRow('${rAufnr}')" ${hasChildren ? 'disabled' : ''}>
+                                    <i class="fa-solid fa-plus-circle me-1"></i> Add Split
+                                </button>
+                                <div class="small fw-bold text-muted">
+                                    Remaining: <span class="qty-remaining text-success">${rSisa}</span>
+                                </div>
+                             </div>
                         </div>
                     `;
                     container.appendChild(card);
                     if(hasChildren) updateChildWCOptions(rAufnr);
                     updateEmpOptions(rAufnr);
+                    updateCardSummary(rAufnr); // Init logic
                 });
 
                 assignmentModalInstance.show();
@@ -836,11 +896,28 @@
                 const childSelect = newRow.querySelector('.child-select');
                 childSelect.value = "";
                 childSelect.disabled = false;
-                childSelect.onchange = function() { updateChildWCOptions(aufnr); };
+                childSelect.classList.remove('border-danger', 'text-danger');
+                childSelect.onchange = function() { updateCardSummary(aufnr); }; // Changed from updateChildWCOptions to updateCardSummary which calls it if needed or just updates logic
+
                 const qtyInput = newRow.querySelector('.qty-input');
-                qtyInput.value = ""; // Empty for user to fill
+                qtyInput.value = ""; 
                 qtyInput.placeholder = "0";
+                qtyInput.classList.remove('is-invalid', 'text-danger');
+                qtyInput.oninput = function() { updateCardSummary(aufnr); };
                 
+                // Check if card has children logic (Sub WC required logic)
+                const hasChildren = card.dataset.hasChildren === 'true';
+                if(hasChildren) {
+                    qtyInput.disabled = true;
+                    qtyInput.title = "Pilih Sub-WC terlebih dahulu";
+                } else {
+                    qtyInput.disabled = false;
+                    qtyInput.title = "";
+                }
+
+                const timeInput = newRow.querySelector('.time-input');
+                timeInput.value = "0 Min";
+
                 const removeBtn = newRow.querySelector('.btn-remove-row');
                 removeBtn.classList.remove('d-none');
                 
@@ -850,130 +927,189 @@
                 // Update Logic
                 updateChildWCOptions(aufnr);
                 updateCardSummary(aufnr);
-                updateEmpOptions(aufnr); // Refresh disable status for new row
+                updateEmpOptions(aufnr); 
             };
 
-            // GLOBAL VALIDATION: Check all cards to enable/disable Confirm Button
+            // GLOBAL UPDATE & VALIDATION
+            window.updateCardSummary = function(TriggerAufnr) {
+                // Determine context
+                const allCards = document.querySelectorAll('#assignmentCardContainer .pro-card');
+                let globalChildUsage = {}; 
+                let targetWcId = null;
+                
+                allCards.forEach(card => {
+                    targetWcId = card.dataset.targetWc; 
+                    const vgw01 = parseFloat(card.dataset.vgw01) || 0;
+                    const vge01 = card.dataset.vge01 || '';
+                    const hasChildren = card.dataset.hasChildren === 'true';
+                    const maxQty = parseFloat(card.dataset.maxQty) || 0;
+
+                    const rows = card.querySelectorAll('.assignment-row');
+                    
+                    // First pass: Calculate current total for this card to check Max Qty overflow
+                    let currentCardTotal = 0;
+                    rows.forEach(r => currentCardTotal += parseFloat(r.querySelector('.qty-input').value) || 0);
+
+                    rows.forEach(row => {
+                        const qtyInp = row.querySelector('.qty-input');
+                        const timeInp = row.querySelector('.time-input');
+                        const childSel = row.querySelector('.child-select');
+                        
+                        const subWc = childSel.value;
+                        
+                        // LOGIC: Disable & Reset Qty Input if Sub-WC missing (Only if Parent WC context)
+                        if (hasChildren) {
+                            if (!subWc) {
+                                if (!qtyInp.disabled) {
+                                     // "Quantity juga dikembalikan" -> Reset to empty
+                                    qtyInp.value = ""; 
+                                    qtyInp.disabled = true;
+                                    qtyInp.title = "Pilih Sub-WC terlebih dahulu";
+                                    timeInp.value = "0 Min"; 
+                                }
+                                return; // Skip calc for this row
+                            } else {
+                                if (qtyInp.disabled) {
+                                    qtyInp.disabled = false;
+                                    qtyInp.title = "";
+                                }
+                            }
+                        }
+
+                        let qty = parseFloat(qtyInp.value) || 0;
+                        const activeElement = document.activeElement;
+                        if (activeElement === qtyInp) {
+                            if (currentCardTotal > maxQty + 0.0001) {
+                                const otherTotal = currentCardTotal - qty;
+                                let allowed = maxQty - otherTotal;
+                                if (allowed < 0) allowed = 0;
+                                
+                                // TOAST
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Limit Exceeded',
+                                    text: `Max Quantity is ${maxQty}. Remaining: ${allowed.toFixed(3)}`,
+                                    toast: true,
+                                    position: 'top-end',
+                                    showConfirmButton: false,
+                                    timer: 3000
+                                });
+                                
+                                // RESET VALUE
+                                qtyInp.value = allowed; // This might be an integer or decimal depending on input
+                                qty = allowed; // Update local var for time calc
+                                currentCardTotal = otherTotal + allowed; 
+                            }
+                        }
+                        
+                        // CALC TIME
+                        let timeMins = (qty * vgw01);
+                        if (vge01 === 'S') {
+                            timeMins = timeMins / 60;
+                        }
+                        timeMins = parseFloat(timeMins.toFixed(3));
+                        
+                        timeInp.value = timeMins + ' Min'; 
+                        
+                        if (subWc) {
+                            globalChildUsage[subWc] = (globalChildUsage[subWc] || 0) + timeMins;
+                        }
+                    });
+                });
+
+                // 2. UPDATE TOP CAPACITY CARD (If exists)
+                if (targetWcId) {
+                    const normalizedTargetWc = targetWcId.toUpperCase();
+                    if (PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWc)) {
+                        const wcContainer = document.querySelector(`.wc-card-container[data-wc-id="${targetWcId}"]`);
+                        const kapazHours = parseFloat(wcContainer ? wcContainer.dataset.kapazWc : 0) || 0;
+                        const children = PARENT_WORKCENTERS[normalizedTargetWc]; // Get full list
+                        const childCount = children.length;
+                        const childLimitMins = childCount > 0 ? (kapazHours * 60 / childCount) : 0;
+                        
+                        // Update Bars for ALL children (Active and Inactive)
+                        children.forEach(child => {
+                            const childCode = child.code;
+                            const usage = globalChildUsage[childCode] || 0;
+                            const pct = childLimitMins > 0 ? (usage / childLimitMins) * 100 : 0;
+                            
+                            const bar = document.getElementById(`cap-bar-${childCode}`);
+                            const text = document.getElementById(`cap-text-${childCode}`);
+                            
+                            if (bar && text) {
+                                bar.style.width = Math.min(pct, 100) + '%';
+                                text.innerText = `${usage.toFixed(1)} / ${childLimitMins.toFixed(1)} Min`;
+                                
+                                if (usage > childLimitMins) {
+                                    bar.className = 'progress-bar bg-danger';
+                                    text.classList.add('text-danger');
+                                } else {
+                                    bar.className = 'progress-bar bg-success';
+                                    text.classList.remove('text-danger');
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // 3. VALIDATE LOCAL CARD QTY (The Triggered Card)
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${TriggerAufnr}"]`);
+                if (!card) return;
+
+                const maxQty = parseFloat(card.dataset.maxQty) || 0;
+                const remainingSpan = card.querySelector('.qty-remaining');
+                const addBtn = card.querySelector('.btn-add-split');
+                const inputs = card.querySelectorAll('.qty-input');
+                
+                let totalAssigned = 0;
+                inputs.forEach(inp => totalAssigned += parseFloat(inp.value) || 0);
+                const remaining = maxQty - totalAssigned;
+                
+                remainingSpan.innerText = remaining.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+                
+                if (remaining < -0.0001) {
+                    remainingSpan.classList.remove('text-success');
+                    remainingSpan.classList.add('text-danger');
+                } else {
+                    remainingSpan.classList.remove('text-danger');
+                    remainingSpan.classList.add('text-success');
+                }
+
+                if (addBtn) {
+                     if(remaining <= 0.0001) {
+                        addBtn.disabled = true;
+                        addBtn.classList.add('disabled');
+                     } else {
+                        addBtn.disabled = false;
+                        addBtn.classList.remove('disabled');
+                     }
+                }
+
+                // 4. GLOBAL BUTTON STATE
+                validateGlobalAssignmentState();
+            };
+
             window.validateGlobalAssignmentState = function() {
-                const confirmBtn = document.getElementById('btnConfirmAssignment');
+                const confirmBtn = document.getElementById('btnConfirmFinalAssignment');
                 if (!confirmBtn) return;
 
                 let hasError = false;
-                const cards = document.querySelectorAll('#assignmentCardContainer .pro-card');
                 
+                 // Check 1: Max Qty on all cards
+                const cards = document.querySelectorAll('#assignmentCardContainer .pro-card');
                 cards.forEach(card => {
                      const maxQty = parseFloat(card.dataset.maxQty) || 0;
                      const inputs = card.querySelectorAll('.qty-input');
                      let totalAssigned = 0;
                      inputs.forEach(inp => totalAssigned += parseFloat(inp.value) || 0);
-                     
-                     // Allow small tolerance
-                     if (totalAssigned > maxQty + 0.0001) {
-                         hasError = true;
-                     }
+                     if (totalAssigned > maxQty + 0.0001) hasError = true;
                 });
-
-                if (hasError) {
-                    confirmBtn.disabled = true;
-                    confirmBtn.classList.add('disabled');
-                    confirmBtn.innerHTML = '<i class="fa-solid fa-ban me-2"></i> Limit Exceeded';
-                } else {
-                    confirmBtn.disabled = false;
-                    confirmBtn.classList.remove('disabled');
-                    confirmBtn.innerHTML = 'Confirm';
-                }
-            };
-
-            // REDESIGN: Remove Assignment Row
-            window.removeAssignmentRow = function(btn) {
-                const row = btn.closest('.assignment-row');
-                const card = row.closest('.pro-card');
-                const aufnr = card.dataset.refAufnr;
                 
-                row.remove();
-                
-                updateChildWCOptions(aufnr);
-                updateCardSummary(aufnr);
-                updateEmpOptions(aufnr); // Refresh disable status
-            };
+                // Check 2: Capacity Limits (Red Bars)
+                const redBars = document.querySelectorAll('#topCapacityContainer .bg-danger');
+                if (redBars.length > 0) hasError = true;
 
-            // REDESIGN: Update Card Summary & Validation
-            window.updateCardSummary = function(aufnr) {
-                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
-                if (!card) return;
-
-                const maxQty = parseFloat(card.dataset.maxQty);
-                const assignedSpan = card.querySelector('.qty-assigned');
-                const remainingSpan = card.querySelector('.qty-remaining');
-                const inputs = card.querySelectorAll('.qty-input');
-                const addBtn = card.querySelector('.btn-outline-primary.w-100'); // Selection strategy
-
-                let totalAssigned = 0;
-                inputs.forEach(inp => totalAssigned += parseFloat(inp.value) || 0);
-
-                const remaining = maxQty - totalAssigned;
-                
-                assignedSpan.innerText = totalAssigned.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
-                remainingSpan.innerText = remaining.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
-                
-                // Styling
-                if(remaining < 0) {
-                     remainingSpan.classList.add('fw-bold');
-                     
-                     // USER REQUEST: Immediate Feedback & Return
-                     // If total exceeds max, show alert and reset functionality could be complex because we don't know which input triggered it.
-                     // But this function is called onInput.
-                     // Using Active Element to identify the culprit.
-                     const activeInput = document.activeElement;
-                     if (activeInput && activeInput.classList.contains('qty-input') && card.contains(activeInput)) {
-                         // Calculate max allowable for this specific input
-                         // Max Allowable = (Max Qty - (Total Assigned - Current Input Value))
-                         const currentVal = parseFloat(activeInput.value) || 0;
-                         const otherAssigned = totalAssigned - currentVal;
-                         const maxAllowable = maxQty - otherAssigned;
-                         
-                         // Alert
-                         Swal.fire({
-                            icon: 'warning',
-                            title: 'Melebihi Batas!',
-                            text: `Jumlah total tidak boleh melebihi ${maxQty}. Sisa tersedia: ${maxAllowable}`,
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 3000
-                         });
-                         
-                         // Reset value to max allowable
-                         activeInput.value = maxAllowable > 0 ? maxAllowable : 0;
-                         
-                         // Re-calculate to update summary immediately
-                         // Use setTimeout to avoid recursion loop if needed, but direct call is fine if value changed
-                         // Actually, we should just update variables manually to reflect the reset
-                         totalAssigned = otherAssigned + (parseFloat(activeInput.value) || 0);
-                         assignedSpan.innerText = totalAssigned.toLocaleString('en-US');
-                         remainingSpan.innerText = (maxQty - totalAssigned).toLocaleString('en-US');
-                         remainingSpan.classList.remove('fw-bold');
-                     }
-                } else {
-                     remainingSpan.classList.remove('fw-bold');
-                }
-                
-                if (remaining <= 0.0001) {
-                    if(addBtn) {
-                        addBtn.disabled = true;
-                        addBtn.classList.add('disabled');
-                        addBtn.innerHTML = '<i class="fa-solid fa-ban me-1"></i> Limit Reached';
-                    }
-                } else {
-                     if(addBtn) {
-                        addBtn.disabled = false;
-                        addBtn.classList.remove('disabled');
-                        addBtn.innerHTML = '<i class="fa-solid fa-plus-circle me-1"></i> Add Split';
-                    }
-                }
-                
-                // Trigger Global Validation
-                validateGlobalAssignmentState();
+                confirmBtn.disabled = hasError;
             };
 
             // REDESIGN: Unique Child WC Logic

@@ -12,6 +12,7 @@ use App\Models\WorkcenterMapping;
 use App\Models\HistoryWi; // Model History WI
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Kode;
 
 class CreateWiController extends Controller
 {
@@ -207,7 +208,6 @@ class CreateWiController extends Controller
                 $workcenterCode = $wcAllocation['workcenter'];
                 DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, &$wiDocuments) {
                     $latestHistory = HistoryWi::where('wi_document_code', 'LIKE', $docPrefix . '%')
-                        ->where('year', $year) // Scope to current year
                         ->orderByRaw('LENGTH(wi_document_code) DESC')
                         ->orderBy('wi_document_code', 'desc')
                         ->lockForUpdate() 
@@ -262,7 +262,8 @@ class CreateWiController extends Controller
 
     public function history(Request $request, $kode) 
     {
-        $plantCode = $kode; 
+        $plantCode = $kode;
+        $nama_bagian  = Kode::where('kode', $plantCode)->first();
         $now = Carbon::now();
         $query = HistoryWi::where('plant_code', $plantCode);
 
@@ -406,6 +407,7 @@ class CreateWiController extends Controller
 
         return view('create-wi.history', [
             'plantCode' => $plantCode,
+            'nama_bagian' => $nama_bagian,
             'activeWIDocuments' => $activeWIDocuments,
             'inactiveWIDocuments' => $inactiveWIDocuments,
             'expiredWIDocuments' => $expiredWIDocuments,
