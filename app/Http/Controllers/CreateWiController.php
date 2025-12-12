@@ -207,7 +207,8 @@ class CreateWiController extends Controller
             foreach ($payload as $wcAllocation) {
                 $workcenterCode = $wcAllocation['workcenter'];
                 DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, &$wiDocuments) {
-                    $latestHistory = HistoryWi::where('wi_document_code', 'LIKE', $docPrefix . '%')
+                    $latestHistory = HistoryWi::withTrashed()
+                        ->where('wi_document_code', 'LIKE', $docPrefix . '%')
                         ->orderByRaw('LENGTH(wi_document_code) DESC')
                         ->orderBy('wi_document_code', 'desc')
                         ->lockForUpdate() 
