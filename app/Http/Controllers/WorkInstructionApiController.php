@@ -28,12 +28,14 @@ class WorkInstructionApiController extends Controller
                         if (!isset($groupedAufnrs[$wiCode])) {
                             $groupedAufnrs[$wiCode] = [];
                         }
-                        if (!isset($allUniqueAufnrs[$aufnr])) {
+                        $uniqueKey = $aufnr . '_' . $vornr;
+
+                        if (!isset($allUniqueAufnrs[$uniqueKey])) {
                             $groupedAufnrs[$wiCode][] = [
                                 'aufnr' => $aufnr,
                                 'vornr' => $vornr
                             ];
-                            $allUniqueAufnrs[$aufnr] = true;
+                            $allUniqueAufnrs[$uniqueKey] = true;
                         }
                     }
                 }
