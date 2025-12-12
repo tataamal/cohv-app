@@ -930,6 +930,17 @@
                 updateEmpOptions(aufnr); 
             };
 
+            window.removeAssignmentRow = function(btn) {
+                const row = btn.closest('.assignment-row');
+                const card = row.closest('.pro-card');
+                const aufnr = card.dataset.refAufnr;
+                
+                row.remove();
+                
+                updateEmpOptions(aufnr);
+                updateCardSummary(aufnr);
+            };
+
             // GLOBAL UPDATE & VALIDATION
             window.updateCardSummary = function(TriggerAufnr) {
                 // Determine context
