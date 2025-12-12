@@ -359,6 +359,7 @@ class CreateWiController extends Controller
                     'material'      => $item['material_desc'] ?? ($item['material'] ?? '-'),
                     'nik'           => $item['nik'] ?? '-',
                     'name'          => $item['name'] ?? '-',
+                    'vornr'         => $item['vornr'] ?? '-',
                     'description'   => $item['material_desc'] ?? '', 
                     'assigned_qty'  => $assignedQty,
                     'confirmed_qty' => $confirmedQty,

@@ -86,12 +86,14 @@ class WorkInstructionApiController extends Controller
             'aufnr' => 'required|string',
             'confirmed_qty' => 'required|numeric', 
             'nik' => 'required|string',
+            'vornr' => 'required|string',
         ]);
 
         $wiCode = $request->input('wi_code');
         $aufnrToComplete = $request->input('aufnr');
         $confQty = (float) $request->input('confirmed_qty'); 
         $nik = $request->input('nik');
+        $vornr = $request->input('vornr');
         
         if ($confQty <= 0) {
             return response()->json(['status' => 'error', 'message' => 'Qty konfirmasi harus lebih besar dari 0.'], 400);
@@ -115,7 +117,7 @@ class WorkInstructionApiController extends Controller
             
             foreach ($payload as $key => $item) {
                 // Modified: Check both AUFNR and NIK
-                if (($item['aufnr'] ?? null) === $aufnrToComplete && ($item['nik'] ?? null) === $nik) {
+                if (($item['aufnr'] ?? null) === $aufnrToComplete && ($item['nik'] ?? null) === $nik && ($item['vornr'] ?? null) === $vornr) {
                     
                     $assignedQty = (float) ($item['assigned_qty'] ?? 0);
                     $currentConfirmedQty = (float) ($item['confirmed_qty'] ?? 0);
@@ -157,7 +159,7 @@ class WorkInstructionApiController extends Controller
 
             if (!$updated) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'Kombinasi AUFNR dan NIK tidak ditemukan di dalam dokumen ini.'], 404);
+                return response()->json(['status' => 'error', 'message' => 'Kombinasi AUFNR, VORNR dan NIK tidak ditemukan di dalam dokumen ini.'], 404);
             }
             
             $document->payload_data = $payload;
