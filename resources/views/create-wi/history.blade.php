@@ -710,8 +710,8 @@
                                 <input type="text" name="printed_by" class="form-control fw-bold" value="{{ session('username') ?? 'User' }}" readonly>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold small text-muted">DEPARTEMEN</label>
-                                <input type="text" name="department" class="form-control" placeholder="Contoh: Produksi A" required>
+                                <label class="form-label fw-bold small text-muted">BAGIAN</label>
+                                <input type="text" name="department" class="form-control fw-bold" value="{{ $nama_bagian->nama_bagian ?? '-' }}" readonly>
                             </div>
                         </div>
                     </div>

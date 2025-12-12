@@ -967,12 +967,9 @@
                         const childSel = row.querySelector('.child-select');
                         
                         const subWc = childSel.value;
-                        
-                        // LOGIC: Disable & Reset Qty Input if Sub-WC missing (Only if Parent WC context)
                         if (hasChildren) {
                             if (!subWc) {
                                 if (!qtyInp.disabled) {
-                                     // "Quantity juga dikembalikan" -> Reset to empty
                                     qtyInp.value = ""; 
                                     qtyInp.disabled = true;
                                     qtyInp.title = "Pilih Sub-WC terlebih dahulu";
@@ -994,8 +991,6 @@
                                 const otherTotal = currentCardTotal - qty;
                                 let allowed = maxQty - otherTotal;
                                 if (allowed < 0) allowed = 0;
-                                
-                                // TOAST
                                 Swal.fire({
                                     icon: 'warning',
                                     title: 'Limit Exceeded',
