@@ -224,7 +224,9 @@ class Data1Controller extends Controller
             // Helper function to send SSE event
             $sendEvent = function ($data) {
                 echo "data: " . json_encode($data) . "\n\n";
-                ob_flush();
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
                 flush();
             };
 
