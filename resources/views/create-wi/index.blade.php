@@ -316,14 +316,24 @@
 
             {{-- COLUMN 2: TARGET WORKCENTERS --}}
             <div class="col-lg-3 col-md-4">
-                <div class="d-flex align-items-center justify-content-between mb-3 px-1">
+                <div class="d-flex align-items-center justify-content-between mb-2 px-1">
                     <div class="d-flex align-items-center gap-2">
                         <div class="icon-box bg-dark text-white shadow-sm" style="width: 28px; height: 28px;">
                             <i class="fa-solid fa-bullseye text-xs"></i>
                         </div>
-                        <h6 class="mb-0 fw-bold">Target Lines</h6>
+                        <h6 class="mb-0 fw-bold">WC Target</h6>
                     </div>
                     <span class="badge bg-white border text-muted rounded-pill">{{ count($workcenters) }} WC</span>
+                </div>
+                
+                {{-- Target Search Bar (Full Width) --}}
+                <div class="mb-3"> {{-- Matches card margin --}}
+                    <div class="input-group input-group-sm shadow-sm">
+                        <span class="input-group-text bg-white border-end-0 ps-3">
+                             <i class="fa-solid fa-magnifying-glass text-muted small"></i>
+                        </span>
+                        <input type="text" id="targetWcSearchInput" class="form-control border-start-0 ps-1" placeholder="Cari WC Target..." style="font-size: 0.85rem;">
+                    </div>
                 </div>
 
                 <div class="target-scroll-area custom-scrollbar">
@@ -542,6 +552,7 @@
                 setupDragAndDrop();
                 setupModalLogic();
                 setupMismatchLogic(); // New Logic
+                setupTargetWcSearch(); // New Search Logic
 
                 document.getElementById('btnFinalSave').addEventListener('click', function() {
                     const finalData = saveAllocation(false); // False = get data only
@@ -821,7 +832,12 @@
                     card.innerHTML = `
                         <div class="card-header bg-dark text-white py-2 px-3 d-flex justify-content-between align-items-center">
                             <span class="fw-bold small"><i class="fa-solid fa-box me-1"></i> ${rAufnr}</span>
-                            <span class="badge bg-secondary border border-light">Max: ${rSisa}</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-secondary border border-light">Max: ${rSisa}</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger border-0 text-white p-0 ms-2" style="width: 20px; height: 20px; line-height: 1;" onclick="removeProFromModal(this)">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body p-2 bg-light">
                             <!-- Rows Container -->
@@ -1189,9 +1205,6 @@
                         });
                     });
 
-                    // 2. Call processDrop to open assignment modal
-                    // We use cached containers from the initial drag
-                    // Pass the first item as 'item' argument, processDrop will check cache.
                     processDrop(
                         null, // evt null
                         itemsToProcess[0],
@@ -1203,7 +1216,6 @@
             }
 
             function updateChildWCDropdown(normalizedTargetWcId, proAufnr) {
-                // Modified: Also trigger NIK filtering when UI updates
                 updateEmpOptions(proAufnr);
 
                 const childWcSelect = document.getElementById('childWorkcenterSelect');
@@ -1212,7 +1224,6 @@
                 childWcSelect.innerHTML = '<option value="" selected disabled>Pilih Workcenter Anak...</option>';
                 childWcSelect.disabled = false;
 
-                // AMBIL SEMUA CHILD WC YANG SUDAH DIALOKASIKAN/DIPILIH SEMENTARA
                 const usedChildWCs = getAssignedChildWCs(proAufnr);
                 let optionsAdded = 0;
                 
@@ -1395,6 +1406,86 @@
                 
                 assignmentModalInstance.hide();
             }
+
+            // --- NEW: TARGET WC SEARCH ---
+            function setupTargetWcSearch() {
+                const searchInput = document.getElementById('targetWcSearchInput');
+                if (!searchInput) return;
+
+                searchInput.addEventListener('input', function(e) {
+                    const term = e.target.value.toLowerCase().trim();
+                    const cards = document.querySelectorAll('.wc-card-container');
+
+                    cards.forEach(card => {
+                        const wcCode = (card.dataset.wcId || '').toLowerCase();
+                        // Also search in description
+                        const descriptionEl = card.querySelector('.text-muted.text-xs.text-truncate');
+                        const description = descriptionEl ? descriptionEl.innerText.toLowerCase() : '';
+
+                        if (wcCode.includes(term) || description.includes(term)) {
+                            card.classList.remove('d-none');
+                        } else {
+                            card.classList.add('d-none');
+                        }
+                    });
+                });
+            }
+
+            // --- NEW: REMOVE PRO FROM MODAL ---
+            window.removeProFromModal = function(btn) {
+                const card = btn.closest('.pro-card');
+                if(!card) return;
+
+                const aufnr = card.dataset.refAufnr;
+                
+                // Find index in cache based on aufnr matching the card's ref
+                // Note: uniqueAssignmentModal usually handles duplicates by index if possible,
+                // but since draggedItemsCache maps 1-to-1 to generated cards in order, we can find by index relative to container children?
+                // Safest is to check if element in cache matches.
+                // But wait, the cards are NEW elements. draggedItemsCache has SOURCE elements.
+                
+                // Strategy: The card index in 'assignmentCardContainer' typically matches draggedItemsCache index 
+                // IF we don't re-order. 'processDrop' builds them in order.
+                
+                // Let's find the card index in the DOM container
+                const container = document.getElementById('assignmentCardContainer');
+                // The container has 'div' children. Some might be the capacity header.
+                // The cards have class 'pro-card'.
+                const proCards = Array.from(container.querySelectorAll('.pro-card'));
+                const cardIndex = proCards.indexOf(card);
+                
+                if (cardIndex > -1 && draggedItemsCache[cardIndex]) {
+                    const item = draggedItemsCache[cardIndex];
+                    
+                    // Return item to source
+                    handleReturnToTable(item, sourceContainerCache);
+                    
+                    // Remove from cache
+                    draggedItemsCache.splice(cardIndex, 1);
+                    
+                    // Remove card from DOM
+                    card.remove();
+                    
+                    // Update Title
+                    if (draggedItemsCache.length > 0) {
+                        const proTitle = draggedItemsCache.length > 1 
+                            ? `<span class="badge bg-primary">${draggedItemsCache.length} Items Selected</span>` 
+                            : `<span class="badge bg-primary text-wrap">${draggedItemsCache[0].dataset.aufnr}</span>`;
+                        document.getElementById('modalProDetails').innerHTML = proTitle;
+                        
+                        const bulkWarning = document.getElementById('bulkWarning');
+                        if (draggedItemsCache.length > 1) {
+                            bulkWarning.classList.remove('d-none');
+                        } else {
+                            bulkWarning.classList.add('d-none');
+                        }
+                    } else {
+                        // All items removed, close modal
+                        assignmentModalInstance.hide();
+                    }
+                }
+            };
+
             function updateAssignedChildWCs(aufnr, newChildWc) {
                 if (!newChildWc) return;
 
@@ -1503,7 +1594,13 @@
 
             function handleReturnToTable(item, fromContainer) {
                 
-                const wcId = fromContainer ? fromContainer.closest('.wc-card-container').dataset.wcId : 'Unknown';
+                let wcId = 'Unknown';
+                if (fromContainer) {
+                    const container = fromContainer.closest('.wc-card-container');
+                    if (container) {
+                        wcId = container.dataset.wcId;
+                    }
+                }
                 const returnedChildWc = item.dataset.childWc;
                 const existingSourceItems = document.querySelectorAll(`#source-list .pro-item[data-aufnr="${item.dataset.aufnr}"]`);
                 let sourceItem = null;

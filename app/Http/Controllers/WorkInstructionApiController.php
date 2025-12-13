@@ -53,34 +53,70 @@ class WorkInstructionApiController extends Controller
     public function getWiDocumentByCode(Request $request)
     {
         $request->validate([
-            'wi_code' => 'required|string',
+            'wi_code' => 'nullable|string',
+            'nik' => 'nullable|string',
         ]);
 
         $code = $request->input('wi_code');
-        $document = HistoryWi::where('wi_document_code', $code)
-                              ->where('expired_at', '>', Carbon::now())
-                              ->where('document_date','<', Carbon::now())
-                              ->first();
-        if (!$document) {
+        $nik = $request->input('nik');
+
+        if (!$code && !$nik) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Dokumen WI tidak ditemukan, WI Inactiveatau sudah expired.'
+                'message' => 'Harap masukkan WI Code atau NIK.'
+            ], 400);
+        }
+
+        $query = HistoryWi::where('expired_at', '>', Carbon::now())
+                          ->where('document_date','<', Carbon::now());
+
+        if ($code) {
+            $query->where('wi_document_code', $code);
+        }
+
+        if ($nik) {
+            $query->whereJsonContains('payload_data', [['nik' => $nik]]);
+        }
+
+        $documents = $query->get();
+
+        if ($documents->isEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Dokumen WI tidak ditemukan, WI Inactive, expired, atau NIK tidak sesuai.'
             ], 404);
         }
 
+        $mappedDocuments = $documents->map(function ($doc) use ($nik) {
+            $payload = $doc->payload_data;
+
+            // If NIK is provided, filter the payload to only include items for that NIK
+            if ($nik) {
+                // Ensure payload is an array before filtering
+                if (is_array($payload)) {
+                    $payload = array_values(array_filter($payload, function ($item) use ($nik) {
+                        return isset($item['nik']) && $item['nik'] === $nik;
+                    }));
+                }
+            }
+
+            return [
+                'wi_code' => $doc->wi_document_code,
+                'plant_code' => $doc->plant_code,
+                'workcenter_code' => $doc->workcenter_code,
+                'document_date' => $doc->document_date,
+                'document_time' => $doc->document_time,
+                'expired_at' => $doc->expired_at,
+                'pro_items' => $payload,
+            ];
+        });
+
         return response()->json([
             'status' => 'success',
-            'wi_document' => [
-                'wi_code' => $document->wi_document_code,
-                'plant_code' => $document->plant_code,
-                'workcenter_code' => $document->workcenter_code,
-                'document_date' => $document->document_date,
-                'document_time' => $document->document_time,
-                'expired_at' => $document->expired_at,
-                'pro_items' => $document->payload_data,
-            ]
+            'wi_documents' => $mappedDocuments, // Changed to return list
         ]);
     }
+    
     public function completeProStatus(Request $request)
     {
         $request->validate([
@@ -111,14 +147,11 @@ class WorkInstructionApiController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Dokumen WI tidak ditemukan.'], 404);
             }
 
-            // $document->nik_last_updated = $nik; // Removed to avoid SQL error if column missing
-
             $payload = $document->payload_data;
             $updated = false;
             $documentCompleted = false;
             
             foreach ($payload as $key => $item) {
-                // Modified: Check both AUFNR and NIK
                 if (($item['aufnr'] ?? null) === $aufnrToComplete && ($item['nik'] ?? null) === $nik && ($item['vornr'] ?? null) === $vornr) {
                     
                     $assignedQty = (float) ($item['assigned_qty'] ?? 0);
