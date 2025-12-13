@@ -330,8 +330,8 @@
                 <div class="target-scroll-area custom-scrollbar">
                     @foreach ($workcenters as $wc)
                         @php
-                            $refItem = $tData1->firstWhere('ARBPL', $wc->kode_wc);
-                            $rawKapaz = $refItem ? $refItem->KAPAZ : 0;
+                            // [FIXED] Use capacityMap (Full Data) instead of finding in paginated tData1
+                            $rawKapaz = $capacityMap[$wc->kode_wc] ?? 0;
                             $kapazHours = (float) str_replace(',', '.', (string) $rawKapaz);
                             $isUnknown = $kapazHours <= 0;
                         @endphp
@@ -340,12 +340,12 @@
                             <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-kapaz-wc="{{ $kapazHours }}">
                                 {{-- Card Header --}}
                                 <div class="wc-header">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                            <h6 class="fw-bold text-dark mb-0">{{ $wc->kode_wc }}</h6>
-                                            <div class="text-muted text-xs text-truncate" style="max-width: 150px;">{{ $wc->description }}</div>
-                                        </div>
-                                        <span class="badge bg-white text-dark border" id="label-cap-{{ $wc->kode_wc }}">0 / 0 Min</span>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <h6 class="fw-bold text-dark mb-0">{{ $wc->kode_wc }}</h6>
+                                        <span class="badge bg-light text-dark border" id="label-cap-{{ $wc->kode_wc }}" style="font-size: 0.75rem;">0 / 0 Min</span>
+                                    </div>
+                                    <div class="text-muted text-xs text-truncate mb-2" title="{{ $wc->description }}">
+                                        {{ $wc->description }}
                                     </div>
                                     
                                     {{-- Progress Bar --}}

@@ -101,6 +101,13 @@ class CreateWiController extends Controller
         $workcenters = workcenter::where('werksx', $kode)->get();
         $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
         $parentWorkcenters = $this->buildWorkcenterHierarchy($workcenters, $workcenterMappings);
+        $capacityData = ProductionTData1::where('WERKSX', $kode)
+            ->whereRaw('MGVRG2 > LMNGA') // Only active items
+            ->select('ARBPL', 'KAPAZ')
+            ->distinct()
+            ->get();
+            
+        $capacityMap = $capacityData->pluck('KAPAZ', 'ARBPL')->toArray();
 
         return view('create-wi.index', [
             'kode'                 => $kode,
@@ -108,6 +115,7 @@ class CreateWiController extends Controller
             'tData1'               => $processedCollection,
             'workcenters'          => $workcenters,
             'parentWorkcenters'    => $parentWorkcenters,
+            'capacityMap'          => $capacityMap, // Pass the map
             'currentFilter'        => $filter,
             'nextPage'             => $pagination->hasMorePages() ? 2 : null
         ]);
