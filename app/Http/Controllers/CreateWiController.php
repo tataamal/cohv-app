@@ -884,4 +884,108 @@ class CreateWiController extends Controller
                 ->setPaper('a4', 'landscape');
         return $pdf->stream('Laporan_Produksi_Completed.pdf');
     }
+
+    public function streamSchedule(Request $request) 
+    {
+        $plantCode = $request->input('plant_code');
+        $date = $request->input('date'); // YYYY-MM-DD
+        $time = $request->input('time'); // HH:MM
+        $items = $request->input('items', []); // Array of {aufnr, ...}
+
+        if (!$plantCode || !$date || !$time || empty($items)) {
+            return response()->json(['error' => 'Missing required fields'], 400);
+        }
+
+        $formattedDate = Carbon::parse($date)->format('Ymd');
+        $formattedTime = Carbon::parse($time)->format('H:i:s');
+        
+        $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function() use ($items, $plantCode, $formattedDate, $formattedTime) {
+            $manufactController = new ManufactController();
+            $total = count($items);
+            
+            echo "data: " . json_encode(['progress' => 0, 'message' => 'Starting process...']) . "\n\n";
+            ob_flush();
+            flush();
+
+            foreach ($items as $index => $item) {
+                $aufnr = $item['aufnr'];
+                $msgPrefix = "[$aufnr] ";
+
+                try {
+                    // 1. Call API Schedule Order
+                    $scheduleUrl = env('FLASK_API_URL') . '/api/schedule_order';
+                    $schedRes = Http::withHeaders([
+                        'X-SAP-Username' => session('username'),
+                        'X-SAP-Password' => session('password'),
+                    ])->post($scheduleUrl, [
+                        'AUFNR' => $aufnr,
+                        'DATE' => $formattedDate,
+                        'TIME' => $formattedTime
+                    ]);
+
+                    if ($schedRes->failed()) {
+                        throw new \Exception("Schedule failed: " . $schedRes->body());
+                    }
+
+                    // 2. Call API Refresh PRO to get new data
+                    $refreshUrl = env('FLASK_API_URL') . '/api/refresh-pro';
+                    $refreshRes = Http::withHeaders([
+                        'X-SAP-Username' => session('username'),
+                        'X-SAP-Password' => session('password'),
+                    ])->get($refreshUrl, [
+                        'aufnr' => $aufnr,
+                        'plant' => $plantCode
+                    ]);
+
+                    if ($refreshRes->failed()) {
+                         throw new \Exception("Refresh failed: " . $refreshRes->body());
+                    }
+
+                    $payload = $refreshRes->json();
+                    $results = $payload['results'] ?? $payload;
+                    
+                    // 3. Sync to DB using ManufactController logic
+                    $T1 = $results['T_DATA1'] ?? [];
+                    $T3 = $results['T_DATA3'] ?? [];
+                    $T4 = $results['T_DATA4'] ?? [];
+                    
+                    // Use ManufactController logic via public internal method
+                    // Note: We need to ensure we are calling it correctly. 
+                    // Using transaction here is good practice to ensure consistency per item.
+                    DB::transaction(function () use ($manufactController, $aufnr, $plantCode, $T3, $T1, $T4) {
+                        $manufactController->syncProInternal($aufnr, $plantCode, $T3, $T1, $T4);
+                    });
+
+                    $percent = round((($index + 1) / $total) * 100);
+                    echo "data: " . json_encode([
+                        'progress' => $percent, 
+                        'message' => "$msgPrefix Scheduled & Synced successfully.",
+                        'aufnr' => $aufnr,
+                        'status' => 'success'
+                    ]) . "\n\n";
+
+                } catch (\Exception $e) {
+                    $percent = round((($index + 1) / $total) * 100);
+                    echo "data: " . json_encode([
+                        'progress' => $percent, 
+                        'message' => "$msgPrefix Error: " . $e->getMessage(),
+                        'aufnr' => $aufnr,
+                        'status' => 'error'
+                    ]) . "\n\n";
+                }
+                
+                ob_flush();
+                flush();
+            }
+            
+            echo "data: " . json_encode(['progress' => 100, 'message' => 'All items processed.', 'completed' => true]) . "\n\n";
+            ob_flush();
+            flush();
+        });
+
+        $response->headers->set('Content-Type', 'text/event-stream');
+        $response->headers->set('X-Accel-Buffering', 'no');
+        $response->headers->set('Cache-Control', 'no-cache');
+        return $response;
+    }
 }

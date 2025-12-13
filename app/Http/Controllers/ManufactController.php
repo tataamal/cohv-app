@@ -544,6 +544,11 @@ class ManufactController extends Controller
         }
     }
 
+    public function syncProInternal(string $proNumber, string $kode, array $all_T3, array $all_T1, array $all_T4): void
+    {
+        $this->_updateProductionOrderData($proNumber, $kode, $all_T3, $all_T1, $all_T4);
+    }
+
     private function _updateProductionOrderData(string $proNumber, string $kode, array $all_T3, array $all_T1, array $all_T4): void
     {
         Log::info("Memulai update spesifik untuk PRO: {$proNumber}");

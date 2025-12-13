@@ -2,7 +2,6 @@
 
     @push('styles')
         <style>
-            /* --- 1. THEME VARIABLES (MATCHING HISTORY PAGE) --- */
             :root {
                 --bg-app: #eef2f6;
                 --card-bg: #ffffff;
@@ -204,7 +203,6 @@
                background-size: 20px 20px;
                background-position: 0 0, 10px 10px;
             }
-            /* Add content to tell user they can drop back */
             #source-list:empty::after {
                 content: "Drag items back here";
                 display: flex;
@@ -223,8 +221,6 @@
     @endpush
 
     <div class="container-fluid p-3 p-lg-4" style="max-width: 1600px;">
-
-        {{-- PAGE HEADER & ACTIONS --}}
         <div class="d-flex justify-content-between align-items-end mb-4">
             <div>
                 <h1 class="h4 fw-bolder text-dark mb-1">Work Instruction</h1>
@@ -246,12 +242,8 @@
         </div>
 
         <div class="row g-4">
-            
-            {{-- COLUMN 1: SOURCE LIST (PANEL) --}}
             <div class="col-lg-9 col-md-8">
                 <div class="source-panel">
-                    
-                    {{-- Panel Header (Search & Stats) --}}
                     <div class="source-header d-flex justify-content-between align-items-center gap-3">
                         <div class="d-flex align-items-center gap-2">
                             <div class="icon-box bg-primary bg-opacity-10 text-primary">
@@ -300,7 +292,6 @@
                                 @include('create-wi.partials.source_table_rows', ['tData1' => $tData1])
                             </tbody>
                         </table>
-                        {{-- Loading Spinner --}}
                         <div id="loadingSpinner" class="text-center py-3 d-none">
                             <div class="spinner-border spinner-border-sm text-primary" role="status">
                                 <span class="visually-hidden">Loading...</span>
@@ -452,54 +443,6 @@
             </div>
         </div>
     </div>
-
-    <div class="modal fade" id="previewModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
-                <div class="modal-header bg-primary text-white border-0 py-3">
-                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-clipboard-check me-2"></i>Tinjau ulang pemetaan</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4 bg-light">
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-body p-3">
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-3">
-                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Document</label>
-                                    <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-date" id="wiDocumentDate" required>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Waktu Mulai WI</label>
-                                    <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-time" id="wiDocumentTime" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex align-items-center text-danger small bg-danger bg-opacity-10 p-2 rounded">
-                                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i>
-                                        <div>Dokumen akan kadaluarsa <strong>12 Jam</strong> sesuai jadwal. Pastikan jadwal operator sudah benar.</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <h6 class="fw-bold text-dark mb-3 ps-1">Ringkasan Pembuatan Dokumen WI</h6>
-                    <div id="previewContent" class="row g-3">
-                        {{-- Content Injected Here --}}
-                    </div>
-                    
-                    <div id="emptyPreviewWarning" class="alert alert-warning d-none mt-3 text-center border-0 shadow-sm">
-                        <i class="fa-solid fa-triangle-exclamation me-2"></i> Tidak ada data yang dimasukkan, silahkan cek kembali tim anda
-                    </div>
-                </div>
-                <div class="modal-footer bg-white border-top-0 py-3">
-                    <button type="button" class="btn btn-light fw-bold text-muted" data-bs-dismiss="modal">Kembali</button>
-                    <button type="button" class="btn btn-primary fw-bold px-4 shadow-sm" id="btnFinalSave">
-                        <i class="fa-solid fa-paper-plane me-2"></i>Buat dan simpan WI
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
     
     @push('scripts')
     <script>
@@ -554,10 +497,8 @@
                 setupMismatchLogic(); // New Logic
                 setupTargetWcSearch(); // New Search Logic
 
-                document.getElementById('btnFinalSave').addEventListener('click', function() {
-                    const finalData = saveAllocation(false); // False = get data only
-                    sendFinalAllocation(finalData);
-                });
+                // btnFinalSave listener removed as button was deleted. 
+                // Using confirmSaveBtn in modal instead.
                 
                 // Reset modal state on close
                 document.getElementById('uniqueAssignmentModal').addEventListener('hide.bs.modal', function() {
@@ -1942,13 +1883,14 @@
                 });
 
                 if (isFinalSave) {
-                    showPreview(allocationData, totalWcCount);
+                    showPreviewModal(allocationData, totalWcCount);
                 }
 
                 return allocationData;
             }
 
             function sendFinalAllocation(data) {
+                console.log('sendFinalAllocation called with', data);
                 const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
                 const documentDateInput = document.getElementById('wiDocumentDate');
                 const documentDate = documentDateInput ? documentDateInput.value : '';
@@ -1962,62 +1904,198 @@
                     Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning');
                     return;
                 }
-                Swal.fire({
-                    title: 'Menyimpan WI...',
-                    text: 'Mohon tunggu, data sedang diproses. Jangan tutup jendela ini.',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
+                showPreviewModal(data, data.length);
+            } // Close sendFinalAllocation
+
+            // --- SAVE / CONFIRM ---
+            // --- SAVE / CONFIRM ---
+            const confirmBtn = document.getElementById('confirmSaveBtn');
+            if (confirmBtn) {
+                // Remove old listener to avoid duplicates if any (though this runs once on load)
+                // Better: Just add log inside.
+                confirmBtn.addEventListener('click', function() {
+                    console.log('confirmSaveBtn clicked! Calling startWiCreationStream...');
+                    startWiCreationStream();
                 });
-                const finalPayload = {
-                    plant_code: PLANT_CODE,
-                    document_date: documentDate,
-                    document_time: documentTime,
-                    workcenter_allocations: data
-                };
+            } else {
+                console.error('confirmSaveBtn NOT FOUND in DOM!');
+            }
 
-                const url = '{{ route('wi.save') }}'; 
+            // --- STREAMING FUNCTION ---
+            window.startWiCreationStream = async function() {
+                console.log('startWiCreationStream STARTING...');
+                const previewContent = document.getElementById('previewContent');
+                if (!previewContent) return;
 
-                fetch(url, {
+                // 1. Collect Data from Preview
+                const payload = [];
+                const plantCode = '{{ $kode }}';
+                
+                // Get Date/Time from Header Input
+                const dateInput = document.getElementById('wiDocumentDate').value; // Changed from documentDate to wiDocumentDate
+                const timeInput = document.getElementById('wiDocumentTime').value;
+
+                // We need to gather all AUFNRs that are being saved.
+                // The preview content is just HTML, it doesn't hold data easily.
+                // We should rely on the data we prepared in 'showPreviewModal'. 
+                // However, 'showPreviewModal' constructs array 'allocations'.
+                // We need to access that 'allocations' array here.
+                // Best way: Store 'allocations' in a global variable when preview is shown.
+                
+                if (!window.latestAllocations || window.latestAllocations.length === 0) {
+                     Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning'); // Changed from alert to Swal.fire
+                     return;
+                }
+
+                // Close Preview Modal
+                const previewModalEl = document.getElementById('previewModal');
+                const previewModal = bootstrap.Modal.getInstance(previewModalEl);
+                if (previewModal) previewModal.hide();
+
+                // Open Progress Modal
+                const progressModalEl = document.getElementById('streamProgressModal');
+                const progressModal = new bootstrap.Modal(progressModalEl);
+                progressModal.show();
+                
+                // Reset Progress UI
+                const progressBar = document.getElementById('wiProgressBar');
+                const statusText = document.getElementById('wiStatusText');
+                const logArea = document.getElementById('wiLogArea');
+                
+                progressBar.style.width = '0%';
+                progressBar.innerText = '0%';
+                statusText.innerText = 'Initializing stream...';
+                logArea.innerHTML = '';
+                logArea.classList.remove('d-none');
+
+                // Prepare Items for Stream (List of AUFNRs)
+                // Flatten allocations to get list of items
+                const proItems = [];
+                window.latestAllocations.forEach(alloc => {
+                    alloc.pro_items.forEach(item => {
+                        // Check if already added to avoid duplicates if split? 
+                        // Actually, schedule order is per AUFNR. 
+                        // If one AUFNR is split into multiple WCs, we only need to schedule it once?
+                        // Or if we schedule, does it affect the whole order? Yes.
+                        if (!proItems.some(p => p.aufnr === item.aufnr)) {
+                            proItems.push({ aufnr: item.aufnr });
+                        }
+                    });
+                });
+
+                try {
+                    // 2. Start Fetch Stream
+                    const response = await fetch('{{ route("create-wi.stream-schedule") }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': csrfToken
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
                         },
-                        body: JSON.stringify(finalPayload)
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.json().then(error => {
-                                throw new Error(error.message || `Gagal menyimpan (Status: ${response.status})`);
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(result => {
-                        if (result.documents) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'WI Berhasil Disimpan!',
-                                html: `Total **${result.documents.length}** dokumen WI berhasil dibuat.`,
-                                confirmButtonText: 'OK'
-                            }).then(() => {
-                                window.location.reload();
-                            });
-                        } else {
-                            Swal.fire('Gagal', result.message || 'Gagal menyimpan data ke server.', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('AJAX Error:', error);
-                        Swal.fire('Error Koneksi', error.message || 'Terjadi kesalahan jaringan atau server.', 'error');
+                        body: JSON.stringify({
+                            plant_code: plantCode,
+                            date: dateInput,
+                            time: timeInput,
+                            items: proItems
+                        })
                     });
-            }
 
-            function showPreview(data, totalWcCount) {
+                    console.log('Stream Response Status:', response.status);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Server Error (${response.status}): ${errorText}`);
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n\n');
+                        buffer = lines.pop(); // Keep incomplete chunk
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const jsonStr = line.substring(6);
+                                try {
+                                    const data = JSON.parse(jsonStr);
+                                    
+                                    // Update UI
+                                    if (data.progress !== undefined) {
+                                        progressBar.style.width = data.progress + '%';
+                                        progressBar.innerText = data.progress + '%';
+                                    }
+                                    if (data.message) {
+                                        statusText.innerText = data.message;
+                                        const logEntry = document.createElement('div');
+                                        logEntry.innerText = `> ${data.message}`;
+                                        if (data.status === 'error') logEntry.classList.add('text-danger');
+                                        else if (data.status === 'success') logEntry.classList.add('text-success');
+                                        
+                                        logArea.appendChild(logEntry);
+                                        logArea.scrollTop = logArea.scrollHeight;
+                                    }
+                                    
+                                    if (data.completed) {
+                                        statusText.innerText = "All items processed. Saving final document...";
+                                    }
+
+                                } catch (e) {
+                                    console.error("Stream parse error", e);
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Final Save (Create WI Document)
+                    statusText.innerText = "Finalizing...";
+                    
+                    // We call the original save endpoint
+                    const saveResponse = await fetch('{{ route("wi.save") }}', {
+                         method: 'POST',
+                         headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                         },
+                         body: JSON.stringify({
+                            plant_code: plantCode,
+                            document_date: dateInput,
+                            document_time: timeInput,
+                            workcenter_allocations: window.latestAllocations
+                         })
+                    });
+                    
+                    const saveResult = await saveResponse.json();
+                    
+                    if (saveResponse.ok) {
+                         progressBar.classList.remove('bg-primary');
+                         progressBar.classList.add('bg-success');
+                         statusText.innerText = "Work Instructions Created Successfully!";
+                         
+                         setTimeout(() => {
+                            // Redirect
+                            window.location.href = "{{ route('wi.history', $kode) }}";
+                         }, 1500);
+                    } else {
+                         throw new Error(saveResult.message || "Save failed.");
+                    }
+
+                } catch (error) {
+                    console.error(error);
+                    statusText.innerText = "Error: " + error.message;
+                    statusText.classList.add('text-danger');
+                    progressBar.classList.add('bg-danger');
+                }
+            };
+
+            function showPreviewModal(data, totalWcCount) {
+                console.log('showPreviewModal called', data, totalWcCount);
+                // Save data globally for save function
+                window.latestAllocations = data;
+
                 const content = document.getElementById('previewContent');
                 const emptyWarning = document.getElementById('emptyPreviewWarning');
                 const dateInput = document.getElementById('wiDocumentDate');
@@ -2034,13 +2112,19 @@
 
                 if (totalWcCount === 0) {
                     emptyWarning.classList.remove('d-none');
-                    document.getElementById('btnFinalSave').disabled = true;
-                    previewModalInstance.show();
+                    const confirmBtn = document.getElementById('confirmSaveBtn');
+                    if(confirmBtn) confirmBtn.disabled = true;
+                    
+                    // Force Re-init to be safe
+                    const previewEl = document.getElementById('previewModal');
+                    const modal = bootstrap.Modal.getOrCreateInstance(previewEl);
+                    modal.show();
                     return;
                 }
 
                 emptyWarning.classList.add('d-none');
-                document.getElementById('btnFinalSave').disabled = false;
+                const confirmBtn = document.getElementById('confirmSaveBtn');
+                if(confirmBtn) confirmBtn.disabled = false;
 
                 let html = '';
                 data.forEach(wc => {
@@ -2093,7 +2177,12 @@
                 });
 
                 content.innerHTML = html;
-                previewModalInstance.show();
+                
+                // Force Re-init to be safe
+                const previewEl = document.getElementById('previewModal');
+                const modal = bootstrap.Modal.getOrCreateInstance(previewEl);
+                console.log('Showing modal via getOrCreateInstance');
+                modal.show();
             }
             // 1. Tombol "Change WC" diklik
             function requestChangeWc() {
@@ -2291,11 +2380,83 @@
                         <span id="selectedCountMsg">0 PRO terpilih.</span> Proses ini akan dilakukan secara bertahap.
                     </div>
                 </div>
-                <div class="modal-footer bg-light border-0">
-                    <button type="button" class="btn btn-link text-muted fw-bold text-decoration-none" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary fw-bold px-4 rounded-pill shadow-sm" onclick="startBulkChangeStream()">
-                        <i class="fa-solid fa-play me-1"></i> Mulai Proses
-                    </button>
+            </div>
+        </div>
+    </div>
+    {{-- Modal Preview --}}
+    <div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="fa-solid fa-file-contract me-2"></i>Review & Confirm WI
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <!-- Added Date/Time Inputs -->
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body p-3">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Document</label>
+                                    <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-date" id="wiDocumentDate" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Waktu Mulai WI</label>
+                                    <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-time" id="wiDocumentTime" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center text-danger small bg-danger bg-opacity-10 p-2 rounded">
+                                        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i>
+                                        <div>Dokumen akan kadaluarsa <strong>12 Jam</strong> sesuai jadwal. Pastikan jadwal operator sudah benar.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="emptyPreviewWarning" class="alert alert-warning d-none text-center border-0 shadow-sm mb-3">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i> Tidak ada data yang dimasukkan, silahkan cek kembali tim anda
+                    </div>
+
+                    <div id="previewContent">
+                        {{-- Preview Cards injected here --}}
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top-0 d-flex justify-content-between">
+                     <div>
+                        <small class="text-muted fst-italic"><i class="fa-solid fa-circle-info me-1"></i> PASTIKAN DATA SUDAH BENAR SEBELUM MENYIMPAN.</small>
+                     </div>
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary px-4 me-2 shadow-sm rounded-pill" data-bs-dismiss="modal">
+                             <i class="fa-solid fa-xmark me-2"></i>Cancel
+                        </button>
+                        <button type="button" class="btn btn-success px-5 shadow-lg rounded-pill" id="confirmSaveBtn">
+                             <i class="fa-solid fa-check-double me-2"></i>Confirm & Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {{-- NEW: Stream Progress Modal --}}
+    <div class="modal fade" id="streamProgressModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
+                <div class="modal-body p-4 text-center">
+                    <h5 class="fw-bold mb-3 text-dark">Processing Schedule...</h5>
+                    
+                    <div class="progress mb-3" style="height: 20px; border-radius: 10px;">
+                        <div id="wiProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                    
+                    <p id="wiStatusText" class="text-muted small mb-0">Initializing...</p>
+                    
+                    <div id="wiLogArea" class="mt-3 text-start small text-muted overflow-auto border rounded p-2 bg-light d-none" style="max-height: 100px; font-size: 0.75rem;">
+                        {{-- Logs assigned here --}}
+                    </div>
                 </div>
             </div>
         </div>
