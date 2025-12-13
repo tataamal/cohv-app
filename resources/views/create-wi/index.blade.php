@@ -1004,8 +1004,8 @@
                                 text.innerText = `${usage.toFixed(1)} / ${childLimitMins.toFixed(1)} Min`;
                                 
                                 if (usage > childLimitMins) {
-                                    bar.className = 'progress-bar bg-danger';
-                                    text.classList.add('text-danger');
+                                    bar.className = 'progress-bar bg-warning';
+                                    text.classList.add('text-warning');
                                 } else {
                                     bar.className = 'progress-bar bg-success';
                                     text.classList.remove('text-danger');
@@ -1070,7 +1070,7 @@
                 
                 // Check 2: Capacity Limits (Red Bars)
                 const redBars = document.querySelectorAll('#topCapacityContainer .bg-danger');
-                if (redBars.length > 0) hasError = true;
+                // if (redBars.length > 0) hasError = true;
 
                 confirmBtn.disabled = hasError;
             };
@@ -1696,7 +1696,7 @@
                 if (lbl) lbl.innerText = `${Math.ceil(currentLoad)} / ${Math.ceil(maxMins)} Min`;
                 if (bar) {
                     bar.style.width = Math.min(pct, 100) + "%";
-                    bar.className = 'progress-bar rounded-pill ' + (pct < 70 ? 'bg-success' : pct < 95 ? 'bg-warning' : 'bg-danger');
+                    bar.className = 'progress-bar rounded-pill ' + (pct < 70 ? 'bg-success' : 'bg-warning');
                 }
                 
                 const placeholder = cardContainer.querySelector('.empty-placeholder');
