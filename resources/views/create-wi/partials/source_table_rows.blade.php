@@ -79,9 +79,9 @@
         <td class="text-center table-col fw-bold text-dark">{{ number_format($item->MGVRG2, $decimals, ',', '.') }} {{ $showUnit }}</td>
         <td class="text-center table-col text-muted">{{ number_format($item->LMNGA, $decimals, ',', '.') }} {{ $showUnit }}</td>
         
-        {{-- QTY SISA (Qty Opt - Qty WI) --}}
+        {{-- QTY SISA (Qty Opt - Qty Conf - Qty WI) --}}
         @php
-            $qtySisaDisplay = $item->MGVRG2 - $item->qty_wi;
+            $qtySisaDisplay = ($item->MGVRG2 - $item->LMNGA) - $item->qty_wi;
             if ($qtySisaDisplay < 0) $qtySisaDisplay = 0;
         @endphp
         <td class="text-center table-col text-primary fw-bold">{{ number_format($qtySisaDisplay, $decimals, ',', '.') }} {{ $showUnit }}</td>

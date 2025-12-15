@@ -376,12 +376,69 @@
                                                         </div>
                                                     </div>
                                                     {{-- FULL WIDTH PROGRESS BAR --}}
+                                                    {{-- FULL WIDTH PROGRESS BAR --}}
                                                     <div class="d-flex justify-content-end mb-1">
-                                                        <span class="text-xs fw-bold text-muted">{{ $item['confirmed_qty'] ?? 0 }} / {{ $item['assigned_qty'] }} Quantity</span>
+                                                        <span class="text-xs fw-bold text-muted">
+                                                             Sukses: {{ $item['confirmed_qty'] ?? 0 }}
+                                                            @if(($item['remark_qty'] ?? 0) > 0)
+                                                                <span class="text-danger"> Gagal: {{ $item['remark_qty'] }}</span>
+                                                            @endif
+                                                             / {{ $item['assigned_qty'] }} Quantity
+                                                        </span>
                                                     </div>
+                                                    @php
+                                                        $rQty = $item['remark_qty'] ?? 0;
+                                                        $aQty = $item['assigned_qty'] > 0 ? $item['assigned_qty'] : 1;
+                                                        $rPct = ($rQty / $aQty) * 100;
+                                                    @endphp
                                                     <div class="progress" style="height: 6px;">
                                                         <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $item['progress_pct'] ?? 0 }}%"></div>
+                                                        <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
                                                     </div>
+                                                    @if(!empty($item['remark_history']) && is_array($item['remark_history']))
+                                                        <div class="mt-2">
+                                                            <div class="fw-bold text-danger" style="font-size: 0.75rem;">Riwayat Remark:</div>
+                                                            <ul class="list-unstyled mb-0 ps-1 mt-1">
+                                                                @foreach($item['remark_history'] as $h)
+                                                                    <li class="mb-1">
+                                                                         <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                            <strong>Jumlah Item Gagal: {{ floatval($h['qty'] ?? 0) }}</strong> - {{ $h['remark'] ?? '-' }}
+                                                                         </span>
+                                                                    </li>
+                                                                @endforeach
+                                                            </ul>
+                                                        </div>
+                                                    @elseif(!empty($item['remark']))
+                                                        <div class="mt-2 text-danger" style="font-size: 0.75rem;">
+                                                            @foreach(explode(';', $item['remark']) as $r)
+                                                                @if(trim($r))
+                                                                    @php
+                                                                        $parts = explode(':', $r, 2);
+                                                                        $qtyMsg = '';
+                                                                        $remarkMsg = trim($r);
+                                                                        if (count($parts) == 2 && stripos($parts[0], 'Qty') !== false) {
+                                                                            // Parse 'Qty X' to 'X'
+                                                                            $qtyVal =  trim(str_ireplace('Qty', '', $parts[0]));
+                                                                            $remarkMsg = trim($parts[1]);
+                                                                            $qtyDisplay = "Jumlah Item Gagal: " . $qtyVal;
+                                                                        } else {
+                                                                            // No Qty prefix found, maybe just message
+                                                                            $qtyDisplay = "Remark"; 
+                                                                        }
+                                                                    @endphp
+                                                                    <div class="mb-1">
+                                                                        <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                            @if(!empty($qtyDisplay) && $qtyDisplay !== 'Remark')
+                                                                                <strong>{{ $qtyDisplay }}</strong> - {{ $remarkMsg }}
+                                                                            @else
+                                                                                {{ $remarkMsg }}
+                                                                            @endif
+                                                                        </span>
+                                                                    </div>
+                                                                @endif
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             @endforeach
                                         @endif
@@ -562,12 +619,37 @@
                                                       </div>
                                                   </div>
                                                   {{-- FULL WIDTH PROGRESS BAR --}}
+                                                  {{-- FULL WIDTH PROGRESS BAR --}}
                                                   <div class="d-flex justify-content-end mb-1">
-                                                      <span class="text-xs fw-bold text-muted">{{ $item['confirmed_qty'] ?? 0 }} / {{ $item['assigned_qty'] }} Quantity</span>
+                                                      <span class="text-xs fw-bold text-muted">
+                                                          {{ $item['confirmed_qty'] ?? 0 }}
+                                                          @if(($item['remark_qty'] ?? 0) > 0)
+                                                              <span class="text-danger"> + {{ $item['remark_qty'] }} (Remark)</span>
+                                                          @endif
+                                                           / {{ $item['assigned_qty'] }} Quantity
+                                                      </span>
                                                   </div>
+                                                  @php
+                                                      $rQty = $item['remark_qty'] ?? 0;
+                                                      $aQty = $item['assigned_qty'] > 0 ? $item['assigned_qty'] : 1;
+                                                      $rPct = ($rQty / $aQty) * 100;
+                                                  @endphp
                                                   <div class="progress" style="height: 6px;">
                                                       <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $item['progress_pct'] ?? 0 }}%"></div>
+                                                      <div class="progress-bar bg-danger border-start border-white" role="progressbar" style="width: {{ $rPct }}%"></div> {{-- Border to distinguish if main is also red --}}
                                                   </div>
+                                                  @if(!empty($item['remark']))
+                                                      <div class="mt-2 text-danger" style="font-size: 0.75rem; font-weight: 600;">
+                                                          @foreach(explode(';', $item['remark']) as $r)
+                                                              @if(trim($r))
+                                                                  <div class="d-flex align-items-start gap-1">
+                                                                      <i class="fa-solid fa-circle-exclamation mt-1" style="font-size: 8px;"></i> 
+                                                                      <span>{{ trim($r) }}</span>
+                                                                  </div>
+                                                              @endif
+                                                          @endforeach
+                                                      </div>
+                                                  @endif
                                               </div>
                                           @endforeach
                                       </div>
@@ -643,12 +725,46 @@
                                                  </div>
                                                  
                                                  {{-- FULL WIDTH PROGRESS BAR --}}
+                                                 {{-- FULL WIDTH PROGRESS BAR --}}
                                                  <div class="d-flex justify-content-end mb-1">
-                                                     <span class="text-xs fw-bold text-muted">{{ $item['assigned_qty'] }} / {{ $item['assigned_qty'] }}</span>
+                                                     <span class="text-xs fw-bold text-muted">
+                                                         {{ $item['confirmed_qty'] ?? 0 }} {{-- Usually full in completed, but good to check --}}
+                                                          @if(($item['remark_qty'] ?? 0) > 0)
+                                                              <span class="text-danger"> + {{ $item['remark_qty'] }} (Remark)</span>
+                                                          @endif
+                                                          / {{ $item['assigned_qty'] }}
+                                                     </span>
                                                  </div>
+                                                 @php
+                                                      $rQty = $item['remark_qty'] ?? 0;
+                                                      $aQty = $item['assigned_qty'] > 0 ? $item['assigned_qty'] : 1;
+                                                      
+                                                      // For completed, the 'width: 100%' was hardcoded for the main bar in original code.
+                                                      // But if we have remarks, maybe confirmed is less than 100% physically? 
+                                                      // Usually completed means confirmed == assigned OR forcibly completed.
+                                                      // I'll calculate real percentages here just in case.
+                                                      $confQty = $item['confirmed_qty'] ?? 0;
+                                                      $confPct = ($confQty / $aQty) * 100;
+                                                      $rPct = ($rQty / $aQty) * 100;
+                                                      
+                                                      // Handle total > 100 visual cap? Bootstrap progress handles overflow by stacking or capping if using multiple bars.
+                                                 @endphp
                                                  <div class="progress" style="height: 6px;">
-                                                    <div class="progress-bar bg-info" role="progressbar" style="width: 100%"></div>
+                                                    <div class="progress-bar bg-info" role="progressbar" style="width: {{ $confPct }}%"></div>
+                                                    <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
                                                  </div>
+                                                 @if(!empty($item['remark']))
+                                                      <div class="mt-2 text-danger" style="font-size: 0.75rem; font-weight: 600;">
+                                                          @foreach(explode(';', $item['remark']) as $r)
+                                                              @if(trim($r))
+                                                                  <div class="d-flex align-items-start gap-1">
+                                                                      <i class="fa-solid fa-circle-exclamation mt-1" style="font-size: 8px;"></i> 
+                                                                      <span>{{ trim($r) }}</span>
+                                                                  </div>
+                                                              @endif
+                                                          @endforeach
+                                                      </div>
+                                                  @endif
                                              </div>
                                          @endforeach
                                     </div>
@@ -727,6 +843,44 @@
     </div>
     
     @include('create-wi.partials.modal_edit_qty') 
+
+    <!-- Sticky Glass Footer for Remark Search -->
+    <div class="fixed-bottom p-3" style="z-index: 1040; margin-left: 260px; backdrop-filter: blur(10px); background: linear-gradient(to right, rgba(16, 185, 129, 0.8), rgba(5, 150, 105, 0.8)); border-top: 1px solid rgba(255,255,255,0.2); box-shadow: 0 -4px 20px rgba(0,0,0,0.1);">
+        <div class="container-fluid d-flex justify-content-center">
+            <div class="input-group shadow rounded-pill overflow-hidden" style="max-width: 600px; border: 1px solid rgba(255,255,255,0.3);">
+                <span class="input-group-text bg-white border-0 ps-3 text-success"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" id="searchRemarkAufnr" class="form-control border-0 shadow-none bg-white text-dark" placeholder="Cari Remark (Input AUFNR)..." style="font-size: 1rem;">
+                <button class="btn btn-light px-4 fw-bold text-success" type="button" id="btnSearchRemark">
+                    <i class="fa-solid fa-search me-1"></i> Cari
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Search Result -->
+    <div class="modal fade" id="remarkSearchModal" tabindex="-1" aria-hidden="true" style="backdrop-filter: blur(5px);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem; overflow: hidden;">
+                <div class="modal-header bg-success text-white border-bottom-0 pb-3">
+                    <h5 class="modal-title fw-bold d-flex align-items-center">
+                        <span class="bg-white bg-opacity-25 p-2 rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </span>
+                        Riwayat Remark
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="bg-success text-white px-3 pb-3 small ms-0 mt-0">
+                    <div class="bg-white bg-opacity-20 px-3 fw-bold text-dark py-2 rounded d-inline-block">
+                        PRO: <span id="searchedAufnr" class="fw-light text-dark font-monospace"></span>
+                    </div>
+                </div>
+                <div class="modal-body p-4 bg-light" id="remarkSearchResultBody" style="min-height: 200px; max-height: 60vh; overflow-y: auto;">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
 
     @push('scripts')
     <script>
@@ -1124,6 +1278,122 @@
                 modal.show();
             }
         };
+
+        // --- 8. REMARK SEARCH LOGIC ---
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchRemarkAufnr');
+            const searchBtn = document.getElementById('btnSearchRemark');
+            const resultModalEl = document.getElementById('remarkSearchModal');
+            
+            if(searchInput && searchBtn && resultModalEl) {
+                const resultModal = new bootstrap.Modal(resultModalEl);
+                const resultBody = document.getElementById('remarkSearchResultBody');
+                const searchedAufnrSpan = document.getElementById('searchedAufnr');
+
+                const performSearch = function() {
+                    const aufnr = searchInput.value.trim();
+                    if (!aufnr) {
+                        alert('Silakan masukkan Nomor AUFNR.');
+                        return;
+                    }
+
+                    // Show loading
+                    resultBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted fw-bold">Mencari Data...</div></div>';
+                    searchedAufnrSpan.innerText = aufnr;
+                    resultModal.show();
+
+                    // Fetch Data
+                    fetch('/api/wi/remarks/get', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ aufnr: aufnr })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                             throw new Error('Network response was not ok: ' + response.statusText);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
+                            renderSearchResults(data.data);
+                        } else {
+                            resultBody.innerHTML = `<div class="alert alert-warning border-0 shadow-sm d-flex align-items-center"><i class="fa-solid fa-triangle-exclamation fs-4 me-3"></i><div><strong>Data tidak ditemukan.</strong><br>${data.message || 'Tidak ada riwayat remark untuk AUFNR ini.'}</div></div>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // If it's a syntax error (HTML response instead of JSON often), display useful message
+                        let msg = 'Terjadi kesalahan sistem saat mengambil data.';
+                        if (error.message.includes('Unexpected token')) {
+                             msg = 'Terjadi kesalahan server (Response Invalid). Cek log backend.';
+                        }
+                        resultBody.innerHTML = `<div class="alert alert-danger border-0 shadow-sm"><i class="fa-solid fa-circle-xmark me-2"></i>${msg}</div>`;
+                    });
+                };
+
+                searchBtn.addEventListener('click', performSearch);
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') performSearch();
+                });
+
+                function renderSearchResults(data) {
+                    if (!data || data.length === 0) {
+                        resultBody.innerHTML = '<div class="alert alert-info border-0 shadow-sm"><i class="fa-solid fa-info-circle me-2"></i>Tidak ada remark ditemukan untuk AUFNR ini.</div>';
+                        return;
+                    }
+
+                    let html = '<div class="list-group list-group-flush rounded-3">';
+                    data.forEach(doc => {
+                         html += `
+                            <div class="list-group-item list-group-item-action p-3 border-bottom-0 mb-2 rounded shadow-sm bg-white border">
+                                <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0 text-primary fw-bold font-monospace"><i class="fa-solid fa-file-lines me-2"></i>${doc.wi_code}</h6>
+                                    <span class="badge bg-light text-secondary border">${doc.document_date}</span>
+                                </div>
+                                <div class="mb-2 text-muted small row">
+                                    <div class="col-md-6"><i class="fa-solid fa-box me-1"></i> Material: <span class="text-dark fw-bold">${doc.material_desc}</span></div>
+                                    <div class="col-md-6"><i class="fa-solid fa-layer-group me-1"></i> VORNR: <span class="text-dark fw-bold">${doc.vornr}</span></div>
+                                </div>
+                                <div class="mb-2 text-muted small"><i class="fa-solid fa-user-gear me-1"></i> Operator: <span class="text-dark fw-bold">${doc.operator || '-'}</span></div>
+                                
+                                <div class="mt-3 ps-3 border-start border-3 border-danger bg-light p-2 rounded-end">
+                                     <div class="fw-bold text-danger text-xs mb-1 text-uppercase">Log Remark</div>
+                                     <ul class="list-unstyled mb-0 mt-1">`;
+                                         
+                         if (doc.history && doc.history.length > 0) {
+                             doc.history.forEach(h => {
+                                 html += `
+                                    <li class="mb-2 d-flex flex-column gap-1 border-bottom pb-2 last-no-border">
+                                        <span class="badge bg-danger text-wrap text-start lh-base" style="font-size: 0.8rem;">
+                                            <i class="fa-solid fa-triangle-exclamation me-1"></i> 
+                                            <strong>Jumlah Item Gagal: ${parseFloat(h.qty || 0)}</strong> - ${h.remark || '-'}
+                                        </span>
+                                        <div class="text-end">
+                                            <small class="text-muted fst-italic" style="font-size: 0.7rem;">
+                                                ${h.created_at || ''} <span class="mx-1">•</span> <i class="fa-solid fa-user-clock text-xs"></i> ${h.created_by || 'System'}
+                                            </small>
+                                        </div>
+                                    </li>
+                                 `;
+                             });
+                         } else {
+                             html += `<li class="text-muted small"><em>Tidak ada detail history.</em></li>`;
+                         }
+                         
+                         html += `   </ul>
+                                </div>
+                            </div>
+                         `;
+                    });
+                    html += '</div>';
+                    resultBody.innerHTML = html;
+                }
+            }
+        });
 
     </script>
     @endpush

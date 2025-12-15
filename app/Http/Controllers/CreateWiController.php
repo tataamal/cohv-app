@@ -53,7 +53,7 @@ class CreateWiController extends Controller
         
         $tData1 = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('MGVRG2 > LMNGA')
-            ->where('STATS', 'REL');
+            ->whereIn('STATS', ['REL', 'PCNF', 'PCNF REL']);
 
         if ($search) {
              $tData1->where(function($q) use ($search) {
@@ -377,12 +377,28 @@ class CreateWiController extends Controller
                     'uom'           => $item['uom'] ?? 'EA',
                     'progress_pct'  => $progressPct,
                     'status'        => $statusItem,
-                    'item_mins'     => $takTime 
+                    'item_mins'     => $takTime,
+                    'remark'        => $item['remark'] ?? null,
+                    'remark_qty'    => $item['remark_qty'] ?? 0
                 ];
 
                 // Check for completion status for the document
-                if ($confirmedQty < $assignedQty) {
-                    $isFullyCompleted = false;
+                
+                // Get remark qty
+                $rQty = floatval(str_replace(',', '.', $item['remark_qty'] ?? 0));
+                
+                if ($rQty > 0) {
+                     // If remark exists, check total
+                     $totalDone = $confirmedQty + $rQty;
+                     // Allow small float tolerance if needed, but direct comparison usually ok if logical
+                     if ($totalDone < $assignedQty) {
+                         $isFullyCompleted = false;
+                     }
+                } else {
+                     // Normal check
+                     if ($confirmedQty < $assignedQty) {
+                         $isFullyCompleted = false;
+                     }
                 }
             }
 
@@ -409,7 +425,6 @@ class CreateWiController extends Controller
             } elseif ($doc->is_inactive) {
                 $inactiveWIDocuments->push($doc);
             } else {
-                // Default / Active (includes current day and past unexpired)
                 $activeWIDocuments->push($doc);
             }
         }
@@ -439,9 +454,10 @@ class CreateWiController extends Controller
             $doc = HistoryWi::where('wi_document_code', $request->wi_code)->firstOrFail();
 
             // 2. Decode Payload
-            $payload = is_array($doc->payload_data) 
-                        ? $doc->payload_data 
-                        : json_decode($doc->payload_data, true);
+            // 2. Decode Payload
+            $payload = is_string($doc->payload_data) 
+                        ? json_decode($doc->payload_data, true) 
+                        : (array) $doc->payload_data;
 
             $updated = false;
             $materialName = '';
@@ -996,4 +1012,6 @@ class CreateWiController extends Controller
         $response->headers->set('Cache-Control', 'no-cache');
         return $response;
     }
+
+
 }
