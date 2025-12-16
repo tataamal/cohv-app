@@ -11,8 +11,8 @@ class SapUser extends Model
     protected $table = 'sap_users';
     protected $fillable = ['sap_id', 'nama'];
 
-    public function kode()
+    public function kodes()
     {
-        return $this->hasOne(Kode::class);
+        return $this->hasMany(Kode::class);
     }
 }
