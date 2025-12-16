@@ -761,6 +761,7 @@
                 // GENERATE PRO CARDS
                 draggedItemsCache.forEach((row, index) => {
                     const rAufnr = row.dataset.aufnr;
+                    const rMaktx = row.dataset.maktx || ''; // Get Material Description
                     const rSisa = parseFloat(row.dataset.sisaQty) || 0;
                     // NEW: Time Calculation Data
                     const rVgw01 = parseFloat(row.dataset.vgw01) || 0; // Base time per 1 Qty
@@ -778,7 +779,7 @@
 
                     card.innerHTML = `
                         <div class="card-header bg-dark text-white py-2 px-3 d-flex justify-content-between align-items-center">
-                            <span class="fw-bold small"><i class="fa-solid fa-box me-1"></i> ${rAufnr}</span>
+                            <span class="fw-bold small"><i class="fa-solid fa-box me-1"></i> ${rAufnr} - ${rMaktx}</span>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-secondary border border-light">Max: ${rSisa}</span>
                                 <button type="button" class="btn btn-sm btn-outline-danger border-0 text-white p-0 ms-2" style="width: 20px; height: 20px; line-height: 1;" onclick="removeProFromModal(this)">

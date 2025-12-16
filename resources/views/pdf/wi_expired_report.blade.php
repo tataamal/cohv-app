@@ -49,6 +49,7 @@
         }
         .text-success { color: #198754; }
         .text-danger { color: #d00; }
+        .text-warning { color: #E4A11B; }
 
         /* --- DATA TABLE --- */
         .data-header th {
@@ -103,14 +104,16 @@
 
     <table>
         <tr class="summary-header">
-            <td width="25%">Quantity WI</td>
-            <td width="25%">Quantity Terkonfirmasi</td>
-            <td width="25%">Quantity Tidak Terkonfirmasi</td>
-            <td width="25%">Rata-rata Keberhasilan</td>
+            <td width="20%">Quantity WI</td>
+            <td width="20%">Quantity Terkonfirmasi</td>
+            <td width="20%">Quantity Remark</td>
+            <td width="20%">Quantity Tidak Terkonfirmasi</td>
+            <td width="20%">Rata-rata Keberhasilan</td>
         </tr>
         <tr class="summary-values">
             <td>{{ number_format($summary['total_assigned'], 0) }}</td>
             <td class="text-success">{{ number_format($summary['total_confirmed'], 0) }}</td>
+            <td class="text-warning">{{ number_format($summary['total_remark_qty'] ?? 0, 0) }}</td>
             <td class="text-danger">{{ number_format($summary['total_balance'], 0) }}</td>
             <td>{{ $summary['achievement_rate'] }}%</td>
         </tr>
@@ -121,16 +124,18 @@
             <tr class="data-header">
                 <th width="3%">NO</th>
                 <th width="9%">Kode WI</th>
-                <th width="7%">NIK</th>
-                <th width="15%">NAMA</th>
+                <th width="6%">NIK</th>
+                <th width="12%">NAMA</th>
                 <th width="8%">Workcenter</th>
-                <th width="7%">PRO</th>
-                <th width="7%">KD. Material</th>
-                <th width="17%">Deskripsi</th>
+                <th width="5%">PRO</th>
+                <th width="5%">KD. Material</th>
+                <th width="14%">Deskripsi</th>
                 <th width="4%">Qty. WI</th>
-                <th width="4%">Qty. Conf</th>
+                <th width="4%">Conf</th>
+                <th width="4%">Rem</th>
                 <th width="4%">Sisa</th>
-                <th width="5%">STATUS</th>
+                <th width="12%">REMARK</th>
+                <th width="10%">STATUS</th>
             </tr>
         </thead>
         <tbody>
@@ -147,18 +152,24 @@
                 <td class="text-center">{{ $idx + 1 }}</td>
                 <td class="fw-bold">{{ $row['wi_code'] }}</td>
                 <td class="text-center">{{ $row['nik'] ?? '-' }}</td>
-                <td>{{ $row['employee_name'] ?? ($row['name'] ?? '-') }}</td>
+                <td>{{ substr($row['employee_name'] ?? ($row['name'] ?? '-'), 0, 15) }}</td>
                 <td class="text-center">{{ $row['workcenter'] }}</td>
                 <td class="text-center">{{ $row['aufnr'] }}</td>
                 <td class="text-center">{{ $row['material'] }}</td>
-                <td>{{ $row['description'] }}</td>
+                <td>{{ substr($row['description'], 0, 25) }}</td>
                 <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                 <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
+                <td class="text-center fw-bold text-warning">{{ floatval($row['remark_qty'] ?? 0) }}</td>
                 <td class="text-center fw-bold {{ $row['balance'] > 0 ? 'text-danger' : '' }}">
                     {{ floatval($row['balance']) }}
                 </td>
-                <td class="text-center" style="font-size: 7pt;">
-                    {{ strtoupper($row['remark']) }}
+                <td class="text-danger" style="font-size: 7pt;">
+                    {!! nl2br(e($row['remark_text'] ?? ($row['remark'] ?? '-'))) !!} 
+                </td>
+                <td class="text-center" style="font-size: 6pt;">
+                    <span class="{{ $row['status'] == 'COMPLETED' ? 'text-success' : ($row['status'] == 'NOT COMPLETED WITH REMARK' ? 'text-warning' : 'text-danger') }}">
+                        {{ $row['status'] }}
+                    </span>
                 </td>
             </tr>
             @endforeach

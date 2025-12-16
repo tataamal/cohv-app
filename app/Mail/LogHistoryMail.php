@@ -17,9 +17,16 @@ class LogHistoryMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(public string $filePath, public string $dateInfo)
+    public array $filePaths;
+
+    /**
+     * Create a new message instance.
+     * @param string|array $filePaths
+     * @param string $dateInfo
+     */
+    public function __construct(string|array $filePaths, public string $dateInfo)
     {
-        //
+        $this->filePaths = is_array($filePaths) ? $filePaths : [$filePaths];
     }
 
     /**
@@ -49,10 +56,12 @@ class LogHistoryMail extends Mailable
      */
     public function attachments(): array
     {
-        return [
-            Attachment::fromPath($this->filePath)
-                ->as('Log_History_' . $this->dateInfo . '.pdf')
-                ->withMime('application/pdf'),
-        ];
+        $attachments = [];
+        foreach ($this->filePaths as $path) {
+            $attachments[] = Attachment::fromPath($path)
+                ->as(basename($path))
+                ->withMime('application/pdf');
+        }
+        return $attachments;
     }
 }

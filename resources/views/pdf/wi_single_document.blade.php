@@ -149,7 +149,7 @@
         {{-- 2. INFO BAR --}}
         <table>
             <tr class="info-bar">
-                <td width="25%">DEPARTMENT: <span class="info-val fw-bold">{{ strtoupper($department) }}</span></td>
+                <td width="25%">DEPARTMENT: <span class="info-val fw-bold">{{ strtoupper($doc->department ?? $department) }}</span></td>
                 <td width="25%">STATUS: <span class="info-val fw-bold">ACTIVE</span></td>
                 <td width="25%">DATE: <span class="info-val">{{ $doc->document_date->format('d-M-Y') }}</span></td>
                 <td width="25%" style="border-right: none;">EXPIRED: <span class="info-val expired-alert">{{ $doc->expired_at->format('d-M-Y H:i') }}</span></td>

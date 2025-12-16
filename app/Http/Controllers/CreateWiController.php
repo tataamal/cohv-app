@@ -60,16 +60,24 @@ class CreateWiController extends Controller
             ->whereIn('STATS', ['REL', 'PCNF', 'PCNF REL']);
 
         if ($search) {
-             $tData1->where(function($q) use ($search) {
-                 $q->where('AUFNR', 'like', "%{$search}%")
-                   ->orWhere('MATNR', 'like', "%{$search}%")
-                   ->orWhere('MAKTX', 'like', "%{$search}%")
-                   ->orWhere('KDAUF', 'like', "%{$search}%")
-                   ->orWhere('KDPOS', 'like', "%{$search}%")
-                   ->orWhere('ARBPL', 'like', "%{$search}%")
-                   ->orWhere('STEUS', 'like', "%{$search}%")
-                   ->orWhere('VORNR', 'like', "%{$search}%");
-             });
+            // Split by space, comma, or newline to support list pasting
+            $terms = preg_split('/[\s,]+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+            
+            $tData1->where(function($q) use ($terms) {
+                foreach ($terms as $term) {
+                    // Use orWhere to allow "Term1 OR Term2" logic (e.g. WC250 WC251)
+                    $q->orWhere(function($subQ) use ($term) {
+                        $subQ->where('AUFNR', 'like', "%{$term}%")
+                             ->orWhere('MATNR', 'like', "%{$term}%")
+                             ->orWhere('MAKTX', 'like', "%{$term}%")
+                             ->orWhere('KDAUF', 'like', "%{$term}%")
+                             ->orWhere('KDPOS', 'like', "%{$term}%")
+                             ->orWhere('ARBPL', 'like', "%{$term}%")
+                             ->orWhere('STEUS', 'like', "%{$term}%")
+                             ->orWhere('VORNR', 'like', "%{$term}%");
+                    });
+                }
+            });
         }
 
         if ($filter === 'today') {
@@ -389,7 +397,13 @@ class CreateWiController extends Controller
         $docPrefix = str_starts_with($plantCode, '3') ? 'WIH' : 'WIW';
 
         $dateTime = Carbon::parse($inputDate . ' ' . $inputTime);
-        $expiredAt = $dateTime->copy()->addHours(12);
+        
+        if ($docPrefix === 'WIH') {
+            // Set expired to 00:00 Next Day (Midnight)
+            $expiredAt = $dateTime->copy()->addDay()->startOfDay();
+        } else {
+            $expiredAt = $dateTime->copy()->addHours(12);
+        }
         $dateForDb = $dateTime->toDateString();
         $timeForDb = $dateTime->toTimeString();
         $year = $dateTime->year; // Get Year
@@ -832,6 +846,7 @@ class CreateWiController extends Controller
                     'total_assigned' => $totalAssigned,
                     'total_confirmed' => $totalConfirmed,
                     'total_failed' => $totalFailed,
+                    'total_remark_qty' => collect($csvData)->sum('remark_qty'),
                     'achievement_rate' => $achievement
                 ],
                 'printedBy' => $printedBy,
@@ -887,14 +902,22 @@ class CreateWiController extends Controller
                 $matnr = $item['material_number'] ?? '';
                 if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
                 $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
+                // Remark Data (Moved Up)
+                $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
+                $remarkText = isset($item['remark']) ? $item['remark'] : '-';
+                $remarkText = str_replace('; ', "\n", $remarkText);
+
                 $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
-                $balance = $assigned - $confirmed;
+                // Fix Balance
+                $balance = $assigned - ($confirmed + $remarkQty);
+
                 $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
                 $waerk = isset($item['waerk']) ? $item['waerk'] : '';
                 
                 // Price Calculation
                 $confirmedPrice = $netpr * $confirmed;
-                $failedPrice = $netpr * $balance;
+                // Failed Price includes Balance AND Remark Qty
+                $failedPrice = $netpr * ($balance + $remarkQty);
                 
                 if (strtoupper($waerk) === 'USD') {
                     $priceFormatted = '$ ' . number_format($confirmedPrice, 2);
@@ -923,7 +946,13 @@ class CreateWiController extends Controller
                 $taktFull = $taktDisplay . ' ' . $finalUnit;
 
                 // Status Logic
-                if ($balance <= 0) {
+                // Remark Data
+                // Status Logic
+                $hasRemark = ($remarkQty > 0 || ($remarkText !== '-' && !empty($remarkText)));
+                
+                if ($hasRemark) {
+                    $status = 'NOT COMPLETED WITH REMARK';
+                } elseif ($balance <= 0) {
                     $status = 'COMPLETED';
                 } elseif ($docDate->gt($today)) {
                     $status = 'INACTIVE';
@@ -950,6 +979,8 @@ class CreateWiController extends Controller
                     'assigned'      => $assigned, 
                     'confirmed'     => $confirmed,
                     'balance'       => $balance,
+                    'remark_qty'    => isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0,
+                    'remark_text'   => isset($item['remark']) ? $item['remark'] : '-',
                     
                     'price_formatted' => $priceFormatted,
                     'confirmed_price' => $confirmedPrice,
@@ -1013,9 +1044,15 @@ class CreateWiController extends Controller
                 $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
                 $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
                 $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
-                $balance = $assigned - $confirmed;
+                $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
+                $balance = $assigned - ($confirmed + $remarkQty);
+                
                 $grandTotalAssigned += $assigned;
                 $grandTotalConfirmed += $confirmed;
+                
+                $remarkText = isset($item['remark']) ? $item['remark'] : '-';
+                $remarkText = str_replace('; ', "\n", $remarkText);
+
                 $reportItems[] = [
                     'wi_code'     => $doc->wi_document_code,
                     'nik'         => $item['nik'] ?? '-',
@@ -1028,7 +1065,10 @@ class CreateWiController extends Controller
                     'assigned'    => $assigned,
                     'confirmed'   => $confirmed,
                     'balance'     => $balance,
-                    'remark'      => ($balance > 0) ? 'Not Completed' : 'Completed' // Status per baris
+                    'remark_qty'  => $remarkQty,
+                    'remark_text' => $remarkText,
+                    'status'      => ($balance <= 0 && $remarkQty == 0) ? 'COMPLETED' : 
+                                     (($remarkQty > 0 || ($remarkText !== '-' && !empty($remarkText))) ? 'NOT COMPLETED WITH REMARK' : 'NOT COMPLETED')
                 ];
             }
         }
@@ -1037,6 +1077,7 @@ class CreateWiController extends Controller
             'total_assigned' => $grandTotalAssigned,
             'total_confirmed' => $grandTotalConfirmed,
             'total_balance' => $grandTotalAssigned - $grandTotalConfirmed,
+            'total_remark_qty' => collect($reportItems)->sum('remark_qty'),
             'achievement_rate' => ($grandTotalAssigned > 0) ? round(($grandTotalConfirmed / $grandTotalAssigned) * 100, 1) : 0
         ];
 

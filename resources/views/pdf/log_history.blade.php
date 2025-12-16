@@ -49,6 +49,7 @@
         }
         .text-success { color: #198754; }
         .text-danger { color: #d00; }
+        .text-warning { color: #E4A11B; } /* Orange-ish */
 
         /* --- DATA TABLE --- */
         .data-header th {
@@ -100,14 +101,16 @@
 
         <table>
             <tr class="summary-header">
-                <td width="25%">Quantity WI</td>
-                <td width="25%">Quantity Terkonfirmasi</td>
-                <td width="25%">Quantity Tidak Terkonfirmasi</td>
-                <td width="25%">Rata-rata Keberhasilan</td>
+                <td width="20%">Quantity WI</td>
+                <td width="20%">Quantity Terkonfirmasi</td>
+                <td width="20%">Quantity Remark</td>
+                <td width="20%">Quantity Tidak Terkonfirmasi</td>
+                <td width="20%">Rata-rata Keberhasilan</td>
             </tr>
             <tr class="summary-values">
                 <td>{{ number_format($report['summary']['total_assigned'], 0) }}</td>
                 <td class="text-success">{{ number_format($report['summary']['total_confirmed'], 0) }}</td>
+                <td class="text-warning">{{ number_format($report['summary']['total_remark_qty'] ?? 0, 0) }}</td>
                 <td class="text-danger">{{ number_format($report['summary']['total_failed'], 0) }}</td>
                 <td>{{ $report['summary']['achievement_rate'] }}</td>
             </tr>
@@ -117,19 +120,21 @@
             <thead>
                 <tr class="data-header">
                     <th width="3%">NO</th>
-                    <th width="9%">KODE WI</th>
-                    <th width="5%">NIK</th>
-                    <th width="8%">BUYER</th>
-                    <th width="8%">WORKCENTER</th>
-                    <th width="6%">KD. MATERIAL</th>
-                    <th width="15%">DESKRIPSI</th>
-                    <th width="5%">QTY.WI</th>
-                    <th width="5%">QTY.CONF</th>
-                    <th width="5%">SISA</th>
-                    <th width="12%">PRICE (OK)</th>
-                    <th width="12%">PRICE (FAIL)</th>
-                    <th width="8%">CURRENCY</th>
-                    <th width="7%">STATUS</th>
+                    <th width="8%">KODE WI</th>
+                    <th width="4%">NIK</th>
+                    <th width="6%">BUYER</th>
+                    <th width="6%">WC</th>
+                    <th width="5%">MAT</th>
+                    <th width="12%">DESKRIPSI</th>
+                    <th width="4%">WI</th>
+                    <th width="4%">CONF</th>
+                    <th width="4%">REM</th>
+                    <th width="4%">SISA</th>
+                    <th width="9%">PRICE (OK)</th>
+                    <th width="9%">PRICE (FAIL)</th>
+                    <th width="4%">CURR</th>
+                    <th width="12%">REMARK</th>
+                    <th width="6%">STATUS</th>
                 </tr>
             </thead>
             <tbody>
@@ -142,15 +147,17 @@
                     <td>{{ substr(($row['buyer'] ?? '-'), 0, 15) }}</td>
                     <td class="text-center">{{ $row['workcenter'] }}</td>
                     <td class="text-center">{{ $row['material'] }}</td>
-                    <td>{{ substr($row['description'], 0, 40) }}</td>
+                    <td>{{ substr($row['description'], 0, 25) }}</td>
                     <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                     <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
+                    <td class="text-center fw-bold text-warning">{{ floatval($row['remark_qty'] ?? 0) }}</td>
                     <td class="text-center fw-bold {{ $row['balance'] > 0 ? 'text-danger' : '' }}">{{ floatval($row['balance']) }}</td>
                     <td class="text-end text-success">{{ isset($row['confirmed_price']) ? number_format($row['confirmed_price'], 0) : '-' }}</td>
                     <td class="text-end text-danger">{{ isset($row['failed_price']) ? number_format($row['failed_price'], 0) : '-' }}</td>
                     <td class="text-center">{{ $row['currency'] ?? '-' }}</td>
+                    <td class="text-danger" style="font-size: 6pt;">{!! nl2br(e($row['remark_text'] ?? '-')) !!}</td>
                     <td class="text-center" style="font-size: 6.5pt;">
-                        <span class="{{ $row['status'] == 'COMPLETED' ? 'text-success' : ($row['status'] == 'NOT COMPLETED' ? 'text-danger' : '') }}">
+                        <span class="{{ $row['status'] == 'COMPLETED' ? 'text-success' : ($row['status'] == 'NOT COMPLETED WITH REMARK' ? 'text-warning' : ($row['status'] == 'ACTIVE' ? '' : 'text-danger')) }}">
                             {{ $row['status'] }}
                         </span>
                     </td>

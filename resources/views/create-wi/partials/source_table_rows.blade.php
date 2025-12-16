@@ -71,7 +71,7 @@
         </td>
         <td class="text-center table-col">
             <span class="badge bg-light text-dark border">
-                {{ $item->ARBPL }} - {{ $wcNames[strtoupper($item->ARBPL)] ?? '' }}
+                {{ $item->ARBPL }}
             </span>
         </td>
         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>

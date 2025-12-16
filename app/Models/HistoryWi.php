@@ -42,4 +42,20 @@ class HistoryWi extends Model
         'payload_data' => 'array',
         'expired_at' => 'datetime',
     ];
+
+    /**
+     * Relationship to Kode model (Plant Code).
+     */
+    public function kode()
+    {
+        return $this->belongsTo(\App\Models\Kode::class, 'plant_code', 'kode');
+    }
+
+    /**
+     * Accessor for Department Name (Bagian).
+     */
+    public function getDepartmentAttribute()
+    {
+        return $this->kode ? $this->kode->nama_bagian : 'UNKNOWN DEPT';
+    }
 }
