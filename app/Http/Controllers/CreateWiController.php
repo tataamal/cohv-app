@@ -116,8 +116,20 @@ class CreateWiController extends Controller
             ]);
         }
         
-        $workcenters = workcenter::where('werksx', $kode)->get();
-        $parentWorkcenters = $this->buildWorkcenterHierarchy($workcenters, $workcenterMappings);
+        $allWorkcenters = workcenter::where('werksx', $kode)->get();
+        $parentWorkcenters = $this->buildWorkcenterHierarchy($allWorkcenters, $workcenterMappings);
+
+        // Filter workcenters that are REGISTERED AS CHILD in mapping
+        // "WC induknya tetap tampilkan, hanya yang terdaftar sebagai WC anak yang tidak ditampilkan"
+        $childCodes = $workcenterMappings->pluck('workcenter')
+            ->filter()
+            ->map(fn($code) => strtoupper($code))
+            ->unique()
+            ->all();
+
+        $workcenters = $allWorkcenters->reject(function ($wc) use ($childCodes) {
+            return in_array(strtoupper($wc->kode_wc), $childCodes);
+        });
         $capacityData = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('MGVRG2 > LMNGA') // Only active items
             ->select('ARBPL', 'KAPAZ')

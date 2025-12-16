@@ -217,7 +217,10 @@ class ManufactController extends Controller
             });
         }
 
-        $tdata = $query->orderBy('KDAUF')->orderBy('KDPOS')->get();
+        $tdata = $query->select('KUNNR', 'NAME1')
+            ->distinct()
+            ->orderBy('NAME1')
+            ->get();
 
         // 2. Ambil T_DATA2 (Anak dari T_DATA)
         $name1Values = $tdata->pluck('NAME1')->filter()->unique();

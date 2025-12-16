@@ -13,6 +13,7 @@ use App\Models\Kode;
 use Illuminate\Support\Facades\Log;
 use App\Models\SapUser;
 use App\Models\workcenter;
+use App\Models\WorkcenterMapping;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Redirect;
 
@@ -23,9 +24,17 @@ class adminController extends Controller
         // =================================================================
         // DATA UNTUK CHART PERTAMA (BAR CHART - WORKCENTER)
         // =================================================================
+        $childCodes = WorkcenterMapping::where('plant', $kode) // Or use 'kode_laravel' if 'plant' column inconsistent
+            ->orWhere('kode_laravel', $kode)
+            ->pluck('workcenter')
+            ->filter()
+            ->map(fn($code) => strtoupper($code))
+            ->unique();
+            
         $allWcQuery = DB::table('workcenters')
             ->select('kode_wc', 'description')
-            ->where('werksx', $kode);
+            ->where('werksx', $kode)
+            ->whereNotIn(DB::raw('UPPER(kode_wc)'), $childCodes);
 
         $statsPerWc = DB::table(DB::raw("({$allWcQuery->toSql()}) as master_wc"))
             ->mergeBindings($allWcQuery)
