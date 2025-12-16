@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('workcenters', function (Blueprint $table) {
             $table->id(); // INT, auto-increment, primary key
             $table->string('kode_wc', 50)->unique();
+            $table->string('KAPAZ',50)->nullable();
             $table->string('WERKS', 10);
             $table->string('WERKSX', 100);
             $table->string('description', 255)->nullable()->charset('utf8mb4')->collation('utf8mb4_unicode_ci');

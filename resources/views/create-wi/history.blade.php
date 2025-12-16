@@ -316,7 +316,12 @@
                                         </div>
                                         <div class="col">
                                             <div class="d-flex justify-content-between">
-                                                <h6 class="fw-bold mb-1">{{ $document->wi_document_code }}</h6>
+                                                <div>
+                                                    <h6 class="fw-bold mb-1">{{ $document->wi_document_code }}</h6>
+                                                    <span class="text-xs fw-bold text-secondary">
+                                                        {{ $document->workcenter_code }} - {{ $wcNames[strtoupper($document->workcenter_code)] ?? '' }}
+                                                    </span>
+                                                </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-light text-dark border">{{ $docItemsCount }} PRO</span>
                                                     <span class="badge badge-soft bg-soft-success ms-2">Active</span>
@@ -489,9 +494,15 @@
                                         </div>
                                         <div class="col">
                                                 <div class="d-flex justify-content-between">
-                                                <h6 class="fw-bold mb-1">{{ $document->wi_document_code }}</h6>
+                                                <div>
+                                                    <h6 class="fw-bold mb-1">{{ $document->wi_document_code }}</h6>
+                                                    <span class="text-xs fw-bold text-secondary">
+                                                        {{ $document->workcenter_code }} - {{ $wcNames[strtoupper($document->workcenter_code)] ?? '' }}
+                                                    </span>
+                                                </div>
                                                 <div class="text-end">
-                                                    <span class="badge badge-soft bg-warning text-dark">INACTIVE</span>
+                                                    <span class="badge bg-secondary">Inactive</span>
+                                                    <span class="badge bg-light text-dark border">{{ $docItemsCount }} Items</span>
                                                 </div>
                                             </div>
                                             <div class="d-flex gap-3 mt-1 small text-muted">

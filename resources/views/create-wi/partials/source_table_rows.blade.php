@@ -69,7 +69,11 @@
                 <span class="text-secondary text-truncate small" style="max-width: 200px;">{{ $item->MAKTX }}</span>
             </div>
         </td>
-        <td class="text-center table-col"><span class="badge bg-light text-dark border">{{ $item->ARBPL }}</span></td>
+        <td class="text-center table-col">
+            <span class="badge bg-light text-dark border">
+                {{ $item->ARBPL }} - {{ $wcNames[strtoupper($item->ARBPL)] ?? '' }}
+            </span>
+        </td>
         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>
         @php
             $showUnit = $item->MEINS;

@@ -385,7 +385,7 @@ class WorkInstructionApiController extends Controller
                 
                 return response()->json([
                     'status' => 'success', 
-                    'message' => 'Status updated successfully.',
+                    'message' => 'Remark Added Successfully.',
                     'new_status' => $payload[$key]['status_pro_wi'] ?? 'Unknown',
                     'confirmed_qty_total' => $confirmedQty,
                     'remark_qty' => $newRemarkQty,

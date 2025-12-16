@@ -13,6 +13,10 @@ use App\Models\HistoryWi; // Model History WI
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Kode;
+use App\Models\ProductionTData;
+use App\Models\ProductionTData2;
+use App\Models\ProductionTData3;
+use App\Models\ProductionTData4;
 
 class CreateWiController extends Controller
 {
@@ -90,8 +94,22 @@ class CreateWiController extends Controller
              return $item->real_sisa_qty > 0.001; 
         });
 
+        // Initialize WC Names Map for global usage (Ajax & Full View)
+        $workcenterMappings = WorkcenterMapping::where('plant', $kode)->get();
+        if ($workcenterMappings->isEmpty()) {
+             $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
+        }
+        $wcNames = [];
+        foreach ($workcenterMappings as $m) {
+            if ($m->wc_induk) $wcNames[strtoupper($m->wc_induk)] = $m->nama_wc_induk;
+            if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
+        }
+
         if ($request->ajax()) {
-            $html = view('create-wi.partials.source_table_rows', ['tData1' => $processedCollection])->render();
+            $html = view('create-wi.partials.source_table_rows', [
+                'tData1' => $processedCollection,
+                'wcNames' => $wcNames, // Pass to partial
+            ])->render();
             return response()->json([
                 'html' => $html,
                 'next_page' => $pagination->hasMorePages() ? $pagination->currentPage() + 1 : null
@@ -99,7 +117,6 @@ class CreateWiController extends Controller
         }
         
         $workcenters = workcenter::where('werksx', $kode)->get();
-        $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
         $parentWorkcenters = $this->buildWorkcenterHierarchy($workcenters, $workcenterMappings);
         $capacityData = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('MGVRG2 > LMNGA') // Only active items
@@ -115,7 +132,8 @@ class CreateWiController extends Controller
             'tData1'               => $processedCollection,
             'workcenters'          => $workcenters,
             'parentWorkcenters'    => $parentWorkcenters,
-            'capacityMap'          => $capacityMap, // Pass the map
+            'capacityMap'          => $capacityMap,
+            'wcNames'              => $wcNames, // Pass Map
             'currentFilter'        => $filter,
             'nextPage'             => $pagination->hasMorePages() ? 2 : null
         ]);
@@ -143,6 +161,152 @@ class CreateWiController extends Controller
         }
 
         return $assignedProQuantities;
+    }
+
+    public function refreshData(Request $request, $kode)
+    {
+        set_time_limit(0);
+        Log::info("==================================================");
+        Log::info("Memulai REFERESH DATA (WI) untuk Plant: {$kode}");
+        Log::info("==================================================");
+
+        try {
+            // 1. Validasi Auth SAP
+            if (!session('username') || !session('password')) {
+                return response()->json([
+                    'success' => false, 
+                    'message' => 'Session SAP username/password tidak ditemukan. Silakan login ulang.'
+                ], 401);
+            }
+
+            // 2. Ambil data dari API SAP
+            Log::info("[Refresh WI] Fetching from API SAP...");
+            $response = Http::timeout(3600)->withHeaders([
+                'X-SAP-Username' => session('username'),
+                'X-SAP-Password' => session('password'),
+            ])->get(env('FLASK_API_URL') . '/api/sap_combined', ['plant' => $kode]);
+
+            if (!$response->successful()) {
+                Log::error("[Refresh WI] Gagal ambil data SAP. Status: " . $response->status());
+                return response()->json([
+                    'success' => false, 
+                    'message' => 'Gagal mengambil data dari SAP (Status: ' . $response->status() . ')'
+                ], 500);
+            }
+            $payload = $response->json();
+            
+            // Helper format tanggal
+            $formatTanggal = function ($tgl) {
+                if (empty($tgl) || trim($tgl) === '00000000') return null;
+                try { return Carbon::createFromFormat('Ymd', $tgl)->format('d-m-Y'); }
+                catch (\Exception $e) { return null; }
+            };
+
+            // 3. Update Database
+            DB::transaction(function () use ($payload, $kode, $formatTanggal) {
+                $T_DATA = $T1 = $T2 = $T3 = $T4 = [];
+                $dataBlocks = $payload['results'] ?? [$payload];
+
+                foreach ($dataBlocks as $res) {
+                    if (!empty($res['T_DATA']))  $T_DATA = array_merge($T_DATA, $res['T_DATA']);
+                    if (!empty($res['T_DATA1'])) $T1 = array_merge($T1, $res['T_DATA1']);
+                    if (!empty($res['T_DATA2'])) $T2 = array_merge($T2, $res['T_DATA2']);
+                    if (!empty($res['T_DATA3'])) $T3 = array_merge($T3, $res['T_DATA3']);
+                    if (!empty($res['T_DATA4'])) $T4 = array_merge($T4, $res['T_DATA4']);
+                }
+
+                // Hapus Data Lama
+                ProductionTData4::where('WERKSX', $kode)->delete();
+                ProductionTData1::where('WERKSX', $kode)->delete();
+                ProductionTData3::where('WERKSX', $kode)->delete();
+                ProductionTData2::where('WERKSX', $kode)->delete();
+                ProductionTData::where('WERKSX', $kode)->delete();
+
+                // Grouping untuk Relasi
+                $t2_grouped = collect($T2)->groupBy(fn($item) => trim($item['KUNNR'] ?? '') . '-' . trim($item['NAME1'] ?? ''));
+                $t3_grouped = collect($T3)->groupBy(fn($item) => trim($item['KDAUF'] ?? '') . '-' . trim($item['KDPOS'] ?? ''));
+                $t1_grouped = collect($T1)->groupBy(fn($item) => trim($item['AUFNR'] ?? ''));
+                $t4_grouped = collect($T4)->groupBy(fn($item) => trim($item['AUFNR'] ?? ''));
+
+                // Insert Berjenjang
+                foreach ($T_DATA as $t_data_row) {
+                    $kunnr = trim((string)($t_data_row['KUNNR'] ?? ''));
+                    $name1 = trim((string)($t_data_row['NAME1'] ?? ''));
+                    if ($kunnr === '' && $name1 === '') continue;
+
+                    $t_data_row['KUNNR'] = $kunnr;
+                    $t_data_row['NAME1'] = $name1;
+                    $t_data_row['WERKSX'] = $kode;
+                    $t_data_row['EDATU'] = (empty($t_data_row['EDATU']) || trim($t_data_row['EDATU']) === '00000000') ? null : $t_data_row['EDATU'];
+
+                    $parentRecord = ProductionTData::create($t_data_row);
+                    
+                    $key_t2 = $kunnr . '-' . $name1;
+                    $children_t2 = $t2_grouped->get($key_t2, []);
+
+                    foreach ($children_t2 as $t2_row) {
+                        $t2_row['WERKSX'] = $kode;
+                        $t2_row['EDATU'] = (empty($t2_row['EDATU']) || trim($t2_row['EDATU']) === '00000000') ? null : $t2_row['EDATU'];
+                        $t2_row['KUNNR'] = $parentRecord->KUNNR;
+                        $t2_row['NAME1'] = $parentRecord->NAME1;
+                        
+                        $t2Record = ProductionTData2::create($t2_row);
+                        
+                        $key_t3 = trim($t2Record->KDAUF ?? '') . '-' . trim($t2Record->KDPOS ?? '');
+                        $children_t3 = $t3_grouped->get($key_t3, []);
+
+                        foreach ($children_t3 as $t3_row) {
+                            $t3_row['WERKSX'] = $kode;
+                            $t3Record = ProductionTData3::create($t3_row);
+                            
+                            $key_t1_t4 = trim($t3Record->AUFNR ?? '');
+                            if (empty($key_t1_t4)) continue;
+
+                            $children_t1 = $t1_grouped->get($key_t1_t4, []);
+                            $children_t4 = $t4_grouped->get($key_t1_t4, []);
+                            
+                            foreach ($children_t1 as $t1_row) {
+                                $sssl1 = $formatTanggal($t1_row['SSSLDPV1'] ?? '');
+                                $sssl2 = $formatTanggal($t1_row['SSSLDPV2'] ?? '');
+                                $sssl3 = $formatTanggal($t1_row['SSSLDPV3'] ?? '');
+                                
+                                $partsPv1 = [];
+                                if (!empty($t1_row['ARBPL1'])) $partsPv1[] = strtoupper($t1_row['ARBPL1']);
+                                if (!empty($sssl1)) $partsPv1[] = $sssl1;
+                                $t1_row['PV1'] = !empty($partsPv1) ? implode(' - ', $partsPv1) : null;
+
+                                $partsPv2 = [];
+                                if (!empty($t1_row['ARBPL2'])) $partsPv2[] = strtoupper($t1_row['ARBPL2']);
+                                if (!empty($sssl2)) $partsPv2[] = $sssl2;
+                                $t1_row['PV2'] = !empty($partsPv2) ? implode(' - ', $partsPv2) : null;
+
+                                $partsPv3 = [];
+                                if (!empty($t1_row['ARBPL3'])) $partsPv3[] = strtoupper($t1_row['ARBPL3']);
+                                if (!empty($sssl3)) $partsPv3[] = $sssl3;
+                                $t1_row['PV3'] = !empty($partsPv3) ? implode(' - ', $partsPv3) : null;
+                                
+                                $t1_row['WERKSX'] = $kode; 
+                                ProductionTData1::create($t1_row);
+                            }
+                            
+                            foreach ($children_t4 as $t4_row) {
+                                $t4_row['WERKSX'] = $kode;
+                                ProductionTData4::create($t4_row);
+                            }
+                        }
+                    }
+                }
+            });
+
+            return response()->json(['success' => true, 'message' => 'Data berhasil di-refresh dari SAP.'], 200);
+
+        } catch (\Exception $e) {
+            Log::error("[Refresh WI] Error: " . $e->getMessage());
+            return response()->json([
+                'success' => false, 
+                'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -173,9 +337,18 @@ class CreateWiController extends Controller
             $isDuplicate = collect($parentHierarchy[$parentCode])->contains('code', $childCode);
 
             if (!$isDuplicate) {
+                // Find child Kapaz
+                $childWcObj = $primaryWCs->firstWhere('kode_wc', $childCode);
+                
+                // Kapaz is string in DB "7,5", "7.5" etc. Need to normalize or pass as is.
+                // View expects raw capacity to handle conversion. 
+                // Let's pass raw KAPAZ string.
+                $childKapaz = $childWcObj ? $childWcObj->KAPAZ : 0;
+
                 $parentHierarchy[$parentCode][] = [
                     'code' => $childCode,
                     'name' => $childName,
+                    'kapaz' => $childKapaz, // Added KAPAZ
                 ];
             }
         }
@@ -307,6 +480,19 @@ class CreateWiController extends Controller
         $expiredWIDocuments = collect();  // Expired
         $completedWIDocuments = collect(); // Completed
         
+        $workcenterMappings = WorkcenterMapping::where('plant', $plantCode)->get(); // Assuming plant column is correct or use kode_laravel
+        // Fallback or verify column. Previous index used 'kode_laravel' for $kode.
+        // Let's use 'kode_laravel' to be safe as in index method.
+        if ($workcenterMappings->isEmpty()) {
+             $workcenterMappings = WorkcenterMapping::where('kode_laravel', $plantCode)->get();
+        }
+
+        $wcNames = [];
+        foreach ($workcenterMappings as $m) {
+            if ($m->wc_induk) $wcNames[strtoupper($m->wc_induk)] = $m->nama_wc_induk;
+            if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
+        }
+        
         // Loop and Categorize
         foreach ($wiDocuments as $doc) {
             $now = Carbon::now();
@@ -334,8 +520,10 @@ class CreateWiController extends Controller
             $rawData = $doc->payload_data;
             if (is_array($rawData)) {
                 $payloadItems = $rawData;
-            } else {
+            } elseif (is_string($rawData)) {
                 $payloadItems = json_decode($rawData, true);
+            } else {
+                $payloadItems = [];
             }
             $payloadItems = $payloadItems ?? [];
             $firstItem = $payloadItems[0] ?? [];
@@ -436,6 +624,7 @@ class CreateWiController extends Controller
             'inactiveWIDocuments' => $inactiveWIDocuments,
             'expiredWIDocuments' => $expiredWIDocuments,
             'completedWIDocuments' => $completedWIDocuments, // PASS TO VIEW
+            'wcNames' => $wcNames,
             'search' => $request->search,
             'date' => $request->date
         ]);
@@ -455,9 +644,13 @@ class CreateWiController extends Controller
 
             // 2. Decode Payload
             // 2. Decode Payload
-            $payload = is_string($doc->payload_data) 
-                        ? json_decode($doc->payload_data, true) 
-                        : (array) $doc->payload_data;
+            $rawData = $doc->payload_data;
+            if (is_string($rawData)) {
+                $payload = json_decode($rawData, true);
+                if (!is_array($payload)) $payload = [];
+            } else {
+                $payload = (array) $rawData;
+            }
 
             $updated = false;
             $materialName = '';
@@ -928,7 +1121,9 @@ class CreateWiController extends Controller
             $total = count($items);
             
             echo "data: " . json_encode(['progress' => 0, 'message' => 'Starting process...']) . "\n\n";
-            ob_flush();
+            if (ob_get_level() > 0) {
+                ob_flush();
+            }
             flush();
 
             foreach ($items as $index => $item) {
@@ -998,12 +1193,16 @@ class CreateWiController extends Controller
                     ]) . "\n\n";
                 }
                 
-                ob_flush();
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
                 flush();
             }
             
             echo "data: " . json_encode(['progress' => 100, 'message' => 'All items processed.', 'completed' => true]) . "\n\n";
-            ob_flush();
+            if (ob_get_level() > 0) {
+                ob_flush();
+            }
             flush();
         });
 

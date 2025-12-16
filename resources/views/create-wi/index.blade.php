@@ -231,11 +231,14 @@
                 <a href="{{ route('wi.history', ['kode' => $kode]) }}" class="btn btn-white text-secondary fw-bold rounded-pill px-3 btn-sm">
                     <i class="fa-solid fa-clock-rotate-left me-2"></i>History
                 </a>
+                <button onclick="refreshData()" class="btn btn-white text-primary fw-bold rounded-pill px-3 btn-sm" title="Refresh data dari SAP">
+                    <i class="fa-solid fa-rotate me-2"></i>Refresh Data
+                </button>
                 <div class="vr my-1"></div>
                 <button onclick="resetAllAllocations()" class="btn btn-white text-danger fw-bold rounded-pill px-3 btn-sm">
                     <i class="fa-solid fa-arrow-rotate-left me-2"></i>Reset
                 </button>
-                <button onclick="saveAllocation(true)" class="btn btn-primary fw-bold rounded-pill px-4 btn-sm shadow-sm">
+                <button onclick="saveAllocation(true)" class="btn btn-primary fw-bold text-white rounded-pill px-4 btn-sm shadow-sm">
                     <i class="fa-solid fa-floppy-disk me-2"></i>Review & Save
                 </button>
             </div>
@@ -417,7 +420,7 @@
                 <select id="employeeTemplateSelect" class="d-none">
                     <option value="" selected disabled>Pilih Operator...</option>
                     @foreach ($employees as $emp)
-                        <option value="{{ $emp['pernr'] }}" data-name="{{ $emp['stext'] }}">
+                        <option value="{{ $emp['pernr'] }}" data-name="{{ $emp['stext'] }}" data-arbpl="{{ $emp['arbpl'] ?? '' }}">
                             {{ $emp['pernr'] }} - {{ $emp['stext'] }}
                         </option>
                     @endforeach
@@ -701,14 +704,16 @@
                     const children = PARENT_WORKCENTERS[normalizedTargetWc];
                     
                     // Capacity Logic
-                    const wcContainer = document.querySelector(`.wc-card-container[data-wc-id="${targetWcId}"]`);
-                    const kapazHours = parseFloat(wcContainer ? wcContainer.dataset.kapazWc : 0) || 0;
-                    const totalMins = kapazHours * 60;
-                    const childLimitMins = children.length > 0 ? (totalMins / children.length) : 0;
-                    
+                    // New Capacity Logic: Sum of Children
+                    let totalChildMins = 0;
+                    children.forEach(c => {
+                         const k = parseFloat(String(c.kapaz).replace(',', '.')) || 0;
+                         totalChildMins += (k * 60);
+                    });
+
                     // Build Child Options
                     children.forEach(child => {
-                        childOptionsHtml += `<option value="${child.code}">${child.code}</option>`;
+                        childOptionsHtml += `<option value="${child.code}">${child.code} - ${child.name}</option>`;
                     });
                     
                     // Build Top Info Card
@@ -719,23 +724,24 @@
                                     <i class="fa-solid fa-network-wired me-1"></i> ${targetWcId} Capacity Distribution
                                 </h6>
                                 <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge bg-dark text-white pt-1 pb-1">Total: ${totalMins.toLocaleString()} Min</span>
-                                    <i class="fa-solid fa-arrow-right text-muted small"></i>
-                                    <span class="badge bg-success text-white pt-1 pb-1">Limit/Child: ${childLimitMins.toLocaleString('en-US', {maximumFractionDigits: 1})} Min</span>
+                                    <span class="badge bg-dark text-white pt-1 pb-1">Total Limit: ${totalChildMins.toLocaleString()} Min</span>
                                 </div>
                                 <div class="row g-2" id="topCapacityContainer">
                                     <!-- Child Status Bars Injected Here Dynamically via updateCardSummary -->
-                                    ${children.map(child => `
+                                    ${children.map(child => {
+                                        const k = parseFloat(String(child.kapaz).replace(',', '.')) || 0;
+                                        const limit = k * 60;
+                                        return `
                                         <div class="col-md-6">
                                             <div class="d-flex justify-content-between text-xs fw-bold mb-1">
-                                                <span>${child.code}</span>
-                                                <span id="cap-text-${child.code}">0 / ${childLimitMins.toFixed(1)} Min</span>
+                                                <span>${child.code} - ${child.name}</span>
+                                                <span id="cap-text-${child.code}">0 / ${limit.toFixed(1)} Min</span>
                                             </div>
                                             <div class="progress" style="height: 6px;">
                                                 <div id="cap-bar-${child.code}" class="progress-bar bg-secondary" role="progressbar" style="width: 0%"></div>
                                             </div>
                                         </div>
-                                    `).join('')}
+                                    `;}).join('')}
                                 </div>
                             </div>
                         </div>
@@ -793,7 +799,7 @@
                                     </div>
                                     <div class="col-md-3">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Sub-WC</label>
-                                        <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateCardSummary('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
+                                        <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateEmpOptions('${rAufnr}'); updateCardSummary('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
                                             ${childOptionsHtml}
                                         </select>
                                     </div>
@@ -854,7 +860,7 @@
                 childSelect.value = "";
                 childSelect.disabled = false;
                 childSelect.classList.remove('border-danger', 'text-danger');
-                childSelect.onchange = function() { updateCardSummary(aufnr); }; // Changed from updateChildWCOptions to updateCardSummary which calls it if needed or just updates logic
+                childSelect.onchange = function() { updateEmpOptions(aufnr); updateCardSummary(aufnr); }; // Updated to trigger both
 
                 const qtyInput = newRow.querySelector('.qty-input');
                 qtyInput.value = ""; 
@@ -984,26 +990,25 @@
                 if (targetWcId) {
                     const normalizedTargetWc = targetWcId.toUpperCase();
                     if (PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWc)) {
-                        const wcContainer = document.querySelector(`.wc-card-container[data-wc-id="${targetWcId}"]`);
-                        const kapazHours = parseFloat(wcContainer ? wcContainer.dataset.kapazWc : 0) || 0;
                         const children = PARENT_WORKCENTERS[normalizedTargetWc]; // Get full list
-                        const childCount = children.length;
-                        const childLimitMins = childCount > 0 ? (kapazHours * 60 / childCount) : 0;
                         
                         // Update Bars for ALL children (Active and Inactive)
                         children.forEach(child => {
                             const childCode = child.code;
+                            const k = parseFloat(String(child.kapaz).replace(',', '.')) || 0;
+                            const thisChildLimit = k * 60;
+                            
                             const usage = globalChildUsage[childCode] || 0;
-                            const pct = childLimitMins > 0 ? (usage / childLimitMins) * 100 : 0;
+                            const pct = thisChildLimit > 0 ? (usage / thisChildLimit) * 100 : 0;
                             
                             const bar = document.getElementById(`cap-bar-${childCode}`);
                             const text = document.getElementById(`cap-text-${childCode}`);
                             
                             if (bar && text) {
                                 bar.style.width = Math.min(pct, 100) + '%';
-                                text.innerText = `${usage.toFixed(1)} / ${childLimitMins.toFixed(1)} Min`;
+                                text.innerText = `${usage.toFixed(1)} / ${thisChildLimit.toFixed(1)} Min`;
                                 
-                                if (usage > childLimitMins) {
+                                if (usage > thisChildLimit) {
                                     bar.className = 'progress-bar bg-warning';
                                     text.classList.add('text-warning');
                                 } else {
@@ -1192,28 +1197,87 @@
                 const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
                 if (!card) return;
 
-                const allSelects = Array.from(card.querySelectorAll('.emp-select'));
+                const hasChildren = card.dataset.hasChildren === 'true';
+                const parentTargetWc = card.dataset.targetWc; // WC Induk / Target Utama
+                
+                // Get fresh template options
+                const templateSelect = document.getElementById('employeeTemplateSelect');
+                const templateOptions = Array.from(templateSelect.options);
 
+                // Collect selected NIKs across rows to disable duplicates
+                const allSelects = Array.from(card.querySelectorAll('.emp-select'));
                 const selectedNiks = allSelects
                     .map(sel => sel.value)
                     .filter(val => val !== "");
 
                 allSelects.forEach(select => {
+                    const row = select.closest('.assignment-row');
+                    const childSelect = row.querySelector('.child-select');
                     const currentVal = select.value;
-                    const options = Array.from(select.options);
+                    
+                    let requiredArbpl = null;
 
-                    options.forEach(opt => {
-                        if (!opt.value) return;
-                        if (selectedNiks.includes(opt.value) && opt.value !== currentVal) {
-                             opt.disabled = true;
-                             if(!opt.innerText.includes('(Selected)')) {
-                                 opt.innerText += ' (Selected)';
-                             }
+                    // 1. Determine Filtering Criteria
+                    if (hasChildren) {
+                        const subWc = childSelect.value;
+                        if (!subWc) {
+                            // Enforce Sub-WC selection first
+                            select.innerHTML = '<option value="" selected disabled>Pilih Sub-WC terlebih dahulu...</option>';
+                            select.disabled = true;
+                            return; // Stop processing for this select
                         } else {
-                             opt.disabled = false;
-                             opt.innerText = opt.innerText.replace(' (Selected)', '');
+                            requiredArbpl = subWc;
+                            select.disabled = false;
+                        }
+                    } else {
+                         // Single WC (No Children) -> Filter by Target WC
+                         requiredArbpl = parentTargetWc;
+                         select.disabled = false;
+                    }
+
+                    // 2. Rebuild Options based on Filter
+                    // Clear current options (except placeholder if we want one, but we rebuild all)
+                    select.innerHTML = '<option value="" selected disabled>Pilih Operator...</option>';
+
+                    templateOptions.forEach(tmplOpt => {
+                        if (tmplOpt.value === "") return; // Skip placeholder from template
+
+                        const empArbpl = tmplOpt.getAttribute('data-arbpl'); // Get from data attribute
+                        
+                        // Strict Filter: ARBPL must match
+                        // Note: Data might be messy, so maybe trim() ?
+                        // Assuming strict equality for now. 
+                        
+                        if (empArbpl === requiredArbpl) {
+                            const newOpt = tmplOpt.cloneNode(true);
+                            
+                            // 3. Handle Duplicates (Disable if selected in another row)
+                            if (selectedNiks.includes(newOpt.value) && newOpt.value !== currentVal) {
+                                newOpt.disabled = true;
+                                newOpt.innerText += ' (Selected)';
+                            }
+
+                            select.appendChild(newOpt);
                         }
                     });
+
+                    // 4. Restore value if valid
+                    // If current value is no longer in the filtered list, it means the Sub-WC changed
+                    // and the old operator is invalid -> Value becomes blank (default)
+                    
+                    // Check if currentVal exists in new options
+                    let valid = false;
+                    Array.from(select.options).forEach(opt => {
+                        if (opt.value === currentVal && currentVal !== "") valid = true;
+                    });
+                    
+                    if (valid) {
+                        select.value = currentVal;
+                    } else if (currentVal !== "") {
+                        // Value was set but now invalid -> Reset
+                        select.value = "";
+                        // Maybe trigger change event? checking validity handled in confirm
+                    }
                 });
             }
 
@@ -1378,36 +1442,15 @@
                 if(!card) return;
 
                 const aufnr = card.dataset.refAufnr;
-                
-                // Find index in cache based on aufnr matching the card's ref
-                // Note: uniqueAssignmentModal usually handles duplicates by index if possible,
-                // but since draggedItemsCache maps 1-to-1 to generated cards in order, we can find by index relative to container children?
-                // Safest is to check if element in cache matches.
-                // But wait, the cards are NEW elements. draggedItemsCache has SOURCE elements.
-                
-                // Strategy: The card index in 'assignmentCardContainer' typically matches draggedItemsCache index 
-                // IF we don't re-order. 'processDrop' builds them in order.
-                
-                // Let's find the card index in the DOM container
                 const container = document.getElementById('assignmentCardContainer');
-                // The container has 'div' children. Some might be the capacity header.
-                // The cards have class 'pro-card'.
                 const proCards = Array.from(container.querySelectorAll('.pro-card'));
                 const cardIndex = proCards.indexOf(card);
                 
                 if (cardIndex > -1 && draggedItemsCache[cardIndex]) {
                     const item = draggedItemsCache[cardIndex];
-                    
-                    // Return item to source
                     handleReturnToTable(item, sourceContainerCache);
-                    
-                    // Remove from cache
                     draggedItemsCache.splice(cardIndex, 1);
-                    
-                    // Remove card from DOM
                     card.remove();
-                    
-                    // Update Title
                     if (draggedItemsCache.length > 0) {
                         const proTitle = draggedItemsCache.length > 1 
                             ? `<span class="badge bg-primary">${draggedItemsCache.length} Items Selected</span>` 
@@ -1421,7 +1464,6 @@
                             bulkWarning.classList.add('d-none');
                         }
                     } else {
-                        // All items removed, close modal
                         assignmentModalInstance.hide();
                     }
                 }
@@ -1442,7 +1484,6 @@
                         assignedWCs.push(newChildWc);
                     }
 
-                    // Simpan kembali sebagai string JSON
                     row.dataset.assignedChildWcs = JSON.stringify(assignedWCs);
                 });
             }
@@ -2494,4 +2535,55 @@
             </div>
         </div>
     </div>
+    @push('scripts')
+    <script>
+        function refreshData() {
+            Swal.fire({
+                title: 'Refreshing Data...',
+                text: 'Sedang mengambil data terbaru dari SAP. Mohon tunggu.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch("{{ route('create-wi.refresh', $kode) }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: data.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // Reload data table
+                        if (typeof setupSearch === 'function') {
+                            setupSearch(); 
+                        } else {
+                            location.reload(); 
+                        }
+                    });
+                } else {
+                    throw new Error(data.message || 'Gagal refresh data.');
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal',
+                    text: error.message
+                });
+            });
+        }
+    </script>
+    @endpush
 </x-layouts.app>

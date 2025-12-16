@@ -18,6 +18,7 @@ class workcenter extends Model
      */
     protected $fillable = [
         'kode_wc',
+        'kapaz',
         'werks',
         'werksx',
         'description',
