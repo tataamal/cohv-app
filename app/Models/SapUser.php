@@ -15,4 +15,13 @@ class SapUser extends Model
     {
         return $this->hasMany(Kode::class);
     }
+
+    /**
+     * Alias for kodes() to support legacy calls.
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function kode()
+    {
+        return $this->kodes();
+    }
 }
