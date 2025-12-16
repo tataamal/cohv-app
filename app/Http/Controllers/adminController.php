@@ -248,7 +248,7 @@ class adminController extends Controller
             } 
 
             if ($sapUser) {
-                $allRelatedKodes = $sapUser->kode()->get();
+                $allRelatedKodes = $sapUser->kodes()->get();
                 $plants = $allRelatedKodes->unique('kode');
             }
             
