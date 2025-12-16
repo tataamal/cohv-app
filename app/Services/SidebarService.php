@@ -35,7 +35,7 @@ class SidebarService
         }
 
         if ($sapUser) {
-            $uniqueKodes = $sapUser->kode()->orderBy(column: 'kode')->get()->unique('kode');
+            $uniqueKodes = $sapUser->kodes()->orderBy(column: 'kode')->get()->unique('kode');
             foreach ($uniqueKodes as $kode) {
                 $submenuItems[] = [
                     'name' => $kode->nama_bagian,
