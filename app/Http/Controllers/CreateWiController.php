@@ -56,11 +56,11 @@ class CreateWiController extends Controller
         $search = $request->query('search'); // Add search param
         
         $tData1 = ProductionTData1::where('WERKSX', $kode)
-            ->whereRaw('MGVRG2 > LMNGA')
+            // Fix: Cast string numbers to DECIMAL to ensure "100" > "12" is TRUE (String "100" < "12" is default DB behavior if VARCHAR)
+            ->whereRaw('CAST(MGVRG2 AS DECIMAL(20,3)) > CAST(COALESCE(LMNGA, 0) AS DECIMAL(20,3))')
             ->where(function ($query) {
-                // Use UPPER to ensure case-insensitive matching regardless of collation/OS
-                $query->whereRaw("UPPER(STATS) LIKE '%REL%'")
-                      ->orWhereRaw("UPPER(STATS) LIKE '%PCNF%'");
+                $query->where('STATS', 'LIKE', '%REL%')
+                      ->orWhere('STATS', 'LIKE', '%PCNF%');
             });
 
         if ($search) {
