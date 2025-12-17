@@ -20,7 +20,7 @@ class ApiCohvController extends Controller
         $user = \App\Models\SapUser::select('id', 'sap_id', 'nama')
             ->where('sap_id', $sap_id)
             ->with(['kodes' => function ($query) {
-                $query->select('id', 'sap_user_id', 'kode', 'kategori');
+                $query->select('id', 'sap_user_id', 'kode', 'kategori', 'nama_bagian');
             }, 'kodes.mrps' => function ($query) {
                 // Select 'kode' (FK) so Laravel can match it to the parent Kode
                 $query->select('id', 'kode', 'mrp');
@@ -39,6 +39,7 @@ class ApiCohvController extends Controller
             return [
                 'kode' => $first->kode,
                 'kategori' => $first->kategori,
+                'nama_bagian' => $first->nama_bagian,
                 'mrps' => $group->pluck('mrps')->flatten()->pluck('mrp')->unique()->values()
             ];
         });
@@ -49,6 +50,7 @@ class ApiCohvController extends Controller
                 'kodes' => $group->map(function ($item) {
                     return [
                         'kode' => $item['kode'],
+                        'nama_bagian' => $item['nama_bagian'],
                         'mrps' => $item['mrps']
                     ];
                 })->values()
