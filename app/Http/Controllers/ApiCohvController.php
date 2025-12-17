@@ -22,6 +22,7 @@ class ApiCohvController extends Controller
             ->with(['kodes' => function ($query) {
                 $query->select('id', 'sap_user_id', 'kode', 'kategori');
             }, 'kodes.mrps' => function ($query) {
+                // Select 'kode' (FK) so Laravel can match it to the parent Kode
                 $query->select('id', 'kode', 'mrp');
             }])
             ->first();

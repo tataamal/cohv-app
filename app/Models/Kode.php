@@ -18,6 +18,7 @@ class Kode extends Model
     public function mrps()
     {
         // Argumen kedua ('kode') adalah nama foreign key di tabel 'mrps'.
-        return $this->hasMany(MRP::class, 'kode');
+        // Argumen ketiga ('kode') adalah nama local key di tabel 'kodes'.
+        return $this->hasMany(MRP::class, 'kode', 'kode');
     }
 }
