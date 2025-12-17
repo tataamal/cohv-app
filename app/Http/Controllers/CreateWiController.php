@@ -867,11 +867,11 @@ class CreateWiController extends Controller
 
             // --- 3. Send Email ---
             $recipients = [
-                // 'finc.smg@pawindo.com',
-                // 'kmi356smg@gmail.com',
-                // 'adm.mkt5.smg@pawindo.com',
-                // 'lily.smg@pawindo.com',
-                // 'kmi3.60.smg@gmail.com',
+                'finc.smg@pawindo.com',
+                'kmi356smg@gmail.com',
+                'adm.mkt5.smg@pawindo.com',
+                'lily.smg@pawindo.com',
+                'kmi3.60.smg@gmail.com',
                 'tataamal1128@gmail.com'
             ];
             
