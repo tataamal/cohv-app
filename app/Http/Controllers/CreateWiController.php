@@ -96,8 +96,14 @@ class CreateWiController extends Controller
         $assignedProQuantities = $this->getAssignedProQuantities($kode);
         $processedCollection = $pagination->getCollection()->transform(function ($item) use ($assignedProQuantities) {
             $aufnr = $item->AUFNR;
+            // Use composite key AUFNR-VORNR to match getAssignedProQuantities logic
+            $key = $aufnr . '-' . ($item->VORNR ?? '');
+            
             $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
-            $qtyAllocatedInWi = $assignedProQuantities[$aufnr] ?? 0;
+            // Try specific key first, fallback to just AUFNR if not found (though structure should mandate key)
+            // Actually, we should only use the composite key now.
+            $qtyAllocatedInWi = $assignedProQuantities[$key] ?? 0;
+            
             $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
             $item->real_sisa_qty = $qtySisaAkhir; 
             $item->qty_wi = $qtyAllocatedInWi; 
@@ -174,11 +180,14 @@ class CreateWiController extends Controller
             if (is_array($proItems)) {
                 foreach ($proItems as $item) {
                     $aufnr = $item['aufnr'] ?? null;
+                    $vornr = $item['vornr'] ?? ''; // Get VORNR
                     $assignedQty = $item['assigned_qty'] ?? 0;
 
                     if ($aufnr) {
-                        $currentTotal = $assignedProQuantities[$aufnr] ?? 0;
-                        $assignedProQuantities[$aufnr] = $currentTotal + $assignedQty;
+                        // Use composite key: AUFNR + VORNR
+                        $key = $aufnr . '-' . $vornr;
+                        $currentTotal = $assignedProQuantities[$key] ?? 0;
+                        $assignedProQuantities[$key] = $currentTotal + $assignedQty;
                     }
                 }
             }
