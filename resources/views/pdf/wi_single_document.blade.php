@@ -161,15 +161,29 @@
             <thead>
                 <tr class="data-header">
                     <th width="3%">NO</th>
-                    <th width="8%">WORK CENTER</th>
-                    <th width="10%">SO-ITEM</th>
-                    <th width="10%">PRO</th>
-                    <th width="10%">MATERIAL NO</th>
-                    <th width="23%">DESCRIPTION</th>
-                    <th width="6%">QTY WI</th>
-                    <th width="7%">Time Required</th>
-                    <th width="8%">NIK</th>
-                    <th width="15%">NAME</th>
+                    @if(isset($isEmail) && $isEmail)
+                        <th width="7%">WORK CENTER</th>
+                        <th width="8%">SO-ITEM</th>
+                        <th width="8%">PRO</th>
+                        <th width="9%">MATERIAL NO</th>
+                        <th width="15%">DESCRIPTION</th>
+                        <th width="5%">QTY WI</th>
+                        <th width="6%">Time Req</th>
+                        <th width="7%">NIK</th>
+                        <th width="10%">NAME</th>
+                        <th width="12%">BUYER</th>
+                        <th width="10%">PRICE</th>
+                    @else
+                        <th width="8%">WORK CENTER</th>
+                        <th width="10%">SO-ITEM</th>
+                        <th width="10%">PRO</th>
+                        <th width="10%">MATERIAL NO</th>
+                        <th width="23%">DESCRIPTION</th>
+                        <th width="6%">QTY WI</th>
+                        <th width="7%">Time Required</th>
+                        <th width="8%">NIK</th>
+                        <th width="15%">NAME</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -223,6 +237,10 @@
                     <td class="text-center fw-bold">{{ $taktDisplay }} {{ $finalUnit }}</td>
                     <td class="text-center">{{ $nik }}</td>
                     <td>{{ $empName }}</td>
+                    @if(isset($isEmail) && $isEmail)
+                        <td class="text-center">{{ $item['buyer_sourced'] ?? '-' }}</td>
+                        <td class="text-center">{{ $item['price_sourced'] ?? '-' }}</td>
+                    @endif
                 </tr>
                 @endforeach
 
@@ -239,6 +257,10 @@
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
+                    @if(isset($isEmail) && $isEmail)
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                    @endif
                 </tr>
                 @endfor
             </tbody>

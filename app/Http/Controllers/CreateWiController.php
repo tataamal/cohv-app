@@ -666,7 +666,15 @@ class CreateWiController extends Controller
             'completedWIDocuments' => $completedWIDocuments, // PASS TO VIEW
             'wcNames' => $wcNames,
             'search' => $request->search,
-            'date' => $request->date
+            'date' => $request->date,
+            'defaultRecipients' => [
+                'finc.smg@pawindo.com',
+                'kmi356smg@gmail.com',
+                'adm.mkt5.smg@pawindo.com',
+                'lily.smg@pawindo.com',
+                'kmi3.60.smg@gmail.com',
+                'tataamal1128@gmail.com'
+            ]
         ]);
     }
 
@@ -789,7 +797,38 @@ class CreateWiController extends Controller
         }
         // Limit preview to 50 rows to avoid heavy payload
         $rawDocuments = $query->orderBy('created_at', 'desc')->take(50)->get();
-        $previewData = $this->_prepareLogData($rawDocuments);
+        $previewDataRaw = $this->_prepareLogData($rawDocuments);
+
+        // Filter: Exclude 'Active' and 'Inactive' for Preview to match Report
+        // AND Apply User Selection Status
+        $statusFilter = $request->input('filter_status');
+        
+        $previewData = array_values(array_filter($previewDataRaw, function($item) use ($statusFilter) {
+            // Level 1: Standard Exclusion
+            if (in_array($item['status'], ['ACTIVE', 'INACTIVE'])) return false;
+            
+            // Level 2: User Select Filter
+            if ($statusFilter) {
+                if ($statusFilter === 'NOT COMPLETED') { 
+                    // Special case: 'NOT COMPLETED' in UI often means EXPIRED generally
+                    // In UI View: 'NOT COMPLETED' is used for Expired tab.
+                    // Keep strict string matching or mapping?
+                    // Let's assume strict string matching to what _prepareLogData produces.
+                    // _prepareLogData uses: 'NOT COMPLETED' (Expired), 'COMPLETED', 'NOT COMPLETED WITH REMARK'
+                    // If user selects 'NOT COMPLETED' (Expired), we match 'NOT COMPLETED' or 'NOT COMPLETED WITH REMARK'
+                    if (!in_array($item['status'], ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) return false;
+
+                } elseif ($statusFilter === 'COMPLETED') {
+                     if ($item['status'] !== 'COMPLETED') return false;
+
+                } else {
+                    // Active/Inactive are already excluded above, so if user chose them, result is empty.
+                    // Which is correct behavior for "Log Report" of Active items -> Empty table.
+                    if ($item['status'] !== $statusFilter) return false;
+                }
+            }
+            return true;
+        }));
 
         return response()->json([
             'success' => true,
@@ -805,7 +844,7 @@ class CreateWiController extends Controller
         $date = $request->input('filter_date');
         $search = $request->input('filter_search');
         
-        // --- 1. Generate Data ---
+        // --- 1. Generate Data (Log History) ---
         $query = HistoryWi::where('plant_code', $plantCode);
         if ($date) {
             if (strpos($date, ' to ') !== false) {
@@ -826,13 +865,44 @@ class CreateWiController extends Controller
             });
         }
         $documents = $query->orderBy('created_at', 'desc')->get();
-        $csvData = $this->_prepareLogData($documents);
+        $csvDataRaw = $this->_prepareLogData($documents);
+
+        // Filter: Exclude 'Active' and 'Inactive' for the Report Log
+        // AND Apply User Selection Status
+        $statusFilter = $request->input('filter_status');
+
+        $csvData = array_values(array_filter($csvDataRaw, function($item) use ($statusFilter) {
+            // Level 1: Standard Exclusion for Log Report
+            if (in_array($item['status'], ['ACTIVE', 'INACTIVE'])) return false;
+            
+            // Level 2: User Select Filter
+            if ($statusFilter) {
+                if ($statusFilter === 'NOT COMPLETED') { 
+                    if (!in_array($item['status'], ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) return false;
+                } elseif ($statusFilter === 'COMPLETED') {
+                     if ($item['status'] !== 'COMPLETED') return false;
+                } else {
+                    // Active/Inactive are filtered out at Level 1, so this returns empty if selected.
+                    if ($item['status'] !== $statusFilter) return false;
+                }
+            }
+            return true;
+        }));
 
         if (empty($csvData)) {
-            return response()->json(['success' => false, 'message' => 'Tidak ada data untuk diexport.']);
+            // Even if log is empty, we might want to send if Active Docs exist? 
+            // Usually report assumes some data. Returning error for now if strictly no log.
+            // return response()->json(['success' => false, 'message' => 'Tidak ada data untuk diexport.']);
+            // NOTE: Requirement doesn't explicitly say "don't send if empty log", but "log report" implies log. 
+            // However, if we want to send Active Docs even if History is empty, we should proceed.
+            // Let's assume standard behavior: Log is primary.
+            if ($documents->isEmpty()) {
+                 return response()->json(['success' => false, 'message' => 'Tidak ada data history untuk diexport.']);
+            }
         }
 
-        // --- 2. Create PDF File (DOMPDF) ---
+        // --- 2. Create PDF File (DOMPDF) - Log History ---
+        $filesToAttach = [];
         try {
             $fileName = 'log_wi_' . now()->format('Ymd_His') . '.pdf';
             $filePath = storage_path('app/public/' . $fileName);
@@ -853,7 +923,6 @@ class CreateWiController extends Controller
             $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
             
             // Prepare Data for View
-            // Prepare Data for View (Single Report wrapped in Array)
             $singleReport = [
                 'items' => $csvData,
                 'summary' => [
@@ -874,17 +943,118 @@ class CreateWiController extends Controller
                     ->setPaper('a4', 'landscape');
             
             $pdf->save($filePath);
+            $filesToAttach[] = $filePath;
 
-            // --- 3. Send Email ---
-            $recipients = [
-                'finc.smg@pawindo.com',
-                'kmi356smg@gmail.com',
-                'adm.mkt5.smg@pawindo.com',
-                'lily.smg@pawindo.com',
-                'kmi3.60.smg@gmail.com',
-                'tataamal1128@gmail.com'
-            ];
+            // --- 3. Generate "Active Document" PDF (If requested/available) ---
+            // Requirement: "khusus untuk yang dikirmkan ke email tambahkan field buyer, price + currency nya juga"
+            // We need to fetch ACTIVE documents that match the current filter context or simply "today's active docs".
+            // "Active Document" usually means documents valid for TODAY.
+            // However, the email might be for a past date range report. 
+            // Usually attached active docs correspond to the report period or currently active.
+            // Let's assume currently Active ones or those in the filtered range that were active?
+            // "Active" is a status.
+            // The prompt says "dokumen aktif yang dikirimkan ke email...".
+            // I will assume it means "Generate a PDF for the documents that are considered ACTIVE".
+            // If the report is for a past date, there are NO active documents.
+            // BUT, maybe the user wants the detailed single-WI format for proper items in the log?
+            // "dokumen active" implies the status.
+            // I will query for: defined date (if single date) or Today.
             
+            $now = Carbon::now();
+            $today = Carbon::today();
+            
+            // We'll use the filter date if provided, otherwise today.
+            // Actually, if filtering a range, "Active" defines a specific status (Today).
+            // Maybe we should just fetch "Active Tab" content?
+            // If I look at the 'history' method, Active documents are those where:
+            // $doc->document_date == Today AND Not Expired.
+            
+            // Let's stick to the filtered documents that satisfy 'Active' criteria?
+            // OR does the user want ALL technically 'Active' docs right now?
+            // "dokumen active yang dikirimkan ke email".
+            // I will assume it means "Generate a PDF for the documents that are considered ACTIVE".
+            // If the report is for a past date, there are NO active documents.
+            // BUT, maybe the user wants the detailed single-WI format for proper items in the log?
+            // "dokumen active" implies the status.
+            // I will query for: defined date (if single date) or Today.
+            
+            $targetDate = $date ? (strpos($date, ' to ') === false ? $date : null) : $today->format('Y-m-d');
+            
+            if ($targetDate) {
+                 $activeDocs = HistoryWi::where('plant_code', $plantCode)
+                                ->whereDate('document_date', $targetDate)
+                                ->get()
+                                ->filter(function($doc) use ($now) {
+                                    // Replicate is_expired logic
+                                    $expiredAt = $doc->expired_at; 
+                                    $isExpired = false;
+                                    if ($expiredAt) {
+                                        $isExpired = $now->greaterThan(Carbon::parse($expiredAt));
+                                    } else {
+                                        // Fallback
+                                        $effectiveStart = Carbon::parse($doc->document_date . ' ' . $doc->document_time);
+                                        $isExpired = $now->greaterThan($effectiveStart->copy()->addHours(12));
+                                    }
+                                    return !$isExpired;
+                                });
+            } else {
+                $activeDocs = collect(); // Range -> hard to define 'active'.
+            }
+
+            if ($activeDocs->isNotEmpty()) {
+                // Enrich Payload with Price/Buyer
+                foreach ($activeDocs as $doc) {
+                    $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
+                    if (!$payload) $payload = [];
+                    
+                    $updatedPayload = [];
+                    foreach ($payload as $item) {
+                        $aufnr = $item['aufnr'] ?? null;
+                        if ($aufnr) {
+                            // Fetch Info
+                            $prodData = ProductionTData1::where('AUFNR', $aufnr)->first();
+                            if ($prodData) {
+                                $item['buyer_sourced'] = $prodData->NAME1; // Buyer
+                                
+                                // Price Logic
+                                $price = $prodData->NETPR ?? 0;
+                                $currency = $prodData->WAERK ?? '';
+                                $fmtPrice = number_format((float)$price, (strtoupper($currency) === 'USD' ? 2 : 0), ',', '.');
+                                $item['price_sourced'] = $currency . ' ' . $fmtPrice; 
+                            } else {
+                                $item['buyer_sourced'] = '-';
+                                $item['price_sourced'] = '-';
+                            }
+                        }
+                        $updatedPayload[] = $item;
+                    }
+                    $doc->payload_data = $updatedPayload; // Temporary override for view
+                }
+
+                $activePdfName = 'Active_WI_' . now()->format('Ymd_His') . '.pdf';
+                $activePdfPath = storage_path('app/public/' . $activePdfName);
+
+                $activeData = [
+                    'documents' => $activeDocs,
+                    'printedBy' => $printedBy,
+                    'department' => $department,
+                    'isEmail' => true // FLAG for View
+                ];
+
+                $pdfActive = Pdf::loadView('pdf.wi_single_document', $activeData)
+                            ->setPaper('a4', 'landscape');
+                
+                $pdfActive->save($activePdfPath);
+                $filesToAttach[] = $activePdfPath;
+            }
+
+            // --- 4. Send Email ---
+            $recipients = $request->input('recipients');
+            if (empty($recipients) || !is_array($recipients)) {
+                // Fallback / Validation
+                 return response()->json(['success' => false, 'message' => 'Tidak ada penerima email yang dipilih.']);
+            }
+
             if ($date) {
                 if (strpos($date, ' to ') !== false) {
                     $parts = explode(' to ', $date);
@@ -898,8 +1068,8 @@ class CreateWiController extends Controller
                 $dateInfo = 'All History';
             }
 
-            \Illuminate\Support\Facades\Mail::to($recipients)->send(new \App\Mail\LogHistoryMail($filePath, $dateInfo));
-            return response()->json(['success' => true, 'message' => 'Log berhasil diexport (PDF) dan dikirim ke email.']);
+            \Illuminate\Support\Facades\Mail::to($recipients)->send(new \App\Mail\LogHistoryMail($filesToAttach, $dateInfo));
+            return response()->json(['success' => true, 'message' => 'Log berhasil diexport dan dikirim ke ' . count($recipients) . ' email.']);
 
         } catch (\Exception $e) {
             Log::error("Email Log Error: " . $e->getMessage());

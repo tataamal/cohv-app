@@ -223,27 +223,39 @@
                     <div class="col-lg-4">
                         <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Tanggal Dokumen</label>
                         <div class="input-group input-group-sm">
-                            <input type="text" name="date" id="dateInput" class="form-control flatpickr-range" value="{{ request('date') }}" placeholder="Pilih Rentang Tanggal...">
-                            <button type="button" class="btn btn-outline-secondary px-3" onclick="setQuickDate('today')">Hari Ini</button>
-                            <button type="button" class="btn btn-outline-secondary px-3" onclick="setQuickDate('yesterday')">Kemarin</button>
+                            <input type="text" name="date" id="dateInput" class="form-control flatpickr-range" value="{{ request('date') }}" placeholder="Pilih Rentang Tanggal..." onchange="document.getElementById('filterForm').submit()">
+                            <button type="button" class="btn btn-outline-secondary px-3" onclick="setQuickDate('today'); document.getElementById('filterForm').submit()">Hari Ini</button>
+                            <button type="button" class="btn btn-outline-secondary px-3" onclick="setQuickDate('yesterday'); document.getElementById('filterForm').submit()">Kemarin</button>
                         </div>
                     </div>
 
                     {{-- Search --}}
-                    <div class="col-lg-5">
+                    <div class="col-lg-3">
                         <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Pencarian</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white text-muted"><i class="fa-solid fa-search"></i></span>
                             <input type="text" name="search" class="form-control" 
-                                   placeholder="Kode WI, Workcenter, atau No. PRO..." 
-                                   value="{{ request('search') }}">
+                                   placeholder="Kode WI, Workcenter..." 
+                                   value="{{ request('search') }}"
+                                   onkeypress="if(event.keyCode == 13) { document.getElementById('filterForm').submit(); return false; }">
                         </div>
+                    </div>
+
+                    {{-- Status Filter --}}
+                    <div class="col-lg-2">
+                        <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Status</label>
+                        <select name="status" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
+                            <option value="">Semua Status</option>
+                            <option value="ACTIVE" {{ request('status') == 'ACTIVE' ? 'selected' : '' }}>Active</option>
+                            <option value="INACTIVE" {{ request('status') == 'INACTIVE' ? 'selected' : '' }}>Inactive</option>
+                            <option value="NOT COMPLETED" {{ request('status') == 'NOT COMPLETED' ? 'selected' : '' }}>Expired</option>
+                            <option value="COMPLETED" {{ request('status') == 'COMPLETED' ? 'selected' : '' }}>Completed</option>
+                        </select>
                     </div>
 
                     {{-- Action --}}
                     <div class="col-lg-3 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold text-white"><i class="fa-solid fa-filter me-1"></i> Terapkan</button>
-                        <a href="{{ route('wi.history', ['kode' => $plantCode]) }}" class="btn btn-light btn-sm border"><i class="fa-solid fa-rotate-left"></i></a>
+                        <a href="{{ route('wi.history', ['kode' => $plantCode]) }}" class="btn btn-light btn-sm border w-100"><i class="fa-solid fa-rotate-left me-1"></i> Reset Filter</a>
                     </div>
                 </div>
             </form>
@@ -252,32 +264,53 @@
         <div class="row g-5">
             {{-- TABS NAVIGATION --}}
             <div class="col-12">
+                @php
+                    $reqStatus = request('status');
+                    // Determined Active Tab
+                    $activeTab = 'active'; // Default
+                    if ($reqStatus == 'INACTIVE') $activeTab = 'inactive';
+                    elseif ($reqStatus == 'NOT COMPLETED') $activeTab = 'expired';
+                    elseif ($reqStatus == 'COMPLETED') $activeTab = 'completed';
+                    elseif ($reqStatus == 'ACTIVE') $activeTab = 'active';
+                @endphp
+
                 <ul class="nav nav-tabs border-bottom-0 mb-3" id="historyTabs" role="tablist">
+                    @if(!$reqStatus || $reqStatus == 'ACTIVE')
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active fw-bold small text-uppercase" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-content" type="button" role="tab">
+                        <button class="nav-link {{ $activeTab == 'active' ? 'active' : '' }} fw-bold small text-uppercase" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-content" type="button" role="tab">
                             <i class="fa-solid fa-circle-check text-white me-2"></i> Active<span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $activeWIDocuments->count() }}</span>
                         </button>
                     </li>
+                    @endif
+
+                    @if(!$reqStatus || $reqStatus == 'INACTIVE')
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold small text-uppercase" id="inactive-tab" data-bs-toggle="tab" data-bs-target="#inactive-content" type="button" role="tab">
+                        <button class="nav-link {{ $activeTab == 'inactive' ? 'active' : '' }} fw-bold small text-uppercase" id="inactive-tab" data-bs-toggle="tab" data-bs-target="#inactive-content" type="button" role="tab">
                             <i class="fa-solid fa-clock text-white me-2"></i> Inactive <span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $inactiveWIDocuments->count() }}</span>
                         </button>
                     </li>
+                    @endif
+
+                    @if(!$reqStatus || $reqStatus == 'NOT COMPLETED')
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold small text-uppercase" id="expired-tab" data-bs-toggle="tab" data-bs-target="#expired-content" type="button" role="tab">
+                        <button class="nav-link {{ $activeTab == 'expired' ? 'active' : '' }} fw-bold small text-uppercase" id="expired-tab" data-bs-toggle="tab" data-bs-target="#expired-content" type="button" role="tab">
                             <i class="fa-solid fa-triangle-exclamation me-2"></i> Expired <span class="badge bg-danger bg-opacity-10 text-danger ms-1">{{ $expiredWIDocuments->count() }}</span>
                         </button>
                     </li>
+                    @endif
+
+                    @if(!$reqStatus || $reqStatus == 'COMPLETED')
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold small text-uppercase" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-content" type="button" role="tab">
+                        <button class="nav-link {{ $activeTab == 'completed' ? 'active' : '' }} fw-bold small text-uppercase" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-content" type="button" role="tab">
                             <i class="fa-solid fa-check-double me-2"></i> Completed <span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $completedWIDocuments->count() }}</span>
                         </button>
                     </li>
+                    @endif
                 </ul>
                 
                 <div class="tab-content" id="historyTabsContent">
                     {{-- TAB 1: ACTIVE --}}
-                    <div class="tab-pane fade show active" id="active-content" role="tabpanel">
+                    <div class="tab-pane fade {{ $activeTab == 'active' ? 'show active' : '' }}" id="active-content" role="tabpanel">
                         @if($activeWIDocuments->count() > 0 || (!request()->has('search')))
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold text-dark mb-0">Active Documents</h5>
@@ -460,7 +493,7 @@
                     </div>
 
                     {{-- TAB 2: INACTIVE (FUTURE) --}}
-                    <div class="tab-pane fade" id="inactive-content" role="tabpanel">
+                    <div class="tab-pane fade {{ $activeTab == 'inactive' ? 'show active' : '' }}" id="inactive-content" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold text-dark mb-0">Inactive Documents</h5>
                              <div class="d-flex align-items-center gap-3">
@@ -572,7 +605,7 @@
                     </div>
 
                     {{-- TAB 3: EXPIRED --}}
-                    <div class="tab-pane fade" id="expired-content" role="tabpanel">
+                    <div class="tab-pane fade {{ $activeTab == 'expired' ? 'show active' : '' }}" id="expired-content" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold text-dark mb-0">Expired Documents</h5>
                              <div class="d-flex align-items-center gap-3">
@@ -672,7 +705,7 @@
                     </div>
 
                     {{-- TAB 4: COMPLETED --}}
-                    <div class="tab-pane fade" id="completed-content" role="tabpanel">
+                    <div class="tab-pane fade {{ $activeTab == 'completed' ? 'show active' : '' }}" id="completed-content" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold text-dark mb-0">Completed Documents</h5>
                              <div class="d-flex align-items-center gap-3">
@@ -831,6 +864,33 @@
                             <div class="text-end small text-muted mt-1 fst-italic" id="previewCountInfo"></div>
                         </div>
 
+                        <!-- RECIPIENT CHECKLIST (For Email Log) -->
+                        <div id="emailRecipientsContainer" class="d-none mb-4">
+                            <h6 class="fw-bold text-muted small mb-2"><i class="fa-solid fa-users-viewfinder me-1"></i> PILIH PENERIMA EMAIL</h6>
+                            <div class="card p-3 bg-light border">
+                                <div class="mb-2" style="max-height: 150px; overflow-y: auto;">
+                                @if(isset($defaultRecipients) && count($defaultRecipients) > 0)
+                                    @foreach($defaultRecipients as $email)
+                                    <div class="form-check">
+                                        <input class="form-check-input email-recipient-cb" type="checkbox" value="{{ $email }}" id="email_{{ $loop->index }}" checked>
+                                        <label class="form-check-label small font-monospace" for="email_{{ $loop->index }}">
+                                            {{ $email }}
+                                        </label>
+                                    </div>
+                                    @endforeach
+                                @else
+                                    <div class="text-muted small fst-italic">Tidak ada daftar email default.</div>
+                                @endif
+                                </div>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="fa-solid fa-plus"></i></span>
+                                    <input type="email" id="newRecipientInput" class="form-control" placeholder="Tambah email manual...">
+                                    <button class="btn btn-outline-secondary" type="button" id="btnAddEmailManual">Add</button>
+                                </div>
+                                <div id="manualEmailsList" class="mt-2"></div>
+                            </div>
+                        </div>
+
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">DICETAK OLEH</label>
@@ -839,6 +899,7 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">BAGIAN</label>
                                 <input type="text" name="department" class="form-control fw-bold" value="{{ $nama_bagian->nama_bagian ?? '-' }}" readonly>
+                                <input type="hidden" name="filter_status" value="">
                             </div>
                         </div>
                     </div>
@@ -940,6 +1001,19 @@
             const btnSubmit = document.getElementById('btnSubmitPrint');
             const headerBg = document.getElementById('modalHeaderBg');
             const previewContainer = document.getElementById('previewContainer');
+            
+            // Sync Hidden Inputs
+            const dateInput = document.querySelector('input[name="filter_date"]');
+            const searchInput = document.querySelector('input[name="filter_search"]');
+            const statusInput = document.querySelector('input[name="filter_status"]'); // Hidden input
+            
+            const mainDate = document.getElementById('dateInput').value;
+            const mainSearch = document.querySelector('input[name="search"]').value;
+            const mainStatus = document.querySelector('select[name="status"]').value;
+
+            if(dateInput) dateInput.value = mainDate;
+            if(searchInput) searchInput.value = mainSearch;
+            if(statusInput) statusInput.value = mainStatus;
 
             // --- RESET STATE GLOBAL ---
             form.target = "_blank"; // Default back to new tab (PDF)
@@ -947,7 +1021,44 @@
             btnSubmit.onclick = null; // Clear previous event handlers!
             btnSubmit.disabled = false;
             previewContainer.classList.add('d-none'); // Hide preview by default
+            const recipientContainer = document.getElementById('emailRecipientsContainer');
+            if(recipientContainer) recipientContainer.classList.add('d-none'); // Hide recipients by default
             
+            // Helper for manual email add
+            const btnAddEmail = document.getElementById('btnAddEmailManual');
+            const inputNewEmail = document.getElementById('newRecipientInput');
+            const manualList = document.getElementById('manualEmailsList');
+            
+            if(btnAddEmail) {
+                btnAddEmail.onclick = function() {
+                    const email = inputNewEmail.value.trim();
+                    if(email && email.includes('@')) {
+                        // Check Duplicate
+                        const existing = Array.from(document.querySelectorAll('.email-recipient-cb')).map(cb => cb.value);
+                        if(existing.includes(email)) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Email sudah ada',
+                                text: 'Email tersebut sudah masuk dalam daftar penerima.',
+                                confirmButtonColor: '#3085d6'
+                            });
+                            return;
+                        }
+
+                        const div = document.createElement('div');
+                        div.className = 'form-check';
+                        div.innerHTML = `
+                            <input class="form-check-input email-recipient-cb" type="checkbox" value="${email}" checked>
+                            <label class="form-check-label small font-monospace">${email} <i class="fa-solid fa-user-plus text-success ms-1"></i></label>
+                        `;
+                        manualList.appendChild(div);
+                        inputNewEmail.value = '';
+                    } else {
+                        Swal.fire('Error', 'Format email tidak valid.', 'error');
+                    }
+                };
+            }
+
             if (type === 'active') {
                 form.action = "{{ route('wi.print-single') }}"; 
                 modalTitle.innerText = 'CETAK WORK INSTRUCTION';
@@ -992,108 +1103,142 @@
                 alertMsg.className = 'alert bg-info-subtle text-info border-0 fw-bold';
                 alertMsg.innerHTML = `<div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div> Loading Preview...</div>`;
                 
-                // Show Preview Container
-                document.getElementById('previewContainer').classList.remove('d-none');
+                // Show Preview Container & Recipient Container
+                if(previewContainer) previewContainer.classList.remove('d-none');
+                if(recipientContainer) recipientContainer.classList.remove('d-none');
                 
                 btnSubmit.className = 'btn btn-dark px-4 rounded-pill fw-bold shadow-sm';
-                btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Email (Excel)';
+                btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Email';
                 btnSubmit.disabled = true; // Disable until preview loads
 
                 // --- FETCH PREVIEW AJAX ---
                 const previewBody = document.getElementById('previewTableBody');
                 const countInfo = document.getElementById('previewCountInfo');
-                previewBody.innerHTML = ''; // Clear previous
+                previewBody.innerHTML = ''; 
                 
-                const filterDate = document.querySelector('input[name="filter_date"]').value;
-                const filterSearch = document.querySelector('input[name="filter_search"]').value;
+                const filterDate = mainDate;
+                const filterSearch = mainSearch;
+                const filterStatus = mainStatus;
+                
+                console.log("Fetching preview with:", { filterDate, filterSearch, filterStatus });
 
-                fetch(`{{ route('wi.preview-log', ['kode' => $plantCode]) }}?filter_date=${filterDate}&filter_search=${filterSearch}`)
+                // Pass status in URL
+                fetch(`{{ route('wi.preview-log', ['kode' => $plantCode]) }}?filter_date=${filterDate}&filter_search=${filterSearch}&filter_status=${filterStatus}`)
                 .then(response => response.json())
                 .then(res => {
-                    if(res.success) {
-                        alertMsg.className = 'alert bg-secondary-subtle text-dark border-0 fw-bold';
-                        alertMsg.innerHTML = `<i class="fa-solid fa-info-circle me-2"></i>Review data sebelum dikirim via email.`;
-                        
-                        btnSubmit.disabled = false;
-                        
-                        // Populate Table
-                        if(res.data.length === 0) {
-                             previewBody.innerHTML = `<tr><td colspan="7" class="text-center py-3 text-muted">Tidak ada data ditemukan.</td></tr>`;
-                             btnSubmit.disabled = true;
-                        } else {
-                            let no = 1;
-                            res.data.forEach(row => {
-                                const tr = document.createElement('tr');
-                                // Color logic for status
-                                let badgeClass = 'bg-secondary';
-                                if(row.status === 'COMPLETED') badgeClass = 'bg-primary';
-                                else if(row.status === 'ACTIVE') badgeClass = 'bg-success';
-                                else if(row.status === 'NOT COMPLETED') badgeClass = 'bg-danger';
-                                else if(row.status === 'INACTIVE') badgeClass = 'bg-warning text-dark';
+                        // ... logic ...
+                        console.log("Preview Loaded", res);
 
-                                tr.innerHTML = `
-                                    <td>${no++}</td>
-                                    <td>${row.doc_no}</td>
-                                    <td>${row.expired_at}</td>
-                                    <td class="text-center">${row.description.substring(0, 15)}...</td>
-                                    <td class="text-center">${row.balance}</td>
-                                    <td class="text-center"><span class="badge ${badgeClass}">${row.status}</span></td>
-                                `;
-                                previewBody.appendChild(tr);
-                            });
-                        }
-                        const uniqueDocsCount = new Set(res.data.map(d => d.doc_no)).size;
-                        countInfo.innerText = `Menampilkan ${uniqueDocsCount} dari total ${res.total_docs} dokumen.`;
-                        
-                        // --- CLICK HANDLER FOR EMAIL ---
-                        btnSubmit.onclick = function(e) {
-                            e.preventDefault();
-                            if(!confirm('Apakah anda yakin ingin mengirim email report ini?')) return;
+                        if(res.success) {
+                            alertMsg.className = 'alert bg-secondary-subtle text-dark border-0 fw-bold';
+                            alertMsg.innerHTML = `<i class="fa-solid fa-info-circle me-2"></i>Review data sebelum dikirim via email.`;
                             
-                            btnSubmit.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div> Mengirim...';
-                            btnSubmit.disabled = true;
+                            btnSubmit.disabled = false;
                             
-                            const departmentVal = document.querySelector('input[name="department"]').value;
-                            const printedByVal = document.querySelector('input[name="printed_by"]').value;
-
-                            fetch(`{{ route('wi.email-log', ['kode' => $plantCode]) }}?filter_date=${filterDate}&filter_search=${filterSearch}`, {
-                                method: 'POST',
-                                headers: {
-                                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    department: departmentVal,
-                                    printed_by: printedByVal
-                                })
-                            })
-                            .then(resp => resp.json())
-                            .then(data => {
-                                if(data.success) {
-                                    alert('Berhasil! ' + data.message);
-                                    const modalEl = document.getElementById('universalPrintModal');
-                                    const modal = bootstrap.Modal.getInstance(modalEl);
-                                    modal.hide();
-                                } else {
-                                    alert('Gagal: ' + data.message);
-                                    btnSubmit.innerHTML = 'Coba Lagi';
-                                    btnSubmit.disabled = false;
+                            // Populate Table
+                            if(res.data.length === 0) {
+                                previewBody.innerHTML = `<tr><td colspan="7" class="text-center py-3 text-muted">Tidak ada data ditemukan.</td></tr>`;
+                                btnSubmit.disabled = true;
+                            } else {
+                                let no = 1;
+                                res.data.forEach(row => {
+                                    const tr = document.createElement('tr');
+                                    // Color logic for status
+                                    let badgeClass = 'bg-secondary';
+                                    if(row.status === 'COMPLETED') badgeClass = 'bg-primary';
+                                    else if(row.status === 'ACTIVE') badgeClass = 'bg-success';
+                                    else if(row.status === 'NOT COMPLETED') badgeClass = 'bg-danger';
+                                    else if(row.status === 'INACTIVE') badgeClass = 'bg-warning text-dark';
+    
+                                    tr.innerHTML = `
+                                        <td>${no++}</td>
+                                        <td>${row.doc_no}</td>
+                                        <td>${row.expired_at}</td>
+                                        <td class="text-center">${row.description.substring(0, 15)}...</td>
+                                        <td class="text-center">${row.balance}</td>
+                                        <td class="text-center"><span class="badge ${badgeClass}">${row.status}</span></td>
+                                    `;
+                                    previewBody.appendChild(tr);
+                                });
+                            }
+                            const uniqueDocsCount = new Set(res.data.map(d => d.doc_no)).size;
+                            countInfo.innerText = `Menampilkan ${uniqueDocsCount} dari total ${res.total_docs} dokumen.`;
+                            
+                            // --- CLICK HANDLER FOR EMAIL ---
+                            btnSubmit.onclick = function(e) {
+                                e.preventDefault();
+                                console.log("Email Submit Clicked");
+                                
+                                // Collect Recipients
+                                const checkedRecipients = document.querySelectorAll('.email-recipient-cb:checked');
+                                let recipients = [];
+                                checkedRecipients.forEach(cb => recipients.push(cb.value));
+                                
+                                if (recipients.length === 0) {
+                                    Swal.fire('Peringatan', 'Pilih minimal satu penerima email.', 'warning');
+                                    return;
                                 }
-                            })
-                            .catch(err => {
-                                alert('Terjadi kesalahan koneksi.');
-                                btnSubmit.disabled = false;
-                            });
-                        };
-
-                    } else {
-                        alertMsg.innerHTML = 'Gagal memuat preview.';
-                    }
+    
+                                Swal.fire({
+                                    title: 'Kirim Email Report?',
+                                    text: `Report akan dikirim ke ${recipients.length} alamat email terpilih.`,
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#3085d6',
+                                    cancelButtonColor: '#d33',
+                                    confirmButtonText: 'Ya, Kirim!',
+                                    cancelButtonText: 'Batal'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        btnSubmit.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div> Mengirim...';
+                                        btnSubmit.disabled = true;
+                                        
+                                        const departmentVal = document.querySelector('input[name="department"]').value;
+                                        const printedByVal = document.querySelector('input[name="printed_by"]').value;
+    
+                                        fetch(`{{ route('wi.email-log', ['kode' => $plantCode]) }}?filter_date=${filterDate}&filter_search=${filterSearch}&filter_status=${filterStatus}`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                                'Content-Type': 'application/json'
+                                            },
+                                            body: JSON.stringify({
+                                                department: departmentVal,
+                                                printed_by: printedByVal,
+                                                recipients: recipients
+                                            })
+                                        })
+                                        .then(resp => resp.json())
+                                        .then(data => {
+                                            if(data.success) {
+                                                Swal.fire('Berhasil!', data.message, 'success').then(() => {
+                                                    const modalEl = document.getElementById('universalPrintModal');
+                                                    const modal = bootstrap.Modal.getInstance(modalEl);
+                                                    modal.hide();
+                                                });
+                                            } else {
+                                                Swal.fire('Gagal', data.message, 'error');
+                                                btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Email';
+                                                btnSubmit.disabled = false;
+                                            }
+                                        })
+                                        .catch(err => {
+                                            console.error(err);
+                                            Swal.fire('Error', 'Terjadi kesalahan koneksi.', 'error');
+                                            btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Email';
+                                            btnSubmit.disabled = false;
+                                        });
+                                    }
+                                });
+                            };
+    
+                        } else {
+                            alertMsg.innerHTML = 'Gagal memuat preview.';
+                        }
                 })
-                .catch(err => {
-                    alertMsg.innerHTML = 'Error loading preview.';
-                    console.error(err);
-                });
+                .catch(err => { /* ... */ });
+
+
             }
         }
 
