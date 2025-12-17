@@ -58,8 +58,9 @@ class CreateWiController extends Controller
         $tData1 = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('MGVRG2 > LMNGA')
             ->where(function ($query) {
-                $query->where('STATS', 'LIKE', '%REL%')
-                      ->orWhere('STATS', 'LIKE', '%PCNF%');
+                // Use UPPER to ensure case-insensitive matching regardless of collation/OS
+                $query->whereRaw("UPPER(STATS) LIKE '%REL%'")
+                      ->orWhereRaw("UPPER(STATS) LIKE '%PCNF%'");
             });
 
         if ($search) {
