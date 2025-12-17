@@ -57,7 +57,10 @@ class CreateWiController extends Controller
         
         $tData1 = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('MGVRG2 > LMNGA')
-            ->whereIn('STATS', ['REL', 'PCNF', 'PCNF REL']);
+            ->where(function ($query) {
+                $query->where('STATS', 'LIKE', '%REL%')
+                      ->orWhere('STATS', 'LIKE', '%PCNF%');
+            });
 
         if ($search) {
             // Split by space, comma, or newline to support list pasting
@@ -493,7 +496,8 @@ class CreateWiController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('wi_document_code', 'like', "%{$search}%")
-                ->orWhere('workcenter_code', 'like', "%{$search}%");
+                ->orWhere('workcenter_code', 'like', "%{$search}%")
+                ->orWhere('payload_data', 'like', "%{$search}%");
             });
         }
         $wiDocuments = $query->orderBy('document_date', 'desc')
@@ -871,7 +875,18 @@ class CreateWiController extends Controller
                 'tataamal1128@gmail.com'
             ];
             
-            $dateInfo = $date ? \Carbon\Carbon::parse($date)->format('d-m-Y') : 'All History';
+            if ($date) {
+                if (strpos($date, ' to ') !== false) {
+                    $parts = explode(' to ', $date);
+                    $start = Carbon::parse($parts[0])->format('d-m-Y');
+                    $end = isset($parts[1]) ? Carbon::parse($parts[1])->format('d-m-Y') : '';
+                    $dateInfo = "$start s/d $end";
+                } else {
+                    $dateInfo = Carbon::parse($date)->format('d-m-Y');
+                }
+            } else {
+                $dateInfo = 'All History';
+            }
 
             \Illuminate\Support\Facades\Mail::to($recipients)->send(new \App\Mail\LogHistoryMail($filePath, $dateInfo));
             return response()->json(['success' => true, 'message' => 'Log berhasil diexport (PDF) dan dikirim ke email.']);
@@ -895,7 +910,7 @@ class CreateWiController extends Controller
             $expiredAt = Carbon::parse($doc->expired_at);
 
             foreach ($doc->payload_data as $item) {
-                $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
+                $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                 $kdauf = $item['kdauf'] ?? '';
                 $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
                 $soItem = $kdauf . '-' . $kdpos;
@@ -920,15 +935,15 @@ class CreateWiController extends Controller
                 $failedPrice = $netpr * ($balance + $remarkQty);
                 
                 if (strtoupper($waerk) === 'USD') {
-                    $priceFormatted = '$ ' . number_format($confirmedPrice, 2);
                     $prefixInfo = '$ ';
                 } elseif (strtoupper($waerk) === 'IDR') {
-                    $priceFormatted = 'Rp ' . number_format($confirmedPrice, 0, ',', '.');
                     $prefixInfo = 'Rp ';
                 } else {
-                    $priceFormatted = $confirmedPrice; 
                     $prefixInfo = '';
                 }
+
+                $priceFormatted = $prefixInfo . number_format($confirmedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
+                $failedPriceFormatted = $prefixInfo . number_format($failedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
 
                 $qtyOper = isset($item['qty_order']) ? floatval($item['qty_order']) : 0;
 
@@ -983,8 +998,10 @@ class CreateWiController extends Controller
                     'remark_text'   => isset($item['remark']) ? $item['remark'] : '-',
                     
                     'price_formatted' => $priceFormatted,
-                    'confirmed_price' => $confirmedPrice,
+                    'confirmed_price' => $confirmedPrice, // Raw for calc if needed, but view uses formatted
                     'failed_price'    => $failedPrice,
+                    'price_ok_fmt'    => $priceFormatted,   // NEW
+                    'price_fail_fmt'  => $failedPriceFormatted, // NEW
                     'currency'        => strtoupper($waerk),
                     
                     'qty_op'        => $qtyOper,
@@ -1041,7 +1058,7 @@ class CreateWiController extends Controller
                         ? ltrim($item['material_number'], '0') 
                         : ($item['material_number'] ?? '');
                         
-                $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
+                $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                 $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
                 $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
                 $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
@@ -1112,7 +1129,7 @@ class CreateWiController extends Controller
                         ? ltrim($item['material_number'], '0') 
                         : ($item['material_number'] ?? '');
                         
-                $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
+                $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                 $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
                 $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
                 $balance = $assigned - $confirmed;

@@ -120,19 +120,16 @@
             <thead>
                 <tr class="data-header">
                     <th width="3%">NO</th>
-                    <th width="8%">KODE WI</th>
-                    <th width="4%">NIK</th>
-                    <th width="6%">BUYER</th>
+                    <th width="8%">PRO</th>
+                    <th width="10%">OPERATOR</th>
+                    <th width="8%">BUYER</th>
                     <th width="6%">WC</th>
-                    <th width="5%">MAT</th>
-                    <th width="12%">DESKRIPSI</th>
+                    <th width="8%">MAT</th>
+                    <th width="16%">DESKRIPSI</th>
                     <th width="4%">WI</th>
                     <th width="4%">CONF</th>
-                    <th width="4%">REM</th>
-                    <th width="4%">SISA</th>
-                    <th width="9%">PRICE (OK)</th>
-                    <th width="9%">PRICE (FAIL)</th>
-                    <th width="4%">CURR</th>
+                    <th width="6%">PRICE (OK)</th>
+                    <th width="6%">PRICE (FAIL)</th>
                     <th width="12%">REMARK</th>
                     <th width="6%">STATUS</th>
                 </tr>
@@ -142,19 +139,16 @@
                 @foreach($report['items'] as $row)
                 <tr class="data-row">
                     <td class="text-center">{{ $no++ }}</td>
-                    <td class="fw-bold">{{ $row['doc_no'] }}</td>
-                    <td class="text-center">{{ $row['nik'] == '-' ? '' : $row['nik'] }}</td>
-                    <td>{{ substr(($row['buyer'] ?? '-'), 0, 15) }}</td>
+                    <td class="fw-bold">{{ $row['aufnr'] }}</td>
+                    <td class="text-center" style="font-size: 6.5pt;">{{ $row['nik'] }} <br> {{ $row['name'] ?? '-' }}</td>
+                    <td class="text-center">{{ $row['buyer'] ?? '-' }}</td>
                     <td class="text-center">{{ $row['workcenter'] }}</td>
                     <td class="text-center">{{ $row['material'] }}</td>
-                    <td>{{ substr($row['description'], 0, 25) }}</td>
+                    <td class="text-center">{{ $row['description'] }}</td>
                     <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                     <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
-                    <td class="text-center fw-bold text-warning">{{ floatval($row['remark_qty'] ?? 0) }}</td>
-                    <td class="text-center fw-bold {{ $row['balance'] > 0 ? 'text-danger' : '' }}">{{ floatval($row['balance']) }}</td>
-                    <td class="text-end text-success">{{ isset($row['confirmed_price']) ? number_format($row['confirmed_price'], 0) : '-' }}</td>
-                    <td class="text-end text-danger">{{ isset($row['failed_price']) ? number_format($row['failed_price'], 0) : '-' }}</td>
-                    <td class="text-center">{{ $row['currency'] ?? '-' }}</td>
+                    <td class="text-center text-success" style="font-size: 5.5pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
+                    <td class="text-center text-danger" style="font-size: 5.5pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
                     <td class="text-danger" style="font-size: 6pt;">{!! nl2br(e($row['remark_text'] ?? '-')) !!}</td>
                     <td class="text-center" style="font-size: 6.5pt;">
                         <span class="{{ $row['status'] == 'COMPLETED' ? 'text-success' : ($row['status'] == 'NOT COMPLETED WITH REMARK' ? 'text-warning' : ($row['status'] == 'ACTIVE' ? '' : 'text-danger')) }}">

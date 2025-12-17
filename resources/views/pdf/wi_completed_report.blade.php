@@ -126,10 +126,9 @@
                 <th width="8%">Workcenter</th>
                 <th width="7%">PRO</th>
                 <th width="7%">KD. Material</th>
-                <th width="17%">Deskripsi</th>
+                <th width="21%">Deskripsi</th>
                 <th width="4%">Qty. WI</th>
                 <th width="4%">Qty. Conf</th>
-                <th width="4%">Sisa</th>
             </tr>
         </thead>
         <tbody>
@@ -151,17 +150,11 @@
                 <td>{{ $row['description'] }}</td>
                 <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                 <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
-                <td class="text-center fw-bold {{ $row['balance'] > 0 ? 'text-danger' : '' }}">
-                    {{ floatval($row['balance']) }}
-                </td>
             </tr>
             @endforeach
 
             @for($i = 0; $i < $rowsToFill; $i++)
             <tr class="data-row">
-                <td class="text-center">&nbsp;</td>
-                <td>&nbsp;</td>
-                <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>

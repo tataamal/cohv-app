@@ -182,7 +182,7 @@
                 @foreach($items as $index => $item)
                 @php
                     // --- LOGIC PER ITEM ---
-                    $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
+                    $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                     
                     $kdauf = $item['kdauf'] ?? '';
                     $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';

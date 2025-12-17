@@ -86,7 +86,7 @@ class SendLogHistoryEmail extends Command
                     if (empty($doc->payload_data)) continue;
 
                     foreach ($doc->payload_data as $item) {
-                        $wc = !empty($item['workcenter_induk']) ? $item['workcenter_induk'] : ($item['child_workcenter'] ?? '-');
+                        $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                         $matnr = $item['material_number'] ?? '';
                         if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
 
@@ -118,9 +118,9 @@ class SendLogHistoryEmail extends Command
                         $hasRemark = ($remarkQty > 0 || ($remarkText !== '-' && !empty($remarkText)));
                         
                         // Define expiredAt and docDate for status logic
-                        $docDate = \Carbon\Carbon::parse($doc->document_date)->startOfDay();
-                        $expiredAt = \Carbon\Carbon::parse($doc->expired_at);
-                        $today = \Carbon\Carbon::today();
+                        $docDate = Carbon::parse($doc->document_date)->startOfDay();
+                        $expiredAt = Carbon::parse($doc->expired_at);
+                        $today = Carbon::today();
 
                         if ($hasRemark) {
                             $status = 'NOT COMPLETED WITH REMARK';
@@ -137,6 +137,18 @@ class SendLogHistoryEmail extends Command
                          $printedBy = ($kodeData && $kodeData->sapUser) ? $kodeData->sapUser->sap_id : 'AUTO_SCHEDULER';
                          // Department is already known from loop
 
+                        // Format Prices
+                        if (strtoupper($waerk) === 'USD') {
+                            $prefixInfo = '$ ';
+                        } elseif (strtoupper($waerk) === 'IDR') {
+                            $prefixInfo = 'Rp ';
+                        } else {
+                            $prefixInfo = '';
+                        }
+                        
+                        $priceFormatted = $prefixInfo . number_format($confirmedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
+                        $failedPriceFormatted = $prefixInfo . number_format($failedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
+
                         $csvData[] = [
                             'doc_no'        => $doc->wi_document_code,
                             'created_at'    => $doc->created_at,
@@ -150,9 +162,11 @@ class SendLogHistoryEmail extends Command
                             'balance'       => $balance,
                             'remark_qty'    => $remarkQty,
                             'remark_text'   => $remarkText,
-                            'price_formatted' => $priceFormatted,
+                            'price_formatted' => $priceFormatted, // Keep for backward compat if needed
                             'confirmed_price' => $confirmedPrice, 
-                            'failed_price'    => $failedPrice,    
+                            'failed_price'    => $failedPrice,
+                            'price_ok_fmt'    => $priceFormatted,       // NEW
+                            'price_fail_fmt'  => $failedPriceFormatted, // NEW  
                             'currency'        => strtoupper($waerk),
                             'buyer'           => $item['name1'] ?? '-',
                             'nik'           => $item['nik'] ?? '-',
@@ -231,7 +245,7 @@ class SendLogHistoryEmail extends Command
             $this->info("   No reports/files to send.");
         } else {
             $recipients = ['tataamal1128@gmail.com'];
-            $dateInfoFormatted = \Carbon\Carbon::parse($dateActive)->locale('id')->translatedFormat('d F Y');
+            $dateInfoFormatted = Carbon::parse($dateActive)->locale('id')->translatedFormat('d F Y');
 
             try {
                 \Illuminate\Support\Facades\Mail::to($recipients)->send(new \App\Mail\LogHistoryMail($filesToAttach, $dateInfoFormatted));

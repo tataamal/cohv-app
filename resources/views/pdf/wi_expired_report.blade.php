@@ -129,12 +129,10 @@
                 <th width="8%">Workcenter</th>
                 <th width="5%">PRO</th>
                 <th width="5%">KD. Material</th>
-                <th width="14%">Deskripsi</th>
+                <th width="18%">Deskripsi</th>
                 <th width="4%">Qty. WI</th>
                 <th width="4%">Conf</th>
-                <th width="4%">Rem</th>
-                <th width="4%">Sisa</th>
-                <th width="12%">REMARK</th>
+                <th width="16%">REMARK</th>
                 <th width="10%">STATUS</th>
             </tr>
         </thead>
@@ -156,13 +154,9 @@
                 <td class="text-center">{{ $row['workcenter'] }}</td>
                 <td class="text-center">{{ $row['aufnr'] }}</td>
                 <td class="text-center">{{ $row['material'] }}</td>
-                <td>{{ substr($row['description'], 0, 25) }}</td>
+                <td>{{ substr($row['description'], 0, 30) }}</td>
                 <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                 <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
-                <td class="text-center fw-bold text-warning">{{ floatval($row['remark_qty'] ?? 0) }}</td>
-                <td class="text-center fw-bold {{ $row['balance'] > 0 ? 'text-danger' : '' }}">
-                    {{ floatval($row['balance']) }}
-                </td>
                 <td class="text-danger" style="font-size: 7pt;">
                     {!! nl2br(e($row['remark_text'] ?? ($row['remark'] ?? '-'))) !!} 
                 </td>
@@ -177,8 +171,6 @@
             {{-- AUTO FILL ROWS --}}
             @for($i = 0; $i < $rowsToFill; $i++)
             <tr class="data-row">
-                <td class="text-center">&nbsp;</td>
-                <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
