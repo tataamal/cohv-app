@@ -96,7 +96,7 @@
 <nav class="navbar navbar-expand bg-white shadow-sm">
     <div class="container-fluid">
         <div class="d-flex align-items-center">
-            <button id="mobile-sidebar-toggle" class="btn d-lg-none">
+            <button id="sidebar-mobile-toggle" class="btn d-lg-none">
                 <i class="fas fa-bars"></i>
             </button>
 
@@ -136,6 +136,13 @@
                 <p class="small text-muted mb-0 text-capitalize">{{ $user->role ?? 'Guest' }}</p>
             </div>
             <i class="fa-solid fa-user ms-3"></i>
+            
+            <form action="{{ route('logout') }}" method="POST" class="d-inline ms-3">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger btn-sm" title="Logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </form>
         </div>
     </div>
 </nav>

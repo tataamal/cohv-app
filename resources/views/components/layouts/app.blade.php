@@ -30,11 +30,13 @@
     </div>
     {{-- Sidebar dipanggil langsung di dalam body --}}
     <x-navigation.sidebar />
-    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
     
     {{-- Wrapper konten juga langsung di dalam body --}}
     <div id="content-wrapper" class="d-flex flex-column flex-grow-1">
-        <x-navigation.topbar />
+        <div class="sticky-top" style="z-index: 100;">
+            <x-navigation.topbar />
+        </div>
         <main class="flex-grow-1" style="overflow-y: auto;">
             <div class="container-fluid p-4">
                 {{ $slot }}
@@ -43,7 +45,8 @@
     </div>
     
     {{-- Overlay dipindah ke sini agar berada di atas segalanya --}}
-    <div id="sidebar-overlay" class="sidebar-overlay d-lg-none"></div>
+    {{-- Overlay untuk mobile --}}
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     @stack('scripts')
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.js'></script>

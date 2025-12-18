@@ -33,8 +33,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPros = [];
 
     // Cek elemen penting
-    if (!selectAll || !proCheckboxes.length || !bulkActionModal || allBulkButtons.some(btn => !btn)) {
-        console.warn('Satu atau lebih elemen UI (checkbox, tombol, atau modal) tidak ditemukan. Fungsionalitas bulk mungkin tidak bekerja.');
+    // Jika selectAll tidak ada, asumsikan kita TIDAK berada di halaman transaction, jadi return diam-diam (clean console).
+    if (!selectAll) return;
+
+    // Jika selectAll ada TAPI elemen lain (modal/tombol) hilang, baru warn (mungkin broken HTML).
+    if (!bulkActionModal || allBulkButtons.some(btn => !btn)) {
+        console.warn('Elemen UI Bulk Transaction tidak lengkap (tombol/modal hilang). Fungsionalitas bulk mungkin terbatas.');
         return;
     }
 

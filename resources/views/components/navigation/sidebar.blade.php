@@ -93,9 +93,7 @@
     </div>
 
     {{-- Toggle Button --}}
-    <button id="sidebar-toggle" class="sidebar-toggle">
+    <button id="sidebar-collapse-toggle" class="sidebar-toggle">
         <i class="fas fa-chevron-left"></i>
     </button>
 </aside>
-
-<div id="sidebar-overlay" class="sidebar-overlay"></div>
