@@ -124,17 +124,36 @@ class bulkController extends Controller
             ProductionTData3::create($t3_row);
         }
 
-        foreach ($all_T1 as $t1_row) {
-            $t1_row['PV1'] = $this->_generatePvField($t1_row, 'ARBPL1', 'SSSLDPV1');
-            $t1_row['PV2'] = $this->_generatePvField($t1_row, 'ARBPL2', 'SSSLDPV2');
-            $t1_row['PV3'] = $this->_generatePvField($t1_row, 'ARBPL3', 'SSSLDPV3');
-            $t1_row['WERKSX'] = $plant;
-            ProductionTData1::create($t1_row);
+        if (!empty($all_T1)) {
+            $seenT1 = [];
+            foreach ($all_T1 as $t1_row) {
+                // Ensure Unique VORNR per AUFNR
+                $vornr = trim($t1_row['VORNR'] ?? '');
+                if (isset($seenT1[$vornr])) continue;
+                $seenT1[$vornr] = true;
+
+                $t1_row['PV1'] = $this->_generatePvField($t1_row, 'ARBPL1', 'SSSLDPV1');
+                $t1_row['PV2'] = $this->_generatePvField($t1_row, 'ARBPL2', 'SSSLDPV2');
+                $t1_row['PV3'] = $this->_generatePvField($t1_row, 'ARBPL3', 'SSSLDPV3');
+                $t1_row['WERKSX'] = $plant;
+                ProductionTData1::create($t1_row);
+            }
         }
 
-        foreach ($all_T4 as $t4_row) {
-            $t4_row['WERKSX'] = $plant;
-            ProductionTData4::create($t4_row);
+        if (!empty($all_T4)) {
+            $seenT4 = [];
+            foreach ($all_T4 as $t4_row) {
+                // Ensure Unique RSNUM+RSPOS per AUFNR
+                $rsnum = trim($t4_row['RSNUM'] ?? '');
+                $rspos = trim($t4_row['RSPOS'] ?? '');
+                $keyT4 = $rsnum . '-' . $rspos;
+
+                if (isset($seenT4[$keyT4])) continue;
+                $seenT4[$keyT4] = true;
+
+                $t4_row['WERKSX'] = $plant;
+                ProductionTData4::create($t4_row);
+            }
         }
         Log::info("Selesai memproses PRO: {$proNumber}");
     }

@@ -92,14 +92,28 @@ class ManufactController extends Controller
                 $t4_grouped = collect($T4)->groupBy(fn($item) => trim($item['AUFNR'] ?? ''));
                 Log::info(" -> Data anak berhasil dikelompokkan.");
 
-                // 5. Lakukan INSERT secara Berjenjang (Logika Utama dari Controller Lama)
+                // 5. Lakukan INSERT secara Berjenjang (dengan Unique Check)
                 Log::info("[Langkah 5/5] Memulai proses penyisipan data berjenjang...");
+
+                // Array untuk tracking uniqueness
+                $seenTData  = []; 
+                $seenTData2 = [];
+                $seenTData3 = [];
+                $seenTData4 = []; // Uniq: AUFNR, RSNUM, RSPOS
+                $seenTData1 = []; // Uniq: AUFNR, VORNR
                 
                 foreach ($T_DATA as $t_data_row) {
                     // Normalisasi dan validasi kunci dari Controller Baru
                     $kunnr = trim((string)($t_data_row['KUNNR'] ?? ''));
                     $name1 = trim((string)($t_data_row['NAME1'] ?? ''));
                     if ($kunnr === '' && $name1 === '') continue;
+
+                    // 1. TData Unique Check (NAME1 + KUNNR)
+                    $key_tdata = $name1 . '-' . $kunnr;
+                    if (isset($seenTData[$key_tdata])) {
+                        continue;
+                    }
+                    $seenTData[$key_tdata] = true;
 
                     $t_data_row['KUNNR'] = $kunnr;
                     $t_data_row['NAME1'] = $name1;
@@ -113,6 +127,20 @@ class ManufactController extends Controller
                     $children_t2 = $t2_grouped->get($key_t2, []);
 
                     foreach ($children_t2 as $t2_row) {
+                        // 2. TData2 Unique Check (KDAUF + KDPOS)
+                        $kdauf = trim($t2_row['KDAUF'] ?? '');
+                        $kdpos = trim($t2_row['KDPOS'] ?? '');
+                        $key_t2_unique = $kdauf . '-' . $kdpos;
+                        
+                        // Perbaikan: Jika data kosong, skip? Atau tetap insert? 
+                        // Asumsi unique key harus ada nilainya.
+                        if ($kdauf === '' && $kdpos === '') continue;
+
+                        if (isset($seenTData2[$key_t2_unique])) {
+                            continue;
+                        }
+                        $seenTData2[$key_t2_unique] = true;
+
                         $t2_row['WERKSX'] = $kode;
                         $t2_row['EDATU'] = (empty($t2_row['EDATU']) || trim($t2_row['EDATU']) === '00000000') ? null : $t2_row['EDATU'];
                         // Pastikan KUNNR & NAME1 dari induk ikut tersimpan untuk konsistensi
@@ -122,21 +150,44 @@ class ManufactController extends Controller
                         $t2Record = ProductionTData2::create($t2_row);
                         
                         // Proses anak TData3 (logika relasi lama)
-                        $key_t3 = trim($t2Record->KDAUF ?? '') . '-' . trim($t2Record->KDPOS ?? '');
+                        $key_t3 = $kdauf . '-' . $kdpos;
                         $children_t3 = $t3_grouped->get($key_t3, []);
 
                         foreach ($children_t3 as $t3_row) {
+                            // 3. TData3 Unique Check (AUFNR)
+                            $aufnr = trim($t3_row['AUFNR'] ?? '');
+                            if ($aufnr === '') continue;
+
+                            if (isset($seenTData3[$aufnr])) {
+                                continue;
+                            }
+                            $seenTData3[$aufnr] = true;
+
                             $t3_row['WERKSX'] = $kode;
                             $t3Record = ProductionTData3::create($t3_row);
                             
                             // Proses anak TData1 dan TData4 (logika relasi lama)
-                            $key_t1_t4 = trim($t3Record->AUFNR ?? '');
+                            $key_t1_t4 = $aufnr;
                             if (empty($key_t1_t4)) continue;
 
                             $children_t1 = $t1_grouped->get($key_t1_t4, []);
                             $children_t4 = $t4_grouped->get($key_t1_t4, []);
                             
                             foreach ($children_t1 as $t1_row) {
+                                // 5. TData1 Unique Check (AUFNR + VORNR) - Peranakan T3
+                                // Karena di dalam loop T3, AUFNR pasti sama. Cek VORNR.
+                                // Tapi data T1 mungkin punya AUFNR yang berbeda jika grouping salah? 
+                                // Tidak, karena mengambil dari grouping by AUFNR yang sama.
+                                
+                                $vornr = trim($t1_row['VORNR'] ?? '');
+                                // Key global: AUFNR-VORNR (Jaga-jaga jika ada order lain dgn nomor operasi sama)
+                                $key_t1_unique = $aufnr . '-' . $vornr;
+                                
+                                if (isset($seenTData1[$key_t1_unique])) {
+                                    continue;
+                                }
+                                $seenTData1[$key_t1_unique] = true;
+
                                 $sssl1 = $formatTanggal($t1_row['SSSLDPV1'] ?? '');
                                 $sssl2 = $formatTanggal($t1_row['SSSLDPV2'] ?? '');
                                 $sssl3 = $formatTanggal($t1_row['SSSLDPV3'] ?? '');
@@ -178,6 +229,20 @@ class ManufactController extends Controller
                             }
                             
                             foreach ($children_t4 as $t4_row) {
+                                // 4. TData4 Unique Check (AUFNR + RSNUM + RSPOS)
+                                // AUFNR sudah dari parent (atau row).
+                                // Gunakan row data untuk memastikan.
+                                $aufnr_t4 = trim($t4_row['AUFNR'] ?? '');
+                                $rsnum = trim($t4_row['RSNUM'] ?? '');
+                                $rspos = trim($t4_row['RSPOS'] ?? '');
+                                
+                                $key_t4_unique = $aufnr_t4 . '-' . $rsnum . '-' . $rspos;
+
+                                if (isset($seenTData4[$key_t4_unique])) {
+                                    continue;
+                                }
+                                $seenTData4[$key_t4_unique] = true;
+
                                 // Penting: Pastikan T_DATA4 punya kolom WERKSX
                                 $t4_row['WERKSX'] = $kode;
                                 ProductionTData4::create($t4_row);

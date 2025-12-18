@@ -171,17 +171,51 @@ class CreateWiController extends Controller
 
     protected function getAssignedProQuantities(string $kodePlant)
     {
-        $histories = HistoryWi::where('plant_code', $kodePlant)->get();
+        // Filter: Active and Inactive only (Not Expired)
+        $histories = HistoryWi::where('plant_code', $kodePlant)
+                              ->where('expired_at', '>', Carbon::now())
+                              ->get();
         $assignedProQuantities = [];
 
         foreach ($histories as $history) {
             $proItems = $history->payload_data; 
+            
+            // Check if completed (Skip Completed Documents)
+            $isFullyCompleted = true;
+            if (is_array($proItems)) {
+                foreach ($proItems as $item) {
+                    $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
+                    $confirmedQty = floatval(str_replace(',', '.', $item['confirmed_qty'] ?? 0));
+                    $rQty = floatval(str_replace(',', '.', $item['remark_qty'] ?? 0));
+                    
+                    if ($rQty > 0) {
+                         $totalDone = $confirmedQty + $rQty;
+                         if ($totalDone < $assignedQty) {
+                             $isFullyCompleted = false;
+                             break; 
+                         }
+                    } else {
+                         if ($confirmedQty < $assignedQty) {
+                             $isFullyCompleted = false;
+                             break;
+                         }
+                    }
+                }
+            } else {
+                // empty payload is not "completed" in work sense, but maybe meaningless. 
+                // history logic says: if (empty($payloadItems)) $isFullyCompleted = false;
+                $isFullyCompleted = false;
+            }
+            
+            if ($isFullyCompleted) {
+                continue;
+            }
 
             if (is_array($proItems)) {
                 foreach ($proItems as $item) {
                     $aufnr = $item['aufnr'] ?? null;
                     $vornr = $item['vornr'] ?? ''; // Get VORNR
-                    $assignedQty = $item['assigned_qty'] ?? 0;
+                    $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
 
                     if ($aufnr) {
                         // Use composite key: AUFNR + VORNR
@@ -261,11 +295,23 @@ class CreateWiController extends Controller
                 $t1_grouped = collect($T1)->groupBy(fn($item) => trim($item['AUFNR'] ?? ''));
                 $t4_grouped = collect($T4)->groupBy(fn($item) => trim($item['AUFNR'] ?? ''));
 
+                // Array untuk tracking uniqueness
+                $seenTData  = []; 
+                $seenTData2 = [];
+                $seenTData3 = [];
+                $seenTData4 = []; 
+                $seenTData1 = []; 
+
                 // Insert Berjenjang
                 foreach ($T_DATA as $t_data_row) {
                     $kunnr = trim((string)($t_data_row['KUNNR'] ?? ''));
                     $name1 = trim((string)($t_data_row['NAME1'] ?? ''));
                     if ($kunnr === '' && $name1 === '') continue;
+
+                    // 1. TData Unique Check
+                    $key_tdata = $name1 . '-' . $kunnr;
+                    if (isset($seenTData[$key_tdata])) continue;
+                    $seenTData[$key_tdata] = true;
 
                     $t_data_row['KUNNR'] = $kunnr;
                     $t_data_row['NAME1'] = $name1;
@@ -278,6 +324,15 @@ class CreateWiController extends Controller
                     $children_t2 = $t2_grouped->get($key_t2, []);
 
                     foreach ($children_t2 as $t2_row) {
+                        // 2. TData2 Unique Check
+                        $kdauf = trim($t2_row['KDAUF'] ?? '');
+                        $kdpos = trim($t2_row['KDPOS'] ?? '');
+                        if ($kdauf === '' && $kdpos === '') continue;
+
+                        $key_t2_unique = $kdauf . '-' . $kdpos;
+                        if (isset($seenTData2[$key_t2_unique])) continue;
+                        $seenTData2[$key_t2_unique] = true;
+
                         $t2_row['WERKSX'] = $kode;
                         $t2_row['EDATU'] = (empty($t2_row['EDATU']) || trim($t2_row['EDATU']) === '00000000') ? null : $t2_row['EDATU'];
                         $t2_row['KUNNR'] = $parentRecord->KUNNR;
@@ -285,20 +340,33 @@ class CreateWiController extends Controller
                         
                         $t2Record = ProductionTData2::create($t2_row);
                         
-                        $key_t3 = trim($t2Record->KDAUF ?? '') . '-' . trim($t2Record->KDPOS ?? '');
+                        $key_t3 = $kdauf . '-' . $kdpos;
                         $children_t3 = $t3_grouped->get($key_t3, []);
 
                         foreach ($children_t3 as $t3_row) {
+                            // 3. TData3 Unique Check
+                            $aufnr = trim($t3_row['AUFNR'] ?? '');
+                            if ($aufnr === '') continue;
+
+                            if (isset($seenTData3[$aufnr])) continue;
+                            $seenTData3[$aufnr] = true;
+
                             $t3_row['WERKSX'] = $kode;
                             $t3Record = ProductionTData3::create($t3_row);
                             
-                            $key_t1_t4 = trim($t3Record->AUFNR ?? '');
+                            $key_t1_t4 = $aufnr;
                             if (empty($key_t1_t4)) continue;
 
                             $children_t1 = $t1_grouped->get($key_t1_t4, []);
                             $children_t4 = $t4_grouped->get($key_t1_t4, []);
                             
                             foreach ($children_t1 as $t1_row) {
+                                // 5. TData1 Unique Check (AUFNR + VORNR)
+                                $vornr = trim($t1_row['VORNR'] ?? '');
+                                $key_t1_unique = $aufnr . '-' . $vornr;
+                                if (isset($seenTData1[$key_t1_unique])) continue;
+                                $seenTData1[$key_t1_unique] = true;
+
                                 $sssl1 = $formatTanggal($t1_row['SSSLDPV1'] ?? '');
                                 $sssl2 = $formatTanggal($t1_row['SSSLDPV2'] ?? '');
                                 $sssl3 = $formatTanggal($t1_row['SSSLDPV3'] ?? '');
@@ -323,6 +391,13 @@ class CreateWiController extends Controller
                             }
                             
                             foreach ($children_t4 as $t4_row) {
+                                // 4. TData4 Unique Check (AUFNR + RSNUM + RSPOS)
+                                $rsnum = trim($t4_row['RSNUM'] ?? '');
+                                $rspos = trim($t4_row['RSPOS'] ?? '');
+                                $key_t4_unique = $aufnr . '-' . $rsnum . '-' . $rspos;
+                                if (isset($seenTData4[$key_t4_unique])) continue;
+                                $seenTData4[$key_t4_unique] = true;
+
                                 $t4_row['WERKSX'] = $kode;
                                 ProductionTData4::create($t4_row);
                             }

@@ -470,7 +470,14 @@ class Data1Controller extends Controller
 
         ProductionTData1::where('AUFNR', $proCode)->delete();
         if (!empty($t_data1)) {
-            $mapped_t1 = array_map(function($row) use ($plant) {
+            $seenT1 = [];
+            $mapped_t1 = [];
+            foreach ($t_data1 as $row) {
+                // Ensure Unique VORNR per AUFNR
+                $vornr = trim($row['VORNR'] ?? '');
+                if (isset($seenT1[$vornr])) continue;
+                $seenT1[$vornr] = true;
+
                 $formatTanggal = function ($tgl) {
                     if (empty($tgl) || trim($tgl) === '00000000') return null;
                     try { return Carbon::createFromFormat('Ymd', $tgl)->format('d-m-Y'); } catch (\Exception $e) { return null; }
@@ -497,19 +504,33 @@ class Data1Controller extends Controller
                 unset($row['SSSLDPV1'], $row['SSSLDPV2'], $row['SSSLDPV3'], $row['WERKS']);
                 
                 $row['WERKSX'] = $plant;
-                return $row;
-            }, $t_data1);
-            ProductionTData1::insert($mapped_t1);
+                $mapped_t1[] = $row;
+            }
+            if (!empty($mapped_t1)) {
+                ProductionTData1::insert($mapped_t1);
+            }
         }
 
         ProductionTData4::where('AUFNR', $proCode)->delete();
         if (!empty($t_data4)) {
-            $mapped_t4 = array_map(function($row) use ($plant) {
+            $seenT4 = [];
+            $mapped_t4 = [];
+            foreach ($t_data4 as $row) {
+                // Ensure Unique RSNUM+RSPOS per AUFNR
+                $rsnum = trim($row['RSNUM'] ?? '');
+                $rspos = trim($row['RSPOS'] ?? '');
+                $keyT4 = $rsnum . '-' . $rspos;
+                
+                if (isset($seenT4[$keyT4])) continue;
+                $seenT4[$keyT4] = true;
+
                 unset($row['VORNR'], $row['WERKS']);
                 $row['WERKSX'] = $plant;
-                return $row;
-            }, $t_data4);
-            ProductionTData4::insert($mapped_t4);
+                $mapped_t4[] = $row;
+            }
+            if (!empty($mapped_t4)) {
+                ProductionTData4::insert($mapped_t4);
+            }
         }
         
         Log::info("Transaksi DB untuk PRO {$proCode} berhasil.");

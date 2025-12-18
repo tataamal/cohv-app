@@ -117,13 +117,35 @@ class ProTransaction extends Controller
                         ['AUFNR' => $proNumber],
                         $tdata3Array 
                     );
-                    $t1DataToInsert = $mappedT1Collection->all();
-                    
+
+                    // Insert T1 with Uniqueness Check
+                    $t1DataToInsert = []; 
+                    $seenT1 = [];
+                    foreach ($mappedT1Collection as $item) {
+                        $vornr = trim($item['VORNR'] ?? '');
+                        if (isset($seenT1[$vornr])) continue;
+                        $seenT1[$vornr] = true;
+                        $t1DataToInsert[] = $item;
+                    }
+
                     if (!empty($t1DataToInsert)) {
                         ProductionTData1::insert($t1DataToInsert);
                     }
 
-                    $t4DataToInsert = $T4->map(fn($item) => (array)$item)->all();
+                    // Insert T4 with Uniqueness Check
+                    $t4DataToInsert = [];
+                    $seenT4 = [];
+                    foreach ($T4 as $item) {
+                        $row = (array)$item;
+                        $rsnum = trim($row['RSNUM'] ?? '');
+                        $rspos = trim($row['RSPOS'] ?? '');
+                        $keyT4 = $rsnum . '-' . $rspos;
+
+                        if (isset($seenT4[$keyT4])) continue;
+                        $seenT4[$keyT4] = true;
+                        $t4DataToInsert[] = $row;
+                    }
+
                     if (!empty($t4DataToInsert)) {
                         ProductionTData4::insert($t4DataToInsert);
                     }
