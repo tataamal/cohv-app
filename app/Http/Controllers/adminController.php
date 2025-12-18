@@ -30,11 +30,16 @@ class adminController extends Controller
             ->filter()
             ->map(fn($code) => strtoupper($code))
             ->unique();
-            
+
         $allWcQuery = DB::table('workcenters')
             ->select('kode_wc', 'description')
-            ->where('werksx', $kode)
-            ->whereNotIn(DB::raw('UPPER(kode_wc)'), $childCodes);
+            ->where('werksx', $kode);
+
+        // Jika plant 3000, hanya tampilkan WC Induk (filter anak). 
+        // Untuk 1000, 1001, 2000, tampilkan SEMUA (Induk + Anak).
+        if ($kode == '3000') {
+            $allWcQuery->whereNotIn(DB::raw('UPPER(kode_wc)'), $childCodes);
+        }
 
         $statsPerWc = DB::table(DB::raw("({$allWcQuery->toSql()}) as master_wc"))
             ->mergeBindings($allWcQuery)
