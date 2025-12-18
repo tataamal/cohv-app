@@ -21,10 +21,7 @@ class adminController extends Controller
 {
     public function index(Request $request, $kode)
     {
-        // =================================================================
-        // DATA UNTUK CHART PERTAMA (BAR CHART - WORKCENTER)
-        // =================================================================
-        $childCodes = WorkcenterMapping::where('plant', $kode) // Or use 'kode_laravel' if 'plant' column inconsistent
+        $childCodes = WorkcenterMapping::where('plant', $kode)
             ->orWhere('kode_laravel', $kode)
             ->pluck('workcenter')
             ->filter()
@@ -35,9 +32,9 @@ class adminController extends Controller
             ->select('kode_wc', 'description')
             ->where('werksx', $kode);
 
-        // Jika plant 3000, hanya tampilkan WC Induk (filter anak). 
-        // Untuk 1000, 1001, 2000, tampilkan SEMUA (Induk + Anak).
-        if ($kode == '3000') {
+        $realPlant = DB::table('workcenters')->where('werksx', $kode)->value('werks');
+
+        if (!in_array($realPlant, ['1000', '1001', '2000'])) {
             $allWcQuery->whereNotIn(DB::raw('UPPER(kode_wc)'), $childCodes);
         }
 
@@ -86,9 +83,6 @@ class adminController extends Controller
             ],
         ];
 
-        // =================================================================
-        // DATA UNTUK CHART KEDUA (DOUGHNUT CHART - PER STATUS DI PLANT INI)
-        // =================================================================
         $statsByStatus = DB::table('production_t_data1')
             ->where('WERKSX', $kode)
             ->whereRaw("NULLIF(TRIM(AUFNR), '') IS NOT NULL")
@@ -113,9 +107,6 @@ class adminController extends Controller
             ]
         ];
         
-        // =================================================================
-        // DATA UNTUK CHART KETIGA (LOLLIPOP CHART - TOP 5 WORKCENTER)
-        // =================================================================
         $topWcByCapacity = DB::table('production_t_data1 as t1')
             ->join('workcenters as wc', 't1.ARBPL', '=', 'wc.kode_wc')
             ->select(
@@ -149,9 +140,6 @@ class adminController extends Controller
             ]
         ];
         
-        // =================================================================
-        // PENGAMBILAN DATA KARDINAL & TABEL
-        // =================================================================
         $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
         $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
         $kategori = Kode::where('kode', $kode)->value('kategori');
@@ -178,34 +166,26 @@ class adminController extends Controller
                                       ->whereColumn('KALAB', '<', 'BDMNG')
                                       ->count();
         $today = Carbon::today();
-        // Pastikan hanya PRO dengan STATS = 'REL' yang dihitung
             $ongoingPRO = ProductionTData3::where('WERKSX', $kode)
                 ->whereDate('GSTRP', $today)
-                ->where('STATS', 'REL') // <-- MODIFIKASI INI
+                ->where('STATS', 'REL')
                 ->count();
 
-        // Data dari TData3 (Ongoing) untuk ditampilkan di tabel
             $ongoingProData = ProductionTData3::where('WERKSX', $kode)
                 ->whereDate('GSTRP', $today)
-                ->where('STATS', 'REL') // <-- MODIFIKASI INI
+                ->where('STATS', 'REL')
                 ->latest('AUFNR')
                 ->get();
 
-        // [BARU] Data dari TData3 (Keseluruhan) untuk tabel Total PRO
         $allProData = ProductionTData3::where('WERKSX', $kode)
                                 ->latest('AUFNR')
                                 ->get();
 
-        // Data dari TData2 untuk ditampilkan sebagai tabel Sales Order
         $salesOrderData = ProductionTData2::where('WERKSX', $kode)
-                                ->latest('KDAUF') // Diurutkan berdasarkan nomor SO terbaru
+                                ->latest('KDAUF')
                                 ->get();
-
-        // =================================================================
-        // MENGIRIM SEMUA DATA KE VIEW
-        // =================================================================
+        
         return view('Admin.dashboard', [
-            // Data untuk kardinal (summary cards)
             'TData1' => $TData1, 
             'TData2' => $TData2, 
             'TData3' => $TData3, 
@@ -214,22 +194,18 @@ class adminController extends Controller
             'ongoingPRO' => $ongoingPRO,
             'ongoingProData' => $ongoingProData,
             'salesOrderData' => $salesOrderData, 
-            'allProData' => $allProData, // DATA BARU
+            'allProData' => $allProData, 
             
-            // Data untuk Bar Chart
             'labels' => $labels, 
             'datasets' => $datasets,
             'targetUrls' => $targetUrls,
             
-            // Data untuk Doughnut Chart
             'doughnutChartLabels' => $doughnutChartLabels,
             'doughnutChartDatasets' => $doughnutChartDatasets,
             
-            // Data untuk Lollipop Chart
             'lolipopChartLabels' => $lolipopChartLabels,
             'lolipopChartDatasets' => $lolipopChartDatasets,
             
-            // Info Halaman
             'kode' => $kode,
             'kategori' => $kategori,
             'nama_bagian' => $nama_bagian,
@@ -292,10 +268,8 @@ class adminController extends Controller
             ->where('STATS', $status)
             ->get();
 
-        // 2. Buat Tampilan Tabel (View)
         $htmlTable = view('components.pro_table_detail', compact('proDetails'))->render();
 
-        // 3. Kembalikan respons dalam format JSON
         return response()->json([
             'success' => true,
             'status' => $status,
@@ -309,12 +283,11 @@ class adminController extends Controller
         Log::info("[POST] Menerima request pencarian multi-pro...");
 
         try {
-            // 1. Validasi input (sama seperti kode Anda)
             $validated = $request->validate([
                 'werks_code'        => 'required|string',
                 'bagian_name'       => 'required|string',
                 'categories_name'   => 'required|string',
-                'pro_numbers'       => 'required|string', // Masih string JSON
+                'pro_numbers'       => 'required|string',
             ]);
 
             $proNumbersArray = json_decode($validated['pro_numbers'], true);
@@ -324,13 +297,11 @@ class adminController extends Controller
             
             Log::info("[POST] Validasi sukses. Redirect ke route GET '...hasil'.");
 
-            // 2. Redirect ke route GET (showMultiProResult)
-            // Kita kirim semua data yang divalidasi sebagai parameter query
             return Redirect::route('manufaktur.pro.search.hasil', [
                 'werks_code' => $validated['werks_code'],
                 'bagian_name' => $validated['bagian_name'],
                 'categories_name' => $validated['categories_name'],
-                'pro_numbers' => $validated['pro_numbers'], // Kirim sebagai string JSON
+                'pro_numbers' => $validated['pro_numbers'],
             ]);
 
         } catch (\Exception $e) {
@@ -346,7 +317,6 @@ class adminController extends Controller
         Log::info("==================================================");
 
         try {
-            // 1. Ambil data dari QUERY PARAMETER (URL)
             $werksCode = $request->query('werks_code');
             $bagianName = $request->query('bagian_name');
             $categoriesName = $request->query('categories_name');
@@ -356,10 +326,9 @@ class adminController extends Controller
 
             if (empty($proNumbersArray) || empty($werksCode)) {
                 Log::warn("[GET] Parameter tidak lengkap, kembali ke dashboard.");
-                return redirect()->route('manufaktur.dashboard.show'); // Redirect ke 'aman'
+                return redirect()->route('manufaktur.dashboard.show');
             }
             
-            // 2. Ambil Kredensial SAP (Sama seperti kode Anda)
             $sapUser = session('username');
             $sapPass = session('password');
             
@@ -368,7 +337,6 @@ class adminController extends Controller
                 return back()->with('error', 'Sesi Anda telah berakhir. Silakan login kembali.');
             }
 
-            // 3. Panggil API SAP (Sama seperti kode Anda)
             Log::info("[GET] Memanggil ProController@get_data_pro...");
             $sapData = $proApi->get_data_pro(
                 $werksCode, 
@@ -377,21 +345,16 @@ class adminController extends Controller
                 $sapPass
             );
 
-            // 4. Ambil Data Lokal (Sama seperti kode Anda)
             $workCenters = WorkCenter::where('WERKSX', $werksCode)->orderBy('kode_wc')->get();
 
-            // 5. Tampilkan View (Sama seperti kode Anda)
-            return view('Admin.pro-transaction', [ // Nama view Anda
-                // Data Header
+            return view('Admin.pro-transaction', [
                 'WERKS'          => $werksCode,
                 'bagian'         => $bagianName,
                 'categories'     => $categoriesName,
                 'workCenters'    => $workCenters,
                 
-                // Data Utama (Sekarang datang dari $sapData)
                 'proDetailsList' => $sapData['proDetailsList'],
                 
-                // Data Info
                 'proNumbersSearched' => $proNumbersArray,
                 'notFoundProNumbers' => $sapData['notFoundProNumbers'],
             ]);
