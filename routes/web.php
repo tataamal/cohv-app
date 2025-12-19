@@ -117,6 +117,12 @@ Route::middleware('auth')->group(function (){
     Route::post('/work-instruction/history/email/{kode}', [CreateWiController::class, 'emailLog'])->name('wi.email-log');
     Route::post('/work-instruction/delete', [CreateWiController::class, 'delete'])->name('wi.delete'); // Added Delete Route
     
+    // Edit WI Routes
+    Route::get('/work-instruction/available-items/{kode}', [CreateWiController::class, 'getAvailableItems'])->name('wi.available-items');
+    Route::post('/work-instruction/add-item', [CreateWiController::class, 'addItem'])->name('wi.add-item');
+    Route::post('/work-instruction/add-item-batch', [CreateWiController::class, 'addItemBatch'])->name('wi.add-item-batch');
+    Route::post('/work-instruction/remove-item', [CreateWiController::class, 'removeItem'])->name('wi.remove-item');
+    
     // Outstanding Reservasi Route
     // Route::get('/outstanding-reservasi/{kode}', [OutstandingReservasiController::class, 'index'])->name('outstanding.reservasi');
 

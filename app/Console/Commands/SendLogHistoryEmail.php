@@ -204,6 +204,33 @@ class SendLogHistoryEmail extends Command
 
             // --- 2. COLLECT ACTIVE DOCUMENTS ---
             foreach($activeDocs as $doc) {
+                 // Inject Buyer & Price for Email PDF (Active)
+                 $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
+                 if (is_array($payload)) {
+                    $updatedPayload = [];
+                    foreach ($payload as $item) {
+                        // 1. Buyer
+                        $item['buyer_sourced'] = $item['name1'] ?? '-';
+                        
+                        // 2. Price
+                        $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
+                        $waerk = isset($item['waerk']) ? $item['waerk'] : '';
+                        
+                        // Simple Format Logic from History Loop
+                        if (strtoupper($waerk) === 'USD') {
+                            $priceFmt = '$ ' . number_format($netpr, 2);
+                        } elseif (strtoupper($waerk) === 'IDR') {
+                            $priceFmt = 'Rp ' . number_format($netpr, 0, ',', '.');
+                        } else {
+                            $priceFmt = $waerk . ' ' . number_format($netpr, 0, ',', '.'); 
+                        }
+                        
+                        $item['price_sourced'] = $priceFmt;
+                        $updatedPayload[] = $item;
+                    }
+                    $doc->payload_data = $updatedPayload;
+                 }
+
                  $allActiveDocs->push($doc);
             }
 
@@ -230,6 +257,7 @@ class SendLogHistoryEmail extends Command
                 'printedBy' => 'Scheduler',
                 'department' => 'ALL',
                 'printTime' => now(),
+                'isEmail'   => true, // Trigger column display in View
              ];
              $activePdfName = 'Active_WI_Global_' . $dateActive . '.pdf';
              $activePdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.wi_single_document', $activeData)
@@ -244,8 +272,8 @@ class SendLogHistoryEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No reports/files to send.");
         } else {
-            $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@pawindo.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com'];
-            // $recipients = ['tataamal1128@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com'];
+            $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateActive)->locale('id')->translatedFormat('d F Y');
 
             try {

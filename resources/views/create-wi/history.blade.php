@@ -348,17 +348,27 @@
                                             <input class="form-check-input wi-checkbox cb-active" type="checkbox" value="{{ $document->wi_document_code }}">
                                         </div>
                                         <div class="col">
-                                            <div class="d-flex justify-content-between">
+                                            <div class="d-flex justify-content-between align-items-center">
                                                 <div>
-                                                    <h6 class="fw-bold mb-1">{{ $document->wi_document_code }}</h6>
-                                                    <span class="text-xs fw-bold text-secondary">
-                                                        {{ $document->workcenter_code }} - {{ $wcNames[strtoupper($document->workcenter_code)] ?? '' }}
-                                                    </span>
+                                                    <h6 class="fw-bold mb-1 d-inline-block align-middle me-2">{{ $document->wi_document_code }}</h6>
+                                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;"
+                                                        onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'active')">
+                                                        <i class="fa-solid fa-print me-1"></i> Cetak
+                                                    </button>
+                                                    <button class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
+                                                        onclick="openAddItemModal('{{ $document->wi_document_code }}', '{{ $document->workcenter_code }}')">
+                                                        <i class="fa-solid fa-plus me-1"></i> Tambah Item
+                                                    </button>
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-light text-dark border">{{ $docItemsCount }} PRO</span>
                                                     <span class="badge badge-soft bg-soft-success ms-2">Active</span>
                                                 </div>
+                                            </div>
+                                            <div class="mt-1">
+                                                <span class="text-xs fw-bold text-secondary">
+                                                    {{ $document->workcenter_code }} - {{ $wcNames[strtoupper($document->workcenter_code)] ?? '' }}
+                                                </span>
                                             </div>
                                             <div class="d-flex gap-3 mt-1 small text-muted">
                                                 <span><i class="fa-regular fa-calendar me-1"></i> {{ \Carbon\Carbon::parse($document->document_date)->format('d M Y') }}</span>
@@ -376,7 +386,7 @@
                                             <span>KAPASITAS WORKCENTER</span>
                                             <span>{{ number_format($usedMins, 0) }} / {{ number_format($maxMins, 0) }} Min</span>
                                         </div>
-                                        <div class="progress" style="height: 6px;">
+                                        <div class="progress bg-secondary bg-opacity-10" style="height: 6px;">
                                             <div class="progress-bar {{ $percentage > 100 ? 'bg-danger' : 'bg-primary' }}" 
                                                  role="progressbar" 
                                                  style="width: {{ min($percentage, 100) }}%"></div>
@@ -384,9 +394,9 @@
                                     </div>
 
                                     {{-- Accordion --}}
-                                    <div class="accordion-trigger-area">
-                                        <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ $document->id }}">
-                                            Tampilkan {{ $docItemsCount }} PRO
+                                    <div class="accordion-trigger-area d-flex justify-content-between align-items-center pe-3">
+                                        <button class="btn-accordion-toggle collapsed flex-grow-1 text-center py-1 bg-light text-muted fw-bold rounded-3 small" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ $document->id }}" style="border: 1px dashed #ccc;">
+                                            Tampilkan / Sembunyikan {{ $docItemsCount }} PRO
                                         </button>
                                     </div>
                                     <div id="collapse-{{ $document->id }}" class="collapse item-list-container">
@@ -405,12 +415,18 @@
                                                         </div>
                                                         <div class="col-lg-4 text-end">
                                                             <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? 'EA') == 'ST' ? 'PC' : ($item['uom'] ?? 'EA') }}</span></div>
-                                                            @if(($item['confirmed_qty'] ?? 0) == 0)
-                                                                <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? 'EA' }}')">
-                                                                    <i class="fa-solid fa-pen-to-square me-1"></i> Edit Quantity
-                                                                </button>
-                                                            @endif
+                                                            <div class="d-flex gap-1 justify-content-end">
+                                                                @if(($item['confirmed_qty'] ?? 0) == 0)
+                                                                    <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
+                                                                            onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? 'EA' }}')">
+                                                                        <i class="fa-solid fa-pen-to-square"></i>
+                                                                    </button>
+                                                                    <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
+                                                                            onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['assigned_qty'] ?? 0 }}')">
+                                                                        <i class="fa-solid fa-trash"></i>
+                                                                    </button>
+                                                                @endif
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     {{-- FULL WIDTH PROGRESS BAR --}}
@@ -526,17 +542,23 @@
                                             <input class="form-check-input wi-checkbox cb-inactive" type="checkbox" value="{{ $document->wi_document_code }}">
                                         </div>
                                         <div class="col">
-                                                <div class="d-flex justify-content-between">
+                                            <div class="d-flex justify-content-between align-items-center">
                                                 <div>
-                                                    <h6 class="fw-bold mb-1">{{ $document->wi_document_code }}</h6>
-                                                    <span class="text-xs fw-bold text-secondary">
-                                                        {{ $document->workcenter_code }} - {{ $wcNames[strtoupper($document->workcenter_code)] ?? '' }}
-                                                    </span>
+                                                    <h6 class="fw-bold mb-1 d-inline-block align-middle me-2">{{ $document->wi_document_code }}</h6>
+                                                    <button class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
+                                                        onclick="openAddItemModal('{{ $document->wi_document_code }}', '{{ $document->workcenter_code }}')">
+                                                        <i class="fa-solid fa-plus me-1"></i> Tambah Item
+                                                    </button>
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-secondary">Inactive</span>
-                                                    <span class="badge bg-light text-dark border">{{ $docItemsCount }} Items</span>
+                                                    <span class="badge bg-light text-dark border">{{ $docItemsCount }} PRO</span>
                                                 </div>
+                                            </div>
+                                            <div class="mt-1">
+                                                <span class="text-xs fw-bold text-secondary">
+                                                    {{ $document->workcenter_code }} - {{ $wcNames[strtoupper($document->workcenter_code)] ?? '' }}
+                                                </span>
                                             </div>
                                             <div class="d-flex gap-3 mt-1 small text-muted">
                                                 <span><i class="fa-regular fa-calendar me-1"></i> Dokumen WI akan aktif pada : {{ \Carbon\Carbon::parse($document->document_date)->format('d M') }}</span>
@@ -551,22 +573,22 @@
                                             <span>KAPASITAS WORKCENTER</span>
                                             <span>{{ number_format($usedMins, 0) }} / {{ number_format($maxMins, 0) }} Min</span>
                                         </div>
-                                        <div class="progress" style="height: 6px;">
+                                        <div class="progress bg-secondary bg-opacity-10" style="height: 6px;">
                                             <div class="progress-bar {{ $percentage > 100 ? 'bg-danger' : 'bg-primary' }}" 
                                                  role="progressbar" 
                                                  style="width: {{ min($percentage, 100) }}%"></div>
                                         </div>
                                     </div>
 
-                                    <div class="accordion-trigger-area">
-                                        <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-inactive-{{ $document->id }}">
-                                            Tampilkan {{ $docItemsCount }} PRO
+                                    <div class="accordion-trigger-area d-flex justify-content-between align-items-center pe-3">
+                                        <button class="btn-accordion-toggle collapsed flex-grow-1 text-center py-1 bg-light text-muted fw-bold rounded-3 small" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-inactive-{{ $document->id }}" style="border: 1px dashed #ccc;">
+                                            Tampilkan / Sembunyikan {{ $docItemsCount }} PRO
                                         </button>
                                     </div>
                                         <div id="collapse-inactive-{{ $document->id }}" class="collapse item-list-container">
                                         @foreach ($payload ?? [] as $item)
                                             <div class="pro-item-row p-3 mb-2 border rounded-3 bg-light">
-                                                <div class="row align-items-center mb-2">
+                                    <div class="row align-items-center mb-2">
                                                     <div class="col-lg-8">
                                                         <div class="d-flex align-items-center gap-2 mb-1">
                                                             <span class="badge bg-white text-secondary border border-secondary-subtle shadow-sm">{{ $item['aufnr'] }}</span>
@@ -578,10 +600,18 @@
                                                     </div>
                                                     <div class="col-lg-4 text-end">
                                                         <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? 'EA') == 'ST' ? 'PC' : ($item['uom'] ?? 'EA') }}</span></div>
-                                                            <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                    onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? 'EA' }}')">
-                                                                <i class="fa-solid fa-pen-to-square me-1"></i> Edit Quantity
-                                                            </button>
+                                                            <div class="d-flex gap-1 justify-content-end">
+                                                                <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
+                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? 'EA' }}')">
+                                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                                </button>
+                                                                @if(($item['confirmed_qty'] ?? 0) <= 0)
+                                                                    <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
+                                                                            onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}')">
+                                                                        <i class="fa-solid fa-trash"></i>
+                                                                    </button>
+                                                                @endif
+                                                            </div>
                                                     </div>
                                                 </div>
                                                 {{-- FULL WIDTH PROGRESS BAR --}}
@@ -953,7 +983,104 @@
             </div>
         </div>
     </div>
+    {{-- MODAL EDIT QTY --}}
+    <div class="modal fade" id="editQtyModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form action="{{ route('history-wi.update-qty') }}" method="POST">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">Edit Quantity</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                         <input type="hidden" name="wi_code" id="modal_wi_code">
+                         <input type="hidden" name="aufnr" id="modal_aufnr">
+                         
+                         <div class="mb-3">
+                             <label class="form-label text-muted small fw-bold">Item Description</label>
+                             <div class="fw-bold text-dark" id="modal_desc"></div>
+                         </div>
+                         <div class="row">
+                             <div class="col-6">
+                                 <label class="form-label text-muted small fw-bold">Order Qty</label>
+                                 <input type="text" class="form-control" id="modal_order_qty" readonly>
+                             </div>
+                             <div class="col-6">
+                                 <label class="form-label text-muted small fw-bold">Assigned Qty (<span id="modal_uom"></span>)</label>
+                                 <input type="number" name="new_qty" class="form-control fw-bold" id="modal_new_qty" step="any" required>
+                             </div>
+                         </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Update Quantity</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    {{-- MODAL ADD ITEM --}}
+    <div class="modal fade" id="addItemModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                <div class="modal-header bg-dark text-white py-3">
+                    <h5 class="modal-title fw-bold text-uppercase fs-6" id="addItemTitle"><i class="fa-solid fa-plus-circle me-2 text-success"></i> Tambah Item ke Dokumen</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-light p-0">
+                    <div class="sticky-top bg-light px-4 pt-4 pb-1 border-bottom shadow-sm" style="z-index: 1020;">
+                        {{-- Hidden Elements --}}
+                        <input type="hidden" id="add_wi_code">
+                        <select id="filter_wc_add" class="d-none"></select>
+                        
+                        {{-- 1. SEARCH BAR --}}
+                        <div class="input-group mb-3 shadow-sm border-0 position-relative">
+                            <span class="input-group-text bg-white border-0 ps-3 text-muted"><i class="fa-solid fa-search"></i></span>
+                            <input type="text" class="form-control border-0 py-2" id="search_available_item" placeholder="Search Part Number, Material, or Name..." onkeyup="fetchAvailableItems()">
+                            <button class="btn btn-dark fw-bold px-4" type="button" onclick="fetchAvailableItems()">CARI</button>
+                        </div>
 
+                        {{-- 2. DASHBOARD CAPACITIES (ACCORDION) --}}
+                        <div class="accordion mb-3 shadow-sm border border-light d-none" id="capacityAccordionWrapper">
+                            <div class="accordion-item border-0">
+                                <h2 class="accordion-header" id="headingCapacity">
+                                    <button class="accordion-button collapsed fw-bold text-dark py-2 small bg-white shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCapacity" aria-expanded="false" aria-controls="collapseCapacity" style="border: 1px solid #dee2e6;">
+                                        <i class="fa-solid fa-chart-pie me-2 text-primary"></i> Capacity Distribution
+                                    </button>
+                                </h2>
+                                <div id="collapseCapacity" class="accordion-collapse collapse" aria-labelledby="headingCapacity" data-bs-parent="#capacityAccordionWrapper">
+                                    <div class="accordion-body p-0">
+                                        <div id="childWcDashboard" class="p-3 bg-white">
+                                            <!-- Populated by JS -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- 3. AVAILABLE ITEMS HEADER --}}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-uppercase text-muted small tracking-wide mb-0">Item Details & Assignments</h6>
+                            <span class="badge bg-secondary text-white rounded-pill px-3">List PRO Available</span>
+                        </div>
+                    </div>
+                    
+                    <div class="px-4 py-3">
+                        <div id="availableItemsContainer" style="min-height: 200px;">
+                            <!-- JS renders item cards here -->
+                            <div class="text-center py-5 text-muted invisible">
+                                <i class="fa-solid fa-spinner fa-spin fa-2x mb-3"></i>
+                                <p>Menunggu Pencarian...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- REMOVE OLD TABLE FOOTER -->
+                </div>
+            </div>
+        </div>
+    </div>
     @push('scripts')
     <script>
         // --- 1. FILTER TANGGAL ---
@@ -1242,34 +1369,867 @@
             }
         }
 
-        // --- 4. GLOBAL OPEN MODAL ---
-        window.openPrintModal = function(type) {
-            const modalEl = document.getElementById('universalPrintModal');
-            const inputCodes = document.getElementById('inputWiCodes');
+        // Serialize Mappings
+        const wcMappings = @json($workcenterMappings ?? []);
+        const wiCapacityMap = @json($wiCapacityMap ?? []); 
+        let availableItemsMap = {}; // Cache for validation
+        
+        // Helper: Calculate Minutes
+        function calculateItemMinutes(vgw01, vge01, qty) {
+            const val = parseFloat(vgw01) || 0;
+            const q = parseFloat(qty) || 0;
+            const unit = (vge01 || '').toUpperCase();
+            
+            if (val > 0 && q > 0) {
+                let totalRaw = val * q;
+                if (unit === 'S' || unit === 'SEC') return totalRaw / 60;
+                else if (unit === 'MIN') return totalRaw;
+                else if (unit === 'H' || unit === 'HUR') return totalRaw * 60;
+                else return totalRaw * 60; // Default to Hours? No, usually MIN or H. Assume H fallback if unknown? Let's stick to knowns.
+            }
+            return 0;
+        }
 
-            if (type === 'log') {
-                setupModalUI('log', 0);
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
-                return;
+        // --- 3.5 ADD / REMOVE ITEM LOGIC (BATCH SPLIT SUPPORT) ---
+        let currentAddWiCode = '';
+        window.hasAddedItems = false; // Track changes
+        
+        // Initialize Modal Listener for Reload on Close
+        document.addEventListener('DOMContentLoaded', function() {
+            const addItemModalEl = document.getElementById('addItemModal');
+             if(addItemModalEl) {
+                addItemModalEl.addEventListener('hidden.bs.modal', function () {
+                    if(window.hasAddedItems) {
+                        Swal.fire({
+                            title: 'Memuat ulang...',
+                            timer: 1000,
+                            showConfirmButton: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        }).then(() => location.reload());
+                    }
+                });
+            }
+        });
+
+        window.openAddItemModal = function(wiCode, wcCode) {
+            currentAddWiCode = wiCode;
+            window.hasAddedItems = false; // Reset flag
+            availableItemsMap = {};
+            
+            const addWiInput = document.getElementById('add_wi_code');
+            const addTitle = document.getElementById('addItemTitle');
+            const searchInput = document.getElementById('search_available_item'); 
+            
+            if(addWiInput) addWiInput.value = wiCode;
+            if(addTitle) addTitle.innerText = 'Dokumen: ' + wiCode;
+            if(searchInput) searchInput.value = ''; // Clear search
+            
+            // --- POPULATE CHILD WC DASHBOARD ---
+            const dashboardContainer = document.getElementById('childWcDashboard');
+            if(dashboardContainer) {
+                // Find all children for this Parent WC (wcCode)
+                // We use wcMappings (but it is flattened). 
+                // Better: Use refWorkcentersData keys? No, that's just data.
+                // We need the RELATIONSHIP. 
+                // Creating a helper map if not exists? 
+                // Controller passed workcenterMappings as JSON.
+                
+                dashboardContainer.innerHTML = '';
+                const parentCode = wcCode.toUpperCase();
+                
+                // Filter Mappings for this Parent
+                // workcenterMappings structure: [{ workcenter: 'CHILD', wc_induk: 'PARENT', ... }]
+                const children = wcMappings.filter(m => (m.wc_induk || '').toUpperCase() === parentCode);
+                
+                if(children.length > 0) {
+                    let html = `<div class="row g-2">`;
+                        
+                    children.forEach(c => {
+                        const childCode = c.workcenter;
+                        const childName = c.nama_workcenter || '';
+                        
+                        const ref = refWorkcentersData[childCode];
+                        let maxMins = 0;
+                        if(ref) {
+                             const k = ref.KAPAZ || ref.kapaz;
+                             if(k) {
+                                  let raw = parseFloat(String(k).replace(',', '.'));
+                                  maxMins = raw * 60;
+                             }
+                        }
+                        
+                        html += `
+                        <div class="col-md-6 col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-xs fw-bold text-dark text-truncate" style="max-width: 65%;">
+                                    ${childCode} ${childName ? '- ' + childName : ''}
+                                </span>
+                                <span class="text-xs fw-bold text-muted" id="dashboard_val_${childCode}" data-max="${maxMins}">0.0 / ${maxMins.toFixed(1)} Min</span>
+                            </div>
+                            <div class="progress mb-2" style="height: 5px;">
+                                <div class="progress-bar bg-success" id="dashboard_bar_${childCode}" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>`;
+                    });
+                    html += '</div>';
+                    dashboardContainer.innerHTML = html;
+                    document.getElementById('capacityAccordionWrapper').classList.remove('d-none');
+                } else {
+                    document.getElementById('capacityAccordionWrapper').classList.add('d-none');
+                }
+            }
+            
+            const sel = document.getElementById('filter_wc_add');
+            sel.innerHTML = ''; 
+            const target = wcCode.toUpperCase();
+            const o = document.createElement('option');
+            o.value = target;
+            o.innerText = target;
+            sel.appendChild(o);
+            sel.value = target;
+            
+            // Fetch
+            fetchAvailableItems();
+            const modalEl = document.getElementById('addItemModal');
+            if(modalEl) new bootstrap.Modal(modalEl).show();
+        };
+
+        const employeesList = @json($employees ?? []);
+        // workcentersData = Parent/Display Capacity (TData1). 
+        const workcentersData = @json($workcenters ?? []); 
+        // refWorkcentersData = Child Capacity Calculation (Table Workcenters).
+        const refWorkcentersData = @json($refWorkcenters ?? []);
+
+        // Helper: Get Operator Options for a specific WC
+        function getOperatorOptions(wcCode, excludeNiks = []) {
+            const targetWc = (wcCode || '').toUpperCase();
+            let opts = '<option value="">-- Pilih Operator --</option>';
+            let count = 0;
+            
+            employeesList.forEach(e => {
+                const eWc = (e.arbpl || '').toUpperCase(); 
+                if (eWc === targetWc) {
+                    const nik = e.pernr;
+                    const name = e.stext; 
+                    
+                    if (excludeNiks.includes(nik.toString())) {
+                         opts += `<option value="${nik}" disabled style="color:#ccc;">${nik} - ${name} (Terpakai)</option>`;
+                    } else {
+                        opts += `<option value="${nik}" data-name="${name}">${nik} - ${name}</option>`;
+                        count++;
+                    }
+                }
+            });
+            
+            if (count === 0 && excludeNiks.length > 0) {
+                 opts += '<option disabled>Semua operator tersedia telah dialokasikan</option>';
+            } else if (count === 0) {
+                 opts += '<option disabled>Tidak ada operator di WC ini</option>';
+            }
+            return opts;
+        }
+        
+        function getUsedNiksInBatch(container, excludeRow) {
+            let used = [];
+            if(!container) return used;
+            container.querySelectorAll('.split-row-item').forEach(r => {
+                if(r !== excludeRow) {
+                    const sel = r.querySelector('.emp-select');
+                    if(sel && sel.value) used.push(sel.value.toString());
+                }
+            });
+            return used;
+        }
+
+        // Exposed function for onchange event in split rows
+        window.filterOperators = function(wcSelect, targetId) {
+            const wcCode = wcSelect.value;
+            const targetSelect = document.getElementById(targetId);
+            
+            if(targetSelect) { 
+                const row = wcSelect.closest('.split-row-item');
+                let excludeNiks = [];
+                if(row) {
+                    const container = row.parentElement;
+                    excludeNiks = getUsedNiksInBatch(container, row);
+                    
+                    const qtyInput = row.querySelector('.qty-input');
+                    const empSelect = row.querySelector('.emp-select'); // Target ID is usually this
+                    
+                    // Requirement 1: Disable if WC empty. Enable if WC selected.
+                    if(wcCode) {
+                        if(qtyInput) qtyInput.disabled = false;
+                        if(empSelect) empSelect.disabled = false;
+                    } else {
+                         if(qtyInput) { qtyInput.disabled = true; qtyInput.value = ''; }
+                         if(empSelect) { empSelect.disabled = true; empSelect.value = ''; }
+                         targetSelect.innerHTML = '<option value="">Pilih Sub-WC terlebih dahulu..</option>';
+                         return; // Stop processing
+                    }
+
+                    // SMART FILL LOGIC (Requested: "diisi dengna kapasitas wc anak")
+                    if(qtyInput && workcentersData[wcCode]) {
+                         const wc = workcentersData[wcCode];
+                         if(wc.kapaz) {
+                             // Parse Capacity (handle comma/dot if string, else direct)
+                             let capVal = (typeof wc.kapaz === 'number') ? wc.kapaz : parseFloat(wc.kapaz.replace(',', '.'));
+                             if(!isNaN(capVal) && capVal > 0) {
+                                  // NOTE: User asked for Smart Fill to be AUTO calculated Time? 
+                                  // Requirement 2: "Jumlah qty secara otomatis menghitung berapa waktu yang dibutuhkan"
+                                  // This implies Qty Input -> Time Calc. Not Fill Qty with Cap.
+                                  // The User's previous request was to fill with Cap. 
+                                  // "diisi dengna kapasitas wc anak" -> This was done.
+                                  // Now: "Jumlah qty secara otomatis menghitung berapa waktu..."
+                                  // Maybe he wants the Qty input to remain empty so he can type, 
+                                  // OR he wants the Time Required Progress Bar to update.
+                                  // I will keep the Smart Fill (Cap) as a suggestion but maybe he wants it removed?
+                                  // "Jumlah qty secara otomatis..." -> sounds like "As I type qty, calculate time".
+                                  // Let's keep the Auto-Fill for now unless it conflicts. 
+                                  // It might be better to NOT auto-fill if he wants to type. 
+                                  // But user rule 2 says "Jumlah qty automatically calculates time". 
+                                  // That's handled by updateChildCapacity. 
+                                  
+                                  qtyInput.value = capVal;
+                                  // Trigger limit check
+                                  const itemKey = container.id.replace('split_container_', '');
+                                  if(window.enforceBatchLimit) window.enforceBatchLimit(itemKey, qtyInput);
+                             }
+                         }
+                    }
+                }
+                
+                targetSelect.innerHTML = getOperatorOptions(wcCode, excludeNiks);
+                targetSelect.value = ""; 
+            }
+        };
+
+        function getWcFamilyOptions(wcCode, container = null) {
+            const target = (wcCode || '').toUpperCase();
+            const asChild = wcMappings.find(m => (m.workcenter || '').toUpperCase() === target);
+            const children = wcMappings.filter(m => (m.wc_induk || '').toUpperCase() === target);
+            const isParent = children.length > 0;
+            
+            // Check Usage
+            let batchUsage = {};
+            if(container) {
+                container.querySelectorAll('.split-row-item').forEach(r => {
+                    const wcS = r.querySelector('.child-select');
+                    const nikS = r.querySelector('.emp-select');
+                    if(wcS && nikS && nikS.value) {
+                         const w = wcS.value;
+                         if(!batchUsage[w]) batchUsage[w] = 0;
+                         batchUsage[w]++;
+                    }
+                });
             }
 
-            let selector;
-            if (type === 'active') selector = '.cb-active:checked';
-            else if (type === 'expired') selector = '.cb-expired:checked';
-            else if (type === 'completed') selector = '.cb-completed:checked';
-            else selector = '.cb-inactive:checked';
+            const buildOpt = (code, name) => {
+                let capLabel = '';
+                const wcInfo = workcentersData[code];
+                if(wcInfo && wcInfo.kapaz) {
+                    let k = (typeof wcInfo.kapaz === 'number') ? wcInfo.kapaz : parseFloat(wcInfo.kapaz.replace(',', '.'));
+                    capLabel = ` (Cap: ${k} Min)`;
+                }
+                
+                let totalOps = 0;
+                employeesList.forEach(e => {
+                    if((e.arbpl || '').toUpperCase() === code) totalOps++;
+                });
+                
+                let used = batchUsage[code] || 0;
+                let disabled = (totalOps > 0 && used >= totalOps);
+                let disAttr = disabled ? 'disabled' : '';
+                let disText = disabled ? ' (Penuh)' : '';
 
-            const checked = document.querySelectorAll(selector);
-            let codes = [];
-            checked.forEach(cb => codes.push(cb.value));
+                return `<option value="${code}" ${disAttr}>${name}${capLabel}${disText}</option>`;
+            };
 
-            inputCodes.value = codes.join(',');
-            setupModalUI(type, codes.length);
+            let opts = [];
+            if (isParent) {
+                 children.forEach(c => {
+                   if(c.workcenter) opts.push(buildOpt(c.workcenter, c.workcenter + ' - ' + c.nama_workcenter));
+                 });
+            } else if (asChild) {
+                 opts.push(buildOpt(target, target + ' - ' + asChild.nama_workcenter));
+            } else {
+                 opts.push(buildOpt(target, target));
+            }
+            return opts.join('');
+        }
 
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
+        // --- SPLIT & RENDER LOGIC ---
+        window.fetchAvailableItems = function() {
+            const wc = document.getElementById('filter_wc_add').value;
+            const searchInput = document.getElementById('search_available_item');
+            const searchTerm = searchInput ? searchInput.value : '';
+            
+            const container = document.getElementById('availableItemsContainer');
+            
+            if(container) container.innerHTML = '<div class="text-center p-5"><i class="fa-solid fa-spinner fa-spin text-primary fa-2x mb-2"></i><p class="text-muted">Memuat Data...</p></div>';
+            
+            const url = `{{ route('wi.available-items', ['kode' => $plantCode]) }}?workcenter=${wc}&search=${encodeURIComponent(searchTerm)}`;
+            
+            fetch(url)
+                .then(res => res.json())
+                .then(res => {
+                    const items = res.data;
+                    availableItemsMap = {}; // Reset cache
+                    
+                    if(items.length === 0) {
+                        if(container) container.innerHTML = '<div class="text-center p-5 border rounded-3 bg-white text-muted"><i class="fa-solid fa-box-open fa-2x mb-3 opacity-25"></i><p>Tidak ada item tersedia atau tidak cocok dengan pencarian.</p></div>';
+                        return;
+                    }
+
+                    let html = '';
+                    items.forEach(item => {
+                        const itemKey = `${item.aufnr}_${item.vornr}`;
+                        availableItemsMap[itemKey] = item;
+                        
+                        let displayUom = (item.uom || 'EA').toUpperCase();
+                        if (displayUom === 'ST') displayUom = 'PC';
+
+                        html += `
+                        <div class="card mb-3 border shadow-sm">
+                            <div class="card-header bg-white py-3">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 px-2">${item.aufnr}</span>
+                                        <span class="fw-bold text-dark text-truncate" style="max-width: 400px;" title="${item.description}">${item.description}</span>
+                                    </div>
+                                    <span class="text-success fw-bold small"><i class="fa-solid fa-check-circle me-1"></i> Available: <span id="max_qty_${itemKey}">${parseFloat(item.available_qty)}</span> ${displayUom}</span>
+                                </div>
+                                <div class="small text-muted mb-0 ms-1">
+                                    <span><i class="fa-solid fa-cube me-1"></i> ${item.material}</span>
+                                    <span class="mx-2">•</span>
+                                    <span class="fst-italic"><i class="fa-solid fa-industry me-1"></i> ${item.workcenter}</span>
+                                </div>
+                            </div>
+                            <div class="card-body bg-light p-3">
+                                <!-- Container for Split Rows -->
+                                <div id="split_container_${itemKey}"></div>
+                                
+                                <!-- Footer Actions -->
+                                <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                    <button class="btn btn-outline-secondary btn-sm fw-bold rounded-pill px-3" onclick="addSplitRow('${itemKey}')">
+                                        <i class="fa-solid fa-code-branch me-1"></i> Split / Tambah Baris
+                                    </button>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="text-end lh-1">
+                                            <div class="text-xs text-muted fw-bold">TOTAL ASSIGNED</div>
+                                            <div class="fw-bold text-dark" id="total_assign_${itemKey}">0</div>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm fw-bold px-4 rounded-pill shadow-sm" id="btn_save_${itemKey}" onclick="submitBatchItem('${item.aufnr}', '${item.vornr}', this)">
+                                            <i class="fa-solid fa-save me-1"></i> Simpan
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                    });
+                    
+                    if(container) container.innerHTML = html;
+
+                    // Initialize first row for each item
+                    items.forEach(item => {
+                         addSplitRow(`${item.aufnr}_${item.vornr}`);
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    if(container) container.innerHTML = '<div class="text-center text-danger p-5">Gagal memuat data. Silakan coba lagi.</div>';
+                });
         };
+
+        // New Helper: Update Child Capacity Progress Bar
+        // NEW: Aggregate Usage for Top Dashboard
+        window.updateDashboardUsage = function() {
+            // 1. Reset Usage Map
+            let usageMap = {};
+            
+            // 2. Scan all Split Rows in the Modal
+            const rows = document.querySelectorAll('#addItemModal .split-row-item');
+            rows.forEach(r => {
+                const wcS = r.querySelector('.child-select');
+                const timeI = r.querySelector('.time-input');
+                if(wcS && timeI && wcS.value) {
+                    const w = wcS.value;
+                    const t = parseFloat(timeI.value) || 0;
+                    if(!usageMap[w]) usageMap[w] = 0;
+                    usageMap[w] += t;
+                }
+            });
+            
+            // 3. Update Dashboard Elements
+            for (const [wc, ref] of Object.entries(refWorkcentersData)) {
+                const el = document.getElementById(`dashboard_val_${wc}`);
+                if(el) {
+                    const max = parseFloat(el.getAttribute('data-max')) || 0;
+                    const used = usageMap[wc] || 0;
+                    const pct = max > 0 ? (used / max) * 100 : 0;
+                    
+                    // Format: "Used / Max Min"
+                    el.innerText = `${used.toFixed(1)} / ${max.toFixed(1)} Min`;
+                    
+                    // Bar Update
+                    const elBar = document.getElementById(`dashboard_bar_${wc}`);
+                    if(elBar) {
+                        elBar.style.width = `${Math.min(pct, 100)}%`;
+                        if(used > max) {
+                            elBar.classList.remove('bg-success'); // Remove success
+                            elBar.classList.add('bg-danger');    // Add danger
+                            el.classList.add('text-danger');     // Text Text color
+                        } else {
+                            elBar.classList.remove('bg-danger');
+                            elBar.classList.add('bg-success');
+                            el.classList.remove('text-danger');
+                        }
+                    }
+                }
+            }
+        };
+
+        window.updateChildCapacity = function(row, itemKey) {
+            if(!row) return;
+            const qtyInput = row.querySelector('.qty-input');
+            const wcSelect = row.querySelector('.child-select');
+            
+            if(!qtyInput || !wcSelect) return;
+            
+            const wcCode = wcSelect.value;
+            const qty = parseFloat(qtyInput.value) || 0;
+            const item = availableItemsMap[itemKey]; 
+            
+            // Update Time Field regardless of WC Capacity existence
+            if(item) {
+                 // 2. Calculate Time Required (Tak Time * Qty)
+                 let takTime = parseFloat(item.vgw01) || 0;
+                 if(item.vge01 === 'S') {
+                    takTime = takTime / 60; 
+                 }
+                 const totalReqMins = takTime * qty;
+                 
+                 const timeInput = row.querySelector('.time-input');
+                 if(timeInput) timeInput.value = totalReqMins.toFixed(1);
+                 
+                 updateDashboardUsage();
+            }
+        };
+
+        window.addSplitRow = function(itemKey) {
+            const container = document.getElementById(`split_container_${itemKey}`);
+            if(!container) return;
+
+            const item = availableItemsMap[itemKey];
+            if(!item) return;
+
+            const rowCount = container.children.length;
+            const uniqueId = `${itemKey}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            
+            // Build WC Options (Already HTML String)
+            // Pass container to check usage and disable full WCs
+            const wcOptsHtml = getWcFamilyOptions(item.workcenter, container);
+            
+            let wcSelectHtml = `<select class="form-select form-select-sm child-select" 
+                                        id="wc_${uniqueId}" 
+                                        data-row-id="${uniqueId}">
+                                    <option value="">- Induk/None -</option>
+                                    ${wcOptsHtml}
+                                </select>`;
+            
+            // Initial Operator Select (Disabled by default)
+            let empSelectHtml = `<select class="form-select form-select-sm emp-select" id="nik_${uniqueId}" disabled><option value="">Pilih Sub-WC terlebih dahulu..</option></select>`;
+
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'row g-2 align-items-end mb-2 split-row-item border-bottom pb-2'; 
+            rowDiv.id = `row_${uniqueId}`;
+            rowDiv.innerHTML = `
+                <div class="col-md-3">
+                     <label class="form-label text-xs fw-bold text-muted mb-0">Operator</label>
+                     ${empSelectHtml}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-xs fw-bold text-muted mb-0">Sub-WC</label>
+                    ${wcSelectHtml}
+                </div>
+                <div class="col-md-3">
+                     <label class="form-label text-xs fw-bold text-muted mb-0">Qty</label>
+                     <div class="input-group input-group-sm">
+                        <input type="number" class="form-control fw-bold qty-input" id="qty_${uniqueId}" 
+                           placeholder="40" step="0.001" disabled>
+                     </div>
+                </div>
+                <div class="col-md-3">
+                     <label class="form-label text-xs fw-bold text-muted mb-0">Time (Min)</label>
+                     <input type="text" class="form-control form-control-sm fw-bold time-input bg-white" readonly value="0">
+                </div>
+                <div class="col-md-1">
+                     ${rowCount > 0 ? `<button class="btn btn-outline-danger btn-sm w-100 remove-btn"><i class="fa-solid fa-trash"></i></button>` : ''}
+                </div>
+            `;
+            container.appendChild(rowDiv);
+            
+            // --- BIND EVENTS VIA JS (Safer Syntax) ---
+            const wcSel = rowDiv.querySelector('.child-select');
+            if(wcSel) {
+                wcSel.addEventListener('change', function() { 
+                    filterOperators(this, `nik_${uniqueId}`); 
+                    updateChildCapacity(this.closest('.split-row-item'), itemKey);
+                });
+            }
+
+            const qtyInp = rowDiv.querySelector('.qty-input');
+            if(qtyInp) {
+                qtyInp.addEventListener('input', function() {
+                    enforceBatchLimit(itemKey, this);
+                    updateChildCapacity(this.closest('.split-row-item'), itemKey);
+                });
+            }
+
+            const remBtn = rowDiv.querySelector('.remove-btn');
+            if(remBtn) {
+                remBtn.addEventListener('click', function() {
+                    removeSplitRow(uniqueId, itemKey);
+                });
+            }
+            
+            updateTotalBatch(itemKey);
+        };
+
+        window.removeSplitRow = function(uniqueId, itemKey) {
+            const row = document.getElementById(`row_${uniqueId}`);
+            if(row) {
+                row.remove();
+                updateTotalBatch(itemKey);
+                updateDashboardUsage(); // Update dashboard on remove
+            }
+        };
+
+
+        window.enforceBatchLimit = function(itemKey, currentInput) {
+             const maxSpan = document.getElementById(`max_qty_${itemKey}`);
+             if(!maxSpan) return;
+             const max = parseFloat(maxSpan.innerText.replace(/,/g, '')) || 0;
+             
+             // Calculate Total of OTHER inputs
+             const container = document.getElementById(`split_container_${itemKey}`);
+             let otherTotal = 0;
+             container.querySelectorAll('.qty-input').forEach(inp => {
+                 if(inp !== currentInput) {
+                     otherTotal += (parseFloat(inp.value) || 0);
+                 }
+             });
+             
+             const remaining = max - otherTotal;
+             let val = parseFloat(currentInput.value);
+             
+             // Check absolute max
+             if(val > remaining) {
+                 // Clamp
+                 currentInput.value = Math.max(0, remaining); // Ensure not negative if something weird
+                 
+                 // Toast Warning
+                 const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    timerProgressBar: true
+                 });
+                 Toast.fire({ icon: 'warning', title: 'Mencapai Batas Qty Available' });
+             }
+             
+             updateTotalBatch(itemKey);
+        };
+
+        window.updateTotalBatch = function(itemKey) {
+            const container = document.getElementById(`split_container_${itemKey}`);
+            const totalDisplay = document.getElementById(`total_assign_${itemKey}`);
+            const maxSpan = document.getElementById(`max_qty_${itemKey}`);
+            
+            if(!container || !totalDisplay) return;
+
+            let total = 0;
+            const inputs = container.querySelectorAll('.qty-input');
+            inputs.forEach(inp => total += (parseFloat(inp.value) || 0));
+            
+            totalDisplay.innerText = total.toLocaleString(); // Format nice
+            
+            const max = parseFloat(maxSpan.innerText.replace(/,/g, '')) || 0;
+            if(total > max + 0.0001) {
+                 totalDisplay.className = 'fw-bold text-danger';
+                 // Should be impossible nicely with clamp, but good as fallback
+            } else {
+                 totalDisplay.className = 'fw-bold text-dark';
+            }
+        };
+
+        window.submitBatchItem = function(aufnr, vornr, btn) {
+            const itemKey = `${aufnr}_${vornr}`;
+            const container = document.getElementById(`split_container_${itemKey}`);
+            if(!container) return;
+
+            // Collect Data
+            const rows = container.querySelectorAll('.split-row-item');
+            let itemsPayload = [];
+            let totalQty = 0;
+            let isValid = true;
+            let errorMsg = '';
+            
+            rows.forEach(row => {
+                const wcSel = row.querySelector('.child-select');
+                const nikSel = row.querySelector('.emp-select');
+                const qtyInp = row.querySelector('.qty-input');
+                
+                const wc = wcSel.value;
+                const nik = nikSel.value;
+                const qtyView = qtyInp.value;
+                const qty = parseFloat(qtyView) || 0;
+                
+                if(!wc) { isValid = false; errorMsg = 'Pilih Workcenter untuk semua baris.'; return; }
+                if(!nik) { isValid = false; errorMsg = 'Pilih Operator untuk semua baris.'; return; }
+                if(qty <= 0) { isValid = false; errorMsg = 'Quantity harus > 0.'; return; }
+                
+                const name = nikSel.options[nikSel.selectedIndex].getAttribute('data-name');
+                
+                itemsPayload.push({
+                    aufnr: aufnr,
+                    vornr: vornr,
+                    qty: qty,
+                    nik: nik,
+                    name: name,
+                    target_workcenter: wc
+                });
+                totalQty += qty;
+            });
+
+            if(!isValid) return Swal.fire('Error', errorMsg, 'error');
+            if(itemsPayload.length === 0) return Swal.fire('Error', 'Tidak ada item untuk disimpan.', 'error');
+            
+            const max = availableItemsMap[itemKey].available_qty;
+            if(totalQty > max + 0.0001) {
+                return Swal.fire('Over Capacity', `Total quantity (${totalQty}) melebihi sisa tersedia (${max}).`, 'warning');
+            }
+
+            // --- CAPACITY PRE-CHECK (Client Side) ---
+            const capInfo = wiCapacityMap[currentAddWiCode] || { max_mins: 0, used_mins: 0 };
+            const itemData = availableItemsMap[itemKey];
+            let additionalMins = 0;
+            if(itemData) {
+                additionalMins = calculateItemMinutes(itemData.vgw01, itemData.vge01, totalQty);
+            }
+            const projected = parseFloat(capInfo.used_mins) + additionalMins;
+            const maxCap = parseFloat(capInfo.max_mins);
+            
+            const executeBatch = () => {
+                const originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                
+                fetch('{{ route("wi.add-item-batch") }}', {
+                    method: 'POST', 
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        wi_code: currentAddWiCode,
+                        items: itemsPayload
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        window.hasAddedItems = true;
+                        
+                        // Update Cap Map
+                        // Update Cap Map
+                        let newUsed = 0; 
+                        let newMax = 0;
+                        if(wiCapacityMap && wiCapacityMap[currentAddWiCode]) {
+                            wiCapacityMap[currentAddWiCode].used_mins += additionalMins;
+                            newUsed = wiCapacityMap[currentAddWiCode].used_mins;
+                            newMax = wiCapacityMap[currentAddWiCode].max_mins;
+                        }
+                        updateCapacityBarUI(currentAddWiCode, newUsed, newMax);
+
+                        btn.className = 'btn btn-success btn-sm fw-bold px-4 rounded-pill shadow-sm';
+                        btn.innerHTML = '<i class="fa-solid fa-check"></i> Tersimpan';
+                        
+                        // Disable inputs
+                        container.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
+                        
+                        const Toast = Swal.mixin({
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 2000,
+                            timerProgressBar: false
+                        });
+                        Toast.fire({ icon: 'success', title: 'Berhasil Disimpan' });
+                        
+                        // NO RELOAD HERE. Reload happens when modal closes (checked by window.hasAddedItems).
+
+                    } else {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                        Swal.fire('Gagal', data.message, 'error');
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                    Swal.fire('Error', err.message || 'System Error', 'error');
+                });
+            };
+
+            if (maxCap > 0 && projected > maxCap) {
+                Swal.fire({
+                    title: 'Over Capacity Warning',
+                    html: `Total penambahan ini (${additionalMins.toFixed(1)} min) akan melebihi kapasitas!<br>Lanjutkan?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Lanjutkan'
+                }).then(res => {
+                    if(res.isConfirmed) executeBatch();
+                });
+            } else {
+                executeBatch();
+            }
+        };
+
+        // Helper to update Main Bar (same as before)
+        function updateCapacityBarUI(wiCode, used, max) {
+            const cards = document.querySelectorAll('.wi-item-card');
+            cards.forEach(card => {
+                const header = card.querySelector('.card-header-area h6');
+                if(header && header.innerText.trim() === wiCode) {
+                    const progress = card.querySelector('.progress-bar');
+                    const textLabel = card.querySelector('.d-flex.justify-content-between.text-xs.fw-bold.text-muted span:last-child');
+                    if(progress && textLabel) {
+                        const pct = max > 0 ? (used / max) * 100 : 0;
+                        progress.style.width = Math.min(pct, 100) + '%';
+                        progress.className = pct > 100 ? 'progress-bar bg-danger' : 'progress-bar bg-primary';
+                        textLabel.innerText = `${Math.ceil(used).toLocaleString()} / ${Math.ceil(max).toLocaleString()} Min`;
+                    }
+                }
+            });
+        }
+
+
+        window.confirmRemoveItem = function(wiCode, aufnr, vornr, nik, qty) {
+            Swal.fire({
+                title: 'Hapus Item dari WI?',
+                text: "Item spesifik ini (PRO + NIK + Qty) akan dihapus.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Ya, Hapus'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch('{{ route("wi.remove-item") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            wi_code: wiCode,
+                            aufnr: aufnr,
+                            vornr: vornr,
+                            nik: nik,
+                            qty: qty
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data.success) {
+                             Swal.fire('Terhapus!', data.message, 'success').then(() => location.reload());
+                        } else {
+                             Swal.fire('Gagal', data.message, 'error');
+                        }
+                    })
+                    .catch(e => Swal.fire('Error', 'Gagal menghapus item.', 'error'));
+                }
+            });
+        };
+
+        // --- 4. GLOBAL OPEN MODAL ---
+        window.openPrintModal = function(type) {
+            // Collecting IDs first
+            let ids = [];
+            if(type === 'active') {
+                document.querySelectorAll('.cb-active:checked').forEach(c => ids.push(c.value));
+                if(ids.length === 0) return Swal.fire('Pilih dokumen dulu');
+                
+                // Open Modal for Active Bulk
+                const modalEl = document.getElementById('universalPrintModal');
+                const inputCodes = document.getElementById('inputWiCodes');
+                inputCodes.value = ids.join(',');
+                setupModalUI(type, ids.length);
+                new bootstrap.Modal(modalEl).show();
+            } 
+            else if (type === 'log') {
+               // Global Log Email Trigger
+               // Just ask for confirmation
+               Swal.fire({
+                   title: 'Kirim Email Log Harian?',
+                   text: 'Akan mengirim PDF Active & History ke Email list.',
+                   icon: 'question',
+                   showCancelButton: true,
+                   confirmButtonText: 'Kirim Sekarang'
+               }).then((res) => {
+                   if(res.isConfirmed) {
+                       // Ajax call
+                       fetch('{{ route("wi.email-log", ["kode" => $plantCode]) }}?filter_date={{ request("date") }}', {
+                           method: 'POST',
+                           headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}'}
+                       }).then(r => r.json()) // Assuming returns json or we handle text
+                       .then(d => Swal.fire('Terkirim', 'Email sedang diproses.', 'success'))
+                       .catch(e => Swal.fire('Error', 'Gagal kirim email.', 'error'));
+                   }
+               });
+            }
+            else { // For expired, completed, inactive
+                let selector;
+                if (type === 'expired') selector = '.cb-expired:checked';
+                else if (type === 'completed') selector = '.cb-completed:checked';
+                else selector = '.cb-inactive:checked';
+
+                document.querySelectorAll(selector).forEach(cb => ids.push(cb.value));
+                if(ids.length === 0) return Swal.fire('Pilih dokumen dulu');
+
+                const modalEl = document.getElementById('universalPrintModal');
+                const inputCodes = document.getElementById('inputWiCodes');
+                inputCodes.value = ids.join(',');
+                setupModalUI(type, ids.length);
+
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
+        };
+
+        window.printSingle = function(ids) {
+            // Form submit hidden
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route("wi.print-single") }}';
+            form.target = '_blank';
+            
+            const csrf = document.createElement('input'); 
+            csrf.type='hidden'; csrf.name='_token'; csrf.value='{{ csrf_token() }}';
+            form.appendChild(csrf);
+
+            const input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'wi_codes'; input.value = JSON.stringify(ids);
+            form.appendChild(input);
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
 
         // --- 4.5 DELETE FUNCTION ---
         window.confirmDelete = function(type) {

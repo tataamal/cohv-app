@@ -1088,26 +1088,67 @@
 
                 const selects = card.querySelectorAll('.child-select');
                 
-                // 1. Collect all currently selected values
-                const selectedValues = [];
-                selects.forEach(sel => {
-                    if (sel.value) selectedValues.push(sel.value);
+                // 1. Gather all currently used NIKs in this CARD
+                const allEmpSelects = card.querySelectorAll('.emp-select');
+                const usedNiks = Array.from(allEmpSelects).map(s => s.value).filter(v => v !== "");
+
+                // 2. Pre-calculate Operator Pool per Child WC
+                // We scan the template once to know who belongs to which WC
+                const empTemplate = document.getElementById('employeeTemplateSelect');
+                const wcPoolMap = {}; // { 'MACHINE-A': ['NIK1', 'NIK2'], ... }
+                
+                Array.from(empTemplate.options).forEach(opt => {
+                    if (opt.value === "") return;
+                    const arbpl = opt.dataset.arbpl;
+                    if (arbpl) {
+                        if (!wcPoolMap[arbpl]) wcPoolMap[arbpl] = [];
+                        wcPoolMap[arbpl].push(opt.value);
+                    }
                 });
 
-                // 2. Update each select
+                // 3. Update each Child WC Select
                 selects.forEach(sel => {
-                    const myValue = sel.value;
+                    const myCurrentWc = sel.value; // Keep selected even if full
                     const options = sel.querySelectorAll('option');
                     
                     options.forEach(opt => {
-                        if (opt.value === "") return; // Skip placeholder
+                        if (opt.value === "") return; 
                         
-                        // Disable if selected elsewhere AND not selected by me
-                        if (selectedValues.includes(opt.value) && opt.value !== myValue) {
+                        const wcCode = opt.value;
+                        const potentialNiks = wcPoolMap[wcCode] || [];
+                        
+                        // Count how many of these NIKs are already used
+                        // We must exclude the NIK currently selected in THIS row (if any)
+                        // because that NIK is "available" for this row if we just switched to it.
+                        // However, strictly speaking, 'usedNiks' includes ALL rows.
+                        // So for the dropdown state, we care about "Free Slots".
+                        
+                        // Logic:
+                        // Total Capacity = potentialNiks.length
+                        // Used Count = Count of (usedNiks that are in potentialNiks)
+                        
+                        const usedCount = usedNiks.filter(nik => potentialNiks.includes(nik)).length;
+                        const totalCap = potentialNiks.length;
+                        const remaining = totalCap - usedCount;
+
+                        // Check if THIS row specifically is "holding" one of the used slots for this WC
+                        // If myCurrentWc === wcCode, then I am using 1 slot.
+                        // That means for ME, I effectively have (remaining + 1) available (my own slot).
+                        // BUT, simpler logic:
+                        // If remaining <= 0 AND I am not currently selecting this WC, then disable.
+                        // If I am selecting this WC, keep enabled (or user can't see what they picked).
+
+                        const isFull = remaining <= 0;
+                        const isMySelection = (wcCode === myCurrentWc);
+
+                        if (isFull && !isMySelection) {
                             opt.disabled = true;
-                            // Optional: style it
+                            if (!opt.innerText.includes('(Full)')) {
+                                opt.innerText = opt.innerText.replace(' (Full)', '') + ' (Full)';
+                            }
                         } else {
                             opt.disabled = false;
+                            opt.innerText = opt.innerText.replace(' (Full)', '');
                         }
                     });
                 });
