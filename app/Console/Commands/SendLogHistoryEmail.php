@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\HistoryWi;
 use Carbon\Carbon;
+use App\Models\Kode;
 
 class SendLogHistoryEmail extends Command
 {
@@ -73,6 +74,11 @@ class SendLogHistoryEmail extends Command
             $historyDocs = $historyDocsAll->where('plant_code', $plantCode);
             $activeDocs = $activeDocsAll->where('plant_code', $plantCode);
             
+            // OPTIMIZATION: Fetch Kode Info once per Plant
+            $kodeData = Kode::with('sapUser')->where('kode', $plantCode)->first();
+            $printedBy = ($kodeData && $kodeData->sapUser) ? $kodeData->sapUser->sap_id : 'AUTO_SCHEDULER';
+            $namaBagian = $kodeData ? $kodeData->nama_bagian : '-';
+            
             // --- 1. COLLECT HISTORY DATA ---
             $departments = $historyDocs->pluck('department')->unique();
 
@@ -132,9 +138,9 @@ class SendLogHistoryEmail extends Command
                             $status = 'ACTIVE';
                         }
                         
-                        // Extract dynamically
-                         $kodeData = \App\Models\Kode::with('sapUser')->where('kode', $plantCode)->first();
-                         $printedBy = ($kodeData && $kodeData->sapUser) ? $kodeData->sapUser->sap_id : 'AUTO_SCHEDULER';
+                        // Extract dynamically (MOVED UP)
+                         // $kodeData... (Removed redundant query)
+                         // $printedBy ... (Removed redundant query)
                          // Department is already known from loop
 
                         // Format Prices
@@ -208,7 +214,8 @@ class SendLogHistoryEmail extends Command
                             'total_price_fail' => $totalFailedPriceFmt
                         ],
                         'printedBy' => $printedBy ?? 'SYSTEM',
-                        'department' => $department, 
+                        'department' => $department,
+                        'nama_bagian' => $namaBagian, // NEW 
                         'printDate' => now()->format('d-M-Y H:i'),
                         'filterInfo' => "History Date: " . $dateHistory
                      ];
@@ -242,11 +249,33 @@ class SendLogHistoryEmail extends Command
                         $item['price_sourced'] = $priceFmt;
                         $updatedPayload[] = $item;
                     }
-                    $doc->payload_data = $updatedPayload;
-                 }
-
-                 $allActiveDocs->push($doc);
-            }
+                     $doc->payload_data = $updatedPayload;
+                     
+                     // Calculate Total Price for Header (Email only)
+                     $totalDocPrice = 0;
+                     $docCurrency = 'IDR'; // Default
+                     
+                     foreach ($updatedPayload as $itm) {
+                         $assg = floatval(str_replace(',', '.', $itm['assigned_qty'] ?? 0));
+                         $prc = floatval($itm['netpr'] ?? 0);
+                         $totalDocPrice += ($assg * $prc);
+                         
+                         if (!empty($itm['waerk'])) {
+                             $docCurrency = $itm['waerk'];
+                         }
+                     }
+                     
+                     if (strtoupper($docCurrency) === 'USD') {
+                         $doc->total_price_formatted = '$ ' . number_format($totalDocPrice, 2);
+                     } elseif (strtoupper($docCurrency) === 'IDR') {
+                         $doc->total_price_formatted = 'Rp ' . number_format($totalDocPrice, 0, ',', '.');
+                     } else {
+                         $doc->total_price_formatted = $docCurrency . ' ' . number_format($totalDocPrice, 0, ',', '.');
+                     }
+                  }
+ 
+                  $allActiveDocs->push($doc);
+             }
 
         } // End Plant Loop
         

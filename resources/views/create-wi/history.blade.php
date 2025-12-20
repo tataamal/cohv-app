@@ -1092,7 +1092,7 @@
                 
                 <div class="mb-3">
                     <label class="form-label fw-bold">Penerima Email <span class="text-danger">*</span></label>
-                    <div class="form-text text-muted mb-2">Pisahkan dengan koma (,) untuk banyak email.</div>
+                    <div class="form-text text-muted mb-2">Pisahkan dengan baris baru (Enter) untuk banyak email.</div>
                     <textarea class="form-control font-monospace" id="emailRecipients" rows="4"></textarea>
                 </div>
             </div>
@@ -2164,7 +2164,7 @@
                    const field = document.getElementById('emailRecipients');
                    if(field && !field.value) {
                        const defaults = @json($defaultRecipients ?? []);
-                       field.value = defaults.join(', ');
+                       field.value = defaults.join('\n');
                    }
                    new bootstrap.Modal(modalEl).show();
                }

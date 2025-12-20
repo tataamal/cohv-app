@@ -96,9 +96,6 @@ class CreateWiController extends Controller
         
         $allWorkcenters = workcenter::where('werksx', $kode)->get();
         $parentWorkcenters = $this->buildWorkcenterHierarchy($allWorkcenters, $workcenterMappings);
-
-        // Filter workcenters that are REGISTERED AS CHILD in mapping
-        // "WC induknya tetap tampilkan, hanya yang terdaftar sebagai WC anak yang tidak ditampilkan"
         $childCodes = $workcenterMappings->pluck('workcenter')
             ->filter()
             ->map(fn($code) => strtoupper($code))
@@ -131,7 +128,6 @@ class CreateWiController extends Controller
 
     protected function getAssignedProQuantities(string $kodePlant)
     {
-        // Filter: Active and Inactive only (Not Expired)
         $histories = HistoryWi::where('plant_code', $kodePlant)
                               ->where('expired_at', '>', Carbon::now())
                               ->get();
@@ -140,7 +136,6 @@ class CreateWiController extends Controller
         foreach ($histories as $history) {
             $proItems = $history->payload_data; 
             
-            // Check if completed (Skip Completed Documents)
             $isFullyCompleted = true;
             if (is_array($proItems)) {
                 foreach ($proItems as $item) {
@@ -162,8 +157,6 @@ class CreateWiController extends Controller
                     }
                 }
             } else {
-                // empty payload is not "completed" in work sense, but maybe meaningless. 
-                // history logic says: if (empty($payloadItems)) $isFullyCompleted = false;
                 $isFullyCompleted = false;
             }
             
@@ -178,7 +171,6 @@ class CreateWiController extends Controller
                     $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
 
                     if ($aufnr) {
-                        // Use composite key: AUFNR + VORNR
                         $key = $aufnr . '-' . $vornr;
                         $currentTotal = $assignedProQuantities[$key] ?? 0;
                         $assignedProQuantities[$key] = $currentTotal + $assignedQty;
@@ -405,18 +397,14 @@ class CreateWiController extends Controller
             $isDuplicate = collect($parentHierarchy[$parentCode])->contains('code', $childCode);
 
             if (!$isDuplicate) {
-                // Find child Kapaz
                 $childWcObj = $primaryWCs->firstWhere('kode_wc', $childCode);
                 
-                // Kapaz is string in DB "7,5", "7.5" etc. Need to normalize or pass as is.
-                // View expects raw capacity to handle conversion. 
-                // Let's pass raw KAPAZ string.
                 $childKapaz = $childWcObj ? $childWcObj->KAPAZ : 0;
 
                 $parentHierarchy[$parentCode][] = [
                     'code' => $childCode,
                     'name' => $childName,
-                    'kapaz' => $childKapaz, // Added KAPAZ
+                    'kapaz' => $childKapaz,
                 ];
             }
         }
@@ -428,9 +416,6 @@ class CreateWiController extends Controller
         return $parentHierarchy;
     }
 
-    /**
-     * Menyimpan alokasi Work Instruction (WI) dan membuat kode dokumen unik.
-     */
     public function saveWorkInstruction(Request $request)
     {
         $requestData = $request->json()->all();
@@ -447,14 +432,13 @@ class CreateWiController extends Controller
         $dateTime = Carbon::parse($inputDate . ' ' . $inputTime);
         
         if ($docPrefix === 'WIH') {
-            // Set expired to 00:00 Next Day (Midnight)
             $expiredAt = $dateTime->copy()->addDay()->startOfDay();
         } else {
             $expiredAt = $dateTime->copy()->addHours(12);
         }
         $dateForDb = $dateTime->toDateString();
         $timeForDb = $dateTime->toTimeString();
-        $year = $dateTime->year; // Get Year
+        $year = $dateTime->year;
         
         $wiDocuments = [];
 
@@ -487,7 +471,7 @@ class CreateWiController extends Controller
                         'expired_at' => $expiredAt->toDateTimeString(),
                         'sequence_number' => $nextNumber, 
                         'payload_data' => $wcAllocation['pro_items'], 
-                        'year' => $year // Save Year
+                        'year' => $year
                     ]);
                     
                     $wiDocuments[] = [
@@ -521,7 +505,6 @@ class CreateWiController extends Controller
         $plantCode = $kode;
         $nama_bagian  = Kode::where('kode', $plantCode)->first();
         
-        // --- FETCH EMPLOYEES (Copied from index) ---
         $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
         $apiToken = env('API_TOKEN_NIK'); 
         $employees = []; 
@@ -534,7 +517,6 @@ class CreateWiController extends Controller
         } catch (\Exception $e) {
             Log::error('Koneksi API NIK Error: ' . $e->getMessage());
         }
-        // ------------------------------------------
 
         $now = Carbon::now();
         $query = HistoryWi::where('plant_code', $plantCode);
@@ -582,10 +564,6 @@ class CreateWiController extends Controller
             if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
         }
 
-        // FETCH WORKCENTERS WITH CAPACITY FROM TDATA1 (ProductionTData1)
-        // Also fetch from DB Table Workcenter for Child Logic (User Requirement: "Ambil KAPAZ dari tabel Workcenters")
-        // FIX: Column is 'kode_wc' for WC Code, and 'WERKS'/'WERKSX' for Plant (Uppercase in DB).
-        // Also keyBy('kode_wc'), normalized to uppercase.
         $childWorkcenters = workcenter::where('WERKSX', $plantCode)
                             ->orWhere('WERKS', $plantCode)
                             ->get()
@@ -593,28 +571,20 @@ class CreateWiController extends Controller
                                 return [strtoupper($item->kode_wc) => $item];
                             });
         
-        // 1. Collect all WC Codes (Parent and Child)
         $allWcCodes = $workcenterMappings->flatMap(function($m) {
             return [$m->wc_induk, $m->workcenter];
         })->filter()->unique()->map(function($code) { return strtoupper($code); });
         
-        // 2. Fetch distinct capacities
         $rawCapacities = ProductionTData1::where('WERKSX', $plantCode)
             ->whereIn('ARBPL', $allWcCodes)
             ->select('ARBPL', 'KAPAZ', 'VGE01')
-            ->distinct() // Assuming one capacity rule per WC in PROs
+            ->distinct() 
             ->get()
             ->keyBy('ARBPL');
             
-        // 3. Map to simple structure for View/Logic
-        // We simulate the old 'workcenters' structure but with calculated minutes
         $workcenters = $rawCapacities->map(function($item) {
              $k = floatval(str_replace(',', '.', $item->KAPAZ));
              $unit =  strtoupper($item->VGE01);
-             
-             // User Correction: "Kapaz is Hours, multiply by 60 to get Minutes"
-             // Old rule: * 3600. New rule: * 60.
-             // We assume Kapaz is always Hours now based on "satuanya sudah jam".
              
              $mins = $k * 60;
              
@@ -625,19 +595,15 @@ class CreateWiController extends Controller
              ];
         });
         
-        // Loop and Categorize
-        // --- PASS 1: Calculate Concurrent Usage for Active/Inactive Docs ---
         $concurrentUsageMap = [];
         $today = Carbon::today();
-        $now = Carbon::now(); // Move outside loop for consistent time
+        $now = Carbon::now();
 
         foreach ($wiDocuments as $doc) {
-            // Determine Status for Calculation
             try {
                 $chkDate = Carbon::parse($doc->document_date)->startOfDay();
                 $expiredAt = $doc->expired_at;
                 
-                // Calculate Expiry Logic (Same as main loop)
                 $isExpired = false;
                 if ($expiredAt) {
                      $expirationTime = Carbon::parse($expiredAt);
@@ -648,10 +614,8 @@ class CreateWiController extends Controller
                      $isExpired = $now->greaterThan($expirationTime);
                 }
                 
-                // Store on doc for Pass 2 usage
                 $doc->is_expired = $isExpired;
 
-                // We include Active (Today) and Inactive (Future) that are NOT expired
                 if (!$isExpired && $chkDate->greaterThanOrEqualTo($today)) {
                      $rawPl = $doc->payload_data;
                      $plItems = is_string($rawPl) ? json_decode($rawPl, true) : (is_array($rawPl) ? $rawPl : []);
@@ -661,7 +625,6 @@ class CreateWiController extends Controller
                              $k = ($plItem['aufnr'] ?? '-') . '_' . ($plItem['vornr'] ?? '-');
                              if (!isset($concurrentUsageMap[$k])) $concurrentUsageMap[$k] = 0;
                              
-                             // Sum Assigned Qty
                              $q = floatval(str_replace(',', '.', $plItem['assigned_qty'] ?? 0));
                              $concurrentUsageMap[$k] += $q;
                          }
@@ -704,21 +667,16 @@ class CreateWiController extends Controller
                 $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
                 $confirmedQty = floatval(str_replace(',', '.', $item['confirmed_qty'] ?? 0));
                 
-                // Always try to fetch fresh MGVRG2 from DB to ensure accuracy
-                $prodData = \App\Models\ProductionTData1::where('AUFNR', $item['aufnr'] ?? '')->first();
+                $prodData = ProductionTData1::where('AUFNR', $item['aufnr'] ?? '')->first();
                 if (!$prodData) {
-                    $prodData = \App\Models\ProductionTData3::where('AUFNR', $item['aufnr'] ?? '')->first();
+                    $prodData = ProductionTData3::where('AUFNR', $item['aufnr'] ?? '')->first();
                 }
 
                 $fullOrderQty = $prodData ? floatval($prodData->MGVRG2) : (isset($item['qty_order']) ? floatval(str_replace(',', '.', $item['qty_order'])) : $assignedQty);
                 
-                // Concurrent Usage Deduction Logic
                 $key = ($item['aufnr'] ?? '-') . '_' . ($item['vornr'] ?? '-');
                 $totalConcurrentUsage = $concurrentUsageMap[$key] ?? 0;
                 
-                // If this document IS part of the concurrent usage (Active/Inactive), we subtract its own assigned qty
-                // to find what *others* are using.
-                // We check if this doc contributed to the map:
                 $chkDate = Carbon::parse($doc->document_date)->startOfDay();
                 $isUsedInMap = !$doc->is_expired && $chkDate->greaterThanOrEqualTo($today);
                 
@@ -730,7 +688,6 @@ class CreateWiController extends Controller
                 
                 $effectiveMax = max(0, $fullOrderQty - $usageByOthers);
                 
-                // Set qty_order to effective max for Edit Limit
                 $qtyOrderRaw = $effectiveMax;
 
                 $takTime = floatval(str_replace(',', '.', $item['calculated_tak_time'] ?? 0));
@@ -759,32 +716,22 @@ class CreateWiController extends Controller
                     'remark_qty'    => $item['remark_qty'] ?? 0
                 ];
 
-                // Check for completion status for the document
                 
-                // Get remark qty
                 $rQty = floatval(str_replace(',', '.', $item['remark_qty'] ?? 0));
                 
                 if ($rQty > 0) {
-                     // If remark exists, check total
                      $totalDone = $confirmedQty + $rQty;
-                     // Allow small float tolerance if needed, but direct comparison usually ok if logical
                      if ($totalDone < $assignedQty) {
                          $isFullyCompleted = false;
                      }
                 } else {
-                     // Normal check
                      if ($confirmedQty < $assignedQty) {
                          $isFullyCompleted = false;
                      }
                 }
             }
-
-            // [UPDATED] Fixed Capacity Rule: 9.5 Hours (570 Mins) per Single/Child WC
-            // Parent Capacity = Sum of Children * 570 Mins
             $fixedSingleMins = 570;
             
-            // Check if this WC is a Parent
-            // Filter mappings where wc_induk == current doc WC
             $childrenOfThisWc = $workcenterMappings->filter(function($m) use ($doc) {
                  return strtoupper($m->wc_induk) === strtoupper($doc->workcenter_code) && 
                         strtoupper($m->workcenter) !== strtoupper($m->wc_induk);
@@ -819,7 +766,6 @@ class CreateWiController extends Controller
             }
         }
 
-        // Prepare Capacity Map for JS Validation
         $wiCapacityMap = [];
         foreach ($activeWIDocuments as $doc) {
             $wiCapacityMap[$doc->document_code] = $doc->capacity_info ?? ['max_mins' => 0, 'used_mins' => 0];
@@ -945,14 +891,12 @@ class CreateWiController extends Controller
     public function emailLog(Request $request, $plantCode)
     {
         try {
-            // 1. Prepare Report Data (Shared Logic)
             $data = $this->_generateReportData($request, $plantCode);
 
             if (!$data['success']) {
                 return response()->json(['success' => false, 'message' => $data['message']]);
             }
 
-            // 2. Generate PDF File
             $fileName = 'log_wi_' . now()->format('Ymd_His') . '.pdf';
             $filePath = storage_path('app/public/' . $fileName);
             
@@ -962,17 +906,13 @@ class CreateWiController extends Controller
             
             $filesToAttach = [$filePath];
 
-            // 3. Optional: Active Documents Attachment Logic
             $activeAttachment = $this->_generateActiveAttachment($request, $plantCode, $data['printedBy'], $data['department']);
             if($activeAttachment) {
                 $filesToAttach[] = $activeAttachment;
             }
-
-            // 4. Send Email
             $recipientsRaw = $request->input('recipients'); 
-            // Handle both array and comma-separated string
             if(is_string($recipientsRaw)) {
-                $recipients = array_filter(array_map('trim', explode(',', $recipientsRaw)));
+                $recipients = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $recipientsRaw)));
             } else {
                 $recipients = $recipientsRaw;
             }
@@ -1080,23 +1020,17 @@ class CreateWiController extends Controller
         $currency = 'IDR'; // Default
         if(!empty($csvData)) {
             foreach($csvData as $row) {
-                if(!empty($row['waerk'])) {
-                    $currency = $row['waerk'];
+                if(!empty($row['currency'])) {
+                    $currency = $row['currency'];
                     break;
                 }
             }
         }
         
         foreach($csvData as $row) {
-            $netpr = $row['netpr'] ?? 0;
-            $conf = $row['confirmed'] ?? 0;
-            $rem = $row['remark_qty'] ?? 0;
-            $assign = $row['assigned'] ?? 0;
-            $bal = $assign - ($conf + $rem);
-            
-            $totalPriceOk += ($netpr * $conf);
-            $totalPriceFail += ($netpr * ($bal + $rem));
-        }
+        $totalPriceOk += ($row['confirmed_price'] ?? 0);
+        $totalPriceFail += ($row['failed_price'] ?? 0);
+    }
 
         $isUsd = strtoupper($currency) === 'USD';
         $prefix = $isUsd ? '$ ' : 'Rp ';
@@ -1104,6 +1038,10 @@ class CreateWiController extends Controller
         
         $totalOkFmt = $prefix . number_format($totalPriceOk, $decimals, ',', '.');
         $totalFailFmt = $prefix . number_format($totalPriceFail, $decimals, ',', '.');
+
+        // Fetch Nama Bagian
+        $kodeModel = Kode::where('kode', $plantCode)->first();
+        $namaBagian = $kodeModel ? $kodeModel->nama_bagian : '-';
 
         $singleReport = [
             'items' => $csvData,
@@ -1118,6 +1056,7 @@ class CreateWiController extends Controller
             ],
             'printedBy' => $printedBy,
             'department' => $department,
+            'nama_bagian' => $namaBagian,
             'printDate' => now()->format('d-M-Y H:i'),
             'filterInfo' => $filterString
         ];
@@ -1210,21 +1149,17 @@ class CreateWiController extends Controller
                 $matnr = $item['material_number'] ?? '';
                 if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
                 $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
-                // Remark Data (Moved Up)
                 $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
                 $remarkText = isset($item['remark']) ? $item['remark'] : '-';
                 $remarkText = str_replace('; ', "\n", $remarkText);
 
                 $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
-                // Fix Balance
                 $balance = $assigned - ($confirmed + $remarkQty);
 
                 $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
                 $waerk = isset($item['waerk']) ? $item['waerk'] : '';
                 
-                // Price Calculation
                 $confirmedPrice = $netpr * $confirmed;
-                // Failed Price includes Balance AND Remark Qty
                 $failedPrice = $netpr * ($balance + $remarkQty);
                 
                 if (strtoupper($waerk) === 'USD') {
@@ -1240,7 +1175,6 @@ class CreateWiController extends Controller
 
                 $qtyOper = isset($item['qty_order']) ? floatval($item['qty_order']) : 0;
 
-                // Time Calculation
                 $baseTime = isset($item['vgw01']) ? floatval($item['vgw01']) : 0;
                 $unit = isset($item['vge01']) ? strtoupper($item['vge01']) : '';
                 
@@ -1253,9 +1187,6 @@ class CreateWiController extends Controller
                 $taktDisplay = (fmod($finalTime, 1) !== 0.00) ? number_format($finalTime, 2) : number_format($finalTime, 0);
                 $taktFull = $taktDisplay . ' ' . $finalUnit;
 
-                // Status Logic
-                // Remark Data
-                // Status Logic
                 $hasRemark = ($remarkQty > 0 || ($remarkText !== '-' && !empty($remarkText)));
                 
                 if ($hasRemark) {
@@ -1291,10 +1222,10 @@ class CreateWiController extends Controller
                     'remark_text'   => isset($item['remark']) ? $item['remark'] : '-',
                     
                     'price_formatted' => $priceFormatted,
-                    'confirmed_price' => $confirmedPrice, // Raw for calc if needed, but view uses formatted
+                    'confirmed_price' => $confirmedPrice,
                     'failed_price'    => $failedPrice,
-                    'price_ok_fmt'    => $priceFormatted,   // NEW
-                    'price_fail_fmt'  => $failedPriceFormatted, // NEW
+                    'price_ok_fmt'    => $priceFormatted,
+                    'price_fail_fmt'  => $failedPriceFormatted,
                     'currency'        => strtoupper($waerk),
                     
                     'qty_op'        => $qtyOper,
@@ -1322,7 +1253,7 @@ class CreateWiController extends Controller
             return back()->with('error', 'Dokumen tidak ditemukan atau sudah expired.');
         }
         $data = [
-            'documents' => $documents, // Kirim Collection dokumen, bukan single doc
+            'documents' => $documents,
             'printedBy' => $request->input('printed_by'),
             'department' => $request->input('department'),
             'printTime' => now(),
@@ -1335,7 +1266,7 @@ class CreateWiController extends Controller
 
     public function printExpiredReport(Request $request)
     {
-        $rawInput = $request->input('wi_codes'); // Ganti nama input agar konsisten dg JS baru
+        $rawInput = $request->input('wi_codes');
         $wiCodes = explode(',', $rawInput);
         $documents = HistoryWi::whereIn('wi_document_code', $wiCodes)->get();
         $reportItems = [];
@@ -1468,9 +1399,9 @@ class CreateWiController extends Controller
     public function streamSchedule(Request $request) 
     {
         $plantCode = $request->input('plant_code');
-        $date = $request->input('date'); // YYYY-MM-DD
-        $time = $request->input('time'); // HH:MM
-        $items = $request->input('items', []); // Array of {aufnr, ...}
+        $date = $request->input('date');
+        $time = $request->input('time');
+        $items = $request->input('items', []);
 
         if (!$plantCode || !$date || !$time || empty($items)) {
             return response()->json(['error' => 'Missing required fields'], 400);
@@ -1531,9 +1462,6 @@ class CreateWiController extends Controller
                     $T3 = $results['T_DATA3'] ?? [];
                     $T4 = $results['T_DATA4'] ?? [];
                     
-                    // Use ManufactController logic via public internal method
-                    // Note: We need to ensure we are calling it correctly. 
-                    // Using transaction here is good practice to ensure consistency per item.
                     DB::transaction(function () use ($manufactController, $aufnr, $plantCode, $T3, $T1, $T4) {
                         $manufactController->syncProInternal($aufnr, $plantCode, $T3, $T1, $T4);
                     });
@@ -1575,11 +1503,6 @@ class CreateWiController extends Controller
         return $response;
     }
 
-    // --- EDIT WI FEATURE ---
-
-    /**
-     * Helper to fetch available quantities based on TData1 and History.
-     */
     protected function getAvailableProsData($kode, $workcenter = null, $search = null)
     {
         $tData1 = ProductionTData1::where('WERKSX', $kode)
@@ -1590,10 +1513,9 @@ class CreateWiController extends Controller
             });
             
         if ($workcenter && $workcenter !== 'all') {
-            // Check if Parent. If Parent, Include Children.
             $children = WorkcenterMapping::where('wc_induk', $workcenter)->pluck('workcenter')->toArray();
             if (!empty($children)) {
-                $children[] = $workcenter; // Add self just in case
+                $children[] = $workcenter;
                 $tData1->whereIn('ARBPL', $children);
             } else {
                 $tData1->where('ARBPL', $workcenter);
@@ -1601,7 +1523,6 @@ class CreateWiController extends Controller
         }
 
         if ($search) {
-             // Check for quotes (Exact Match Mode)
              if (preg_match('/^"(.*)"$/', trim($search), $matches)) {
                  $term = $matches[1];
                  $tData1->where(function($q) use ($term) {
@@ -1615,7 +1536,6 @@ class CreateWiController extends Controller
                        ->orWhere('VORNR', '=', $term);
                  });
              } else {
-                 // NORMAL MODE: Split by space, comma, or newline
                  $terms = preg_split('/[\s,]+/', $search, -1, PREG_SPLIT_NO_EMPTY);
                  
                  $tData1->where(function($q) use ($terms) {
@@ -1635,7 +1555,6 @@ class CreateWiController extends Controller
              }
         }
 
-        // Get Assigned Quantities
         $assignedProQuantities = $this->getAssignedProQuantities($kode);
         
         $results = $tData1->get()->transform(function ($item) use ($assignedProQuantities) {
@@ -1658,11 +1577,10 @@ class CreateWiController extends Controller
     public function getAvailableItems(Request $request, $kode)
     {
         $workcenter = $request->query('workcenter', 'all');
-        $search = $request->query('search'); // Get search param
+        $search = $request->query('search');
         
-        $availableItems = $this->getAvailableProsData($kode, $workcenter, $search); // Pass search
+        $availableItems = $this->getAvailableProsData($kode, $workcenter, $search);
         
-        // Return structured JSON for Modal
         $data = $availableItems->values()->map(function($item) {
              return [
                  'aufnr' => $item->AUFNR,
@@ -1702,7 +1620,6 @@ class CreateWiController extends Controller
             $doc = HistoryWi::where('wi_document_code', $request->wi_code)->lockForUpdate()->firstOrFail();
             $plantCode = $doc->plant_code; 
 
-            // 1. Verify Availability
             $availableItems = $this->getAvailableProsData($plantCode);
             $targetItem = $availableItems->first(function($i) use ($request) {
                 return $i->AUFNR == $request->aufnr && $i->VORNR == $request->vornr;
@@ -1716,11 +1633,9 @@ class CreateWiController extends Controller
                  return response()->json(['success' => false, 'message' => "Quantity melebihi sisa tersedia ({$targetItem->real_sisa_qty})."], 400);
             }
 
-            // 2. Add to Payload & Check Constraints
             $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
             if (!is_array($payload)) $payload = [];
 
-            // CONSTRAINT CHECK: One Operator cannot be assigned to the SAME Workcenter multiple times.
             $requestedNik = $request->nik;
             $requestedWc = $request->target_workcenter;
             
@@ -1728,7 +1643,6 @@ class CreateWiController extends Controller
                 $exNik = $existing['nik'] ?? '-';
                 $exWc = $existing['target_workcenter'] ?? ($existing['workcenter'] ?? ''); 
                 
-                // If duplicate found
                 if ($exNik === $requestedNik && $exWc === $requestedWc) {
                     return response()->json([
                         'success' => false, 
@@ -1749,12 +1663,11 @@ class CreateWiController extends Controller
                 'uom' => $targetItem->MEINS,
                 'nik' => $request->nik,
                 'name' => $request->name,
-                'target_workcenter' => $request->target_workcenter, // SAVE TARGET WC
+                'target_workcenter' => $request->target_workcenter,
                 'vge01' => $targetItem->VGE01,
                 'vgw01' => $targetItem->VGW01,
             ];
             
-            // Calculate Tak Time
             $baseTime = floatval($targetItem->VGW01);
             $qty = floatval($request->qty);
             $unit = strtoupper($targetItem->VGE01);
@@ -1804,23 +1717,16 @@ class CreateWiController extends Controller
             $doc = HistoryWi::where('wi_document_code', $request->wi_code)->lockForUpdate()->firstOrFail();
             $plantCode = $doc->plant_code; 
 
-            // 1. Verify Availability (Single Source of Truth)
-            // We assume all items belong to same PRO for simplicity based on UI, but code should handle mixed if needed.
-            // The UI strictly adds for ONE item (AUFNR+VORNR) but multiple splits.
-            
             $availableItems = $this->getAvailableProsData($plantCode);
             
-            // Group requests by PRO to validate Total Quantity per PRO
             $groupedRequests = collect($request->items)->groupBy(function($item) {
                 return $item['aufnr'] . '_' . $item['vornr'];
             });
 
-            // Prepare Payload
             $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
             if (!is_array($payload)) $payload = [];
 
             foreach ($groupedRequests as $key => $requests) {
-                // Find Source PRO
                 $firstReq = $requests->first();
                 $targetItem = $availableItems->first(function($i) use ($firstReq) {
                     return $i->AUFNR == $firstReq['aufnr'] && $i->VORNR == $firstReq['vornr'];
@@ -1832,17 +1738,14 @@ class CreateWiController extends Controller
 
                 $totalRequestedQty = $requests->sum('qty');
                 
-                // Allow a small epsilon for float comparison if needed, but simple comparison is usually ok for simple logic
                 if ($totalRequestedQty > $targetItem->real_sisa_qty + 0.0001) {
                      throw new \Exception("Total Quantity ({$totalRequestedQty}) melebihi sisa tersedia ({$targetItem->real_sisa_qty}) untuk Pro {$firstReq['aufnr']}.");
                 }
 
-                // Process Individual Splits
                 foreach ($requests as $req) {
                     $requestedNik = $req['nik'];
                     $requestedWc = $req['target_workcenter'];
                     
-                    // Uniqueness Check against EXISTING payload
                     foreach ($payload as $existing) {
                         $exNik = $existing['nik'] ?? '-';
                         $exWc = $existing['target_workcenter'] ?? ($existing['workcenter'] ?? ''); 
@@ -1858,7 +1761,6 @@ class CreateWiController extends Controller
                         }
                     }
 
-                    // Uniqueness Check within THIS BATCH (Prevent user selecting same op twice in new splits)
                     $duplicatesInBatch = $requests->filter(function($r) use ($requestedNik, $requestedWc, $req) {
                         return $r['nik'] === $requestedNik && 
                                $r['target_workcenter'] === $requestedWc &&
@@ -1869,7 +1771,6 @@ class CreateWiController extends Controller
                          throw new \Exception("Operator {$req['name']} dipilih lebih dari satu kali untuk PRO/Workcenter yang sama dalam batch ini.");
                     }
 
-                    // Create New Item
                     $newItem = [
                         'aufnr' => $targetItem->AUFNR,
                         'vornr' => $targetItem->VORNR,
@@ -1887,7 +1788,6 @@ class CreateWiController extends Controller
                         'vgw01' => $targetItem->VGW01,
                     ];
                     
-                    // Time Calc
                     $baseTime = floatval($targetItem->VGW01);
                     $qty = floatval($req['qty']);
                     $unit = strtoupper($targetItem->VGE01);
@@ -1940,29 +1840,25 @@ class CreateWiController extends Controller
             $newPayload = [];
             $found = false;
             
-            // Convert to string for consistent comparison
             $reqNik = (string)$request->nik;
             $reqQty = floatval($request->qty);
 
             foreach ($payload as $item) {
-                // Identify Item: PRO (Aufnr+Vornr) AND NIK AND Qty
                 $itemNik = (string)($item['nik'] ?? '');
                 $itemQty = floatval($item['assigned_qty'] ?? 0);
 
-                if ( !$found && // IMPORTANT: Only remove the FIRST matching instance to prevent duplicate deletion
+                if ( !$found &&
                      ($item['aufnr'] == $request->aufnr) && 
                      (($item['vornr'] ?? '') == $request->vornr) &&
                      ($itemNik === $reqNik) &&
-                     (abs($itemQty - $reqQty) < 0.0001) // Float comparison
+                     (abs($itemQty - $reqQty) < 0.0001)
                    ) {
                     
-                    // Validation: Can only remove if confirmed_qty == 0
                     $conf = floatval($item['confirmed_qty'] ?? 0);
                     if ($conf > 0) {
                         return response()->json(['success' => false, 'message' => 'Item sudah memiliki konfirmasi, tidak dapat dihapus.'], 400);
                     }
                     $found = true;
-                    // Skip adding to newPayload -> Removing it
                 } else {
                     $newPayload[] = $item;
                 }
@@ -1984,14 +1880,10 @@ class CreateWiController extends Controller
         }
     }
 
-    // --- NEW METHOD: FETCH ALL IDs FOR SELECT ALL (GLOBAL) ---
     public function fetchAllIds(Request $request, $kode)
     {
-        // Reuse the exact same query builder
         $query = $this->_buildSourceQuery($request, $kode);
         
-        // Select minimal fields required for "selectedProsForChange"
-        // JS needs: proCode (AUFNR), oper (VORNR), pwwrk (WERKSX/PWWRK)
         $results = $query->select(['id', 'AUFNR', 'VORNR', 'WERKSX', 'PWWRK', 'ARBPL', 'MGVRG2', 'LMNGA', 'VGE01', 'VGW01'])->get();
 
         $assignedProQuantities = $this->getAssignedProQuantities($kode);
@@ -2019,7 +1911,6 @@ class CreateWiController extends Controller
         ]);
     }
 
-    // --- PRIVATE QUERY BUILDER ---
     private function _buildSourceQuery(Request $request, $kode)
     {
         $search = $request->query('search');
@@ -2084,8 +1975,6 @@ class CreateWiController extends Controller
             }
         }
         if ($request->has('adv_maktx') && $request->adv_maktx) {
-             // Desc likely fuzzy even with list, but "List of Descs" usually implies exact matches roughly?
-             // Let's assume list of keywords. OR LIKE logic is safer for desc.
              $val = $request->adv_maktx;
              if(str_contains($val, ',')) {
                  $arr = array_map('trim', explode(',', $val));

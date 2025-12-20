@@ -150,7 +150,11 @@
         <table>
             <tr class="info-bar">
                 <td width="25%">DEPARTMENT: <span class="info-val fw-bold">{{ strtoupper($doc->department ?? $department) }}</span></td>
-                <td width="25%">STATUS: <span class="info-val fw-bold">ACTIVE</span></td>
+                @if(isset($isEmail) && $isEmail && isset($doc->total_price_formatted))
+                    <td width="25%">TOTAL PRICE: <span class="info-val fw-bold">{{ $doc->total_price_formatted }}</span></td>
+                @else
+                    <td width="25%">STATUS: <span class="info-val fw-bold">ACTIVE</span></td>
+                @endif
                 <td width="25%">DATE: <span class="info-val">{{ $doc->document_date->format('d-M-Y') }}</span></td>
                 <td width="25%" style="border-right: none;">EXPIRED: <span class="info-val expired-alert">{{ $doc->expired_at->format('d-M-Y H:i') }}</span></td>
             </tr>

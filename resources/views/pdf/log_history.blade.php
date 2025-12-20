@@ -91,11 +91,10 @@
 
         <table>
             <tr class="info-bar">
-                <td width="25%">BAGIAN: <span class="info-val fw-bold">{{ strtoupper($report['department']) }}</span></td>
+                <td width="25%">BAGIAN: <span class="info-val fw-bold">{{ strtoupper($report['nama_bagian']) }}</span></td>
                 {{-- User Removed --}}
                 <td width="25%">PRINT DATE: <span class="info-val">{{ $report['printDate'] }}</span></td>
-                {{-- Filter Data Removed --}}
-                <td width="25%" style="border-right: none;">TOTAL DOCS: <span class="info-val fw-bold">{{ collect($report['items'])->unique('doc_no')->count() }}</span></td>
+                <td width="25%" style="border-right: none;"></td>
             </tr>
         </table>
 
@@ -134,7 +133,7 @@
                     <th width="4%">CONF</th>
                     <th width="8%">PRICE (OK)</th>
                     <th width="8%">PRICE (FAIL)</th>
-                    {{-- Remark Removed --}}
+                    <th width="17%">REMARK</th>
                     <th width="6%">STATUS</th>
                 </tr>
             </thead>
@@ -153,7 +152,18 @@
                     <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
                     <td class="text-center text-success" style="font-size: 6pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
                     <td class="text-center text-danger" style="font-size: 6pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
-                    {{-- Remark Removed --}}
+                    
+                    {{-- Remark Added --}}
+                    <td class="text-center" style="font-size: 7pt;">
+                        @if(floatval($row['remark_qty']) > 0)
+                            {{ $row['remark_text'] }}
+                        @elseif(!empty($row['remark_text']) && $row['remark_text'] !== '-')
+                            {{ $row['remark_text'] }}
+                        @else
+                            -
+                        @endif
+                    </td>
+
                     <td class="text-center" style="font-size: 6.5pt;">
                         <span class="{{ $row['status'] == 'COMPLETED' ? 'text-success' : ($row['status'] == 'NOT COMPLETED WITH REMARK' ? 'text-warning' : ($row['status'] == 'ACTIVE' ? '' : 'text-danger')) }}">
                             {{ $row['status'] }}
