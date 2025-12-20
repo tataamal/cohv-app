@@ -111,12 +111,9 @@ class CreateWiController extends Controller
         $assignedProQuantities = $this->getAssignedProQuantities($kode);
         $processedCollection = $pagination->getCollection()->transform(function ($item) use ($assignedProQuantities) {
             $aufnr = $item->AUFNR;
-            // Use composite key AUFNR-VORNR to match getAssignedProQuantities logic
             $key = $aufnr . '-' . ($item->VORNR ?? '');
             
             $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
-            // Try specific key first, fallback to just AUFNR if not found (though structure should mandate key)
-            // Actually, we should only use the composite key now.
             $qtyAllocatedInWi = $assignedProQuantities[$key] ?? 0;
             
             $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
@@ -127,11 +124,8 @@ class CreateWiController extends Controller
              return $item->real_sisa_qty > 0.001; 
         });
 
-        // Initialize WC Names Map for global usage (Ajax & Full View)
-        $workcenterMappings = WorkcenterMapping::where('plant', $kode)->get();
-        if ($workcenterMappings->isEmpty()) {
-             $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
-        }
+        $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
+
         $wcNames = [];
         foreach ($workcenterMappings as $m) {
             if ($m->wc_induk) $wcNames[strtoupper($m->wc_induk)] = $m->nama_wc_induk;
@@ -777,30 +771,23 @@ class CreateWiController extends Controller
                 }
             }
 
-            // Get max capacity for the workcenter
-            // Logic: "kapasitas workcenter ... field ARBPL nya adalah induk"
-            // 1. Find the Parent WC for this doc's workcenter
-            $parentWc = null;
-            // Build simple map on the fly or just find it (Optimization: could be built outside loop)
-            // Since loop is small (50-100), finding in collection is okay-ish, or use helper map.
-            // Let's rely on $workcenterMappings being loaded.
-            $mapping = $workcenterMappings->first(function($m) use ($doc) {
-                 return strtoupper($m->workcenter) === strtoupper($doc->workcenter_code);
+            // [UPDATED] Fixed Capacity Rule: 9.5 Hours (570 Mins) per Single/Child WC
+            // Parent Capacity = Sum of Children * 570 Mins
+            $fixedSingleMins = 570;
+            
+            // Check if this WC is a Parent
+            // Filter mappings where wc_induk == current doc WC
+            $childrenOfThisWc = $workcenterMappings->filter(function($m) use ($doc) {
+                 return strtoupper($m->wc_induk) === strtoupper($doc->workcenter_code) && 
+                        strtoupper($m->workcenter) !== strtoupper($m->wc_induk);
             });
-            $parentCode = $mapping ? strtoupper($mapping->wc_induk) : strtoupper($doc->workcenter_code); // Fallback to itself if no parent
             
-            // 2. Fetch Capacity from our loaded ProductionTData1 data ($workcenters)
-            // Note: $workcenters keys are already UPPERCASE ARBPL
-            $wcInfo = $workcenters[$parentCode] ?? null;
+            $childCount = $childrenOfThisWc->count();
             
-            if ($wcInfo) {
-                 $maxMins = floatval($wcInfo->kapaz); // Already converted to Minutes/Target Unit in previous step
+            if ($childCount > 0) {
+                 $maxMins = $childCount * $fixedSingleMins;
             } else {
-                 // Fallback to Payload KAPAZ if not found in TData1? 
-                 // Or 0? User said "diambil dari tdata1". Let's try TData1 first, fallback to payload just in case to show *something*.
-                 $firstItem = $payloadItems[0] ?? [];
-                 $rawKapaz = str_replace(',', '.', $firstItem['kapaz'] ?? 0);
-                 $maxMins = floatval($rawKapaz) * 60; 
+                 $maxMins = $fixedSingleMins;
             }
 
             $percentageLoad = $maxMins > 0 ? ($summary['total_load_mins'] / $maxMins) * 100 : 0;
@@ -836,13 +823,13 @@ class CreateWiController extends Controller
             'activeWIDocuments' => $activeWIDocuments,
             'inactiveWIDocuments' => $inactiveWIDocuments,
             'expiredWIDocuments' => $expiredWIDocuments,
-            'completedWIDocuments' => $completedWIDocuments, // PASS TO VIEW
+            'completedWIDocuments' => $completedWIDocuments, 
             'wcNames' => $wcNames,
-            'workcenters' => $workcenters, // Pass Workcenters (Parent Capacity from TData1)
-            'refWorkcenters' => $childWorkcenters, // Pass Workcenters (Child Capacity from Table)
-            'workcenterMappings' => $workcenterMappings, // Pass for Add Item Modal Logic
-            'wiCapacityMap' => $wiCapacityMap, // Pass Capacity Map
-            'employees' => $employees, // Pass Employees for Dropdown
+            'workcenters' => $workcenters, 
+            'refWorkcenters' => $childWorkcenters, 
+            'workcenterMappings' => $workcenterMappings, 
+            'wiCapacityMap' => $wiCapacityMap, 
+            'employees' => $employees, 
             'search' => $request->search,
             'date' => $request->date,
             'defaultRecipients' => [
@@ -919,7 +906,7 @@ class CreateWiController extends Controller
                 } elseif ($unit === 'H' || $unit === 'HUR') {
                     $newMinutes = $totalRaw * 60;
                 } else {
-                    $newMinutes = $totalRaw; // Default MIN
+                    $newMinutes = $totalRaw; 
                 }
 
                 $item['assigned_qty'] = $newQty;
@@ -1042,7 +1029,6 @@ class CreateWiController extends Controller
                 } elseif ($statusFilter === 'COMPLETED') {
                      if ($item['status'] !== 'COMPLETED') return false;
                 } else {
-                    // Active/Inactive are filtered out at Level 1, so this returns empty if selected.
                     if ($item['status'] !== $statusFilter) return false;
                 }
             }
@@ -1050,18 +1036,11 @@ class CreateWiController extends Controller
         }));
 
         if (empty($csvData)) {
-            // Even if log is empty, we might want to send if Active Docs exist? 
-            // Usually report assumes some data. Returning error for now if strictly no log.
-            // return response()->json(['success' => false, 'message' => 'Tidak ada data untuk diexport.']);
-            // NOTE: Requirement doesn't explicitly say "don't send if empty log", but "log report" implies log. 
-            // However, if we want to send Active Docs even if History is empty, we should proceed.
-            // Let's assume standard behavior: Log is primary.
             if ($documents->isEmpty()) {
                  return response()->json(['success' => false, 'message' => 'Tidak ada data history untuk diexport.']);
             }
         }
 
-        // --- 2. Create PDF File (DOMPDF) - Log History ---
         $filesToAttach = [];
         try {
             $fileName = 'log_wi_' . now()->format('Ymd_His') . '.pdf';

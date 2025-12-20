@@ -333,10 +333,18 @@
                 <div class="target-scroll-area custom-scrollbar">
                     @foreach ($workcenters as $wc)
                         @php
-                            // [FIXED] Use capacityMap (Full Data) instead of finding in paginated tData1
-                            $rawKapaz = $capacityMap[$wc->kode_wc] ?? 0;
-                            $kapazHours = (float) str_replace(',', '.', (string) $rawKapaz);
-                            $isUnknown = $kapazHours <= 0;
+                            // [UPDATED] Fixed Capacity Rule: 9.5 Hours (570 Mins) per Single/Child WC
+                            // Parent Capacity = Sum of Children * 570 Mins
+                            $fixedSingleMins = 570;
+                            $fixedSingleHours = 9.5;
+                            
+                            if (array_key_exists($wc->kode_wc, $parentWorkcenters)) {
+                                $childCount = count($parentWorkcenters[$wc->kode_wc]);
+                                $kapazHours = $childCount * $fixedSingleHours;
+                            } else {
+                                $kapazHours = $fixedSingleHours;
+                            }
+                            $isUnknown = false; // Always known now due to fixed rule
                         @endphp
 
                         {{-- @if (!$isUnknown) --}}
@@ -499,11 +507,6 @@
                 setupModalLogic();
                 setupMismatchLogic(); // New Logic
                 setupTargetWcSearch(); // New Search Logic
-
-                // btnFinalSave listener removed as button was deleted. 
-                // Using confirmSaveBtn in modal instead.
-                
-                // Reset modal state on close
                 document.getElementById('uniqueAssignmentModal').addEventListener('hide.bs.modal', function() {
                     if(draggedItemsCache.length > 0 && tempSplits.length === 0) {
                         cancelDrop();
@@ -524,20 +527,14 @@
                     sort: false,
                     onStart: function(evt) { 
                         document.body.classList.add('dragging-active');
-                                               // CUSTOM VISUAL FOR BULK DRAG
                         const checked = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
                         const draggedIsChecked = evt.item.querySelector('.row-checkbox')?.checked;
                         
-                        // FIX: Populate draggedItemsCache based on selection
                         if (checked.length > 0 && draggedIsChecked) {
                             draggedItemsCache = Array.from(checked).map(cb => cb.closest('.pro-item'));
                         } else {
                             draggedItemsCache = [evt.item];
                         }
-                        
-                        // FIX: Count Logic - Only use checked length if dragged item is checked. 
-                        // If it matches, the count is accurate because Sortable 'ghost' is in the list, but 'drag' mirror is NOT.
-                        // So checking #source-list is correct.
                         
                         if (checked.length > 1 && draggedIsChecked) {
                             setTimeout(() => {
@@ -557,14 +554,12 @@
                         }
                     },
                     onAdd: function(evt) {
-                        // FIX 3: HANDLE DRAG BACK TO TABLE
                         document.body.classList.remove('dragging-active');
-                        handleReturnToTable(evt.item, null); // null source container, logic handled inside
+                        handleReturnToTable(evt.item, null);
                     },
                     onEnd: function(evt) { document.body.classList.remove('dragging-active'); }
                 });
 
-                // CONFIG 2: TARGET ZONES
                 wcZones.forEach(zone => {
                     new Sortable(zone, {
                         group: 'shared-pro',
@@ -575,7 +570,6 @@
                             document.body.classList.remove('dragging-active');
                             handleDropToWc(evt);
                         },
-                        // onRemove removed, logic moved to onAdd in sourceList to prevent conflict
                         onEnd: function(evt) {
                             document.body.classList.remove('dragging-active');
                             updateCapacity(zone.closest('.wc-card-container'));
@@ -588,7 +582,6 @@
             function getAssignedChildWCs(aufnr) {
                 const assignedWCs = [];
 
-                // 1. Cek item yang sudah di-assign di DOM (di semua drop zones)
                 document.querySelectorAll(`.wc-drop-zone .pro-item-card[data-aufnr="${aufnr}"]`).forEach(item => {
                     if (item.dataset.childWc) {
                         if (!assignedWCs.includes(item.dataset.childWc)) {
@@ -597,7 +590,6 @@
                     }
                 });
 
-                // 2. Tambahkan Child WC dari tracking data-assigned-child-wcs (di item sumber)
                 const sourceItem = document.querySelector(`#source-list .pro-item[data-aufnr="${aufnr}"]`);
                 if (sourceItem && sourceItem.dataset.assignedChildWcs && sourceItem.dataset.assignedChildWcs !== '[]') {
                     try {
@@ -612,7 +604,6 @@
                     }
                 }
 
-                // 3. Tambahkan Child WC dari split sementara (di modal)
                 tempSplits.forEach(split => {
                     if (split.childWc && !assignedWCs.includes(split.childWc)) {
                         assignedWCs.push(split.childWc);
@@ -627,16 +618,13 @@
                 const toList = evt.to;
                 const fromList = evt.from;
                 const targetWcId = toList.closest('.wc-card-container').dataset.wcId;
-                const originWc = item.dataset.arbpl; // Ambil Origin WC
+                const originWc = item.dataset.arbpl;
 
-                // FIX 1: MISMATCH CHECK
                 if (originWc && targetWcId && originWc !== targetWcId) {
-                    // Simpan state untuk mismatch modal
                     pendingMismatchItem = item;
-                    targetContainerCache = toList; // Cache needed to revert if cancelled
+                    targetContainerCache = toList;
                     sourceContainerCache = fromList;
                     
-                    // FIX: Don't overwrite cache if it was populated by Bulk Drag (onStart)
                     if (!draggedItemsCache || draggedItemsCache.length === 0) {
                         draggedItemsCache = [item]; 
                     }
@@ -645,14 +633,12 @@
                     document.getElementById('mismatchTargetWC').value = targetWcId;
                     
                     mismatchModalInstance.show();
-                    return; // Stop execution
+                    return;
                 }
 
-                // Normal Flow
                 processDrop(evt, item, toList, fromList, targetWcId);
-            } // End setupDragAndDrop
+            }
 
-            // Extracted logic to support resume after mismatch check
             function processDrop(evt, item, toList, fromList, targetWcId) {
                 const proAufnr = item.dataset.aufnr;
                 
@@ -675,7 +661,6 @@
                     draggedItemsCache.push(item);
                 }
 
-                // Setup Modal Title
                 const proTitle = draggedItemsCache.length > 1 
                     ? `<span class="badge bg-primary">${draggedItemsCache.length} Items Selected</span>` 
                     : `<span class="badge bg-primary text-wrap">${proAufnr}</span>`;
@@ -688,12 +673,9 @@
                     if(bulkWarning) bulkWarning.classList.add('d-none');
                 }
 
-                // CLEAR CONTAINER
                 const container = document.getElementById('assignmentCardContainer');
                 container.innerHTML = '';
 
-                // NEW: CAPACITY INFO CARD (TOP OF MODAL)
-                // Determine if Parent and get children data
                 const normalizedTargetWc = targetWcId.toUpperCase();
                 const hasChildren = PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWc);
                 
@@ -703,20 +685,16 @@
                 if (hasChildren) {
                     const children = PARENT_WORKCENTERS[normalizedTargetWc];
                     
-                    // Capacity Logic
-                    // New Capacity Logic: Sum of Children
                     let totalChildMins = 0;
                     children.forEach(c => {
                          const k = parseFloat(String(c.kapaz).replace(',', '.')) || 0;
                          totalChildMins += (k * 60);
                     });
 
-                    // Build Child Options
                     children.forEach(child => {
                         childOptionsHtml += `<option value="${child.code}">${child.code} - ${child.name}</option>`;
                     });
                     
-                    // Build Top Info Card
                     capacityInfoHtml = `
                         <div class="card mb-3 border-secondary bg-light border-opacity-25">
                             <div class="card-body p-2"> 
@@ -724,13 +702,12 @@
                                     <i class="fa-solid fa-network-wired me-1"></i> ${targetWcId} Capacity Distribution
                                 </h6>
                                 <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge bg-dark text-white pt-1 pb-1">Total Limit: ${totalChildMins.toLocaleString()} Min</span>
+                                    <span class="badge bg-dark text-white pt-1 pb-1">Total Limit: ${(children.length * 570).toLocaleString()} Min</span>
                                 </div>
                                 <div class="row g-2" id="topCapacityContainer">
                                     <!-- Child Status Bars Injected Here Dynamically via updateCardSummary -->
                                     ${children.map(child => {
-                                        const k = parseFloat(String(child.kapaz).replace(',', '.')) || 0;
-                                        const limit = k * 60;
+                                        const limit = 570; // FIXED RULE
                                         return `
                                         <div class="col-md-6">
                                             <div class="d-flex justify-content-between text-xs fw-bold mb-1">
@@ -748,26 +725,21 @@
                     `;
                 }
 
-                // Inject Top Card
                 if (capacityInfoHtml) {
                     const capDiv = document.createElement('div');
                     capDiv.innerHTML = capacityInfoHtml;
                     container.appendChild(capDiv);
                 }
 
-                // Helper for Employee Options
                 const empOptions = document.getElementById('employeeTemplateSelect').innerHTML;
                 
-                // GENERATE PRO CARDS
                 draggedItemsCache.forEach((row, index) => {
                     const rAufnr = row.dataset.aufnr;
-                    const rMaktx = row.dataset.maktx || ''; // Get Material Description
+                    const rMaktx = row.dataset.maktx || ''; 
                     const rSisa = parseFloat(row.dataset.sisaQty) || 0;
-                    // NEW: Time Calculation Data
-                    const rVgw01 = parseFloat(row.dataset.vgw01) || 0; // Base time per 1 Qty
-                    const rVge01 = row.dataset.vge01 || ''; // Unit (e.g. S)
+                    const rVgw01 = parseFloat(row.dataset.vgw01) || 0; 
+                    const rVge01 = row.dataset.vge01 || ''; 
 
-                    // Create Card Element
                     const card = document.createElement('div');
                     card.className = 'card mb-3 border-0 shadow-sm pro-card';
                     card.dataset.refAufnr = rAufnr;
@@ -836,23 +808,20 @@
                     container.appendChild(card);
                     if(hasChildren) updateChildWCOptions(rAufnr);
                     updateEmpOptions(rAufnr);
-                    updateCardSummary(rAufnr); // Init logic
+                    updateCardSummary(rAufnr); 
                 });
 
                 assignmentModalInstance.show();
             }
             window.addAssignmentRow = function(aufnr) {
-                // Find Card
                 const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
                 if (!card) return;
 
                 const rowsContainer = card.querySelector('.assignment-rows');
                 const lastRow = rowsContainer.lastElementChild;
                 
-                // Clone last row (to keep select options)
                 const newRow = lastRow.cloneNode(true);
                 
-                // Reset inputs in new row
                 const empSelect = newRow.querySelector('.emp-select');
                 empSelect.value = "";
                 empSelect.onchange = function() { updateEmpOptions(aufnr); };
@@ -861,7 +830,7 @@
                 childSelect.value = "";
                 childSelect.disabled = false;
                 childSelect.classList.remove('border-danger', 'text-danger');
-                childSelect.onchange = function() { updateEmpOptions(aufnr); updateCardSummary(aufnr); }; // Updated to trigger both
+                childSelect.onchange = function() { updateEmpOptions(aufnr); updateCardSummary(aufnr); }; 
 
                 const qtyInput = newRow.querySelector('.qty-input');
                 qtyInput.value = ""; 
@@ -869,7 +838,6 @@
                 qtyInput.classList.remove('is-invalid', 'text-danger');
                 qtyInput.oninput = function() { updateCardSummary(aufnr); };
                 
-                // Check if card has children logic (Sub WC required logic)
                 const hasChildren = card.dataset.hasChildren === 'true';
                 if(hasChildren) {
                     qtyInput.disabled = true;
@@ -885,10 +853,8 @@
                 const removeBtn = newRow.querySelector('.btn-remove-row');
                 removeBtn.classList.remove('d-none');
                 
-                // Append
                 rowsContainer.appendChild(newRow);
                 
-                // Update Logic
                 updateChildWCOptions(aufnr);
                 updateCardSummary(aufnr);
                 updateEmpOptions(aufnr); 
@@ -905,9 +871,7 @@
                 updateCardSummary(aufnr);
             };
 
-            // GLOBAL UPDATE & VALIDATION
             window.updateCardSummary = function(TriggerAufnr) {
-                // Determine context
                 const allCards = document.querySelectorAll('#assignmentCardContainer .pro-card');
                 let globalChildUsage = {}; 
                 let targetWcId = null;
@@ -921,7 +885,6 @@
 
                     const rows = card.querySelectorAll('.assignment-row');
                     
-                    // First pass: Calculate current total for this card to check Max Qty overflow
                     let currentCardTotal = 0;
                     rows.forEach(r => currentCardTotal += parseFloat(r.querySelector('.qty-input').value) || 0);
 
@@ -939,7 +902,7 @@
                                     qtyInp.title = "Pilih Sub-WC terlebih dahulu";
                                     timeInp.value = "0 Min"; 
                                 }
-                                return; // Skip calc for this row
+                                return; 
                             } else {
                                 if (qtyInp.disabled) {
                                     qtyInp.disabled = false;
@@ -965,9 +928,8 @@
                                     timer: 3000
                                 });
                                 
-                                // RESET VALUE
-                                qtyInp.value = allowed; // This might be an integer or decimal depending on input
-                                qty = allowed; // Update local var for time calc
+                                qtyInp.value = allowed; 
+                                qty = allowed; 
                                 currentCardTotal = otherTotal + allowed; 
                             }
                         }
@@ -987,17 +949,14 @@
                     });
                 });
 
-                // 2. UPDATE TOP CAPACITY CARD (If exists)
                 if (targetWcId) {
                     const normalizedTargetWc = targetWcId.toUpperCase();
                     if (PARENT_WORKCENTERS.hasOwnProperty(normalizedTargetWc)) {
-                        const children = PARENT_WORKCENTERS[normalizedTargetWc]; // Get full list
+                        const children = PARENT_WORKCENTERS[normalizedTargetWc]; 
                         
-                        // Update Bars for ALL children (Active and Inactive)
                         children.forEach(child => {
                             const childCode = child.code;
-                            const k = parseFloat(String(child.kapaz).replace(',', '.')) || 0;
-                            const thisChildLimit = k * 60;
+                            const thisChildLimit = 570; // FIXED RULE
                             
                             const usage = globalChildUsage[childCode] || 0;
                             const pct = thisChildLimit > 0 ? (usage / thisChildLimit) * 100 : 0;
@@ -1010,8 +969,9 @@
                                 text.innerText = `${usage.toFixed(1)} / ${thisChildLimit.toFixed(1)} Min`;
                                 
                                 if (usage > thisChildLimit) {
-                                    bar.className = 'progress-bar bg-warning';
-                                    text.classList.add('text-warning');
+                                    bar.className = 'progress-bar bg-danger';
+                                    text.classList.remove('text-warning');
+                                    text.classList.add('text-danger');
                                 } else {
                                     bar.className = 'progress-bar bg-success';
                                     text.classList.remove('text-danger');
@@ -1021,7 +981,6 @@
                     }
                 }
 
-                // 3. VALIDATE LOCAL CARD QTY (The Triggered Card)
                 const card = document.querySelector(`.pro-card[data-ref-aufnr="${TriggerAufnr}"]`);
                 if (!card) return;
 
@@ -1074,14 +1033,12 @@
                      if (totalAssigned > maxQty + 0.0001) hasError = true;
                 });
                 
-                // Check 2: Capacity Limits (Red Bars)
                 const redBars = document.querySelectorAll('#topCapacityContainer .bg-danger');
-                // if (redBars.length > 0) hasError = true;
+                if (redBars.length > 0) hasError = true;
 
                 confirmBtn.disabled = hasError;
             };
 
-            // REDESIGN: Unique Child WC Logic
             window.updateChildWCOptions = function(aufnr) {
                 const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
                 if (!card) return;
@@ -1092,10 +1049,8 @@
                 const allEmpSelects = card.querySelectorAll('.emp-select');
                 const usedNiks = Array.from(allEmpSelects).map(s => s.value).filter(v => v !== "");
 
-                // 2. Pre-calculate Operator Pool per Child WC
-                // We scan the template once to know who belongs to which WC
                 const empTemplate = document.getElementById('employeeTemplateSelect');
-                const wcPoolMap = {}; // { 'MACHINE-A': ['NIK1', 'NIK2'], ... }
+                const wcPoolMap = {};
                 
                 Array.from(empTemplate.options).forEach(opt => {
                     if (opt.value === "") return;
@@ -1117,26 +1072,9 @@
                         const wcCode = opt.value;
                         const potentialNiks = wcPoolMap[wcCode] || [];
                         
-                        // Count how many of these NIKs are already used
-                        // We must exclude the NIK currently selected in THIS row (if any)
-                        // because that NIK is "available" for this row if we just switched to it.
-                        // However, strictly speaking, 'usedNiks' includes ALL rows.
-                        // So for the dropdown state, we care about "Free Slots".
-                        
-                        // Logic:
-                        // Total Capacity = potentialNiks.length
-                        // Used Count = Count of (usedNiks that are in potentialNiks)
-                        
                         const usedCount = usedNiks.filter(nik => potentialNiks.includes(nik)).length;
                         const totalCap = potentialNiks.length;
                         const remaining = totalCap - usedCount;
-
-                        // Check if THIS row specifically is "holding" one of the used slots for this WC
-                        // If myCurrentWc === wcCode, then I am using 1 slot.
-                        // That means for ME, I effectively have (remaining + 1) available (my own slot).
-                        // BUT, simpler logic:
-                        // If remaining <= 0 AND I am not currently selecting this WC, then disable.
-                        // If I am selecting this WC, keep enabled (or user can't see what they picked).
 
                         const isFull = remaining <= 0;
                         const isMySelection = (wcCode === myCurrentWc);
@@ -1155,15 +1093,11 @@
             };
 
             function setupMismatchLogic() {
-                // Button Cancel di Mismatch Modal
                 document.getElementById('btnCancelMismatch').addEventListener('click', function() {
                     mismatchModalInstance.hide();
-                    cancelDrop(); // Reuse existing cancel logic
+                    cancelDrop();
                 });
-
-                // Button Change WC
                 document.getElementById('btnChangeWC').addEventListener('click', async function() {
-                    // Use Cache if available (Bulk Drag), otherwise single item
                     const itemsToProcess = (draggedItemsCache && draggedItemsCache.length > 0) 
                         ? draggedItemsCache 
                         : (pendingMismatchItem ? [pendingMismatchItem] : []);
@@ -1172,7 +1106,6 @@
 
                     const targetWc = document.getElementById('mismatchTargetWC').value;
                     
-                    // Construct PRO data matching the structure needed by backend
                     const proData = itemsToProcess.map(item => ({
                         proCode: item.dataset.aufnr,
                         oper: item.dataset.vornr || '0010',
@@ -1180,15 +1113,14 @@
                     }));
 
                     mismatchModalInstance.hide();
-                    cancelDrop(); // Revert drag visual
+                    cancelDrop();
 
-                    // Trigger Streaming Process
                     await executeBulkChangeStream(targetWc, proData);
                     itemsToProcess.forEach(item => {
                          const pendingRows = document.querySelectorAll(`[data-aufnr="${item.dataset.aufnr}"]`);
                          pendingRows.forEach(r => {
                             r.dataset.arbpl = targetWc;
-                            const badge = r.querySelector('.badge.bg-light.text-dark'); // WC Badge
+                            const badge = r.querySelector('.badge.bg-light.text-dark');
                             if(badge && badge.innerText.trim() !== targetWc) badge.innerText = targetWc; 
                         });
                     });
@@ -1277,37 +1209,21 @@
                          select.disabled = false;
                     }
 
-                    // 2. Rebuild Options based on Filter
-                    // Clear current options (except placeholder if we want one, but we rebuild all)
                     select.innerHTML = '<option value="" selected disabled>Pilih Operator...</option>';
 
                     templateOptions.forEach(tmplOpt => {
-                        if (tmplOpt.value === "") return; // Skip placeholder from template
+                        if (tmplOpt.value === "") return;
 
                         const empArbpl = tmplOpt.getAttribute('data-arbpl'); // Get from data attribute
+                        const newOpt = tmplOpt.cloneNode(true);
                         
-                        // Strict Filter: ARBPL must match
-                        // Note: Data might be messy, so maybe trim() ?
-                        // Assuming strict equality for now. 
-                        
-                        if (empArbpl === requiredArbpl) {
-                            const newOpt = tmplOpt.cloneNode(true);
-                            
-                            // 3. Handle Duplicates (Disable if selected in another row)
-                            if (selectedNiks.includes(newOpt.value) && newOpt.value !== currentVal) {
-                                newOpt.disabled = true;
-                                newOpt.innerText += ' (Selected)';
-                            }
-
-                            select.appendChild(newOpt);
+                        if (selectedNiks.includes(newOpt.value) && newOpt.value !== currentVal) {
+                            newOpt.disabled = true;
+                            newOpt.innerText += ' (Selected)';
                         }
+                        
+                        select.appendChild(newOpt);
                     });
-
-                    // 4. Restore value if valid
-                    // If current value is no longer in the filtered list, it means the Sub-WC changed
-                    // and the old operator is invalid -> Value becomes blank (default)
-                    
-                    // Check if currentVal exists in new options
                     let valid = false;
                     Array.from(select.options).forEach(opt => {
                         if (opt.value === currentVal && currentVal !== "") valid = true;
@@ -1316,9 +1232,7 @@
                     if (valid) {
                         select.value = currentVal;
                     } else if (currentVal !== "") {
-                        // Value was set but now invalid -> Reset
                         select.value = "";
-                        // Maybe trigger change event? checking validity handled in confirm
                     }
                 });
             }
@@ -1350,17 +1264,15 @@
                         const qtyInput = row.querySelector('.qty-input');
                         
                         const nik = empSelect.value;
-                        const name = empSelect.options[empSelect.selectedIndex]?.dataset.name || ''; // Assuming options have data-name or innerText
-                        // Fallback name extraction if template used value - text format
+                        const name = empSelect.options[empSelect.selectedIndex]?.dataset.name || '';
                         const rawText = empSelect.options[empSelect.selectedIndex]?.innerText || '';
                         
                         const childWc = childSelect.value;
                         const qty = parseFloat(qtyInput.value) || 0;
                         
-                        // Row Validation
                         if (!nik || qty <= 0) {
                             allValid = false;
-                            row.classList.add('border', 'border-danger'); // Add visual error
+                            row.classList.add('border', 'border-danger');
                         } else {
                             row.classList.remove('border', 'border-danger');
                         }
@@ -1377,11 +1289,9 @@
                         currentSum += qty;
                     });
                     
-                    // Card Total Validation
                     if (currentSum > maxQty) {
                         allValid = false;
                         validationErrors.push(`Total Qty for ${aufnr} exceeds limit (${currentSum} > ${maxQty})`);
-                        // Highlight card border
                         card.classList.remove('border-0');
                         card.classList.add('border-danger');
                     } else {
@@ -1401,11 +1311,10 @@
                 });
 
                 for (const [aufnr, group] of Object.entries(groupedAssignments)) {
-                     const item = group[0].item; // Original Item
+                     const item = group[0].item;
                      const sisaOriginal = parseFloat(item.dataset.sisaQty) || 0;
                      const totalAssigned = group.reduce((sum, a) => sum + a.qty, 0);
                      
-                     // 1. Check Remaining
                      if (parseFloat(totalAssigned.toFixed(3)) < parseFloat(sisaOriginal.toFixed(3))) {
                          const remainingQty = sisaOriginal - totalAssigned;
                          const remainingRow = item.cloneNode(true);
@@ -1420,21 +1329,19 @@
                          sourceContainerCache.appendChild(remainingRow);
                      }
                      
-                     // 2. Process Assignments
                      group.forEach((assign, idx) => {
                          let targetItem;
                          if (idx === 0) {
-                             targetItem = item; // Use Original
+                             targetItem = item;
                          } else {
-                             targetItem = item.cloneNode(true); // Clone for split
+                             targetItem = item.cloneNode(true);
                              targetItem.dataset.id = Date.now() + Math.random();
                          }
                          
-                         // Move & Update
                          transformToCardView(targetItem);
                          targetContainerCache.appendChild(targetItem);
                          
-                         targetItem.dataset.sisaQty = assign.qty; // Adjusted to assigned portion
+                         targetItem.dataset.sisaQty = assign.qty;
                          targetItem.dataset.assignedQty = assign.qty;
                          targetItem.dataset.employeeNik = assign.nik;
                          targetItem.dataset.employeeName = assign.name;
@@ -1454,7 +1361,6 @@
                 assignmentModalInstance.hide();
             }
 
-            // --- NEW: TARGET WC SEARCH ---
             function setupTargetWcSearch() {
                 const searchInput = document.getElementById('targetWcSearchInput');
                 if (!searchInput) return;
@@ -1478,7 +1384,6 @@
                 });
             }
 
-            // --- NEW: REMOVE PRO FROM MODAL ---
             window.removeProFromModal = function(btn) {
                 const card = btn.closest('.pro-card');
                 if(!card) return;
@@ -1586,19 +1491,16 @@
                                 sisaCell.classList.add('text-danger');
                             }
 
-                            // Hapus klon/asli yang ada di WC
                             item.remove();
-
                         } else {
                             sourceList.appendChild(item);
 
-                            // Reset data atribut
                             item.dataset.employeeNik = "";
                             item.dataset.employeeName = "";
                             item.dataset.childWc = "";
                             item.dataset.assignedQty = 0;
                             item.dataset.assignedChildWcs = '[]';
-                            item.dataset.sisaQty = originalQtyOpr; // Set Qty kembali ke Qty penuh PRO
+                            item.dataset.sisaQty = originalQtyOpr;
 
                             const sisaCell = item.querySelector('.col-sisa-qty');
                             if (sisaCell) {
@@ -1657,9 +1559,8 @@
                 }
 
                 if (targetItemToUpdate !== item) {
-                    item.remove(); // Merge ke item yang sudah ada
+                    item.remove();
                 } else {
-                    // Reset item ini menjadi item source normal
                     targetItemToUpdate.dataset.employeeNik = "";
                     targetItemToUpdate.dataset.employeeName = "";
                     targetItemToUpdate.dataset.childWc = "";
@@ -1687,7 +1588,6 @@
                         assignedWCs.splice(index, 1);
                     }
 
-                    // Simpan kembali sebagai string JSON
                     row.dataset.assignedChildWcs = JSON.stringify(assignedWCs);
                 });
             }
@@ -1704,7 +1604,6 @@
                     childDisplay.classList.add('d-none');
                 }
                 
-                // Hitung ulang menit beban
                 const mins = calculateItemMinutes(row, qty);
                 row.dataset.calculatedMins = mins;
             }
@@ -1784,7 +1683,7 @@
                 
                 const placeholder = cardContainer.querySelector('.empty-placeholder');
                 const hasItems = cardContainer.querySelectorAll('.pro-item-card').length > 0;
-                if (placeholder) placeholder.style.display = hasItems ? 'none' : 'flex'; // Changed to flex for centering
+                if (placeholder) placeholder.style.display = hasItems ? 'none' : 'flex';
             }
 
             function checkEmptyPlaceholder(container) {
@@ -1794,7 +1693,6 @@
             }
 
             function setupSearch() {
-                // Modified for Server-Side Search
                 let timeout = null;
                 const searchInput = document.getElementById('searchInput');
                 const scrollArea = document.querySelector('.table-scroll-area');
@@ -1806,7 +1704,6 @@
                 let isLoading = false;
                 let currentSearch = '';
 
-                // 1. Search Logic (Debounced)
                 searchInput.addEventListener('keyup', function() {
                     clearTimeout(timeout);
                     timeout = setTimeout(() => {
@@ -1815,11 +1712,10 @@
                     }, 500); 
                 });
 
-                 // 2. Infinite Scroll Logic
                 scrollArea.addEventListener('scroll', function() {
                     if (isLoading || !nextPage) return;
                     
-                    const threshold = 100; // px from bottom
+                    const threshold = 100; 
                     if (this.scrollHeight - this.scrollTop - this.clientHeight < threshold) {
                          fetchMore();
                     }
@@ -1862,14 +1758,10 @@
                         
                         nextPage = data.next_page;
                         
-                        // Show "End" if no more pages
                         if (!nextPage) {
                             endOfData.classList.remove('d-none');
                         }
 
-                        // Re-initialize Drag (Sortable) if necessary?
-                        // Sortable usually observes DOM, but checks if new items are draggable.
-                        // Since we append to #source-list which is the Sortable container, it should work.
                         
                     })
                     .catch(e => console.error('Load Error:', e))
@@ -1915,7 +1807,6 @@
 
                         if (item.dataset.employeeNik && assignedQty > 0) {
                             items.push({
-                                // Data Wajib (dari data drag/modal)
                                 aufnr: item.dataset.aufnr,
                                 nik: item.dataset.employeeNik,
                                 name: item.dataset.employeeName,
@@ -1990,12 +1881,8 @@
                 showPreviewModal(data, data.length);
             } // Close sendFinalAllocation
 
-            // --- SAVE / CONFIRM ---
-            // --- SAVE / CONFIRM ---
             const confirmBtn = document.getElementById('confirmSaveBtn');
             if (confirmBtn) {
-                // Remove old listener to avoid duplicates if any (though this runs once on load)
-                // Better: Just add log inside.
                 confirmBtn.addEventListener('click', function() {
                     console.log('confirmSaveBtn clicked! Calling startWiCreationStream...');
                     startWiCreationStream();
@@ -2010,23 +1897,14 @@
                 const previewContent = document.getElementById('previewContent');
                 if (!previewContent) return;
 
-                // 1. Collect Data from Preview
                 const payload = [];
                 const plantCode = '{{ $kode }}';
                 
-                // Get Date/Time from Header Input
-                const dateInput = document.getElementById('wiDocumentDate').value; // Changed from documentDate to wiDocumentDate
+                const dateInput = document.getElementById('wiDocumentDate').value; 
                 const timeInput = document.getElementById('wiDocumentTime').value;
 
-                // We need to gather all AUFNRs that are being saved.
-                // The preview content is just HTML, it doesn't hold data easily.
-                // We should rely on the data we prepared in 'showPreviewModal'. 
-                // However, 'showPreviewModal' constructs array 'allocations'.
-                // We need to access that 'allocations' array here.
-                // Best way: Store 'allocations' in a global variable when preview is shown.
-                
                 if (!window.latestAllocations || window.latestAllocations.length === 0) {
-                     Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning'); // Changed from alert to Swal.fire
+                     Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning'); 
                      return;
                 }
 
@@ -2052,14 +1930,9 @@
                 logArea.classList.remove('d-none');
 
                 // Prepare Items for Stream (List of AUFNRs)
-                // Flatten allocations to get list of items
                 const proItems = [];
                 window.latestAllocations.forEach(alloc => {
                     alloc.pro_items.forEach(item => {
-                        // Check if already added to avoid duplicates if split? 
-                        // Actually, schedule order is per AUFNR. 
-                        // If one AUFNR is split into multiple WCs, we only need to schedule it once?
-                        // Or if we schedule, does it affect the whole order? Yes.
                         if (!proItems.some(p => p.aufnr === item.aufnr)) {
                             proItems.push({ aufnr: item.aufnr });
                         }

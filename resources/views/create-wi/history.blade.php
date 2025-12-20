@@ -355,10 +355,10 @@
                                                         onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'active')">
                                                         <i class="fa-solid fa-print me-1"></i> Cetak
                                                     </button>
-                                                    <button class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
+                                                    <!-- <button class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
                                                         onclick="openAddItemModal('{{ $document->wi_document_code }}', '{{ $document->workcenter_code }}')">
                                                         <i class="fa-solid fa-plus me-1"></i> Tambah Item
-                                                    </button>
+                                                    </button> -->
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-light text-dark border">{{ $docItemsCount }} PRO</span>
@@ -421,10 +421,10 @@
                                                                             onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? 'EA' }}')">
                                                                         <i class="fa-solid fa-pen-to-square"></i>
                                                                     </button>
-                                                                    <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
+                                                                    <!-- <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
                                                                             onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['assigned_qty'] ?? 0 }}')">
                                                                         <i class="fa-solid fa-trash"></i>
-                                                                    </button>
+                                                                    </button> -->
                                                                 @endif
                                                             </div>
                                                         </div>
@@ -545,7 +545,7 @@
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <div>
                                                     <h6 class="fw-bold mb-1 d-inline-block align-middle me-2">{{ $document->wi_document_code }}</h6>
-                                                    <button class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
+                                                    <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
                                                         onclick="openAddItemModal('{{ $document->wi_document_code }}', '{{ $document->workcenter_code }}')">
                                                         <i class="fa-solid fa-plus me-1"></i> Tambah Item
                                                     </button>
@@ -812,11 +812,6 @@
                                                  @php
                                                       $rQty = $item['remark_qty'] ?? 0;
                                                       $aQty = $item['assigned_qty'] > 0 ? $item['assigned_qty'] : 1;
-                                                      
-                                                      // For completed, the 'width: 100%' was hardcoded for the main bar in original code.
-                                                      // But if we have remarks, maybe confirmed is less than 100% physically? 
-                                                      // Usually completed means confirmed == assigned OR forcibly completed.
-                                                      // I'll calculate real percentages here just in case.
                                                       $confQty = $item['confirmed_qty'] ?? 0;
                                                       $confPct = ($confQty / $aQty) * 100;
                                                       $rPct = ($rQty / $aQty) * 100;
@@ -1451,14 +1446,8 @@
                         const childName = c.nama_workcenter || '';
                         
                         const ref = refWorkcentersData[childCode];
-                        let maxMins = 0;
-                        if(ref) {
-                             const k = ref.KAPAZ || ref.kapaz;
-                             if(k) {
-                                  let raw = parseFloat(String(k).replace(',', '.'));
-                                  maxMins = raw * 60;
-                             }
-                        }
+                        let maxMins = 570; // FIXED RULE: 9.5 Hours
+                        // if(ref) { ... } // Ignored, always 570
                         
                         html += `
                         <div class="col-md-6 col-12">
@@ -1509,8 +1498,9 @@
             let count = 0;
             
             employeesList.forEach(e => {
-                const eWc = (e.arbpl || '').toUpperCase(); 
-                if (eWc === targetWc) {
+                // [UPDATED] Show ALL operators for this Plant (ignore WC filter)
+                // const eWc = (e.arbpl || '').toUpperCase(); 
+                // if (eWc === targetWc) { 
                     const nik = e.pernr;
                     const name = e.stext; 
                     
@@ -1520,7 +1510,7 @@
                         opts += `<option value="${nik}" data-name="${name}">${nik} - ${name}</option>`;
                         count++;
                     }
-                }
+                // }
             });
             
             if (count === 0 && excludeNiks.length > 0) {
@@ -1561,12 +1551,15 @@
                     // Requirement 1: Disable if WC empty. Enable if WC selected.
                     if(wcCode) {
                         if(qtyInput) qtyInput.disabled = false;
-                        if(empSelect) empSelect.disabled = false;
+                        // Operator is Independent now
+                        // if(empSelect) empSelect.disabled = false;
                     } else {
                          if(qtyInput) { qtyInput.disabled = true; qtyInput.value = ''; }
-                         if(empSelect) { empSelect.disabled = true; empSelect.value = ''; }
-                         targetSelect.innerHTML = '<option value="">Pilih Sub-WC terlebih dahulu..</option>';
-                         return; // Stop processing
+                         // if(empSelect) { empSelect.disabled = true; empSelect.value = ''; }
+                         
+                         // Stop clearing targetSelect
+                         // targetSelect.innerHTML = '<option value="">Pilih Sub-WC terlebih dahulu..</option>';
+                         // return; // Stop processing
                     }
 
                     // SMART FILL LOGIC (Requested: "diisi dengna kapasitas wc anak")
@@ -1576,21 +1569,6 @@
                              // Parse Capacity (handle comma/dot if string, else direct)
                              let capVal = (typeof wc.kapaz === 'number') ? wc.kapaz : parseFloat(wc.kapaz.replace(',', '.'));
                              if(!isNaN(capVal) && capVal > 0) {
-                                  // NOTE: User asked for Smart Fill to be AUTO calculated Time? 
-                                  // Requirement 2: "Jumlah qty secara otomatis menghitung berapa waktu yang dibutuhkan"
-                                  // This implies Qty Input -> Time Calc. Not Fill Qty with Cap.
-                                  // The User's previous request was to fill with Cap. 
-                                  // "diisi dengna kapasitas wc anak" -> This was done.
-                                  // Now: "Jumlah qty secara otomatis menghitung berapa waktu..."
-                                  // Maybe he wants the Qty input to remain empty so he can type, 
-                                  // OR he wants the Time Required Progress Bar to update.
-                                  // I will keep the Smart Fill (Cap) as a suggestion but maybe he wants it removed?
-                                  // "Jumlah qty secara otomatis..." -> sounds like "As I type qty, calculate time".
-                                  // Let's keep the Auto-Fill for now unless it conflicts. 
-                                  // It might be better to NOT auto-fill if he wants to type. 
-                                  // But user rule 2 says "Jumlah qty automatically calculates time". 
-                                  // That's handled by updateChildCapacity. 
-                                  
                                   qtyInput.value = capVal;
                                   // Trigger limit check
                                   const itemKey = container.id.replace('split_container_', '');
@@ -1600,8 +1578,9 @@
                     }
                 }
                 
-                targetSelect.innerHTML = getOperatorOptions(wcCode, excludeNiks);
-                targetSelect.value = ""; 
+                // [UPDATED] Operator list is static/independent. Do not overwrite on WC change.
+                // targetSelect.innerHTML = getOperatorOptions(wcCode, excludeNiks);
+                // targetSelect.value = ""; 
             }
         };
 
@@ -1628,10 +1607,9 @@
             const buildOpt = (code, name) => {
                 let capLabel = '';
                 const wcInfo = workcentersData[code];
-                if(wcInfo && wcInfo.kapaz) {
-                    let k = (typeof wcInfo.kapaz === 'number') ? wcInfo.kapaz : parseFloat(wcInfo.kapaz.replace(',', '.'));
-                    capLabel = ` (Cap: ${k} Min)`;
-                }
+                // FIXED RULE: 570 Min
+                let k = 570;
+                capLabel = ` (Cap: ${k} Min)`;
                 
                 let totalOps = 0;
                 employeesList.forEach(e => {
@@ -1839,8 +1817,12 @@
                                     ${wcOptsHtml}
                                 </select>`;
             
-            // Initial Operator Select (Disabled by default)
-            let empSelectHtml = `<select class="form-select form-select-sm emp-select" id="nik_${uniqueId}" disabled><option value="">Pilih Sub-WC terlebih dahulu..</option></select>`;
+            // Initial Operator Select (Populate Immediately)
+            // Fix: Calculate excludeNiks from existing rows in container
+            const excludeNiks = getUsedNiksInBatch(container, null);
+            const opOptions = getOperatorOptions(null, excludeNiks);
+            
+            let empSelectHtml = `<select class="form-select form-select-sm emp-select" id="nik_${uniqueId}">${opOptions}</select>`;
 
             const rowDiv = document.createElement('div');
             rowDiv.className = 'row g-2 align-items-end mb-2 split-row-item border-bottom pb-2'; 
@@ -1862,7 +1844,7 @@
                      </div>
                 </div>
                 <div class="col-md-3">
-                     <label class="form-label text-xs fw-bold text-muted mb-0">Time (Min)</label>
+                     <label class="form-label text-xs fw-bold text-muted mb-0">Time Req</label>
                      <input type="text" class="form-control form-control-sm fw-bold time-input bg-white" readonly value="0">
                 </div>
                 <div class="col-md-1">
@@ -2086,14 +2068,10 @@
             };
 
             if (maxCap > 0 && projected > maxCap) {
-                Swal.fire({
-                    title: 'Over Capacity Warning',
-                    html: `Total penambahan ini (${additionalMins.toFixed(1)} min) akan melebihi kapasitas!<br>Lanjutkan?`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Ya, Lanjutkan'
-                }).then(res => {
-                    if(res.isConfirmed) executeBatch();
+                return Swal.fire({
+                    title: 'Over Capacity Error',
+                    html: `Total penambahan ini (${additionalMins.toFixed(1)} min) akan melebihi kapasitas available!<br>Batas: ${maxCap} Min.`,
+                    icon: 'error'
                 });
             } else {
                 executeBatch();

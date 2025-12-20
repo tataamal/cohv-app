@@ -46,7 +46,6 @@
             <div class="original-content">
                 <span class="fw-bold text-primary">{{ $item->AUFNR }}</span>
             </div>
-            {{-- Custom Drag Preview (Hidden by default, shown by JS on drag) --}}
             <div class="drag-preview-icon">
                 <div class="icon-box bg-primary text-white rounded shadow-sm">
                     <i class="fa-solid fa-file-invoice"></i>
@@ -83,7 +82,6 @@
         <td class="text-center table-col fw-bold text-dark">{{ number_format($item->MGVRG2, $decimals, ',', '.') }} {{ $showUnit }}</td>
         <td class="text-center table-col text-muted">{{ number_format($item->LMNGA, $decimals, ',', '.') }} {{ $showUnit }}</td>
         
-        {{-- QTY SISA (Qty Opt - Qty Conf - Qty WI) --}}
         @php
             $qtySisaDisplay = ($item->MGVRG2 - $item->LMNGA) - $item->qty_wi;
             if ($qtySisaDisplay < 0) $qtySisaDisplay = 0;
@@ -91,11 +89,10 @@
         <td class="text-center table-col text-primary fw-bold">{{ number_format($qtySisaDisplay, $decimals, ',', '.') }} {{ $showUnit }}</td>
         
         @php
-            $taktTime = $item->VGW01 * $item->MGVRG2;
+            $taktTime = $item->VGW01 * $qtySisaDisplay;
             if ($item->VGE01 == 'S') {
                 $taktTime = $taktTime / 60;
             }
-            // Format: Remove trailing zeros (e.g. 5.00 -> 5, 5.50 -> 5.5)
             $taktTimeDisplay = (float) number_format($taktTime, 2, '.', '');
             $taktTimeDisplay = str_replace('.', ',', (string) $taktTimeDisplay);
         @endphp
@@ -115,8 +112,7 @@
                  <span class="badge bg-light text-dark border p-1 assigned-qty-badge" style="font-size: 0.7rem;">Qty: -</span>
                  <span class="badge bg-success bg-opacity-10 text-success p-1 border border-success border-opacity-25 child-wc-display" style="font-size: 0.7rem;"></span>
             </div>
-            <!-- Hidden Elements for Logic -->
-             <span class="d-none employee-name-text">-</span>
+            <span class="d-none employee-name-text">-</span>
         </td>
     </tr>
 @endforeach
