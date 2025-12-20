@@ -414,11 +414,11 @@
                                                             <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                         </div>
                                                         <div class="col-lg-4 text-end">
-                                                            <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? 'EA') == 'ST' ? 'PC' : ($item['uom'] ?? 'EA') }}</span></div>
+                                                            <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
                                                                 @if(($item['confirmed_qty'] ?? 0) == 0)
                                                                     <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                            onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? 'EA' }}')">
+                                                                            onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}')">
                                                                         <i class="fa-solid fa-pen-to-square"></i>
                                                                     </button>
                                                                     <!-- <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
@@ -599,10 +599,10 @@
                                                         <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                     </div>
                                                     <div class="col-lg-4 text-end">
-                                                        <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? 'EA') == 'ST' ? 'PC' : ($item['uom'] ?? 'EA') }}</span></div>
+                                                        <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
                                                                 <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? 'EA' }}')">
+                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}')">
                                                                     <i class="fa-solid fa-pen-to-square"></i>
                                                                 </button>
                                                                 @if(($item['confirmed_qty'] ?? 0) <= 0)
@@ -689,7 +689,7 @@
                                                           <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                       </div>
                                                       <div class="col-lg-4 text-end">
-                                                          <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? 'EA') == 'ST' ? 'PC' : ($item['uom'] ?? 'EA') }}</span></div>
+                                                          <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                       </div>
                                                   </div>
                                                   {{-- FULL WIDTH PROGRESS BAR --}}
@@ -789,7 +789,7 @@
                                                          <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                      </div>
                                                      <div class="col-lg-4 text-end">
-                                                         <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ $item['uom'] ?? 'EA' }}</span></div>
+                                                         <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ $item['uom'] ?? '-' }}</span></div>
                                                          
                                                          {{-- Completed doesn't usually need edit, but keeping for consistency --}}
                                                          <button class="btn btn-sm btn-outline-info py-0 px-2 rounded-pill small fw-bold" disabled>
@@ -1675,7 +1675,7 @@
                         const itemKey = `${item.aufnr}_${item.vornr}`;
                         availableItemsMap[itemKey] = item;
                         
-                        let displayUom = (item.uom || 'EA').toUpperCase();
+                        let displayUom = (item.uom || '-').toUpperCase();
                         if (displayUom === 'ST') displayUom = 'PC';
 
                         html += `
