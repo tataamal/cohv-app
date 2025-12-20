@@ -273,6 +273,45 @@
                         </div> 
                         --}}
                     </div>
+                    
+                    {{-- ADVANCED SEARCH (MANUAL COLLAPSE) --}}
+                    <div class="mb-2">
+                        <button class="btn btn-sm btn-light w-100 border text-start text-secondary fw-bold d-flex align-items-center justify-content-between" 
+                                type="button" 
+                                onclick="toggleAdvancedSearch()"
+                                style="font-size: 0.8rem;">
+                            <span><i class="fa-solid fa-sliders me-2"></i> Advanced Search (Specific Fields)</span>
+                            <i class="fa-solid fa-chevron-down text-xs" id="advSearchIcon"></i>
+                        </button>
+                        
+                        <div class="d-none border-start border-end border-bottom rounded-bottom shadow-sm" id="advancedSearchCollapse">
+                            <div class="bg-white p-3">
+                                <div class="row g-2">
+                                    <div class="col-md-2">
+                                        <input type="text" id="advAufnr" class="form-control form-control-sm" placeholder="PRO (e.g. 100...)">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="text" id="advMatnr" class="form-control form-control-sm" placeholder="Material No">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" id="advMaktx" class="form-control form-control-sm" placeholder="Description">
+                                    </div>
+                                     <div class="col-md-2">
+                                        <input type="text" id="advArbpl" class="form-control form-control-sm" placeholder="Workcenter">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="text" id="advSo" class="form-control form-control-sm" placeholder="SO - Item">
+                                    </div>
+                                     <div class="col-md-1">
+                                        <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="clearAdvancedSearch()" title="Reset Filters"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-muted mt-2 fst-italic">
+                                    <i class="fa-solid fa-circle-info me-1"></i> Gunakan ini untuk pencarian spesifik per kolom. Pencarian utama diatas akan diabaikan jika kolom ini terisi.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="table-scroll-area custom-scrollbar" style="max-height: 700px; overflow-y: auto;">
                         <table class="table table-hover table-striped source-table mb-0 w-100" style="font-size: 0.8rem;">
                             <thead class="bg-light sticky-top" style="z-index: 5;">
@@ -1704,6 +1743,7 @@
                 let isLoading = false;
                 let currentSearch = '';
 
+                // Main Search Listener
                 searchInput.addEventListener('keyup', function() {
                     clearTimeout(timeout);
                     timeout = setTimeout(() => {
@@ -1711,6 +1751,44 @@
                         resetAndFetch();
                     }, 500); 
                 });
+
+                // Advanced Search Listeners
+                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advSo'];
+                advIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) {
+                        el.addEventListener('keyup', function() {
+                            clearTimeout(timeout);
+                            timeout = setTimeout(() => {
+                                resetAndFetch();
+                            }, 500);
+                        });
+                    }
+                });
+
+                // Clear Function (Global)
+                window.clearAdvancedSearch = function() {
+                    advIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if(el) el.value = '';
+                    });
+                    resetAndFetch();
+                };
+
+                // Toggle Function (Global)
+                window.toggleAdvancedSearch = function() {
+                    const box = document.getElementById('advancedSearchCollapse');
+                    const icon = document.getElementById('advSearchIcon');
+                    if(box) {
+                        if(box.classList.contains('d-none')) {
+                            box.classList.remove('d-none');
+                            if(icon) icon.className = "fa-solid fa-chevron-up text-xs";
+                        } else {
+                            box.classList.add('d-none');
+                            if(icon) icon.className = "fa-solid fa-chevron-down text-xs";
+                        }
+                    }
+                };
 
                 scrollArea.addEventListener('scroll', function() {
                     if (isLoading || !nextPage) return;
@@ -1728,6 +1806,10 @@
                     spinner.classList.remove('d-none');
                     endOfData.classList.add('d-none');
                     
+                    // Main search value might be updated by keyup listener above,
+                    // but let's grab it fresh to be sure if called from elsewhere
+                    currentSearch = searchInput.value; 
+                    
                     fetchData(1, currentSearch, true);
                 }
 
@@ -1740,8 +1822,20 @@
                 function fetchData(page, search, isReset) {
                     const url = new URL(window.location.href);
                     url.searchParams.set('page', page);
+                    
+                    // Main Search
                     if(search) url.searchParams.set('search', search);
                     else url.searchParams.delete('search');
+
+                    // Advanced Search Params
+                    advIds.forEach(id => {
+                        const val = document.getElementById(id)?.value?.trim();
+                        // ID: advAufnr -> Param: adv_aufnr
+                        const key = id.replace(/([A-Z])/g, '_$1').toLowerCase(); 
+                        
+                        if(val) url.searchParams.set(key, val);
+                        else url.searchParams.delete(key);
+                    });
 
                     fetch(url, {
                         headers: {
@@ -1762,6 +1856,15 @@
                             endOfData.classList.remove('d-none');
                         }
 
+                        // [UPDATED] Auto-Check if Global Select All is Active
+                        if(window.isSelectAllActive) {
+                             const newRows = tbody.querySelectorAll('.row-checkbox:not(:checked)');
+                             newRows.forEach(cb => {
+                                 cb.checked = true;
+                                 cb.closest('tr').classList.add('selected-row');
+                             });
+                        }
+
                         
                     })
                     .catch(e => console.error('Load Error:', e))
@@ -1772,9 +1875,16 @@
                 }
             }
 
+            window.isSelectAllActive = false; // Global Flag
+
             function setupCheckboxes() {
                 const selectAll = document.getElementById('selectAll');
+                const selectedCountMsg = document.getElementById('selectedCountMsg'); // If exists in UI
+
                 selectAll.addEventListener('change', function() {
+                    window.isSelectAllActive = this.checked;
+                    
+                    // 1. Visually check/uncheck loaded rows
                     const visibleRows = Array.from(document.querySelectorAll('#source-list tr.draggable-item')).filter(r => r.style.display !== 'none');
                     visibleRows.forEach(row => {
                         const cb = row.querySelector('.row-checkbox');
@@ -1783,11 +1893,29 @@
                             this.checked ? row.classList.add('selected-row') : row.classList.remove('selected-row');
                         }
                     });
+                    
+                    // 2. Feedback (Optional)
+                    if(window.isSelectAllActive) {
+                        // We don't know total count easily here without API call, 
+                        // but we can say "All items selected".
+                        console.log("Global Select All Active");
+                    }
                 });
+
                 document.getElementById('source-list').addEventListener('change', (e) => {
                     if (e.target.classList.contains('row-checkbox')) {
                         const row = e.target.closest('tr');
                         e.target.checked ? row.classList.add('selected-row') : row.classList.remove('selected-row');
+                        
+                        // If user unchecks one, Global Select All is broken
+                        if(!e.target.checked && window.isSelectAllActive) {
+                             window.isSelectAllActive = false;
+                             selectAll.checked = false;
+                        }
+                        
+                        // If all loaded are checked, should we check SelectAll? 
+                        // No, because we don't know if unloading/next pages are matches. 
+                        // Keep simple: Manual Select All = Global. Manual Uncheck = Not Global.
                     }
                 });
             }
@@ -2142,7 +2270,53 @@
             }
             // 1. Tombol "Change WC" diklik
             function requestChangeWc() {
-                // Cek item yang dicentang di tabel sumber
+                // [UPDATED] Logic for Global Select All
+                if (window.isSelectAllActive) {
+                    // Fetch ALL IDs from Backend
+                    const currentSearch = document.getElementById('searchInput').value; 
+                    const currentFilter = new URLSearchParams(window.location.search).get('filter') || 'all'; // Get filter from URL/Global
+                    
+                    // Advanced Search Params
+                    const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advSo'];
+                    let advQuery = '';
+                    advIds.forEach(id => {
+                        const val = document.getElementById(id)?.value?.trim();
+                        if(val) {
+                            const key = id.replace(/([A-Z])/g, '_$1').toLowerCase(); 
+                            advQuery += `&${key}=${encodeURIComponent(val)}`;
+                        }
+                    });
+
+                    Swal.fire({
+                        title: 'Memuat Semua Data...',
+                        text: 'Mengambil semua data untuk perubahan massal...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    fetch(`{{ route('wi.fetch-all-ids', $kode) }}?search=${encodeURIComponent(currentSearch)}&filter=${currentFilter}${advQuery}`)
+                    .then(res => res.json())
+                    .then(res => {
+                        if(!res.success) throw new Error("Gagal mengambil data.");
+                        
+                        const allData = res.data; // [{proCode, oper, pwwrk}, ...]
+                        
+                        window.selectedProsForChange = allData;
+                        document.getElementById('selectedCountMsg').innerText = `${allData.length} PRO terpilih (Semua).`;
+                        
+                        Swal.close();
+                        const modal = new bootstrap.Modal(document.getElementById('changeWcModal'));
+                        modal.show();
+                    })
+                    .catch(e => {
+                        console.error(e);
+                        Swal.fire('Error', 'Gagal memuat semua data.', 'error');
+                    });
+
+                    return;
+                }
+
+                // Cek item yang dicentang di tabel sumber (Existing Logic)
                 const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
                 if (checkboxes.length === 0) {
                     Swal.fire('Info', 'Pilih setidaknya satu PRO dari tabel kiri.', 'info');

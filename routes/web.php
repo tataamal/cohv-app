@@ -122,6 +122,7 @@ Route::middleware('auth')->group(function (){
     Route::post('/work-instruction/add-item', [CreateWiController::class, 'addItem'])->name('wi.add-item');
     Route::post('/work-instruction/add-item-batch', [CreateWiController::class, 'addItemBatch'])->name('wi.add-item-batch');
     Route::post('/work-instruction/remove-item', [CreateWiController::class, 'removeItem'])->name('wi.remove-item');
+    Route::get('/work-instruction/fetch-all-ids/{kode}', [CreateWiController::class, 'fetchAllIds'])->name('wi.fetch-all-ids');
     
     // Outstanding Reservasi Route
     // Route::get('/outstanding-reservasi/{kode}', [OutstandingReservasiController::class, 'index'])->name('outstanding.reservasi');

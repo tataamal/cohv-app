@@ -259,7 +259,7 @@
                     </div>
                 </div>
             </form>
-        </div>
+    </div>
 
         <div class="row g-5">
             {{-- TABS NAVIGATION --}}
@@ -355,10 +355,10 @@
                                                         onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'active')">
                                                         <i class="fa-solid fa-print me-1"></i> Cetak
                                                     </button>
-                                                    <!-- <button class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
+                                                    <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
                                                         onclick="openAddItemModal('{{ $document->wi_document_code }}', '{{ $document->workcenter_code }}')">
                                                         <i class="fa-solid fa-plus me-1"></i> Tambah Item
-                                                    </button> -->
+                                                    </button>
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-light text-dark border">{{ $docItemsCount }} PRO</span>
@@ -383,7 +383,7 @@
                                     {{-- Capacity Bar --}}
                                     <div class="mb-3">
                                         <div class="d-flex justify-content-between text-xs fw-bold text-muted mb-1">
-                                            <span>KAPASITAS WORKCENTER</span>
+                                            <span>KAPASITAS KERJA HARIAN</span>
                                             <span>{{ number_format($usedMins, 0) }} / {{ number_format($maxMins, 0) }} Min</span>
                                         </div>
                                         <div class="progress bg-secondary bg-opacity-10" style="height: 6px;">

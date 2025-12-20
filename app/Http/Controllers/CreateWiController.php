@@ -53,57 +53,8 @@ class CreateWiController extends Controller
         } catch (\Exception $e) {
             Log::error('Koneksi API NIK Error: ' . $e->getMessage());
         }
-        $search = $request->query('search'); // Add search param
-        
-        $tData1 = ProductionTData1::where('WERKSX', $kode)
-            // Fix: Cast string numbers to DECIMAL to ensure "100" > "12" is TRUE (String "100" < "12" is default DB behavior if VARCHAR)
-            ->whereRaw('CAST(MGVRG2 AS DECIMAL(20,3)) > CAST(COALESCE(LMNGA, 0) AS DECIMAL(20,3))')
-            ->where(function ($query) {
-                $query->where('STATS', 'LIKE', '%REL%')
-                      ->orWhere('STATS', 'LIKE', '%PCNF%');
-            });
-
-        if ($search) {
-            // Check for quotes (Exact Match Mode)
-            if (preg_match('/^"(.*)"$/', trim($search), $matches)) {
-                $term = $matches[1];
-                $tData1->where(function($q) use ($term) {
-                    $q->where('AUFNR', '=', $term)
-                      ->orWhere('MATNR', '=', $term)
-                      ->orWhere('MAKTX', '=', $term) // Exact match for description might be rare, but consistent
-                      ->orWhere('KDAUF', '=', $term)
-                      ->orWhere('KDPOS', '=', $term) // KDPOS is often short like "10" or "000010"
-                      ->orWhere('ARBPL', '=', $term)
-                      ->orWhere('STEUS', '=', $term)
-                      ->orWhere('VORNR', '=', $term);
-                });
-            } else {
-                // NORMAL MODE: Split by space, comma, or newline
-                $terms = preg_split('/[\s,]+/', $search, -1, PREG_SPLIT_NO_EMPTY);
-                
-                $tData1->where(function($q) use ($terms) {
-                    foreach ($terms as $term) {
-                        $q->orWhere(function($subQ) use ($term) {
-                            $subQ->where('AUFNR', 'like', "%{$term}%")
-                                 // ->orWhere('MATNR', 'like', "%{$term}%") // MATNR exact match inside wildcards is slow? No, standard.
-                                 ->orWhere('MATNR', 'like', "%{$term}%")
-                                 ->orWhere('MAKTX', 'like', "%{$term}%")
-                                 ->orWhere('KDAUF', 'like', "%{$term}%")
-                                 ->orWhere('KDPOS', 'like', "%{$term}%")
-                                 ->orWhere('ARBPL', 'like', "%{$term}%")
-                                 ->orWhere('STEUS', 'like', "%{$term}%")
-                                 ->orWhere('VORNR', 'like', "%{$term}%");
-                        });
-                    }
-                });
-            }
-        }
-
-        if ($filter === 'today') {
-            $tData1->whereDate('SSAVD', now());
-        } elseif ($filter === 'week') {
-            $tData1->whereBetween('SSAVD', [now()->startOfWeek(), now()->endOfWeek()]);
-        }
+        // --- REFACTORED QUERY USAGE ---
+        $tData1 = $this->_buildSourceQuery($request, $kode);
         $perPage = 30;
         $page = $request->input('page', 1);
         $tDataQuery = $tData1;
@@ -2007,5 +1958,131 @@ class CreateWiController extends Controller
             DB::rollBack();
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
+    }
+
+    // --- NEW METHOD: FETCH ALL IDs FOR SELECT ALL (GLOBAL) ---
+    public function fetchAllIds(Request $request, $kode)
+    {
+        // Reuse the exact same query builder
+        $query = $this->_buildSourceQuery($request, $kode);
+        
+        // Select minimal fields required for "selectedProsForChange"
+        // JS needs: proCode (AUFNR), oper (VORNR), pwwrk (WERKSX/PWWRK)
+        $results = $query->select(['id', 'AUFNR', 'VORNR', 'WERKSX', 'PWWRK', 'ARBPL', 'MGVRG2', 'LMNGA', 'VGE01', 'VGW01'])->get();
+
+        $assignedProQuantities = $this->getAssignedProQuantities($kode);
+        
+        $filtered = $results->map(function($item) use ($assignedProQuantities) {
+            $key = $item->AUFNR . '-' . ($item->VORNR ?? '');
+            
+            $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
+            $qtyAllocatedInWi = $assignedProQuantities[$key] ?? 0;
+            $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
+            
+            return [
+                'proCode' => $item->AUFNR,
+                'oper'    => $item->VORNR,
+                'pwwrk'   => $item->PWWRK ?? $item->WERKSX,
+                'real_sisa' => $qtySisaAkhir
+            ];
+        })->filter(function($row) {
+            return $row['real_sisa'] > 0.001;
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $filtered
+        ]);
+    }
+
+    // --- PRIVATE QUERY BUILDER ---
+    private function _buildSourceQuery(Request $request, $kode)
+    {
+        $search = $request->query('search');
+        $filter = $request->query('filter', 'all');
+        
+        $query = ProductionTData1::where('WERKSX', $kode)
+            ->whereRaw('CAST(MGVRG2 AS DECIMAL(20,3)) > CAST(COALESCE(LMNGA, 0) AS DECIMAL(20,3))')
+            ->where(function ($q) {
+                $q->where('STATS', 'LIKE', '%REL%')
+                  ->orWhere('STATS', 'LIKE', '%PCNF%');
+            });
+
+        if ($search) {
+            if (preg_match('/^"(.*)"$/', trim($search), $matches)) {
+                $term = $matches[1];
+                $query->where(function($q) use ($term) {
+                    $q->where('AUFNR', '=', $term)
+                      ->orWhere('MATNR', '=', $term)
+                      ->orWhere('MAKTX', '=', $term)
+                      ->orWhere('KDAUF', '=', $term)
+                      ->orWhere('KDPOS', '=', $term)
+                      ->orWhere('ARBPL', '=', $term)
+                      ->orWhere('STEUS', '=', $term)
+                      ->orWhere('VORNR', '=', $term);
+                });
+            } else {
+                $terms = preg_split('/[\s,]+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+                $query->where(function($q) use ($terms) {
+                    foreach ($terms as $term) {
+                        $q->orWhere(function($subQ) use ($term) {
+                            $subQ->where('AUFNR', 'like', "%{$term}%")
+                                 ->orWhere('MATNR', 'like', "%{$term}%")
+                                 ->orWhere('MAKTX', 'like', "%{$term}%")
+                                 ->orWhere('KDAUF', 'like', "%{$term}%")
+                                 ->orWhere('KDPOS', 'like', "%{$term}%")
+                                 ->orWhere('ARBPL', 'like', "%{$term}%")
+                                 ->orWhere('STEUS', 'like', "%{$term}%")
+                                 ->orWhere('VORNR', 'like', "%{$term}%");
+                        });
+                    }
+                });
+            }
+        }
+
+        // Advanced Search
+        if ($request->has('adv_aufnr') && $request->adv_aufnr) {
+            $query->where('AUFNR', 'like', '%' . $request->adv_aufnr . '%');
+        }
+        if ($request->has('adv_matnr') && $request->adv_matnr) {
+            $query->where('MATNR', 'like', '%' . $request->adv_matnr . '%');
+        }
+        if ($request->has('adv_maktx') && $request->adv_maktx) {
+            $query->where('MAKTX', 'like', '%' . $request->adv_maktx . '%');
+        }
+        if ($request->has('adv_arbpl') && $request->adv_arbpl) {
+            $query->where('ARBPL', 'like', '%' . $request->adv_arbpl . '%');
+        }
+        if ($request->has('adv_so') && $request->adv_so) {
+            $rawSo = trim($request->adv_so);
+            // Handle "SO - Item" format
+            if (str_contains($rawSo, '-')) {
+                $parts = explode('-', $rawSo, 2); 
+                $soPart = trim($parts[0]);
+                $itemPart = trim($parts[1]);
+                $query->where(function($q) use ($soPart, $itemPart) {
+                     // If both parts exist, search both
+                     if($soPart) $q->where('KDAUF', 'like', '%' . $soPart . '%');
+                     if($itemPart) $q->where('KDPOS', 'like', '%' . $itemPart . '%');
+                });
+            } else {
+                // If no hyphen, search KDAUF normally (or KDPOS? Let's stick to user request structure first, but allow flex)
+                $query->where(function($q) use ($rawSo) {
+                     $q->where('KDAUF', 'like', '%' . $rawSo . '%')
+                       ->orWhere('KDPOS', 'like', '%' . $rawSo . '%');
+                });
+            }
+        }
+        if ($request->has('adv_vornr') && $request->adv_vornr) {
+            $query->where('VORNR', 'like', '%' . $request->adv_vornr . '%');
+        }
+
+        if ($filter === 'today') {
+            $query->whereDate('SSAVD', now());
+        } elseif ($filter === 'week') {
+            $query->whereBetween('SSAVD', [now()->startOfWeek(), now()->endOfWeek()]);
+        }
+        
+        return $query;
     }
 }
