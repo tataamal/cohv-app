@@ -83,9 +83,9 @@ class SendLogHistoryEmail extends Command
                 $csvData = [];
 
                 foreach ($deptDocs as $doc) {
-                    if (empty($doc->payload_data)) continue;
-
-                    foreach ($doc->payload_data as $item) {
+                  $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
+                  if (!is_array($payload)) $payload = [];
+                  foreach ($payload as $item) {
                         $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                         $matnr = $item['material_number'] ?? '';
                         if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
@@ -182,7 +182,19 @@ class SendLogHistoryEmail extends Command
                      $totalRemarkQty = collect($csvData)->sum('remark_qty');
                      $totalFailed = $totalAssigned - $totalConfirmed; 
 
+                     $totalConfirmedPrice = collect($csvData)->sum('confirmed_price');
+                     $totalFailedPrice = collect($csvData)->sum('failed_price');
+
                      $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+
+                     // Use the currency from the first item (assuming same currency per department/report) 
+                     // or handle mixed currencies. For simplicity, we grab the first valid one.
+                     $firstCurrency = collect($csvData)->first()['currency'] ?? '';
+                     $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
+                     $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
+
+                     $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
+                     $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
 
                      $reportData = [
                         'items' => $csvData,
@@ -191,7 +203,9 @@ class SendLogHistoryEmail extends Command
                             'total_confirmed' => $totalConfirmed,
                             'total_failed' => $totalFailed,
                             'total_remark_qty' => $totalRemarkQty,
-                            'achievement_rate' => $achievement
+                            'achievement_rate' => $achievement,
+                            'total_price_ok' => $totalConfirmedPriceFmt,
+                            'total_price_fail' => $totalFailedPriceFmt
                         ],
                         'printedBy' => $printedBy ?? 'SYSTEM',
                         'department' => $department, 

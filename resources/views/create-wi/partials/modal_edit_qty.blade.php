@@ -39,7 +39,7 @@
                                     <label class="text-uppercase text-danger text-xs fw-bold mb-1 d-block">Max Qty</label>
                                     <div class="fs-5 fw-bold text-danger" id="displayMaxQty"></div>
                                     <input type="hidden" id="modalMaxQtyDisplay">
-                                    <small class="text-xs text-danger">Quantity WI</small>
+                                    <small class="text-xs text-danger">Total Order (MGVRG)</small>
                                 </div>
                             </div>
                         </div>
@@ -50,7 +50,7 @@
                                 <div class="card-body p-3">
                                     <label class="text-uppercase text-primary text-center text-xs fw-bold mb-1 d-block">New Qty</label>
                                     <div class="input-group input-group-sm">
-                                        <input type="number" step="0.001" name="new_qty" id="modalNewQty" class="form-control fw-bold border-0 p-0 fs-5 text-primary text-center" placeholder="0" required>
+                                        <input type="number" step="1" name="new_qty" id="modalNewQty" class="form-control fw-bold border-0 p-0 fs-5 text-primary text-center" placeholder="0" required>
                                     </div>
                                 </div>
                             </div>

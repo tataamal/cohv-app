@@ -91,27 +91,31 @@
 
         <table>
             <tr class="info-bar">
-                <td width="20%">BAGIAN: <span class="info-val fw-bold">{{ strtoupper($report['department']) }}</span></td>
-                <td width="20%">USER: <span class="info-val fw-bold">{{ strtoupper($report['printedBy']) }}</span></td>
-                <td width="20%">DATE: <span class="info-val">{{ $report['printDate'] }}</span></td>
-                <td width="25%">FILTER DATA YANG DIGUNAGAN: <span class="info-val" style="font-size: 6.5pt;">{{ $report['filterInfo'] }}</span></td>
-                <td width="15%" style="border-right: none;">TOTAL DOCS: <span class="info-val fw-bold">{{ collect($report['items'])->unique('doc_no')->count() }}</span></td>
+                <td width="25%">BAGIAN: <span class="info-val fw-bold">{{ strtoupper($report['department']) }}</span></td>
+                {{-- User Removed --}}
+                <td width="25%">PRINT DATE: <span class="info-val">{{ $report['printDate'] }}</span></td>
+                {{-- Filter Data Removed --}}
+                <td width="25%" style="border-right: none;">TOTAL DOCS: <span class="info-val fw-bold">{{ collect($report['items'])->unique('doc_no')->count() }}</span></td>
             </tr>
         </table>
 
         <table>
             <tr class="summary-header">
-                <td width="20%">Quantity WI</td>
-                <td width="20%">Quantity Terkonfirmasi</td>
-                <td width="20%">Quantity Remark</td>
-                <td width="20%">Quantity Tidak Terkonfirmasi</td>
+                <td width="16%">Quantity WI</td>
+                <td width="16%">Quantity Terkonfirmasi</td>
+                {{-- Quantity Remark Removed --}}
+                <td width="16%">Quantity Tidak Terkonfirmasi</td>
+                <td width="16%">Total Price OK</td>
+                <td width="16%">Total Price Fail</td>
                 <td width="20%">Rata-rata Keberhasilan</td>
             </tr>
             <tr class="summary-values">
                 <td>{{ number_format($report['summary']['total_assigned'], 0) }}</td>
                 <td class="text-success">{{ number_format($report['summary']['total_confirmed'], 0) }}</td>
-                <td class="text-warning">{{ number_format($report['summary']['total_remark_qty'] ?? 0, 0) }}</td>
+                {{-- Value Removed --}}
                 <td class="text-danger">{{ number_format($report['summary']['total_failed'], 0) }}</td>
+                <td class="text-success" style="font-size: 8pt;">{{ $report['summary']['total_price_ok'] }}</td>
+                <td class="text-danger" style="font-size: 8pt;">{{ $report['summary']['total_price_fail'] }}</td>
                 <td>{{ $report['summary']['achievement_rate'] }}</td>
             </tr>
         </table>
@@ -121,16 +125,16 @@
                 <tr class="data-header">
                     <th width="3%">NO</th>
                     <th width="8%">PRO</th>
-                    <th width="10%">OPERATOR</th>
+                    {{-- Operator Removed --}}
                     <th width="8%">BUYER</th>
                     <th width="6%">WC</th>
                     <th width="8%">MAT</th>
-                    <th width="16%">DESKRIPSI</th>
+                    <th width="20%">DESKRIPSI</th>
                     <th width="4%">WI</th>
                     <th width="4%">CONF</th>
-                    <th width="6%">PRICE (OK)</th>
-                    <th width="6%">PRICE (FAIL)</th>
-                    <th width="12%">REMARK</th>
+                    <th width="8%">PRICE (OK)</th>
+                    <th width="8%">PRICE (FAIL)</th>
+                    {{-- Remark Removed --}}
                     <th width="6%">STATUS</th>
                 </tr>
             </thead>
@@ -140,16 +144,16 @@
                 <tr class="data-row">
                     <td class="text-center">{{ $no++ }}</td>
                     <td class="fw-bold">{{ $row['aufnr'] }}</td>
-                    <td class="text-center" style="font-size: 6.5pt;">{{ $row['nik'] }} <br> {{ $row['name'] ?? '-' }}</td>
+                    {{-- Operator Removed --}}
                     <td class="text-center">{{ $row['buyer'] ?? '-' }}</td>
                     <td class="text-center">{{ $row['workcenter'] }}</td>
                     <td class="text-center">{{ $row['material'] }}</td>
                     <td class="text-center">{{ $row['description'] }}</td>
                     <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                     <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
-                    <td class="text-center text-success" style="font-size: 5.5pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
-                    <td class="text-center text-danger" style="font-size: 5.5pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
-                    <td class="text-danger" style="font-size: 6pt;">{!! nl2br(e($row['remark_text'] ?? '-')) !!}</td>
+                    <td class="text-center text-success" style="font-size: 6pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
+                    <td class="text-center text-danger" style="font-size: 6pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
+                    {{-- Remark Removed --}}
                     <td class="text-center" style="font-size: 6.5pt;">
                         <span class="{{ $row['status'] == 'COMPLETED' ? 'text-success' : ($row['status'] == 'NOT COMPLETED WITH REMARK' ? 'text-warning' : ($row['status'] == 'ACTIVE' ? '' : 'text-danger')) }}">
                             {{ $row['status'] }}

@@ -626,23 +626,51 @@ class CreateWiController extends Controller
         });
         
         // Loop and Categorize
-        foreach ($wiDocuments as $doc) {
-            $now = Carbon::now();
-            $expiredAt = $doc->expired_at; 
-            
-            if ($expiredAt) {
-                $expirationTime = Carbon::parse($expiredAt); 
-                $doc->is_expired = $now->greaterThan($expirationTime);
-            } else {
-                try {
-                    $effectiveStart = Carbon::parse($doc->document_date . ' ' . $doc->document_time);
-                    $expirationTime = $effectiveStart->copy()->addHours(12);
-                    $doc->is_expired = $now->greaterThan($expirationTime);
-                } catch (\Exception $e) {
-                    $doc->is_expired = true;
-                }
-            }
+        // --- PASS 1: Calculate Concurrent Usage for Active/Inactive Docs ---
+        $concurrentUsageMap = [];
+        $today = Carbon::today();
+        $now = Carbon::now(); // Move outside loop for consistent time
 
+        foreach ($wiDocuments as $doc) {
+            // Determine Status for Calculation
+            try {
+                $chkDate = Carbon::parse($doc->document_date)->startOfDay();
+                $expiredAt = $doc->expired_at;
+                
+                // Calculate Expiry Logic (Same as main loop)
+                $isExpired = false;
+                if ($expiredAt) {
+                     $expirationTime = Carbon::parse($expiredAt);
+                     $isExpired = $now->greaterThan($expirationTime);
+                } else {
+                     $effStart = Carbon::parse($doc->document_date . ' ' . $doc->document_time);
+                     $expirationTime = $effStart->copy()->addHours(12);
+                     $isExpired = $now->greaterThan($expirationTime);
+                }
+                
+                // Store on doc for Pass 2 usage
+                $doc->is_expired = $isExpired;
+
+                // We include Active (Today) and Inactive (Future) that are NOT expired
+                if (!$isExpired && $chkDate->greaterThanOrEqualTo($today)) {
+                     $rawPl = $doc->payload_data;
+                     $plItems = is_string($rawPl) ? json_decode($rawPl, true) : (is_array($rawPl) ? $rawPl : []);
+                     
+                     if (is_array($plItems)) {
+                         foreach ($plItems as $plItem) {
+                             $k = ($plItem['aufnr'] ?? '-') . '_' . ($plItem['vornr'] ?? '-');
+                             if (!isset($concurrentUsageMap[$k])) $concurrentUsageMap[$k] = 0;
+                             
+                             // Sum Assigned Qty
+                             $q = floatval(str_replace(',', '.', $plItem['assigned_qty'] ?? 0));
+                             $concurrentUsageMap[$k] += $q;
+                         }
+                     }
+                }
+            } catch (\Exception $e) { /* Ignore parsing errors */ }
+        }
+
+        foreach ($wiDocuments as $doc) {
             $docDate = Carbon::parse($doc->document_date)->startOfDay();
             $today = Carbon::today();
 
@@ -675,7 +703,36 @@ class CreateWiController extends Controller
                 $summary['total_items']++;
                 $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
                 $confirmedQty = floatval(str_replace(',', '.', $item['confirmed_qty'] ?? 0));
-                $qtyOrderRaw = floatval(str_replace(',', '.', $item['qty_order'] ?? $assignedQty));
+                
+                // Always try to fetch fresh MGVRG2 from DB to ensure accuracy
+                $prodData = \App\Models\ProductionTData1::where('AUFNR', $item['aufnr'] ?? '')->first();
+                if (!$prodData) {
+                    $prodData = \App\Models\ProductionTData3::where('AUFNR', $item['aufnr'] ?? '')->first();
+                }
+
+                $fullOrderQty = $prodData ? floatval($prodData->MGVRG2) : (isset($item['qty_order']) ? floatval(str_replace(',', '.', $item['qty_order'])) : $assignedQty);
+                
+                // Concurrent Usage Deduction Logic
+                $key = ($item['aufnr'] ?? '-') . '_' . ($item['vornr'] ?? '-');
+                $totalConcurrentUsage = $concurrentUsageMap[$key] ?? 0;
+                
+                // If this document IS part of the concurrent usage (Active/Inactive), we subtract its own assigned qty
+                // to find what *others* are using.
+                // We check if this doc contributed to the map:
+                $chkDate = Carbon::parse($doc->document_date)->startOfDay();
+                $isUsedInMap = !$doc->is_expired && $chkDate->greaterThanOrEqualTo($today);
+                
+                if ($isUsedInMap) {
+                    $usageByOthers = max(0, $totalConcurrentUsage - $assignedQty);
+                } else {
+                    $usageByOthers = $totalConcurrentUsage;
+                }
+                
+                $effectiveMax = max(0, $fullOrderQty - $usageByOthers);
+                
+                // Set qty_order to effective max for Edit Limit
+                $qtyOrderRaw = $effectiveMax;
+
                 $takTime = floatval(str_replace(',', '.', $item['calculated_tak_time'] ?? 0));
                 $summary['total_load_mins'] += $takTime;
                 $progressPct = $assignedQty > 0 ? ($confirmedQty / $assignedQty) * 100 : 0;
@@ -883,281 +940,49 @@ class CreateWiController extends Controller
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
-    public function previewLog(Request $request, $plantCode)
-    {
-        $date = $request->input('filter_date');
-        $search = $request->input('filter_search');
-        $query = HistoryWi::where('plant_code', $plantCode);
 
-        if ($date) {
-            if (strpos($date, ' to ') !== false) {
-                $dates = explode(' to ', $date);
-                if (count($dates) == 2) {
-                    $query->whereBetween('document_date', [$dates[0], $dates[1]]);
-                } else {
-                    $query->whereDate('document_date', $dates[0]);
-                }
-            } else {
-                $query->whereDate('document_date', $date);
-            }
-        }
-        if ($search) {
-            $query->where(function($q) use ($search) {
-                $q->where('wi_document_code', 'like', "%$search%") 
-                ->orWhere('payload_data', 'like', "%$search%"); 
-            });
-        }
-        // Limit preview to 50 rows to avoid heavy payload
-        $rawDocuments = $query->orderBy('created_at', 'desc')->take(50)->get();
-        $previewDataRaw = $this->_prepareLogData($rawDocuments);
-
-        $statusFilter = $request->input('filter_status');
-        
-        $previewData = array_values(array_filter($previewDataRaw, function($item) use ($statusFilter) {
-            if (in_array($item['status'], ['ACTIVE', 'INACTIVE'])) return false;
-            
-            if ($statusFilter) {
-                if ($statusFilter === 'NOT COMPLETED') { 
-                    if (!in_array($item['status'], ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) return false;
-
-                } elseif ($statusFilter === 'COMPLETED') {
-                     if ($item['status'] !== 'COMPLETED') return false;
-
-                } else {
-                    if ($item['status'] !== $statusFilter) return false;
-                }
-            }
-            return true;
-        }));
-
-        return response()->json([
-            'success' => true,
-            'data' => $previewData,
-            'count' => count($previewData),
-            'total_docs' => $query->count()
-        ]);
-    }
 
     public function emailLog(Request $request, $plantCode)
     {
-        $date = $request->input('filter_date');
-        $search = $request->input('filter_search');
-        
-        $query = HistoryWi::where('plant_code', $plantCode);
-        if ($date) {
-            if (strpos($date, ' to ') !== false) {
-                $dates = explode(' to ', $date);
-                if (count($dates) == 2) {
-                    $query->whereBetween('document_date', [$dates[0], $dates[1]]);
-                } else {
-                    $query->whereDate('document_date', $dates[0]);
-                }
-            } else {
-                $query->whereDate('document_date', $date);
-            }
-        }
-        if ($search) {
-            $query->where(function($q) use ($search) {
-                $q->where('wi_document_code', 'like', "%$search%") 
-                ->orWhere('payload_data', 'like', "%$search%"); 
-            });
-        }
-        $documents = $query->orderBy('created_at', 'desc')->get();
-        $csvDataRaw = $this->_prepareLogData($documents);
-
-        // Filter: Exclude 'Active' and 'Inactive' for the Report Log
-        // AND Apply User Selection Status
-        $statusFilter = $request->input('filter_status');
-
-        $csvData = array_values(array_filter($csvDataRaw, function($item) use ($statusFilter) {
-            // Level 1: Standard Exclusion for Log Report
-            if (in_array($item['status'], ['ACTIVE', 'INACTIVE'])) return false;
-            
-            // Level 2: User Select Filter
-            if ($statusFilter) {
-                if ($statusFilter === 'NOT COMPLETED') { 
-                    if (!in_array($item['status'], ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) return false;
-                } elseif ($statusFilter === 'COMPLETED') {
-                     if ($item['status'] !== 'COMPLETED') return false;
-                } else {
-                    if ($item['status'] !== $statusFilter) return false;
-                }
-            }
-            return true;
-        }));
-
-        if (empty($csvData)) {
-            if ($documents->isEmpty()) {
-                 return response()->json(['success' => false, 'message' => 'Tidak ada data history untuk diexport.']);
-            }
-        }
-
-        $filesToAttach = [];
         try {
+            // 1. Prepare Report Data (Shared Logic)
+            $data = $this->_generateReportData($request, $plantCode);
+
+            if (!$data['success']) {
+                return response()->json(['success' => false, 'message' => $data['message']]);
+            }
+
+            // 2. Generate PDF File
             $fileName = 'log_wi_' . now()->format('Ymd_His') . '.pdf';
             $filePath = storage_path('app/public/' . $fileName);
             
-            $printedBy = $request->input('printed_by') ?? session('username');
-            $department = $request->input('department') ?? '-';
-            
-            // Filter Info String
-            $filterInfo = [];
-            if($date) $filterInfo[] = "Date: " . $date;
-            if($search) $filterInfo[] = "Search: $search";
-            $filterString = empty($filterInfo) ? "All Data" : implode(', ', $filterInfo);
-
-            // Calculations for Summary
-            $totalAssigned = collect($csvData)->sum('assigned');
-            $totalConfirmed = collect($csvData)->sum('confirmed'); 
-            $totalFailed = $totalAssigned - $totalConfirmed;
-            $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
-            
-            // Prepare Data for View
-            $singleReport = [
-                'items' => $csvData,
-                'summary' => [
-                    'total_assigned' => $totalAssigned,
-                    'total_confirmed' => $totalConfirmed,
-                    'total_failed' => $totalFailed,
-                    'total_remark_qty' => collect($csvData)->sum('remark_qty'),
-                    'achievement_rate' => $achievement
-                ],
-                'printedBy' => $printedBy,
-                'department' => $department,
-                'printDate' => now()->format('d-M-Y H:i'),
-                'filterInfo' => $filterString
-            ];
-            
-            // Generate PDF
-            $pdf = Pdf::loadView('pdf.log_history', ['reports' => [$singleReport]])
+            $pdf = Pdf::loadView('pdf.log_history', ['reports' => [$data['report']]])
                     ->setPaper('a4', 'landscape');
-            
             $pdf->save($filePath);
-            $filesToAttach[] = $filePath;
+            
+            $filesToAttach = [$filePath];
 
-            // --- 3. Generate "Active Document" PDF (If requested/available) ---
-            // Requirement: "khusus untuk yang dikirmkan ke email tambahkan field buyer, price + currency nya juga"
-            // We need to fetch ACTIVE documents that match the current filter context or simply "today's active docs".
-            // "Active Document" usually means documents valid for TODAY.
-            // However, the email might be for a past date range report. 
-            // Usually attached active docs correspond to the report period or currently active.
-            // Let's assume currently Active ones or those in the filtered range that were active?
-            // "Active" is a status.
-            // The prompt says "dokumen aktif yang dikirimkan ke email...".
-            // I will assume it means "Generate a PDF for the documents that are considered ACTIVE".
-            // If the report is for a past date, there are NO active documents.
-            // BUT, maybe the user wants the detailed single-WI format for proper items in the log?
-            // "dokumen active" implies the status.
-            // I will query for: defined date (if single date) or Today.
-            
-            $now = Carbon::now();
-            $today = Carbon::today();
-            
-            // We'll use the filter date if provided, otherwise today.
-            // Actually, if filtering a range, "Active" defines a specific status (Today).
-            // Maybe we should just fetch "Active Tab" content?
-            // If I look at the 'history' method, Active documents are those where:
-            // $doc->document_date == Today AND Not Expired.
-            
-            // Let's stick to the filtered documents that satisfy 'Active' criteria?
-            // OR does the user want ALL technically 'Active' docs right now?
-            // "dokumen active yang dikirimkan ke email".
-            // I will assume it means "Generate a PDF for the documents that are considered ACTIVE".
-            // If the report is for a past date, there are NO active documents.
-            // BUT, maybe the user wants the detailed single-WI format for proper items in the log?
-            // "dokumen active" implies the status.
-            // I will query for: defined date (if single date) or Today.
-            
-            $targetDate = $date ? (strpos($date, ' to ') === false ? $date : null) : $today->format('Y-m-d');
-            
-            if ($targetDate) {
-                 $activeDocs = HistoryWi::where('plant_code', $plantCode)
-                                ->whereDate('document_date', $targetDate)
-                                ->get()
-                                ->filter(function($doc) use ($now) {
-                                    // Replicate is_expired logic
-                                    $expiredAt = $doc->expired_at; 
-                                    $isExpired = false;
-                                    if ($expiredAt) {
-                                        $isExpired = $now->greaterThan(Carbon::parse($expiredAt));
-                                    } else {
-                                        // Fallback
-                                        $effectiveStart = Carbon::parse($doc->document_date . ' ' . $doc->document_time);
-                                        $isExpired = $now->greaterThan($effectiveStart->copy()->addHours(12));
-                                    }
-                                    return !$isExpired;
-                                });
+            // 3. Optional: Active Documents Attachment Logic
+            $activeAttachment = $this->_generateActiveAttachment($request, $plantCode, $data['printedBy'], $data['department']);
+            if($activeAttachment) {
+                $filesToAttach[] = $activeAttachment;
+            }
+
+            // 4. Send Email
+            $recipientsRaw = $request->input('recipients'); 
+            // Handle both array and comma-separated string
+            if(is_string($recipientsRaw)) {
+                $recipients = array_filter(array_map('trim', explode(',', $recipientsRaw)));
             } else {
-                $activeDocs = collect(); // Range -> hard to define 'active'.
+                $recipients = $recipientsRaw;
             }
 
-            if ($activeDocs->isNotEmpty()) {
-                // Enrich Payload with Price/Buyer
-                foreach ($activeDocs as $doc) {
-                    $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
-                    if (!$payload) $payload = [];
-                    
-                    $updatedPayload = [];
-                    foreach ($payload as $item) {
-                        $aufnr = $item['aufnr'] ?? null;
-                        if ($aufnr) {
-                            // Fetch Info
-                            $prodData = ProductionTData1::where('AUFNR', $aufnr)->first();
-                            if ($prodData) {
-                                $item['buyer_sourced'] = $prodData->NAME1; // Buyer
-                                
-                                // Price Logic
-                                $price = $prodData->NETPR ?? 0;
-                                $currency = $prodData->WAERK ?? '';
-                                $fmtPrice = number_format((float)$price, (strtoupper($currency) === 'USD' ? 2 : 0), ',', '.');
-                                $item['price_sourced'] = $currency . ' ' . $fmtPrice; 
-                            } else {
-                                $item['buyer_sourced'] = '-';
-                                $item['price_sourced'] = '-';
-                            }
-                        }
-                        $updatedPayload[] = $item;
-                    }
-                    $doc->payload_data = $updatedPayload; // Temporary override for view
-                }
-
-                $activePdfName = 'Active_WI_' . now()->format('Ymd_His') . '.pdf';
-                $activePdfPath = storage_path('app/public/' . $activePdfName);
-
-                $activeData = [
-                    'documents' => $activeDocs,
-                    'printedBy' => $printedBy,
-                    'department' => $department,
-                    'isEmail' => true // FLAG for View
-                ];
-
-                $pdfActive = Pdf::loadView('pdf.wi_single_document', $activeData)
-                            ->setPaper('a4', 'landscape');
-                
-                $pdfActive->save($activePdfPath);
-                $filesToAttach[] = $activePdfPath;
-            }
-
-            // --- 4. Send Email ---
-            $recipients = $request->input('recipients');
-            if (empty($recipients) || !is_array($recipients)) {
-                // Fallback / Validation
+            if (empty($recipients)) {
                  return response()->json(['success' => false, 'message' => 'Tidak ada penerima email yang dipilih.']);
             }
 
-            if ($date) {
-                if (strpos($date, ' to ') !== false) {
-                    $parts = explode(' to ', $date);
-                    $start = Carbon::parse($parts[0])->format('d-m-Y');
-                    $end = isset($parts[1]) ? Carbon::parse($parts[1])->format('d-m-Y') : '';
-                    $dateInfo = "$start s/d $end";
-                } else {
-                    $dateInfo = Carbon::parse($date)->format('d-m-Y');
-                }
-            } else {
-                $dateInfo = 'All History';
-            }
-
+            $dateInfo = $data['filterInfoString'] ?? '-';
+            
             \Illuminate\Support\Facades\Mail::to($recipients)->send(new \App\Mail\LogHistoryMail($filesToAttach, $dateInfo));
             return response()->json(['success' => true, 'message' => 'Log berhasil diexport dan dikirim ke ' . count($recipients) . ' email.']);
 
@@ -1165,6 +990,204 @@ class CreateWiController extends Controller
             Log::error("Email Log Error: " . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Gagal mengirim email: ' . $e->getMessage()], 500);
         }
+    }
+
+    public function previewLog(Request $request, $plantCode)
+    {
+        $data = $this->_generateReportData($request, $plantCode);
+        
+        if (!$data['success']) {
+            return response($data['message'], 404);
+        }
+
+        $pdf = Pdf::loadView('pdf.log_history', ['reports' => [$data['report']]])
+                ->setPaper('a4', 'landscape');
+        
+        return $pdf->stream('preview_log.pdf');
+    }
+
+    private function _generateReportData(Request $request, $plantCode) {
+        $date = $request->input('filter_date');
+        $search = $request->input('filter_search');
+        
+        $query = HistoryWi::where('plant_code', $plantCode);
+        
+        $dateInfo = 'All History';
+        if ($date) {
+            if (strpos($date, ' to ') !== false) {
+                $dates = explode(' to ', $date);
+                if (count($dates) == 2) {
+                    $query->whereBetween('document_date', [$dates[0], $dates[1]]);
+                    
+                    $start = Carbon::parse($dates[0])->format('d-m-Y');
+                    $end = Carbon::parse($dates[1])->format('d-m-Y');
+                    $dateInfo = "$start s/d $end";
+                } else {
+                    $query->whereDate('document_date', $dates[0]);
+                    $dateInfo = Carbon::parse($dates[0])->format('d-m-Y');
+                }
+            } else {
+                $query->whereDate('document_date', $date);
+                $dateInfo = Carbon::parse($date)->format('d-m-Y');
+            }
+        }
+        if ($search) {
+             $query->where(function($q) use ($search) {
+                $q->where('wi_document_code', 'like', "%$search%") 
+                ->orWhere('payload_data', 'like', "%$search%"); 
+            });
+        }
+        $documents = $query->orderBy('created_at', 'desc')->get();
+        $csvDataRaw = $this->_prepareLogData($documents);
+
+        // Filter Logic
+        $statusFilter = $request->input('filter_status');
+        $csvData = array_values(array_filter($csvDataRaw, function($item) use ($statusFilter) {
+            if (in_array($item['status'], ['ACTIVE', 'INACTIVE'])) return false;
+            if ($statusFilter) {
+                if ($statusFilter === 'NOT COMPLETED') { 
+                    if (!in_array($item['status'], ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) return false;
+                } elseif ($statusFilter === 'COMPLETED') {
+                     if ($item['status'] !== 'COMPLETED') return false;
+                } else {
+                    if ($item['status'] !== $statusFilter) return false;
+                }
+            }
+            return true;
+        }));
+
+        if (empty($csvData) && $documents->isEmpty()) {
+             return ['success' => false, 'message' => 'Tidak ada data history.'];
+        }
+
+        $printedBy = $request->input('printed_by') ?? session('username');
+        $department = $request->input('department') ?? '-';
+        
+        $filterInfo = [];
+        if($date) $filterInfo[] = "Date: " . $date;
+        if($search) $filterInfo[] = "Search: $search";
+        $filterString = empty($filterInfo) ? "All Data" : implode(', ', $filterInfo);
+
+        $totalAssigned = collect($csvData)->sum('assigned');
+        $totalConfirmed = collect($csvData)->sum('confirmed'); 
+        $totalFailed = $totalAssigned - $totalConfirmed;
+        $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+        
+        // --- Calculate Total Prices ---
+        $totalPriceOk = 0;
+        $totalPriceFail = 0;
+        
+        $currency = 'IDR'; // Default
+        if(!empty($csvData)) {
+            foreach($csvData as $row) {
+                if(!empty($row['waerk'])) {
+                    $currency = $row['waerk'];
+                    break;
+                }
+            }
+        }
+        
+        foreach($csvData as $row) {
+            $netpr = $row['netpr'] ?? 0;
+            $conf = $row['confirmed'] ?? 0;
+            $rem = $row['remark_qty'] ?? 0;
+            $assign = $row['assigned'] ?? 0;
+            $bal = $assign - ($conf + $rem);
+            
+            $totalPriceOk += ($netpr * $conf);
+            $totalPriceFail += ($netpr * ($bal + $rem));
+        }
+
+        $isUsd = strtoupper($currency) === 'USD';
+        $prefix = $isUsd ? '$ ' : 'Rp ';
+        $decimals = $isUsd ? 2 : 0;
+        
+        $totalOkFmt = $prefix . number_format($totalPriceOk, $decimals, ',', '.');
+        $totalFailFmt = $prefix . number_format($totalPriceFail, $decimals, ',', '.');
+
+        $singleReport = [
+            'items' => $csvData,
+            'summary' => [
+                'total_assigned' => $totalAssigned,
+                'total_confirmed' => $totalConfirmed,
+                'total_failed' => $totalFailed,
+                'total_remark_qty' => collect($csvData)->sum('remark_qty'),
+                'achievement_rate' => $achievement,
+                'total_price_ok' => $totalOkFmt,     
+                'total_price_fail' => $totalFailFmt   
+            ],
+            'printedBy' => $printedBy,
+            'department' => $department,
+            'printDate' => now()->format('d-M-Y H:i'),
+            'filterInfo' => $filterString
+        ];
+
+        return [
+            'success' => true, 
+            'report' => $singleReport,
+            'printedBy' => $printedBy,
+            'department' => $department,
+            'filterInfoString' => $dateInfo
+        ];
+    }
+
+    private function _generateActiveAttachment($request, $plantCode, $printedBy, $department) {
+        $date = $request->input('filter_date');
+        $today = Carbon::today();
+        $targetDate = $date ? (strpos($date, ' to ') === false ? $date : null) : $today->format('Y-m-d');
+        
+        if (!$targetDate) return null;
+
+        $activeDocs = HistoryWi::where('plant_code', $plantCode)
+            ->whereDate('document_date', $targetDate)
+            ->get()
+            ->filter(function($doc) {
+                if ($doc->expired_at) return !now()->greaterThan(Carbon::parse($doc->expired_at));
+                return true; 
+            });
+
+        if ($activeDocs->isEmpty()) return null;
+
+        foreach ($activeDocs as $doc) {
+            $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
+            if (!$payload) $payload = [];
+            
+            $updatedPayload = [];
+            foreach ($payload as $item) {
+                $aufnr = $item['aufnr'] ?? null;
+                if ($aufnr) {
+                    $prodData = ProductionTData1::where('AUFNR', $aufnr)->first();
+                    if ($prodData) {
+                        $item['buyer_sourced'] = $prodData->NAME1; 
+                        $price = $prodData->NETPR ?? 0;
+                        $currency = $prodData->WAERK ?? '';
+                        $fmtPrice = number_format((float)$price, (strtoupper($currency) === 'USD' ? 2 : 0), ',', '.');
+                        $item['price_sourced'] = $currency . ' ' . $fmtPrice; 
+                    } else {
+                        $item['buyer_sourced'] = '-';
+                        $item['price_sourced'] = '-';
+                    }
+                }
+                $updatedPayload[] = $item;
+            }
+            $doc->payload_data = $updatedPayload;
+        }
+
+        $activePdfName = 'Active_WI_' . now()->format('Ymd_His') . '.pdf';
+        $activePdfPath = storage_path('app/public/' . $activePdfName);
+
+        $activeData = [
+            'documents' => $activeDocs,
+            'printedBy' => $printedBy,
+            'department' => $department,
+            'isEmail' => true
+        ];
+
+        $pdfActive = Pdf::loadView('pdf.wi_single_document', $activeData)
+                    ->setPaper('a4', 'landscape');
+        
+        $pdfActive->save($activePdfPath);
+        return $activePdfPath;
     }
 
     // Helper to format data

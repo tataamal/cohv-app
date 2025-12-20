@@ -1076,7 +1076,44 @@
             </div>
         </div>
     </div>
-    @push('scripts')
+    <!-- Email Log Modal -->
+<div class="modal fade" id="emailLogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-envelope me-2"></i>Kirim Email Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info border-0 shadow-sm mb-4">
+                    <i class="fa-solid fa-circle-info me-2"></i>
+                    Report akan mencakup data sesuai filter yang aktif (Tanggal & Pencarian).
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Penerima Email <span class="text-danger">*</span></label>
+                    <div class="form-text text-muted mb-2">Pisahkan dengan koma (,) untuk banyak email.</div>
+                    <textarea class="form-control font-monospace" id="emailRecipients" rows="4"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer bg-light justify-content-between">
+                <div>
+                     <button type="button" class="btn btn-outline-secondary" onclick="previewEmailLog()">
+                        <i class="fa-solid fa-eye me-1"></i> Preview PDF
+                     </button>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-dark" onclick="sendEmailLog()" id="btnSendEmailLog">
+                        <i class="fa-solid fa-paper-plane me-1"></i> Kirim Email
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
     <script>
         // --- 1. FILTER TANGGAL ---
         // Initialize Flatpickr Range
@@ -2109,13 +2146,11 @@
 
         // --- 4. GLOBAL OPEN MODAL ---
         window.openPrintModal = function(type) {
-            // Collecting IDs first
             let ids = [];
             if(type === 'active') {
                 document.querySelectorAll('.cb-active:checked').forEach(c => ids.push(c.value));
                 if(ids.length === 0) return Swal.fire('Pilih dokumen dulu');
                 
-                // Open Modal for Active Bulk
                 const modalEl = document.getElementById('universalPrintModal');
                 const inputCodes = document.getElementById('inputWiCodes');
                 inputCodes.value = ids.join(',');
@@ -2123,27 +2158,18 @@
                 new bootstrap.Modal(modalEl).show();
             } 
             else if (type === 'log') {
-               // Global Log Email Trigger
-               // Just ask for confirmation
-               Swal.fire({
-                   title: 'Kirim Email Log Harian?',
-                   text: 'Akan mengirim PDF Active & History ke Email list.',
-                   icon: 'question',
-                   showCancelButton: true,
-                   confirmButtonText: 'Kirim Sekarang'
-               }).then((res) => {
-                   if(res.isConfirmed) {
-                       // Ajax call
-                       fetch('{{ route("wi.email-log", ["kode" => $plantCode]) }}?filter_date={{ request("date") }}', {
-                           method: 'POST',
-                           headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}'}
-                       }).then(r => r.json()) // Assuming returns json or we handle text
-                       .then(d => Swal.fire('Terkirim', 'Email sedang diproses.', 'success'))
-                       .catch(e => Swal.fire('Error', 'Gagal kirim email.', 'error'));
+               // Open Email Log Modal
+               const modalEl = document.getElementById('emailLogModal');
+               if(modalEl) {
+                   const field = document.getElementById('emailRecipients');
+                   if(field && !field.value) {
+                       const defaults = @json($defaultRecipients ?? []);
+                       field.value = defaults.join(', ');
                    }
-               });
+                   new bootstrap.Modal(modalEl).show();
+               }
             }
-            else { // For expired, completed, inactive
+            else { 
                 let selector;
                 if (type === 'expired') selector = '.cb-expired:checked';
                 else if (type === 'completed') selector = '.cb-completed:checked';
@@ -2160,6 +2186,67 @@
                 const modal = new bootstrap.Modal(modalEl);
                 modal.show();
             }
+        };
+
+        window.previewEmailLog = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const date = urlParams.get('date') || '';
+            const search = urlParams.get('search') || '';
+            const status = urlParams.get('status') || '';
+            
+            const url = `{{ route('wi.preview-log', ['kode' => $plantCode]) }}?filter_date=${encodeURIComponent(date)}&filter_search=${encodeURIComponent(search)}&filter_status=${encodeURIComponent(status)}`;
+            window.open(url, '_blank');
+        };
+
+        window.sendEmailLog = function() {
+            const recipients = document.getElementById('emailRecipients').value;
+            if(!recipients.trim()) {
+                return Swal.fire('Error', 'Masukkan setidaknya satu email penerima.', 'error');
+            }
+
+            const btn = document.getElementById('btnSendEmailLog');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengirim...';
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const date = urlParams.get('date') || '';
+            const search = urlParams.get('search') || '';
+            const status = urlParams.get('status') || '';
+
+            fetch('{{ route("wi.email-log", ["kode" => $plantCode]) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    filter_date: date,
+                    filter_search: search,
+                    filter_status: status,
+                    recipients: recipients
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                
+                if(data.success) {
+                    Swal.fire('Berhasil', data.message, 'success');
+                    const modalEl = document.getElementById('emailLogModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if(modal) modal.hide();
+                } else {
+                    Swal.fire('Gagal', data.message, 'error');
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                console.error(err);
+                Swal.fire('Error', 'Terjadi kesalahan saat mengirim email.', 'error');
+            });
         };
 
         window.printSingle = function(ids) {
