@@ -672,7 +672,11 @@ class CreateWiController extends Controller
                     $prodData = ProductionTData3::where('AUFNR', $item['aufnr'] ?? '')->first();
                 }
 
-                $fullOrderQty = $prodData ? floatval($prodData->MGVRG2) : (isset($item['qty_order']) ? floatval(str_replace(',', '.', $item['qty_order'])) : $assignedQty);
+                // Calculate Base Remaining: MGVRG2 (Total) - LMNGA (Confirmed)
+                $sapTotal = $prodData ? floatval($prodData->MGVRG2) : (isset($item['qty_order']) ? floatval(str_replace(',', '.', $item['qty_order'])) : $assignedQty);
+                $sapConfirmed = $prodData ? floatval($prodData->LMNGA) : 0;
+                
+                $fullOrderQty = max(0, $sapTotal - $sapConfirmed);
                 
                 $key = ($item['aufnr'] ?? '-') . '_' . ($item['vornr'] ?? '-');
                 $totalConcurrentUsage = $concurrentUsageMap[$key] ?? 0;
@@ -713,7 +717,9 @@ class CreateWiController extends Controller
                     'status'        => $statusItem,
                     'item_mins'     => $takTime,
                     'remark'        => $item['remark'] ?? null,
-                    'remark_qty'    => $item['remark_qty'] ?? 0
+                    'remark_qty'    => $item['remark_qty'] ?? 0,
+                    'vgw01'         => $item['vgw01'] ?? 0,
+                    'vge01'         => $item['vge01'] ?? ''
                 ];
 
                 
@@ -832,45 +838,173 @@ class CreateWiController extends Controller
                 }
                 return floatval($string);
             };
-            foreach ($payload as &$item) {
-                if ($item['aufnr'] === $request->aufnr) {
-                $maxQty = $parseNumber($item['qty_order'] ?? 0);
-                $newQty = floatval($request->new_qty);
 
-                if ($maxQty > 0 && $newQty > $maxQty) {
-                    return back()->with('error', "Gagal! Quantity ($newQty) melebihi Order ($maxQty).");
-                }
-                $vgw01 = $parseNumber($item['vgw01'] ?? 0);
-                $unit = strtoupper($item['vge01'] ?? '');
-                if ($vgw01 == 0) {
-                    $oldTakTime = floatval($item['calculated_tak_time'] ?? 0);
-                    $oldQty = floatval($item['assigned_qty'] ?? 0);
-                    
-                    if ($oldQty > 0) {
-                        $vgw01 = $oldTakTime / $oldQty; 
-                        $unit = 'MIN'; 
-                    }
-                }
-
-                $totalRaw = $vgw01 * $newQty;
-                $newMinutes = 0;
-
-                if ($unit === 'S' || $unit === 'SEC') {
-                    $newMinutes = $totalRaw / 60;
-                } elseif ($unit === 'H' || $unit === 'HUR') {
-                    $newMinutes = $totalRaw * 60;
-                } else {
-                    $newMinutes = $totalRaw; 
-                }
-
-                $item['assigned_qty'] = $newQty;
-                $item['calculated_tak_time'] = number_format($newMinutes, 2, '.', '');
-                $item['vgw01'] = $vgw01; 
-                $item['vge01'] = $unit;
-                $updated = true;
-                $materialName = $item['material_desc'] ?? $item['aufnr'];
-                break; 
+            // --- Dynamic Max Qty Calculation Logic (Ported from History) ---
+            $targetAufnr = $request->aufnr;
+            
+            // 1. Fetch Production Data for Real Limits
+            $prodData = ProductionTData1::where('AUFNR', $targetAufnr)->first();
+            if (!$prodData) {
+                $prodData = ProductionTData3::where('AUFNR', $targetAufnr)->first();
             }
+            
+            // Calculate Base Remaining from SAP Data (Qty Opt - Confirmed)
+            // MGVRG2 = Total Order Qty
+            // LMNGA = Total Confirmed Qty
+            $sapTotal = $prodData ? floatval($prodData->MGVRG2) : 0;
+            $sapConfirmed = $prodData ? floatval($prodData->LMNGA) : 0;
+            
+            // Fallback to static if DB fetch fails (should not happen for valid items)
+            $dbMaxQty = $prodData ? max(0, $sapTotal - $sapConfirmed) : 0;
+
+            // 2. Calculate Concurrent Usage from OTHER active/inactive docs
+            $plantCode = $doc->plant_code;
+            $today = Carbon::today();
+            $now = Carbon::now();
+
+            $relatedDocs = HistoryWi::where('plant_code', $plantCode)
+                ->where('id', '!=', $doc->id) // Exclude current doc to avoid double counting static data
+                ->get();
+            
+            $otherUsage = 0;
+            
+            foreach ($relatedDocs as $rDoc) {
+                try {
+                    $chkDate = Carbon::parse($rDoc->document_date)->startOfDay();
+                    
+                    // Determine Expiration
+                    $isExpired = false;
+                    if ($rDoc->expired_at) {
+                         $isExpired = $now->greaterThan(Carbon::parse($rDoc->expired_at));
+                    } else {
+                         // Default 12h logic if field null
+                         $effStart = Carbon::parse($rDoc->document_date . ' ' . $rDoc->document_time);
+                         $isExpired = $now->greaterThan($effStart->addHours(12));
+                    }
+
+                    // Only count if Active or Inactive (Not Expired, Not Past)
+                    // Note: History logic counts: !$isExpired && $chkDate >= $today
+                    if (!$isExpired && $chkDate->greaterThanOrEqualTo($today)) {
+                        $rawPl = $rDoc->payload_data;
+                        $plItems = is_string($rawPl) ? json_decode($rawPl, true) : (is_array($rawPl) ? $rawPl : []);
+                        
+                        if (is_array($plItems)) {
+                            foreach ($plItems as $plItem) {
+                                // Match by AUFNR & VORNR (ignoring NIK for strict capacity)
+                                // If user wants per-item split, we match specific item. 
+                                // But usually max qty is per PRO.
+                                // Logic in history matches by "$item['aufnr'] . '_' . $item['vornr']"
+                                
+                                // Important: We need to match the VORNR of the *target* item being updated.
+                                // Since we haven't found the target item in the current payload loop yet, 
+                                // we'll do this calculation inside the loop once we have the target VORNR.
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {}
+            }
+            // --- End Setup ---
+            $targetNik = $request->nik;
+            $targetVornr = $request->vornr;
+            
+            foreach ($payload as &$item) {
+                // strict comparison for all 3 keys
+                $itemAufnr = $item['aufnr'] ?? '';
+                $itemNik = $item['nik'] ?? '';
+                $itemVornr = $item['vornr'] ?? '';
+
+                if ($itemAufnr === $request->aufnr && 
+                    $itemNik === $targetNik && 
+                    $itemVornr === $targetVornr
+                ) {
+                    // Refine "otherUsage" specifically for this Item's VORNR
+                    // We re-iterate relatedDocs logic briefly or just filter if we stored it properly.
+                    // To be efficient: we already fetched relatedDocs. Let's scan them now that we know the specific VORNR.
+                    
+                    $specificUsageByOthers = 0;
+                    if ($dbMaxQty > 0) {
+                        foreach ($relatedDocs as $rDoc) {
+                            try {
+                                $chkDate = Carbon::parse($rDoc->document_date)->startOfDay();
+                                $effDate = $rDoc->expired_at ? Carbon::parse($rDoc->expired_at) : Carbon::parse($rDoc->document_date . ' ' . $rDoc->document_time)->addHours(12);
+                                $isExp = $now->greaterThan($effDate);
+
+                                if (!$isExp && $chkDate->greaterThanOrEqualTo($today)) {
+                                    $rRaw = $rDoc->payload_data;
+                                    $rItems = is_string($rRaw) ? json_decode($rRaw, true) : (is_array($rRaw) ? $rRaw : []);
+                                    if (is_array($rItems)) {
+                                        foreach ($rItems as $rItem) {
+                                            $rAufnr = $rItem['aufnr'] ?? '';
+                                            $rVornr = $rItem['vornr'] ?? '';
+                                            if ($rAufnr === $targetAufnr && $rVornr === $targetVornr) {
+                                                 $q = floatval(str_replace(',', '.', $rItem['assigned_qty'] ?? 0));
+                                                 $specificUsageByOthers += $q;
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (\Exception $e) {}
+                        }
+                    }
+
+                    // Calculate Effective Max
+                    // Note: Current item's OLD quantity is NOT part of "Others", so we don't subtract it.
+                    // Effective Max = Global Max - Usage By OTHER Docs.
+                    // The valid limit for THIS item is Effective Max provided we start from 0.
+                    
+                    $effectiveMax = $dbMaxQty > 0 ? max(0, $dbMaxQty - $specificUsageByOthers) : $parseNumber($item['qty_order'] ?? 0);
+                    
+                    $newQty = floatval($request->new_qty);
+    
+                    if ($effectiveMax > 0 && $newQty > $effectiveMax) {
+                        Log::warning("Update Qty Failed: Exceeds Max. AUFNR: $request->aufnr, New: $newQty, Max: $effectiveMax (DB: $dbMaxQty, Used: $specificUsageByOthers)");
+                        return back()->with('error', "Gagal! Quantity ($newQty) melebihi Sisa Order ($effectiveMax).");
+                    }
+                    $vgw01 = $parseNumber($item['vgw01'] ?? 0);
+                    $unit = strtoupper($item['vge01'] ?? '');
+                    
+                    Log::info("Update Qty Calc: AUFNR: $request->aufnr, VGW01: $vgw01, Unit: $unit");
+    
+                    if ($vgw01 == 0) {
+                        $oldTakTime = floatval($item['calculated_tak_time'] ?? 0);
+                        $oldQty = floatval($item['assigned_qty'] ?? 0);
+                        
+                        if ($oldQty > 0) {
+                            $vgw01 = $oldTakTime / $oldQty; 
+                            $unit = 'MIN'; 
+                        }
+                    }
+    
+                    $totalRaw = $vgw01 * $newQty;
+                    $newMinutes = 0;
+    
+                    if ($unit === 'S' || $unit === 'SEC') {
+                        $newMinutes = $totalRaw / 60;
+                    } elseif ($unit === 'H' || $unit === 'HUR') {
+                        $newMinutes = $totalRaw * 60;
+                    } else {
+                        $newMinutes = $totalRaw; 
+                    }
+                    
+                    // Capacity Check on Server Side (570 Min)
+                    if ($newMinutes > 570) {
+                         Log::warning("Update Qty Failed: Exceeds Capacity. Total: $newMinutes");
+                         return back()->with('error', "Gagal! Kapasitas waktu ($newMinutes min) melebihi batas 570 menit.");
+                    }
+    
+                    $item['assigned_qty'] = $newQty;
+                    $item['calculated_tak_time'] = number_format($newMinutes, 2, '.', '');
+                    $item['vgw01'] = $vgw01; 
+                    $item['vge01'] = $unit;
+                    // Update stored Order Qty to be fresh for next time (optional but good)
+                    if ($dbMaxQty > 0) $item['qty_order'] = $effectiveMax; 
+
+                    $updated = true;
+                    $materialName = $item['material_desc'] ?? $item['aufnr'];
+                    
+                    Log::info("Update Qty Success: $materialName set to $newQty (Total: $newMinutes min)");
+                    break; 
+                }
             }
 
             if ($updated) {

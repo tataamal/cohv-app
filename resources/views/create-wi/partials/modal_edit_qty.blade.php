@@ -1,139 +1,114 @@
-{{-- MODAL EDIT QTY --}}
+{{-- MODAL EDIT QTY (INDUSTRIAL REDESIGN) --}}
 <div class="modal fade" id="editQtyModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-sm-custom" style="max-width: 400px;">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-            <div class="modal-header border-bottom-0 bg-primary text-white p-4">
-                <div class="d-flex flex-column w-100">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="bg-white bg-opacity-25 p-2 rounded-3 d-inline-flex">
-                            <i class="fa-solid fa-pen-to-square fa-lg"></i>
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+        <div class="modal-content border-0 shadow-lg rounded-0 overflow-hidden font-sans">
+            
+            {{-- INDUSTRIAL HEADER --}}
+            <div class="modal-header bg-dark text-white p-3 border-bottom border-dark border-opacity-50">
+                <div class="d-flex align-items-center w-100 justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-white bg-opacity-10 rounded-1 d-flex align-items-center justify-content-center border border-white border-opacity-10" style="width: 32px; height: 32px;">
+                            <i class="fa-solid fa-pen-to-square fa-sm"></i>
                         </div>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <div class="lh-1">
+                            <h6 class="modal-title font-monospace fw-bold text-uppercase mb-0 ls-1" style="font-size: 0.9rem;">UPDATE QUANTITY</h6>
+                            <span class="text-xs text-white-50 font-monospace" style="font-size: 0.65rem;">SYS.MOD.QTY.v2</span>
+                        </div>
                     </div>
-                    <h5 class="modal-title fw-bold">Perbarui Quantity</h5>
-                    <p class="mb-0 small text-white-50">Sesuaikan jumlah quantity WI untuk PRO ini.</p>
                 </div>
             </div>
             
             <form action="{{ route('history-wi.update-qty') }}" method="POST">
                 @csrf
-                <div class="modal-body p-4 bg-light">
+                <div class="modal-body p-0 bg-light">
                     <input type="hidden" name="wi_code" id="modalWiCode">
                     <input type="hidden" name="aufnr" id="modalAufnr">
+                    <input type="hidden" name="nik" id="modalNik">
+                    <input type="hidden" name="vornr" id="modalVornr">
 
-                    {{-- Card Material --}}
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-body p-3">
-                            <label class="text-uppercase text-muted text-xs fw-bold mb-1">Material</label>
-                            <input type="text" class="form-control-plaintext fw-bold text-dark p-0" id="modalDesc" readonly style="font-size: 0.95rem;">
-                             <label class="text-uppercase text-muted text-xs fw-bold mt-2 mb-0">PRO</label>
-                             <div class="fw-bold text-dark" id="displayAufnr"></div>
+                    {{-- TECHNICAL INFO PANEL --}}
+                    <div class="bg-white p-3 border-bottom">
+                        <div class="row g-0">
+                            <div class="col-12 mb-2">
+                                <label class="text-uppercase text-muted font-monospace fw-bold d-block mb-1" style="font-size: 0.65rem;">REFERENCE NO (PRO)</label>
+                                <div class="badge bg-light text-dark border rounded-0 font-monospace text-wrap text-start fs-6 px-2 py-1 w-100" id="displayAufnr">
+                                    -
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="text-uppercase text-muted font-monospace fw-bold d-block mb-1" style="font-size: 0.65rem;">MATERIAL DESCRIPTION</label>
+                                <div class="fw-bold text-dark text-truncate" id="modalDesc" style="font-size: 0.85rem;">-</div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="row g-2">
-                         {{-- Max Qty --}}
-                         <div class="col-6">
-                            <div class="card border-0 shadow-sm h-100">
-                                <div class="card-body p-3 text-center">
-                                    <label class="text-uppercase text-danger text-xs fw-bold mb-1 d-block">Max Qty</label>
-                                    <div class="fs-5 fw-bold text-danger" id="displayMaxQty"></div>
-                                    <input type="hidden" id="modalMaxQtyDisplay">
-                                    <small class="text-xs text-danger">Total Order (MGVRG)</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- New Qty --}}
-                         <div class="col-6">
-                            <div class="card border-primary shadow-sm h-100 bg-white">
-                                <div class="card-body p-3">
-                                    <label class="text-uppercase text-primary text-center text-xs fw-bold mb-1 d-block">New Qty</label>
-                                    <div class="input-group input-group-sm">
-                                        <input type="number" step="1" name="new_qty" id="modalNewQty" class="form-control fw-bold border-0 p-0 fs-5 text-primary text-center" placeholder="0" required>
+                    {{-- INPUT & LIMIT ZONE --}}
+                    <div class="p-3">
+                        <div class="row g-3 h-100">
+                            {{-- REAL LIMIT (GAUGE STYLE) --}}
+                            <div class="col-5">
+                                <div class="border border-danger border-opacity-25 bg-danger bg-opacity-10 p-2 text-center h-100 d-flex flex-column justify-content-center position-relative">
+                                    <div class="position-absolute top-0 start-0 p-1">
+                                        <i class="fa-solid fa-gauge-high text-danger opacity-50" style="font-size: 0.7rem;"></i>
                                     </div>
+                                    <label class="text-uppercase text-danger font-monospace fw-bold mb-0 mt-2" style="font-size: 0.65rem;">REAL LIMIT</label>
+                                    <div class="fs-3 fw-bold text-danger lh-1 my-1" id="displayMaxQty">0</div>
+                                    <input type="hidden" id="modalMaxQtyDisplay">
+                                    <span class="text-danger opacity-75 font-monospace" style="font-size: 0.65rem;">AVAILABLE</span>
+                                </div>
+                            </div>
+
+                            {{-- INPUT FIELD --}}
+                            <div class="col-7">
+                                <div class="border border-primary bg-white p-2 h-100 shadow-sm position-relative d-flex flex-column justify-content-between">
+                                    <label class="text-uppercase text-primary font-monospace fw-bold mb-1 d-block" style="font-size: 0.65rem;">NEW QUANTITY</label>
+                                    <input type="number" step="1" name="new_qty" id="modalNewQty" 
+                                           class="form-control form-control-lg border-0 fw-bold text-end pe-1 display-4 text-primary p-0 my-auto" 
+                                           style="font-size: 2.5rem;"
+                                           placeholder="0" required>
+                                    <div class="text-end text-muted font-monospace mt-1" style="font-size: 0.65rem;">UNIT: PC</div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                     <div class="form-text text-danger text-center small mt-2 d-none fw-bold" id="qtyErrorMsg">
-                        <i class="fa-solid fa-circle-exclamation me-1"></i> Cannot exceed Max Qty!
+
+                        {{-- CAPACITY BAR (PROGRESS) --}}
+                        <div class="mt-4">
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <label class="text-uppercase text-muted font-monospace fw-bold" style="font-size: 0.65rem;">LOAD CAPACITY</label>
+                                <span class="fw-bold font-monospace text-dark" id="capacityPercentText" style="font-size: 0.7rem;">0%</span>
+                            </div>
+                            <div class="progress rounded-0 bg-secondary bg-opacity-10" style="height: 8px;">
+                                <div id="capacityProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <span class="text-muted font-monospace" style="font-size: 0.65rem;">REQ: <span id="modalTotalTime" class="fw-bold text-dark">0</span> MIN</span>
+                                <span class="text-muted font-monospace" style="font-size: 0.65rem;">MAX: 570 MIN</span>
+                            </div>
+                            <input type="hidden" id="modalVgw01" value="0">
+                        </div>
+
+                        {{-- WARNING ALERT --}}
+                        <div class="alert alert-warning border-0 rounded-0 d-flex align-items-center p-2 mt-3 mb-0 d-none bg-warning bg-opacity-10" id="modalTimeWarning">
+                            <i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>
+                            <div class="lh-1">
+                                <span class="fw-bold text-dark font-monospace d-block" style="font-size: 0.7rem;">OVERLOAD WARNING</span>
+                                <span class="text-dark opacity-75" style="font-size: 0.65rem;">Max Capacity (570m) Exceeded. Auto-adjusted.</span>
+                            </div>
+                        </div>
+                         <div class="alert alert-danger border-0 rounded-0 d-flex align-items-center p-2 mt-3 mb-0 d-none bg-danger bg-opacity-10" id="qtyErrorMsg">
+                            <i class="fa-solid fa-circle-exclamation me-2 text-danger"></i> 
+                            <span class="text-danger fw-bold font-monospace" style="font-size: 0.7rem;">EXCEEDS REAL LIMIT!</span>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0 p-4 pt-0 bg-light">
-                    <div class="row w-100 m-0">
-                        <div class="col-6 ps-0">
-                             <button type="button" class="btn btn-light w-100 fw-bold rounded-pill text-muted" data-bs-dismiss="modal">Batal</button>
-                        </div>
-                        <div class="col-6 pe-0">
-                            <button type="submit" class="btn btn-primary w-100 fw-bold rounded-pill shadow-sm" id="btnSaveQty">
-                                Simpan Update
-                            </button>
-                        </div>
-                    </div>
+                
+                <div class="modal-footer border-top bg-white p-2 justify-content-between">
+                    <button type="button" class="btn btn-sm btn-link text-decoration-none text-muted font-monospace text-uppercase" data-bs-dismiss="modal" style="font-size: 0.75rem;">CANCEL</button>
+                    <button type="submit" class="btn btn-dark rounded-0 px-4 font-monospace fw-bold text-uppercase d-flex align-items-center" style="font-size: 0.8rem;">
+                        <i class="fa-solid fa-floppy-disk me-2"></i>SAVE UPDATE
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-
-{{-- SCRIPT PENDUKUNG MODAL --}}
-{{-- Kita letakkan script di sini atau di stack scripts utama, tapi agar modular bisa taruh sini --}}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const editModal = document.getElementById('editQtyModal');
-        if (editModal) {
-            editModal.addEventListener('show.bs.modal', event => {
-                // Tombol yang diklik
-                const button = event.relatedTarget;
-                
-                // Ambil data dari atribut data-*
-                const wiCode = button.getAttribute('data-wi-code');
-                const aufnr = button.getAttribute('data-aufnr');
-                const desc = button.getAttribute('data-desc');
-                const currentQty = button.getAttribute('data-current-qty');
-                const maxQty = button.getAttribute('data-max-qty');
-                const uom = button.getAttribute('data-uom');
-
-                // Isi ke dalam Modal
-                document.getElementById('modalWiCode').value = wiCode;
-                document.getElementById('modalAufnr').value = aufnr;
-                document.getElementById('modalDesc').value = desc;
-                document.getElementById('modalNewQty').value = currentQty;
-                document.getElementById('modalUom').innerText = uom;
-                
-                // Update New UI Fields
-                const dispAufnr = document.getElementById('displayAufnr');
-                if(dispAufnr) dispAufnr.innerText = aufnr;
-
-                const dispMax = document.getElementById('displayMaxQty');
-                if(dispMax) dispMax.innerText = maxQty;
-
-                // Setup Max Validation
-                document.getElementById('modalMaxQtyDisplay').value = maxQty;
-                
-                const inputQty = document.getElementById('modalNewQty');
-                const btnSave = document.getElementById('btnSaveQty');
-                const errorMsg = document.getElementById('qtyErrorMsg');
-                const maxVal = parseFloat(maxQty);
-
-                // Validasi Real-time saat mengetik
-                inputQty.oninput = function() {
-                    const val = parseFloat(this.value);
-                    if (val > maxVal) {
-                        this.classList.add('is-invalid');
-                        errorMsg.classList.remove('d-none');
-                        btnSave.disabled = true;
-                    } else {
-                        this.classList.remove('is-invalid');
-                        errorMsg.classList.add('d-none');
-                        btnSave.disabled = false;
-                    }
-                };
-                
-                // Trigger sekali di awal untuk reset state
-                inputQty.dispatchEvent(new Event('input'));
-            });
-        }
-    });
-</script>

@@ -418,7 +418,7 @@
                                                             <div class="d-flex gap-1 justify-content-end">
                                                                 @if(($item['confirmed_qty'] ?? 0) == 0)
                                                                     <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                            onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}')">
+                                                                            onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}', '{{ $item['vgw01'] ?? 0 }}', '{{ $item['vge01'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['vornr'] ?? '' }}')">
                                                                         <i class="fa-solid fa-pen-to-square"></i>
                                                                     </button>
                                                                     <!-- <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
@@ -602,7 +602,7 @@
                                                         <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
                                                                 <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}')">
+                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}', '{{ $item['vgw01'] ?? 0 }}', '{{ $item['vge01'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['vornr'] ?? '' }}')">
                                                                     <i class="fa-solid fa-pen-to-square"></i>
                                                                 </button>
                                                                 @if(($item['confirmed_qty'] ?? 0) <= 0)
@@ -2377,7 +2377,7 @@
 
         // --- 7. OPEN EDIT QTY MODAL ---
         // --- 7. OPEN EDIT QTY MODAL ---
-        window.openEditQtyModal = function(wiCode, aufnr, description, assignedQty, orderQty, uom) {
+        window.openEditQtyModal = function(wiCode, aufnr, description, assignedQty, orderQty, uom, vgw01, vge01, nik, vornr) {
             // Populate Modal Fields directly
             const inputWiCode = document.getElementById('modalWiCode');
             const inputAufnr = document.getElementById('modalAufnr');
@@ -2386,24 +2386,78 @@
             const displayMaxQtyDiv = document.getElementById('displayMaxQty');
             const inputMaxQtyHidden = document.getElementById('modalMaxQtyDisplay');
             const displayAufnrDiv = document.getElementById('displayAufnr');
-            const spanUom = document.getElementById('modalUom');
+            
+            // New Fields (Industrial Redesign)
+            const inputVgw01 = document.getElementById('modalVgw01');
+            const displayTotalTime = document.getElementById('modalTotalTime');
+            const warningAlert = document.getElementById('modalTimeWarning');
+            const progressBar = document.getElementById('capacityProgressBar');
+            const progressText = document.getElementById('capacityPercentText');
 
             if(inputWiCode) inputWiCode.value = wiCode;
             if(inputAufnr) inputAufnr.value = aufnr;
-            if(inputDesc) inputDesc.value = description;
+            if(inputDesc) inputDesc.innerText = description; // InnerText for Div
             if(displayAufnrDiv) displayAufnrDiv.innerText = aufnr;
             if(inputNewQty) inputNewQty.value = assignedQty;
             
-            // Format Max Qty
-            if(displayMaxQtyDiv) displayMaxQtyDiv.innerText = parseFloat(orderQty) + ' ' + uom;
+            // Format Max Qty (Just Number for Gauge)
+            if(displayMaxQtyDiv) displayMaxQtyDiv.innerText = parseFloat(orderQty);
             if(inputMaxQtyHidden) inputMaxQtyHidden.value = orderQty;
             
-            if(spanUom) spanUom.innerText = uom;
+            // Populate NIK & VORNR
+            if(document.getElementById('modalNik')) document.getElementById('modalNik').value = nik;
+            if(document.getElementById('modalVornr')) document.getElementById('modalVornr').value = vornr;
+            
+            // Store VGW01 & Calc Factor (to Mins)
+            let timeFactor = 1;
+            let rawVgw = parseFloat(vgw01) || 0;
+            if(vge01 && (vge01.toUpperCase() === 'S' || vge01.toUpperCase() === 'SEC')) {
+                timeFactor = 1/60;
+            }
+            if(inputVgw01) inputVgw01.value = rawVgw * timeFactor; // Store in Minutes directly
+            
+            // Function to Update Capacity UI
+            const updateCapacity = (qty) => {
+                const timePerUnit = parseFloat(inputVgw01.value) || 0;
+                const totalTime = qty * timePerUnit;
+                
+                if(displayTotalTime) {
+                    displayTotalTime.innerText = totalTime.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+                }
+
+                // Progress Bar Logic
+                const maxCap = 570;
+                let percent = (totalTime / maxCap) * 100;
+                if(percent > 100) percent = 100;
+
+                if(progressBar) {
+                    progressBar.style.width = percent + '%';
+                    progressBar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
+                    
+                    if(percent < 75) progressBar.classList.add('bg-success');
+                    else if(percent < 90) progressBar.classList.add('bg-warning');
+                    else progressBar.classList.add('bg-danger');
+                }
+                if(progressText) progressText.innerText = Math.round(percent) + '%';
+                
+                // Warning Alert
+                if(totalTime > 570) {
+                     if(warningAlert) warningAlert.classList.remove('d-none');
+                     // Cap input logic is handled in oninput event separately or left to user visual warning
+                     // The requirement said "Auto-adjust", so we keep that logic below
+                } else {
+                     if(warningAlert) warningAlert.classList.add('d-none');
+                }
+                return totalTime;
+            };
+
+            // Initial Calc
+            updateCapacity(parseFloat(assignedQty) || 0);
             
             // Validation Logic
             const btnSave = document.getElementById('btnSaveQty');
             const errorMsg = document.getElementById('qtyErrorMsg');
-            const maxVal = parseFloat(orderQty);
+            const maxLimit = parseFloat(orderQty);
 
             if(inputNewQty) {
                 // Reset State
@@ -2412,18 +2466,35 @@
                 if(btnSave) btnSave.disabled = false;
 
                 inputNewQty.oninput = function() {
-                    const val = parseFloat(this.value);
-                    if (val > maxVal) {
-                        this.classList.add('is-invalid');
-                        if(errorMsg) errorMsg.classList.remove('d-none');
-                        if(btnSave) btnSave.disabled = true;
+                    let val = parseFloat(this.value) || 0;
+                    
+                    // 1. Capacity Check & Update UI
+                    let currentTotalTime = updateCapacity(val);
+
+                    if(currentTotalTime > 570) {
+                         // Auto-adjust logic
+                         const timePerUnit = parseFloat(inputVgw01.value) || 0;
+                         if(timePerUnit > 0) {
+                             const maxAllowedQty = Math.floor(570 / timePerUnit);
+                             this.value = maxAllowedQty;
+                             val = maxAllowedQty;
+                             updateCapacity(val); // Update UI again with capped value
+                         }
+                    }
+
+                    // 2. Max Qty Hard Limit Check
+                    if(val > maxLimit) {
+                         this.classList.add('is-invalid', 'text-danger');
+                         if(errorMsg) errorMsg.classList.remove('d-none');
+                         if(btnSave) btnSave.disabled = true;
                     } else {
-                        this.classList.remove('is-invalid');
-                        if(errorMsg) errorMsg.classList.add('d-none');
-                        if(btnSave) btnSave.disabled = false;
+                         this.classList.remove('is-invalid', 'text-danger');
+                         if(errorMsg) errorMsg.classList.add('d-none');
+                         if(btnSave) btnSave.disabled = false;
                     }
                 };
             }
+
 
             // Show Modal
             const modalEl = document.getElementById('editQtyModal');
