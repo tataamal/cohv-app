@@ -288,19 +288,34 @@
                             <div class="bg-white p-3">
                                 <div class="row g-2">
                                     <div class="col-md-2">
-                                        <input type="text" id="advAufnr" class="form-control form-control-sm" placeholder="PRO (e.g. 100...)">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="advAufnr" class="form-control" placeholder="PRO">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advAufnr', 'PRO List')" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                        </div>
                                     </div>
                                     <div class="col-md-2">
-                                        <input type="text" id="advMatnr" class="form-control form-control-sm" placeholder="Material No">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="advMatnr" class="form-control" placeholder="Material">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advMatnr', 'Material List')" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                        </div>
                                     </div>
                                     <div class="col-md-3">
-                                        <input type="text" id="advMaktx" class="form-control form-control-sm" placeholder="Description">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="advMaktx" class="form-control" placeholder="Description">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advMaktx', 'Desc. List')" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                        </div>
                                     </div>
                                      <div class="col-md-2">
-                                        <input type="text" id="advArbpl" class="form-control form-control-sm" placeholder="Workcenter">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="advArbpl" class="form-control" placeholder="Workcenter">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advArbpl', 'WC List')" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                        </div>
                                     </div>
                                     <div class="col-md-2">
-                                        <input type="text" id="advSo" class="form-control form-control-sm" placeholder="SO - Item">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="advSo" class="form-control" placeholder="SO - Item">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advSo', 'SO List', true)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                        </div>
                                     </div>
                                      <div class="col-md-1">
                                         <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="clearAdvancedSearch()" title="Reset Filters"><i class="fa-solid fa-xmark"></i></button>
@@ -421,6 +436,26 @@
         </div>
     </div>
 
+    {{-- MULTI INPUT MODAL --}}
+    <div class="modal fade" id="multiInputModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 bg-primary bg-opacity-10">
+                    <h6 class="modal-title fw-bold text-primary" id="multiInputTitle">Input List Parameter</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <p class="text-muted small mb-2">Paste list parameter disini (dipisahkan baris baru atau koma):</p>
+                    <textarea id="multiInputTextarea" class="form-control" rows="10" placeholder="Contoh:&#10;1001&#10;1002&#10;1003"></textarea>
+                </div>
+                <div class="modal-footer border-0 p-2 bg-light">
+                    <button type="button" class="btn btn-white text-muted fw-bold btn-sm border" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary fw-bold btn-sm shadow-sm" onclick="applyMultiInput()">Isi Parameter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- MODAL MISMATCH (NEW) --}}
     <div class="modal fade" id="mismatchModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
@@ -534,24 +569,77 @@
             let pendingMismatchEvent = null;
 
 
+            let multiInputTargetId = null;
+            let multiInputModalInstance = null;
+
             document.addEventListener('DOMContentLoaded', function() {
                 assignmentModalInstance = new bootstrap.Modal(document.getElementById('uniqueAssignmentModal'));
                 previewModalInstance = new bootstrap.Modal(document.getElementById('previewModal'));
-                mismatchModalInstance = new bootstrap.Modal(document.getElementById('mismatchModal')); // Init New Modal
+                mismatchModalInstance = new bootstrap.Modal(document.getElementById('mismatchModal')); 
+                multiInputModalInstance = new bootstrap.Modal(document.getElementById('multiInputModal')); // New Modal
 
                 calculateAllRows();
                 setupSearch();
                 setupCheckboxes();
                 setupDragAndDrop();
                 setupModalLogic();
-                setupMismatchLogic(); // New Logic
-                setupTargetWcSearch(); // New Search Logic
+                setupMismatchLogic(); 
+                setupTargetWcSearch(); 
                 document.getElementById('uniqueAssignmentModal').addEventListener('hide.bs.modal', function() {
                     if(draggedItemsCache.length > 0 && tempSplits.length === 0) {
                         cancelDrop();
                     }
                 });
             });
+
+            // New: Multi Input Logic
+            window.openMultiInput = function(targetId, title, isSo = false) {
+                const input = document.getElementById(targetId);
+                const textarea = document.getElementById('multiInputTextarea');
+                
+                multiInputTargetId = targetId;
+                document.getElementById('multiInputTitle').innerText = 'Input List: ' + title;
+                
+                // Pre-fill textarea from current input (replace commas with newlines for editing)
+                let currentVal = input.value;
+                if(currentVal) {
+                    // Split by comma+space or just comma
+                    let vals = currentVal.split(/\s*,\s*/);
+                    textarea.value = vals.join('\n');
+                } else {
+                    textarea.value = '';
+                }
+                
+                if(isSo) {
+                    textarea.placeholder = "Format: SO - Item\nContoh:\nMake Stock - 10\nOther Order - 20";
+                } else {
+                    textarea.placeholder = "Contoh:\nValue 1\nValue 2\nValue 3";
+                }
+
+                multiInputModalInstance.show();
+            };
+
+            window.applyMultiInput = function() {
+                const textarea = document.getElementById('multiInputTextarea');
+                const targetInput = document.getElementById(multiInputTargetId);
+                
+                if(!targetInput) return;
+                
+                // Split by newline or comma
+                let rawVal = textarea.value;
+                let lines = rawVal.split(/[\n,]+/);
+                
+                // Clean and Filter
+                let cleanVals = lines.map(l => l.trim()).filter(l => l.length > 0);
+                
+                // Join back with comma space
+                targetInput.value = cleanVals.join(', ');
+                
+                // Trigger Event for Search
+                targetInput.dispatchEvent(new Event('keyup'));
+                
+                multiInputModalInstance.hide();
+            };
 
             function setupDragAndDrop() {
                 const sourceList = document.getElementById('source-list');
@@ -818,7 +906,7 @@
                                     <div class="col-md-2">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Qty</label>
                                         <input type="number" class="form-control form-control-sm qty-input shadow-none border-secondary fw-bold text-center" 
-                                            value="${rSisa}" max="${rSisa}" min="0.1" step="any" oninput="updateCardSummary('${rAufnr}')" ${hasChildren ? 'disabled title="Pilih Sub-WC terlebih dahulu"' : ''}>
+                                            value="${rSisa}" max="${rSisa}" min="1" step="1" oninput="updateCardSummary('${rAufnr}')" ${hasChildren ? 'disabled title="Pilih Sub-WC terlebih dahulu"' : ''}>
                                     </div>
                                     <!-- NEW: Time Field (Auto Calc) -->
                                     <div class="col-md-2">
@@ -1309,15 +1397,18 @@
                         const childWc = childSelect.value;
                         const qty = parseFloat(qtyInput.value) || 0;
                         
-                        if (!nik || qty <= 0) {
+                        if (!nik || qty < 1) {
                             allValid = false;
                             row.classList.add('border', 'border-danger');
+                            if(qty < 1) {
+                                validationErrors.push(`Quantity minimal 1 untuk item ${aufnr}`);
+                            }
                         } else {
                             row.classList.remove('border', 'border-danger');
                         }
                         
                         // Collect Assignment
-                        if (nik && qty > 0) {
+                        if (nik && qty >= 1) {
                             const item = draggedItemsCache.find(i => i.dataset.aufnr == aufnr); 
                             
                             if (item) {

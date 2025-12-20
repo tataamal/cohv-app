@@ -607,7 +607,7 @@
                                                                 </button>
                                                                 @if(($item['confirmed_qty'] ?? 0) <= 0)
                                                                     <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
-                                                                            onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}')">
+                                                                            onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['assigned_qty'] ?? 0 }}')">
                                                                         <i class="fa-solid fa-trash"></i>
                                                                     </button>
                                                                 @endif
@@ -1546,41 +1546,14 @@
                     excludeNiks = getUsedNiksInBatch(container, row);
                     
                     const qtyInput = row.querySelector('.qty-input');
-                    const empSelect = row.querySelector('.emp-select'); // Target ID is usually this
+                    const empSelect = row.querySelector('.emp-select');
                     
-                    // Requirement 1: Disable if WC empty. Enable if WC selected.
                     if(wcCode) {
                         if(qtyInput) qtyInput.disabled = false;
-                        // Operator is Independent now
-                        // if(empSelect) empSelect.disabled = false;
                     } else {
                          if(qtyInput) { qtyInput.disabled = true; qtyInput.value = ''; }
-                         // if(empSelect) { empSelect.disabled = true; empSelect.value = ''; }
-                         
-                         // Stop clearing targetSelect
-                         // targetSelect.innerHTML = '<option value="">Pilih Sub-WC terlebih dahulu..</option>';
-                         // return; // Stop processing
-                    }
-
-                    // SMART FILL LOGIC (Requested: "diisi dengna kapasitas wc anak")
-                    if(qtyInput && workcentersData[wcCode]) {
-                         const wc = workcentersData[wcCode];
-                         if(wc.kapaz) {
-                             // Parse Capacity (handle comma/dot if string, else direct)
-                             let capVal = (typeof wc.kapaz === 'number') ? wc.kapaz : parseFloat(wc.kapaz.replace(',', '.'));
-                             if(!isNaN(capVal) && capVal > 0) {
-                                  qtyInput.value = capVal;
-                                  // Trigger limit check
-                                  const itemKey = container.id.replace('split_container_', '');
-                                  if(window.enforceBatchLimit) window.enforceBatchLimit(itemKey, qtyInput);
-                             }
-                         }
                     }
                 }
-                
-                // [UPDATED] Operator list is static/independent. Do not overwrite on WC change.
-                // targetSelect.innerHTML = getOperatorOptions(wcCode, excludeNiks);
-                // targetSelect.value = ""; 
             }
         };
 
@@ -1840,7 +1813,7 @@
                      <label class="form-label text-xs fw-bold text-muted mb-0">Qty</label>
                      <div class="input-group input-group-sm">
                         <input type="number" class="form-control fw-bold qty-input" id="qty_${uniqueId}" 
-                           placeholder="40" step="0.001" disabled>
+                           placeholder="0" step="1" min="1" disabled>
                      </div>
                 </div>
                 <div class="col-md-3">
@@ -1972,7 +1945,7 @@
                 
                 if(!wc) { isValid = false; errorMsg = 'Pilih Workcenter untuk semua baris.'; return; }
                 if(!nik) { isValid = false; errorMsg = 'Pilih Operator untuk semua baris.'; return; }
-                if(qty <= 0) { isValid = false; errorMsg = 'Quantity harus > 0.'; return; }
+                if(qty < 1) { isValid = false; errorMsg = 'Quantity minimal 1.'; return; }
                 
                 const name = nikSel.options[nikSel.selectedIndex].getAttribute('data-name');
                 
@@ -2100,7 +2073,7 @@
         window.confirmRemoveItem = function(wiCode, aufnr, vornr, nik, qty) {
             Swal.fire({
                 title: 'Hapus Item dari WI?',
-                text: "Item spesifik ini (PRO + NIK + Qty) akan dihapus.",
+                text: `Item spesifik ini (PRO ${aufnr} + NIK ${nik} + Qty ${qty}) akan dihapus.`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
