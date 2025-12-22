@@ -798,7 +798,8 @@ class CreateWiController extends Controller
                 'adm.mkt5.smg@pawindo.com',
                 'lily.smg@pawindo.com',
                 'kmi3.60.smg@gmail.com',
-                'tataamal1128@gmail.com'
+                'tataamal1128@gmail.com',
+                'kmi3.31.smg@gmail.com'
             ]
         ]);
     }
@@ -2096,7 +2097,7 @@ class CreateWiController extends Controller
                 $arr = array_map('trim', explode(',', $val));
                 $query->whereIn('AUFNR', $arr); 
             } else {
-                $query->where('AUFNR', 'like', '%' . $val . '%');
+                $query->where('AUFNR', '=', $val);
             }
         }
         if ($request->has('adv_matnr') && $request->adv_matnr) {
@@ -2105,7 +2106,7 @@ class CreateWiController extends Controller
                  $arr = array_map('trim', explode(',', $val));
                  $query->whereIn('MATNR', $arr);
             } else {
-                 $query->where('MATNR', 'like', '%' . $val . '%');
+                 $query->where('MATNR', '=', $val);
             }
         }
         if ($request->has('adv_maktx') && $request->adv_maktx) {
@@ -2114,11 +2115,11 @@ class CreateWiController extends Controller
                  $arr = array_map('trim', explode(',', $val));
                  $query->where(function($q) use ($arr) {
                      foreach($arr as $term) {
-                         $q->orWhere('MAKTX', 'like', '%' . $term . '%');
+                         $q->orWhere('MAKTX', '=', $term);
                      }
                  });
              } else {
-                 $query->where('MAKTX', 'like', '%' . $val . '%');
+                 $query->where('MAKTX', '=', $val);
              }
         }
         if ($request->has('adv_arbpl') && $request->adv_arbpl) {
@@ -2127,46 +2128,28 @@ class CreateWiController extends Controller
                  $arr = array_map('trim', explode(',', $val));
                  $query->whereIn('ARBPL', $arr);
             } else {
-                 $query->where('ARBPL', 'like', '%' . $val . '%');
+                 $query->where('ARBPL', '=', $val);
             }
         }
-        if ($request->has('adv_so') && $request->adv_so) {
-            $rawSo = trim($request->adv_so);
-            // Check for list first
-            if(str_contains($rawSo, ',')) {
-                $arr = array_map('trim', explode(',', $rawSo));
-                $query->where(function($q) use ($arr) {
-                    foreach($arr as $item) {
-                        $q->orWhere(function($subQ) use ($item) {
-                             if (str_contains($item, '-')) {
-                                $parts = explode('-', $item, 2); 
-                                $soPart = trim($parts[0]);
-                                $itemPart = trim($parts[1]);
-                                if($soPart) $subQ->where('KDAUF', 'like', '%' . $soPart . '%');
-                                if($itemPart) $subQ->where('KDPOS', 'like', '%' . $itemPart . '%');
-                             } else {
-                                $subQ->where('KDAUF', 'like', '%' . $item . '%')
-                                     ->orWhere('KDPOS', 'like', '%' . $item . '%');
-                             }
-                        });
-                    }
-                });
+        if ($request->has('adv_kdauf') && $request->adv_kdauf) {
+            $val = $request->adv_kdauf;
+            if(str_contains($val, ',')) {
+                 $arr = array_map('trim', explode(',', $val));
+                 $query->whereIn('KDAUF', $arr);
             } else {
-                // Single Item
-                if (str_contains($rawSo, '-')) {
-                    $parts = explode('-', $rawSo, 2); 
-                    $soPart = trim($parts[0]);
-                    $itemPart = trim($parts[1]);
-                    $query->where(function($q) use ($soPart, $itemPart) {
-                         if($soPart) $q->where('KDAUF', 'like', '%' . $soPart . '%');
-                         if($itemPart) $q->where('KDPOS', 'like', '%' . $itemPart . '%');
-                    });
-                } else {
-                    $query->where(function($q) use ($rawSo) {
-                         $q->where('KDAUF', 'like', '%' . $rawSo . '%')
-                           ->orWhere('KDPOS', 'like', '%' . $rawSo . '%');
-                    });
-                }
+                 $query->where('KDAUF', '=', $val);
+            }
+        }
+        if ($request->has('adv_kdpos') && $request->adv_kdpos) {
+            $val = $request->adv_kdpos;
+            if(str_contains($val, ',')) {
+                 $arr = array_map(function($v) {
+                     return str_pad(trim($v), 6, '0', STR_PAD_LEFT);
+                 }, explode(',', $val));
+                 $query->whereIn('KDPOS', $arr);
+            } else {
+                 $paddedVal = str_pad(trim($val), 6, '0', STR_PAD_LEFT);
+                 $query->where('KDPOS', '=', $paddedVal);
             }
         }
         if ($request->has('adv_vornr') && $request->adv_vornr) {

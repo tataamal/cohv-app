@@ -384,7 +384,7 @@
                                     <div class="mb-3">
                                         <div class="d-flex justify-content-between text-xs fw-bold text-muted mb-1">
                                             <span>KAPASITAS KERJA HARIAN</span>
-                                            <span>{{ number_format($usedMins, 0) }} / {{ number_format($maxMins, 0) }} Min</span>
+                                            <span>{{ number_format($usedMins, 1, ',', '.') }} / {{ number_format($maxMins, 0, ',', '.') }} Min</span>
                                         </div>
                                         <div class="progress bg-secondary bg-opacity-10" style="height: 6px;">
                                             <div class="progress-bar {{ $percentage > 100 ? 'bg-danger' : 'bg-primary' }}" 
@@ -418,7 +418,7 @@
                                                             <div class="d-flex gap-1 justify-content-end">
                                                                 @if(($item['confirmed_qty'] ?? 0) == 0)
                                                                     <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                            onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}', '{{ $item['vgw01'] ?? 0 }}', '{{ $item['vge01'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['vornr'] ?? '' }}')">
+                                                                            onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}', '{{ $item['vgw01'] ?? 0 }}', '{{ $item['vge01'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['vornr'] ?? '' }}', '{{ $maxMins }}', '{{ $usedMins }}', '{{ $item['item_mins'] ?? 0 }}')">
                                                                         <i class="fa-solid fa-pen-to-square"></i>
                                                                     </button>
                                                                     <!-- <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
@@ -602,7 +602,7 @@
                                                         <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
                                                                 <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}', '{{ $item['vgw01'] ?? 0 }}', '{{ $item['vge01'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['vornr'] ?? '' }}')">
+                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}', '{{ $item['vgw01'] ?? 0 }}', '{{ $item['vge01'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['vornr'] ?? '' }}', '{{ $maxMins }}')">
                                                                     <i class="fa-solid fa-pen-to-square"></i>
                                                                 </button>
                                                                 @if(($item['confirmed_qty'] ?? 0) <= 0)
@@ -1483,8 +1483,8 @@
                         const childName = c.nama_workcenter || '';
                         
                         const ref = refWorkcentersData[childCode];
-                        let maxMins = 570; // FIXED RULE: 9.5 Hours
-                        // if(ref) { ... } // Ignored, always 570
+                        let maxMins = 570; 
+                        if(ref && ref.kapaz) maxMins = parseFloat(ref.kapaz) || 570;
                         
                         html += `
                         <div class="col-md-6 col-12">
@@ -1492,7 +1492,7 @@
                                 <span class="text-xs fw-bold text-dark text-truncate" style="max-width: 65%;">
                                     ${childCode} ${childName ? '- ' + childName : ''}
                                 </span>
-                                <span class="text-xs fw-bold text-muted" id="dashboard_val_${childCode}" data-max="${maxMins}">0.0 / ${maxMins.toFixed(1)} Min</span>
+                                <span class="text-xs fw-bold text-muted" id="dashboard_val_${childCode}" data-max="${maxMins}">${(0).toLocaleString('id-ID', {minimumFractionDigits: 2})} / ${maxMins.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2})} Min</span>
                             </div>
                             <div class="progress mb-2" style="height: 5px;">
                                 <div class="progress-bar bg-success" id="dashboard_bar_${childCode}" role="progressbar" style="width: 0%"></div>
@@ -1730,9 +1730,6 @@
                     if(container) container.innerHTML = '<div class="text-center text-danger p-5">Gagal memuat data. Silakan coba lagi.</div>';
                 });
         };
-
-        // New Helper: Update Child Capacity Progress Bar
-        // NEW: Aggregate Usage for Top Dashboard
         window.updateDashboardUsage = function() {
             // 1. Reset Usage Map
             let usageMap = {};
@@ -1757,9 +1754,7 @@
                     const max = parseFloat(el.getAttribute('data-max')) || 0;
                     const used = usageMap[wc] || 0;
                     const pct = max > 0 ? (used / max) * 100 : 0;
-                    
-                    // Format: "Used / Max Min"
-                    el.innerText = `${used.toFixed(1)} / ${max.toFixed(1)} Min`;
+                    el.innerText = `${used.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ${max.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Min`;
                     
                     // Bar Update
                     const elBar = document.getElementById(`dashboard_bar_${wc}`);
@@ -2100,7 +2095,8 @@
                         const pct = max > 0 ? (used / max) * 100 : 0;
                         progress.style.width = Math.min(pct, 100) + '%';
                         progress.className = pct > 100 ? 'progress-bar bg-danger' : 'progress-bar bg-primary';
-                        textLabel.innerText = `${Math.ceil(used).toLocaleString()} / ${Math.ceil(max).toLocaleString()} Min`;
+                        // Update to 2 decimal places
+                        textLabel.innerText = `${used.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ${max.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Min`;
                     }
                 }
             });
@@ -2377,7 +2373,7 @@
 
         // --- 7. OPEN EDIT QTY MODAL ---
         // --- 7. OPEN EDIT QTY MODAL ---
-        window.openEditQtyModal = function(wiCode, aufnr, description, assignedQty, orderQty, uom, vgw01, vge01, nik, vornr) {
+        window.openEditQtyModal = function(wiCode, aufnr, description, assignedQty, orderQty, uom, vgw01, vge01, nik, vornr, maxCapacity, currentTotalUsed, currentItemLoad) {
             // Populate Modal Fields directly
             const inputWiCode = document.getElementById('modalWiCode');
             const inputAufnr = document.getElementById('modalAufnr');
@@ -2396,11 +2392,11 @@
 
             if(inputWiCode) inputWiCode.value = wiCode;
             if(inputAufnr) inputAufnr.value = aufnr;
-            if(inputDesc) inputDesc.innerText = description; // InnerText for Div
+            if(inputDesc) inputDesc.innerText = description; 
             if(displayAufnrDiv) displayAufnrDiv.innerText = aufnr;
             if(inputNewQty) inputNewQty.value = assignedQty;
             
-            // Format Max Qty (Just Number for Gauge)
+            // Format Max Qty
             if(displayMaxQtyDiv) displayMaxQtyDiv.innerText = parseFloat(orderQty);
             if(inputMaxQtyHidden) inputMaxQtyHidden.value = orderQty;
             
@@ -2408,47 +2404,86 @@
             if(document.getElementById('modalNik')) document.getElementById('modalNik').value = nik;
             if(document.getElementById('modalVornr')) document.getElementById('modalVornr').value = vornr;
             
-            // Store VGW01 & Calc Factor (to Mins)
+            // Store VGW01 & Calc Factor
             let timeFactor = 1;
             let rawVgw = parseFloat(vgw01) || 0;
             if(vge01 && (vge01.toUpperCase() === 'S' || vge01.toUpperCase() === 'SEC')) {
                 timeFactor = 1/60;
             }
-            if(inputVgw01) inputVgw01.value = rawVgw * timeFactor; // Store in Minutes directly
+            if(inputVgw01) inputVgw01.value = rawVgw * timeFactor; 
+            
+            // Capacity Logic
+            const maxCapValue = parseFloat(maxCapacity) || 570; 
+            const totalUsedValue = parseFloat(currentTotalUsed) || 0;
+            const itemLoadValue = parseFloat(currentItemLoad) || 0;
+            const baseLoad = Math.max(0, totalUsedValue - itemLoadValue); 
+
+            // Update Max Text
+            if(document.getElementById('modalMaxCapText')) document.getElementById('modalMaxCapText').innerText = maxCapValue.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
             
             // Function to Update Capacity UI
             const updateCapacity = (qty) => {
                 const timePerUnit = parseFloat(inputVgw01.value) || 0;
-                const totalTime = qty * timePerUnit;
+                const newItemTime = qty * timePerUnit;
+                
+                // Calculate Projected Total
+                const projectedTotal = baseLoad + newItemTime;
                 
                 if(displayTotalTime) {
-                    displayTotalTime.innerText = totalTime.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+                   displayTotalTime.innerText = newItemTime.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 4 });
                 }
 
-                // Progress Bar Logic
-                const maxCap = 570;
-                let percent = (totalTime / maxCap) * 100;
+                // Progress Bar Logic (TOTAL LOAD vs MAX)
+                const maxCap = maxCapValue;
+                let percent = maxCap > 0 ? (projectedTotal / maxCap) * 100 : 0;
                 if(percent > 100) percent = 100;
 
                 if(progressBar) {
                     progressBar.style.width = percent + '%';
                     progressBar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
                     
-                    if(percent < 75) progressBar.classList.add('bg-success');
-                    else if(percent < 90) progressBar.classList.add('bg-warning');
+                    if(percent < 70) progressBar.classList.add('bg-success');
+                    else if(percent < 95) progressBar.classList.add('bg-warning');
                     else progressBar.classList.add('bg-danger');
                 }
-                if(progressText) progressText.innerText = Math.round(percent) + '%';
                 
-                // Warning Alert
-                if(totalTime > 570) {
-                     if(warningAlert) warningAlert.classList.remove('d-none');
-                     // Cap input logic is handled in oninput event separately or left to user visual warning
-                     // The requirement said "Auto-adjust", so we keep that logic below
-                } else {
-                     if(warningAlert) warningAlert.classList.add('d-none');
+                if(progressText) {
+                    // Show percentage of TOTAL load
+                    progressText.innerText = percent.toLocaleString('id-ID', { maximumFractionDigits: 1 }) + '%';
                 }
-                return totalTime;
+
+                // Update Max Cap Text to show usage
+                if(document.getElementById('modalMaxCapText')) {
+                    document.getElementById('modalMaxCapText').innerText = `${projectedTotal.toLocaleString('id-ID', {maximumFractionDigits: 2})} / ${maxCapValue.toLocaleString('id-ID', {maximumFractionDigits: 2})}`;
+                }
+                
+                // Overload Warning
+                const qtyWrapper = document.getElementById('qtyInputWrapper');
+                const errorMsg = document.getElementById('qtyErrorMsg');
+                const btnSave = document.getElementById('btnSaveQty');
+
+                if(projectedTotal > maxCap) {
+                        if(qtyWrapper) {
+                             qtyWrapper.classList.remove('border-primary', 'bg-white');
+                             qtyWrapper.classList.add('border-danger', 'bg-danger', 'bg-opacity-10');
+                         }
+                         if(errorMsg) {
+                             errorMsg.innerText = 'EXCEEDS DAILY CAPACITY!';
+                             errorMsg.classList.remove('d-none');
+                         }
+                         // if(btnSave) btnSave.disabled = true; // Optional: block saving?
+                } else {
+                        // Reset capacity warning (but don't clear qty warning if exists)
+                         if(qtyWrapper && !inputNewQty.classList.contains('text-danger')) { // Only reset if not qty error
+                             qtyWrapper.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10');
+                             qtyWrapper.classList.add('border-primary', 'bg-white');
+                         }
+                         if(errorMsg && errorMsg.innerText === 'EXCEEDS DAILY CAPACITY!') {
+                             errorMsg.classList.add('d-none');
+                         }
+                }
+
+                return connectedTotalTime = projectedTotal; // Return projected total
             };
 
             // Initial Calc
@@ -2457,11 +2492,16 @@
             // Validation Logic
             const btnSave = document.getElementById('btnSaveQty');
             const errorMsg = document.getElementById('qtyErrorMsg');
+            const qtyWrapper = document.getElementById('qtyInputWrapper');
             const maxLimit = parseFloat(orderQty);
 
             if(inputNewQty) {
                 // Reset State
-                inputNewQty.classList.remove('is-invalid');
+                inputNewQty.classList.remove('is-invalid', 'text-danger'); 
+                if(qtyWrapper) {
+                    qtyWrapper.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10');
+                    qtyWrapper.classList.add('border-primary', 'bg-white');
+                }
                 if(errorMsg) errorMsg.classList.add('d-none');
                 if(btnSave) btnSave.disabled = false;
 
@@ -2469,32 +2509,50 @@
                     let val = parseFloat(this.value) || 0;
                     
                     // 1. Capacity Check & Update UI
-                    let currentTotalTime = updateCapacity(val);
+                    updateCapacity(val);
 
-                    if(currentTotalTime > 570) {
-                         // Auto-adjust logic
-                         const timePerUnit = parseFloat(inputVgw01.value) || 0;
-                         if(timePerUnit > 0) {
-                             const maxAllowedQty = Math.floor(570 / timePerUnit);
-                             this.value = maxAllowedQty;
-                             val = maxAllowedQty;
-                             updateCapacity(val); // Update UI again with capped value
-                         }
-                    }
-
-                    // 2. Max Qty Hard Limit Check
+                    // 2. Max Qty Hard Limit Check (Order Qty)
                     if(val > maxLimit) {
-                         this.classList.add('is-invalid', 'text-danger');
-                         if(errorMsg) errorMsg.classList.remove('d-none');
+                         this.classList.add('text-danger');
+                         if(qtyWrapper) {
+                             qtyWrapper.classList.remove('border-primary', 'bg-white');
+                             qtyWrapper.classList.add('border-danger', 'bg-danger', 'bg-opacity-10');
+                         }
+                         if(errorMsg) {
+                             errorMsg.innerText = 'EXCEEDS QUANTITY ORDER!';
+                             errorMsg.classList.remove('d-none');
+                         }
                          if(btnSave) btnSave.disabled = true;
                     } else {
-                         this.classList.remove('is-invalid', 'text-danger');
-                         if(errorMsg) errorMsg.classList.add('d-none');
+                         this.classList.remove('text-danger');
+                         // Only reset wrapper if not capacity error
+                         const maxCap = parseFloat(maxCapacity) || 0;
+                         const proj = (parseFloat(displayTotalTime?.innerText) || 0) + baseLoad; // Rough check
+                         // Actually updateCapacity handles the wrapper style for capacity.
+                         // We should let updateCapacity handle it? 
+                         // But updateCapacity calls run first.
+                         
+                         // If we are VALID on quantity:
+                         if(qtyWrapper && !qtyWrapper.classList.contains('bg-danger')) { // If capacity didn't flag it
+                             // ...
+                         } else {
+                             // If capacity flagged it, we leave it red?
+                             // But wait, if capacity flagged it, it sets border-danger.
+                             // Logic conflict: We have 2 sources of error (Qty Limit vs Capacity Limit).
+                             // If either is bad -> RED.
+                             // If both good -> BLUE.
+                             
+                             // Let's rely on re-running updateCapacity to check capacity state?
+                             updateCapacity(val); // Re-run to ensure capacity red state persists if needed
+                         }
+                         
+                         if(errorMsg && errorMsg.innerText === 'EXCEEDS QUANTITY ORDER!') {
+                             errorMsg.classList.add('d-none');
+                         }
                          if(btnSave) btnSave.disabled = false;
                     }
                 };
             }
-
 
             // Show Modal
             const modalEl = document.getElementById('editQtyModal');

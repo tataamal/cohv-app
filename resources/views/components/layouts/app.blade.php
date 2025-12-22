@@ -70,10 +70,20 @@
 
             if (loader) {
                 links.forEach(link => {
-                    link.addEventListener('click', function() {
+                    link.addEventListener('click', function(e) {
+                         // Don't show loader if ctrl/cmd/shift click (new tab)
+                        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
                         loader.style.display = 'flex';
                     });
                 });
+            }
+        });
+
+        // FIX: Sembunyikan loader saat browser back/forward (BFCache)
+        window.addEventListener('pageshow', function(event) {
+            const loader = document.getElementById('global-loader');
+            if (loader) {
+                loader.style.display = 'none';
             }
         });
     </script>

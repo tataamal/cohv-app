@@ -50,7 +50,7 @@
                                 <i class="fa-solid fa-battery-half me-1"></i> Capacity Load
                             </span>
                             <span class="fw-bold text-dark" style="font-size: 0.75rem;">
-                                {{ number_format($cap['used_mins'], 0) }} / {{ number_format($cap['max_mins'], 0) }} Min 
+                                {{ number_format($cap['used_mins'], 2, ',', '.') }} / {{ number_format($cap['max_mins'], 0, ',', '.') }} Min 
                                 ({{ number_format($capPct, 1) }}%)
                             </span>
                         </div>

@@ -11,8 +11,8 @@
                             <i class="fa-solid fa-pen-to-square fa-sm"></i>
                         </div>
                         <div class="lh-1">
-                            <h6 class="modal-title font-monospace fw-bold text-uppercase mb-0 ls-1" style="font-size: 0.9rem;">UPDATE QUANTITY</h6>
-                            <span class="text-xs text-white-50 font-monospace" style="font-size: 0.65rem;">SYS.MOD.QTY.v2</span>
+                            <h6 class="modal-title font-monospace fw-bold text-uppercase mb-0 ls-1" style="font-size: 1.1rem;">UPDATE QUANTITY</h6>
+                            <span class="text-xs text-white-50 font-monospace" style="font-size: 0.8rem;">SYS.MOD.QTY.v2</span>
                         </div>
                     </div>
                 </div>
@@ -29,15 +29,15 @@
                     {{-- TECHNICAL INFO PANEL --}}
                     <div class="bg-white p-3 border-bottom">
                         <div class="row g-0">
-                            <div class="col-12 mb-2">
-                                <label class="text-uppercase text-muted font-monospace fw-bold d-block mb-1" style="font-size: 0.65rem;">REFERENCE NO (PRO)</label>
-                                <div class="badge bg-light text-dark border rounded-0 font-monospace text-wrap text-start fs-6 px-2 py-1 w-100" id="displayAufnr">
+                            <div class="col-12 mb-3">
+                                <label class="text-uppercase text-muted font-monospace fw-bold d-block mb-1" style="font-size: 0.8rem;">REFERENCE NO (PRO)</label>
+                                <div class="badge bg-light text-dark border rounded-0 font-monospace text-wrap text-start px-2 py-2 w-100" style="font-size: 1.1rem;" id="displayAufnr">
                                     -
                                 </div>
                             </div>
                             <div class="col-12">
-                                <label class="text-uppercase text-muted font-monospace fw-bold d-block mb-1" style="font-size: 0.65rem;">MATERIAL DESCRIPTION</label>
-                                <div class="fw-bold text-dark text-truncate" id="modalDesc" style="font-size: 0.85rem;">-</div>
+                                <label class="text-uppercase text-muted font-monospace fw-bold d-block mb-1" style="font-size: 0.8rem;">MATERIAL DESCRIPTION</label>
+                                <div class="fw-bold text-dark text-truncate" id="modalDesc" style="font-size: 1rem;">-</div>
                             </div>
                         </div>
                     </div>
@@ -49,24 +49,24 @@
                             <div class="col-5">
                                 <div class="border border-danger border-opacity-25 bg-danger bg-opacity-10 p-2 text-center h-100 d-flex flex-column justify-content-center position-relative">
                                     <div class="position-absolute top-0 start-0 p-1">
-                                        <i class="fa-solid fa-gauge-high text-danger opacity-50" style="font-size: 0.7rem;"></i>
+                                        <i class="fa-solid fa-gauge-high text-danger opacity-50" style="font-size: 0.9rem;"></i>
                                     </div>
-                                    <label class="text-uppercase text-danger font-monospace fw-bold mb-0 mt-2" style="font-size: 0.65rem;">REAL LIMIT</label>
-                                    <div class="fs-3 fw-bold text-danger lh-1 my-1" id="displayMaxQty">0</div>
+                                    <label class="text-uppercase text-danger font-monospace fw-bold mb-0 mt-2" style="font-size: 0.8rem;">REAL LIMIT</label>
+                                    <div class="fw-bold text-danger lh-1 my-1" style="font-size: 2.5rem;" id="displayMaxQty">0</div>
                                     <input type="hidden" id="modalMaxQtyDisplay">
-                                    <span class="text-danger opacity-75 font-monospace" style="font-size: 0.65rem;">AVAILABLE</span>
+                                    <span class="text-danger opacity-75 font-monospace" style="font-size: 0.8rem;">AVAILABLE</span>
                                 </div>
                             </div>
 
                             {{-- INPUT FIELD --}}
                             <div class="col-7">
-                                <div class="border border-primary bg-white p-2 h-100 shadow-sm position-relative d-flex flex-column justify-content-between">
-                                    <label class="text-uppercase text-primary font-monospace fw-bold mb-1 d-block" style="font-size: 0.65rem;">NEW QUANTITY</label>
+                                <div id="qtyInputWrapper" class="border border-primary bg-white p-2 h-100 shadow-sm position-relative d-flex flex-column justify-content-between">
+                                    <label class="text-uppercase text-primary font-monospace fw-bold mb-1 d-block" style="font-size: 0.8rem;">NEW QUANTITY</label>
                                     <input type="number" step="1" name="new_qty" id="modalNewQty" 
                                            class="form-control form-control-lg border-0 fw-bold text-end pe-1 display-4 text-primary p-0 my-auto" 
-                                           style="font-size: 2.5rem;"
+                                           style="font-size: 3.5rem;"
                                            placeholder="0" required>
-                                    <div class="text-end text-muted font-monospace mt-1" style="font-size: 0.65rem;">UNIT: PC</div>
+                                    <div class="text-end text-muted font-monospace mt-1" style="font-size: 0.8rem;">UNIT: PC</div>
                                 </div>
                             </div>
                         </div>
@@ -74,15 +74,15 @@
                         {{-- CAPACITY BAR (PROGRESS) --}}
                         <div class="mt-4">
                             <div class="d-flex justify-content-between align-items-end mb-1">
-                                <label class="text-uppercase text-muted font-monospace fw-bold" style="font-size: 0.65rem;">LOAD CAPACITY</label>
-                                <span class="fw-bold font-monospace text-dark" id="capacityPercentText" style="font-size: 0.7rem;">0%</span>
+                                <label class="text-uppercase text-muted font-monospace fw-bold" style="font-size: 0.8rem;">LOAD CAPACITY</label>
+                                <span class="fw-bold font-monospace text-dark" id="capacityPercentText" style="font-size: 0.9rem;">0%</span>
                             </div>
-                            <div class="progress rounded-0 bg-secondary bg-opacity-10" style="height: 8px;">
+                            <div class="progress rounded-0 bg-secondary bg-opacity-10" style="height: 12px;">
                                 <div id="capacityProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
                             <div class="d-flex justify-content-between mt-1">
-                                <span class="text-muted font-monospace" style="font-size: 0.65rem;">REQ: <span id="modalTotalTime" class="fw-bold text-dark">0</span> MIN</span>
-                                <span class="text-muted font-monospace" style="font-size: 0.65rem;">MAX: 570 MIN</span>
+                                <span class="text-muted font-monospace" style="font-size: 0.8rem;">REQ: <span id="modalTotalTime" class="fw-bold text-dark">0</span> MIN</span>
+                                <span class="text-muted font-monospace" style="font-size: 0.8rem;">LOAD: <span id="modalMaxCapText">570</span> MIN</span>
                             </div>
                             <input type="hidden" id="modalVgw01" value="0">
                         </div>
@@ -102,9 +102,9 @@
                     </div>
                 </div>
                 
-                <div class="modal-footer border-top bg-white p-2 justify-content-between">
-                    <button type="button" class="btn btn-sm btn-link text-decoration-none text-muted font-monospace text-uppercase" data-bs-dismiss="modal" style="font-size: 0.75rem;">CANCEL</button>
-                    <button type="submit" class="btn btn-dark rounded-0 px-4 font-monospace fw-bold text-uppercase d-flex align-items-center" style="font-size: 0.8rem;">
+                <div class="modal-footer border-top bg-white p-3 justify-content-between">
+                    <button type="button" class="btn btn-link text-decoration-none text-muted font-monospace text-uppercase" data-bs-dismiss="modal" style="font-size: 0.9rem;">CANCEL</button>
+                    <button type="submit" class="btn btn-lg btn-dark rounded-0 px-4 font-monospace fw-bold text-uppercase d-flex align-items-center" style="font-size: 1rem; padding-top: 12px; padding-bottom: 12px;">
                         <i class="fa-solid fa-floppy-disk me-2"></i>SAVE UPDATE
                     </button>
                 </div>

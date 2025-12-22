@@ -299,7 +299,7 @@
                                             <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advMatnr', 'Material List')" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <div class="input-group input-group-sm">
                                             <input type="text" id="advMaktx" class="form-control" placeholder="Description">
                                             <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advMaktx', 'Desc. List')" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
@@ -313,8 +313,14 @@
                                     </div>
                                     <div class="col-md-2">
                                         <div class="input-group input-group-sm">
-                                            <input type="text" id="advSo" class="form-control" placeholder="SO - Item">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advSo', 'SO List', true)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                            <input type="text" id="advKdauf" class="form-control" placeholder="SO (KDAUF)">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO List', false)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="advKdpos" class="form-control" placeholder="Item">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdpos', 'Item List', false)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
                                         </div>
                                     </div>
                                      <div class="col-md-1">
@@ -1844,7 +1850,7 @@
                 });
 
                 // Advanced Search Listeners
-                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advSo'];
+                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advKdauf', 'advKdpos'];
                 advIds.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) {
