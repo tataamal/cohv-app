@@ -635,6 +635,28 @@ class CreateWiController extends Controller
             } catch (\Exception $e) { /* Ignore parsing errors */ }
         }
 
+        // --- BATCH FETCHING PRODUCTION DATA ---
+        $allAufnrs = [];
+        foreach ($wiDocuments as $doc) {
+            $raw = $doc->payload_data;
+            if(empty($raw)) continue;
+            $items = is_string($raw) ? json_decode($raw, true) : (is_array($raw) ? $raw : []);
+            if(is_array($items)) {
+                foreach($items as $i) {
+                     if(!empty($i['aufnr'])) $allAufnrs[] = $i['aufnr'];
+                }
+            }
+        }
+        $allAufnrs = array_unique($allAufnrs);
+        
+        $prodDataMap1 = [];
+        $prodDataMap3 = [];
+
+        if (!empty($allAufnrs)) {
+            $prodDataMap1 = ProductionTData1::whereIn('AUFNR', $allAufnrs)->get()->keyBy('AUFNR');
+            $prodDataMap3 = ProductionTData3::whereIn('AUFNR', $allAufnrs)->get()->keyBy('AUFNR');
+        }
+
         foreach ($wiDocuments as $doc) {
             $docDate = Carbon::parse($doc->document_date)->startOfDay();
             $today = Carbon::today();
@@ -669,9 +691,14 @@ class CreateWiController extends Controller
                 $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
                 $confirmedQty = floatval(str_replace(',', '.', $item['confirmed_qty'] ?? 0));
                 
-                $prodData = ProductionTData1::where('AUFNR', $item['aufnr'] ?? '')->first();
+                // Optimized: Use Map
+                // $prodData = ProductionTData1::where('AUFNR', $item['aufnr'] ?? '')->first();
+                $auf = $item['aufnr'] ?? '';
+                $prodData = $prodDataMap1[$auf] ?? null;
+                
                 if (!$prodData) {
-                    $prodData = ProductionTData3::where('AUFNR', $item['aufnr'] ?? '')->first();
+                    // $prodData = ProductionTData3::where('AUFNR', $item['aufnr'] ?? '')->first();
+                    $prodData = $prodDataMap3[$auf] ?? null;
                 }
 
                 // Calculate Base Remaining: MGVRG2 (Total) - LMNGA (Confirmed)
