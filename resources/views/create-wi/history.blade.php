@@ -220,13 +220,24 @@
                 <div class="row g-2 align-items-end">
                     
                     {{-- Quick Date Filter --}}
-                    <div class="col-lg-4">
+                    <div class="col-lg-3">
                         <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Tanggal Dokumen</label>
                         <div class="input-group input-group-sm">
                             <input type="text" name="date" id="dateInput" class="form-control flatpickr-range" value="{{ request('date') }}" placeholder="Pilih Rentang Tanggal..." onchange="document.getElementById('filterForm').submit()">
-                            <button type="button" class="btn btn-outline-secondary px-3" onclick="setQuickDate('today'); document.getElementById('filterForm').submit()">Hari Ini</button>
-                            <button type="button" class="btn btn-outline-secondary px-3" onclick="setQuickDate('yesterday'); document.getElementById('filterForm').submit()">Kemarin</button>
+                            {{-- Removed Quick Buttons to save space or keep them if they fit --}}
+                             <button type="button" class="btn btn-outline-secondary px-2" onclick="setQuickDate('today'); document.getElementById('filterForm').submit()">Hari Ini</button>
                         </div>
+                    </div>
+
+                    {{-- Workcenter Filter (NEW) --}}
+                    <div class="col-lg-2">
+                        <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Workcenter</label>
+                        <select name="workcenter" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
+                            <option value="all">Semua WC</option>
+                            @foreach($wcNames as $code => $name)
+                                <option value="{{ $code }}" {{ request('workcenter') == $code ? 'selected' : '' }}>{{ $code }}</option>
+                            @endforeach
+                        </select>
                     </div>
 
                     {{-- Search --}}
@@ -235,7 +246,7 @@
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-white text-muted"><i class="fa-solid fa-search"></i></span>
                             <input type="text" name="search" class="form-control" 
-                                   placeholder="Kode WI, Workcenter..." 
+                                   placeholder="Kode WI, PRO..." 
                                    value="{{ request('search') }}"
                                    onkeypress="if(event.keyCode == 13) { document.getElementById('filterForm').submit(); return false; }">
                         </div>
@@ -254,8 +265,8 @@
                     </div>
 
                     {{-- Action --}}
-                    <div class="col-lg-3 d-flex gap-2">
-                        <a href="{{ route('wi.history', ['kode' => $plantCode]) }}" class="btn btn-light btn-sm border w-100"><i class="fa-solid fa-rotate-left me-1"></i> Reset Filter</a>
+                    <div class="col-lg-2 d-flex gap-2">
+                        <a href="{{ route('wi.history', ['kode' => $plantCode]) }}" class="btn btn-light btn-sm border w-100"><i class="fa-solid fa-rotate-left me-1"></i> Reset</a>
                     </div>
                 </div>
             </form>
@@ -1516,13 +1527,43 @@
             sel.appendChild(o);
             sel.value = target;
             
-            // Fetch
-            fetchAvailableItems();
-            const modalEl = document.getElementById('addItemModal');
-            if(modalEl) new bootstrap.Modal(modalEl).show();
+            // Fetch Employees FIRST to ensure dropdowns are populated
+            fetchEmployees().then(() => {
+                fetchAvailableItems();
+                const modalEl = document.getElementById('addItemModal');
+                if(modalEl) new bootstrap.Modal(modalEl).show();
+            });
         };
 
-        const employeesList = @json($employees ?? []);
+        let employeesList = []; // Init empty
+        
+        // Fetch Function
+        window.fetchEmployees = function() {
+            return new Promise((resolve, reject) => {
+                if (employeesList.length > 0) {
+                    resolve(); // Already loaded
+                    return;
+                }
+                
+                // Show loading indicator in Modal? Or global?
+                // For now just fetch.
+                fetch('{{ route("wi.get-employees", ["kode" => $plantCode]) }}')
+                    .then(res => res.json())
+                    .then(res => {
+                        if(res.success) {
+                            employeesList = res.data;
+                            resolve();
+                        } else {
+                            console.error('Failed to load employees:', res.message);
+                            resolve(); // Resolve anyway so modal opens matching fallback
+                        }
+                    })
+                    .catch(e => {
+                        console.error('Fetch Employees Error:', e);
+                        resolve();
+                    });
+            });
+        };
         // workcentersData = Parent/Display Capacity (TData1). 
         const workcentersData = @json($workcenters ?? []); 
         // refWorkcentersData = Child Capacity Calculation (Table Workcenters).

@@ -505,18 +505,8 @@ class CreateWiController extends Controller
         $plantCode = $kode;
         $nama_bagian  = Kode::where('kode', $plantCode)->first();
         
-        $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
-        $apiToken = env('API_TOKEN_NIK'); 
-        $employees = []; 
-
-        try {
-            $response = Http::withToken($apiToken)->post($apiUrl, ['kode_laravel' => $kode]);
-            if ($response->successful()) {
-                $employees = $response->json()['data'];
-            }
-        } catch (\Exception $e) {
-            Log::error('Koneksi API NIK Error: ' . $e->getMessage());
-        }
+        // $employees removed from here to reduce load time. 
+        // Fetched via AJAX in getEmployees() when needed (Add Item Modal).
 
         $now = Carbon::now();
         $query = HistoryWi::where('plant_code', $plantCode);
@@ -542,6 +532,11 @@ class CreateWiController extends Controller
                 ->orWhere('workcenter_code', 'like', "%{$search}%")
                 ->orWhere('payload_data', 'like', "%{$search}%");
             });
+        }
+
+        // Add Specific Workcenter Filter
+        if ($request->filled('workcenter') && $request->workcenter !== 'all') {
+            $query->where('workcenter_code', $request->workcenter);
         }
         $wiDocuments = $query->orderBy('document_date', 'desc')
                             ->orderBy('document_time', 'desc')
@@ -789,7 +784,7 @@ class CreateWiController extends Controller
             'refWorkcenters' => $childWorkcenters, 
             'workcenterMappings' => $workcenterMappings, 
             'wiCapacityMap' => $wiCapacityMap, 
-            'employees' => $employees, 
+            'employees' => [], // Empty initially, fetched via AJAX
             'search' => $request->search,
             'date' => $request->date,
             'defaultRecipients' => [
@@ -1737,6 +1732,24 @@ class CreateWiController extends Controller
         ]);
     }
 
+    public function getEmployees(Request $request, $kode)
+    {
+        $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
+        $apiToken = env('API_TOKEN_NIK'); 
+        $employees = []; 
+
+        try {
+            $response = Http::withToken($apiToken)->post($apiUrl, ['kode_laravel' => $kode]);
+            if ($response->successful()) {
+                $employees = $response->json()['data'];
+            }
+            return response()->json(['success' => true, 'data' => $employees]);
+        } catch (\Exception $e) {
+            Log::error('Koneksi API NIK Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage(), 'data' => []]);
+        }
+    }
+
     public function addItem(Request $request)
     {
         $request->validate([
@@ -1774,17 +1787,20 @@ class CreateWiController extends Controller
             $requestedNik = $request->nik;
             $requestedWc = $request->target_workcenter;
             
-            foreach ($payload as $existing) {
+            $itemFoundAndUpdated = false;
+            foreach ($payload as $index => $existing) {
                 $exNik = $existing['nik'] ?? '-';
                 $exWc = $existing['target_workcenter'] ?? ($existing['workcenter'] ?? ''); 
                 
-                if ($exNik === $requestedNik && $exWc === $requestedWc) {
-                    return response()->json([
+                if ($exNik === $requestedNik && $exWc === $requestedWc && ($existing['aufnr'] === $request->aufnr) && ($existing['vornr'] === $request->vornr)) {
+                     return response()->json([
                         'success' => false, 
-                        'message' => "Operator {$request->name} ({$requestedNik}) sudah ditugaskan di Workcenter {$requestedWc} pada dokumen ini. Satu operator hanya boleh satu tugas per workcenter."
+                        'message' => "Operator {$request->name} ({$requestedNik}) sudah ditugaskan untuk PRO ini di Workcenter {$requestedWc}."
                     ], 400);
                 }
             }
+
+
 
             $newItem = [
                 'aufnr' => $targetItem->AUFNR,

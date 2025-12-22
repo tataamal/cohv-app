@@ -119,6 +119,7 @@ Route::middleware('auth')->group(function (){
     
     // Edit WI Routes
     Route::get('/work-instruction/available-items/{kode}', [CreateWiController::class, 'getAvailableItems'])->name('wi.available-items');
+    Route::get('/work-instruction/get-employees/{kode}', [CreateWiController::class, 'getEmployees'])->name('wi.get-employees');
     Route::post('/work-instruction/add-item', [CreateWiController::class, 'addItem'])->name('wi.add-item');
     Route::post('/work-instruction/add-item-batch', [CreateWiController::class, 'addItemBatch'])->name('wi.add-item-batch');
     Route::post('/work-instruction/remove-item', [CreateWiController::class, 'removeItem'])->name('wi.remove-item');
