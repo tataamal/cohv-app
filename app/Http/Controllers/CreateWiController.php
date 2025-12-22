@@ -523,6 +523,13 @@ class CreateWiController extends Controller
             } else {
                 $query->whereDate('document_date', $dateInput);
             }
+        } else {
+            // DEFAULT: Load only ACTIVE documents OR Recent History (Last 7 Days)
+            // This prevents loading thousands of old records on initial page load.
+            $query->where(function($q) {
+                $q->where('expired_at', '>', Carbon::now())
+                  ->orWhereDate('document_date', '>=', Carbon::today()->subDays(7));
+            });
         }
 
         if ($request->filled('search')) {
