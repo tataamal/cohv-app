@@ -226,6 +226,7 @@
                             <input type="text" name="date" id="dateInput" class="form-control flatpickr-range" value="{{ request('date') }}" placeholder="Pilih Rentang Tanggal..." onchange="document.getElementById('filterForm').submit()">
                             {{-- Removed Quick Buttons to save space or keep them if they fit --}}
                              <button type="button" class="btn btn-outline-secondary px-2" onclick="setQuickDate('today'); document.getElementById('filterForm').submit()">Hari Ini</button>
+                             <button type="button" class="btn btn-outline-secondary px-2" onclick="setQuickDate('yesterday'); document.getElementById('filterForm').submit()">Kemarin</button>
                         </div>
                     </div>
 

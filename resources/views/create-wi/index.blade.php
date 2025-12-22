@@ -514,13 +514,14 @@
                     @endforeach
                 </select>
                 <div class="modal-body bg-light p-3">
-                    <div class="bg-white p-3 rounded-3 shadow-sm border mb-3">
+                    <div class="bg-white p-3 rounded-3 shadow-sm border mb-3" style="position: sticky; top: 0; z-index: 105;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                              <div class="fw-bold" id="modalProDetails"></div>
                         </div>
                         <div id="bulkWarning" class="alert alert-info d-none text-xs p-2 mb-0 border-0 bg-info bg-opacity-10 text-info rounded fw-bold">
                             <i class="fa-solid fa-list-check me-1"></i> Mode Pemetaan Massal
                         </div>
+                        <div id="capacityInjectionContainer" class="mt-2"></div>
                     </div>
 
                     <div id="assignmentCardContainer" class="bg-white rounded border shadow-sm p-3 custom-scrollbar" style="max-height: 500px; overflow-y: auto;">
@@ -750,8 +751,68 @@
                 const item = evt.item;
                 const toList = evt.to;
                 const fromList = evt.from;
-                const targetWcId = toList.closest('.wc-card-container').dataset.wcId;
+                const wcContainer = toList.closest('.wc-card-container');
+                const targetWcId = wcContainer ? wcContainer.dataset.wcId : '';
                 const originWc = item.dataset.arbpl;
+
+                // --- CAPACITY PRE-CHECK START ---
+                if (wcContainer) {
+                    const kapazHours = parseFloat(wcContainer.dataset.kapazWc) || 0;
+                    const maxMins = kapazHours * 60;
+                    
+                    // Calc Current Load (excluding the newly dropped item and any cached dragged items if they are momentarily in the list)
+                    let currentLoad = 0;
+                    wcContainer.querySelectorAll('.pro-item-card').forEach(card => {
+                        // Check if this card is part of the currently dragged set
+                        const isDragged = (card === item) || (draggedItemsCache && draggedItemsCache.includes(card));
+                        if (!isDragged) {
+                             // Force calculation to ensure accuracy (fix for potential stale dataset)
+                             const mins = calculateItemMinutes(card);
+                             currentLoad += mins;
+                        }
+                    });
+
+                    // Calc Incoming Load
+                    let incomingLoad = 0;
+                    // If bulk drag
+                    if (draggedItemsCache && draggedItemsCache.length > 0) {
+                         draggedItemsCache.forEach(dItem => {
+                             incomingLoad += parseFloat(dItem.dataset.calculatedMins) || 0;
+                         });
+                    } else {
+                         // Single item fallback
+                         incomingLoad += parseFloat(item.dataset.calculatedMins) || 0;
+                    }
+
+                    if ((currentLoad + incomingLoad) > (maxMins + 0.1)) { // Tolerance
+                        // REVERT DROP (Bulk / Single)
+                        
+                        // 1. Determine items to revert
+                        let itemsToRevert = [item];
+                        if (draggedItemsCache && draggedItemsCache.length > 0) {
+                            itemsToRevert = draggedItemsCache;
+                        }
+
+                        // 2. Move them back to source
+                        itemsToRevert.forEach(revItem => {
+                            if(revItem) fromList.appendChild(revItem);
+                        });
+
+                        // 3. Reset Mirror/Ghost effects if any (handled by Sortable usually, but good to be safe)
+                        draggedItemsCache = []; // Clear cache to avoid side effects
+                        document.body.classList.remove('dragging-active');
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Kapasitas Penuh!',
+                            text: `Workcenter ${targetWcId} tidak mencukupi untuk ${itemsToRevert.length} item ini.`,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        return;
+                    }
+                }
+                // --- CAPACITY PRE-CHECK END ---
 
                 if (originWc && targetWcId && originWc !== targetWcId) {
                     pendingMismatchItem = item;
@@ -829,7 +890,7 @@
                     });
                     
                     capacityInfoHtml = `
-                        <div class="card mb-3 border-secondary bg-light border-opacity-25">
+                        <div class="card border-secondary bg-light border-opacity-25">
                             <div class="card-body p-2"> 
                                 <h6 class="text-uppercase fw-bold small text-muted mb-2">
                                     <i class="fa-solid fa-network-wired me-1"></i> ${targetWcId} Capacity Distribution
@@ -858,10 +919,12 @@
                     `;
                 }
 
-                if (capacityInfoHtml) {
-                    const capDiv = document.createElement('div');
-                    capDiv.innerHTML = capacityInfoHtml;
-                    container.appendChild(capDiv);
+                // Inject into the dedicated TOP sticky container
+                const topInjContainer = document.getElementById('capacityInjectionContainer');
+                if (topInjContainer) {
+                    topInjContainer.innerHTML = capacityInfoHtml;
+                    if(capacityInfoHtml === '') topInjContainer.style.display = 'none';
+                    else topInjContainer.style.display = 'block';
                 }
 
                 const empOptions = document.getElementById('employeeTemplateSelect').innerHTML;
@@ -1008,9 +1071,37 @@
                 const allCards = document.querySelectorAll('#assignmentCardContainer .pro-card');
                 let globalChildUsage = {}; 
                 let targetWcId = null;
+
+                // 1. Determine Target WC (from first card in modal)
+                if (allCards.length > 0) {
+                    targetWcId = allCards[0].dataset.targetWc;
+                }
+
+                // 2. Pre-calculate usage from ALREADY assigned items in the box (Main Page)
+                if (targetWcId) {
+                    const mainContainer = document.querySelector(`.wc-card-container[data-wc-id="${targetWcId}"]`);
+                    if (mainContainer) {
+                        const existingItems = mainContainer.querySelectorAll('.pro-item-card');
+                        const modalAufnrs = Array.from(allCards).map(c => c.dataset.refAufnr);
+
+                        existingItems.forEach(item => {
+                            const itemAufnr = item.dataset.aufnr;
+                            // Skip items currently being edited in the modal
+                            if (modalAufnrs.includes(itemAufnr)) return;
+
+                            // Skip items that are just being dropped (if any mismatch) - logic check
+                            // Just check data-child-wc
+                            const assignedChild = item.dataset.childWc;
+                            if (assignedChild) {
+                                const mins = parseFloat(item.dataset.calculatedMins) || 0;
+                                globalChildUsage[assignedChild] = (globalChildUsage[assignedChild] || 0) + mins;
+                            }
+                        });
+                    }
+                }
                 
                 allCards.forEach(card => {
-                    targetWcId = card.dataset.targetWc; 
+                    if (!targetWcId) targetWcId = card.dataset.targetWc; 
                     const vgw01 = parseFloat(card.dataset.vgw01) || 0;
                     const vge01 = card.dataset.vge01 || '';
                     const hasChildren = card.dataset.hasChildren === 'true';
@@ -1814,7 +1905,18 @@
                 if (lbl) lbl.innerText = `${Math.ceil(currentLoad)} / ${Math.ceil(maxMins)} Min`;
                 if (bar) {
                     bar.style.width = Math.min(pct, 100) + "%";
-                    bar.className = 'progress-bar rounded-pill ' + (pct < 70 ? 'bg-success' : 'bg-warning');
+                    // Change color logic: Green (<70%), Yellow (<100%), Red (>=100%)
+                    let colorClass = 'bg-success';
+                    if (pct >= 100) {
+                        colorClass = 'bg-danger';
+                        if(lbl) lbl.classList.add('text-danger', 'fw-bold');
+                    } else if (pct >= 70) {
+                        colorClass = 'bg-warning';
+                         if(lbl) lbl.classList.remove('text-danger', 'fw-bold');
+                    } else {
+                         if(lbl) lbl.classList.remove('text-danger', 'fw-bold');
+                    }
+                    bar.className = 'progress-bar rounded-pill ' + colorClass;
                 }
                 
                 const placeholder = cardContainer.querySelector('.empty-placeholder');
@@ -2307,19 +2409,28 @@
                 const confirmBtn = document.getElementById('confirmSaveBtn');
                 if(confirmBtn) confirmBtn.disabled = false;
 
+                let hasCapacityError = false;
                 let html = '';
+                
                 data.forEach(wc => {
                     const wcCard = document.querySelector(`[data-wc-id="${wc.workcenter}"]`);
                     const maxLoad = wcCard ? Math.ceil(parseFloat(wcCard.dataset.kapazWc) * 60) : 0;
+                    
+                    // Capacity Check
+                    const isOverCapacity = wc.load_mins > (maxLoad + 0.1); 
+                    if (isOverCapacity) hasCapacityError = true;
+
+                    const badgeClass = isOverCapacity ? 'bg-danger text-white border-danger' : 'bg-light text-primary border-primary border-opacity-25';
+                    const loadText = `Load: ${wc.load_mins} / ${maxLoad} Min`;
 
                     html += `
                         <div class="col-lg-4 col-md-6"> 
-                            <div class="card border-0 shadow-sm h-100">
+                            <div class="card border-0 shadow-sm h-100 ${isOverCapacity ? 'border border-danger' : ''}">
                                 <div class="card-header bg-white border-bottom pt-3 pb-2">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <h6 class="mb-0 fw-bold text-dark">${wc.workcenter}</h6>
-                                        <span class="badge bg-light text-primary border border-primary border-opacity-25">
-                                            Load: ${wc.load_mins} / ${maxLoad} Min
+                                        <span class="badge ${badgeClass} border">
+                                            ${loadText} ${isOverCapacity ? '(Exceeded!)' : ''}
                                         </span>
                                     </div>
                                 </div>
@@ -2358,6 +2469,23 @@
                 });
 
                 content.innerHTML = html;
+
+                if (typeof hasCapacityError !== 'undefined' && hasCapacityError) {
+                    const confirmBtn = document.getElementById('confirmSaveBtn');
+                    if(confirmBtn) confirmBtn.disabled = true;
+                    // Inject warning alert
+                    content.insertAdjacentHTML('afterbegin', `
+                        <div class="col-12 mb-3">
+                            <div class="alert alert-danger fw-bold shadow-sm">
+                                <i class="fa-solid fa-triangle-exclamation me-2"></i> 
+                                Terdapat Workcenter yang melebihi kapasitas! Silakan kurangi beban kerja sebelum menyimpan.
+                            </div>
+                        </div>
+                    `);
+                } else {
+                    const confirmBtn = document.getElementById('confirmSaveBtn');
+                    if(confirmBtn) confirmBtn.disabled = false;
+                }
                 
                 // Force Re-init to be safe
                 const previewEl = document.getElementById('previewModal');

@@ -1836,6 +1836,49 @@ class CreateWiController extends Controller
 
 
 
+            // --- CAPACITY VALIDATION START ---
+            $currentLoadMins = 0;
+            if(!empty($payload)) {
+                 foreach($payload as $pItem) {
+                      $currentLoadMins += floatval($pItem['calculated_tak_time'] ?? 0);
+                 }
+            }
+
+            // Calculate Max Mins Logic (Replicated from history/index)
+            $fixedSingleMins = 570;
+            $workcenterMappings = WorkcenterMapping::where('plant', $plantCode)
+                                  ->orWhere('kode_laravel', $plantCode)->get();
+            
+            $childrenOfThisWc = $workcenterMappings->filter(function($m) use ($doc) {
+                 return strtoupper($m->wc_induk) === strtoupper($doc->workcenter_code) && 
+                        strtoupper($m->workcenter) !== strtoupper($m->wc_induk);
+            });
+            
+            $childCount = $childrenOfThisWc->count();
+            $maxMins = ($childCount > 0) ? ($childCount * $fixedSingleMins) : $fixedSingleMins;
+
+            // Calculate New Item Mins BEFORE Adding
+            $baseTime = floatval($targetItem->VGW01);
+            $reqQty = floatval($request->qty);
+            $unit = strtoupper($targetItem->VGE01);
+            $totalRaw = $baseTime * $reqQty;
+             if ($unit === 'S' || $unit === 'SEC') {
+                $checkNewMins = $totalRaw / 60;
+            } elseif ($unit === 'H' || $unit === 'HUR') {
+                $checkNewMins = $totalRaw * 60;
+            } else {
+                $checkNewMins = $totalRaw;
+            }
+
+            if (($currentLoadMins + $checkNewMins) > ($maxMins + 0.01)) { // 0.01 tolerance
+                 $sisaMins = max(0, $maxMins - $currentLoadMins);
+                 return response()->json([
+                     'success' => false, 
+                     'message' => "Kapasitas Harian tidak mencukupi! Max: " . number_format($maxMins, 0) . " Min. Tersisa: " . number_format($sisaMins, 2) . " Min. Dibutuhkan: " . number_format($checkNewMins, 2) . " Min." 
+                 ], 400);
+            }
+            // --- CAPACITY VALIDATION END ---
+
             $newItem = [
                 'aufnr' => $targetItem->AUFNR,
                 'vornr' => $targetItem->VORNR,
