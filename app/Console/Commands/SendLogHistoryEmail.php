@@ -308,7 +308,7 @@ class SendLogHistoryEmail extends Command
 
         // 1. Generate History PDF
         if (!empty($allReports)) { 
-             $historyPdfName = "History_Log_Global_{$dateHistory}.pdf";
+             $historyPdfName = "Report_WI_{$dateHistory}.pdf";
              $historyPdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.log_history', ['reports' => $allReports])
                           ->setPaper('a4', 'landscape');
              $historyPath = storage_path("app/public/{$historyPdfName}");
@@ -326,7 +326,7 @@ class SendLogHistoryEmail extends Command
                 'printTime' => now(),
                 'isEmail'   => true, // Trigger column display in View
              ];
-             $activePdfName = 'Active_WI_Global_' . $dateActive . '.pdf';
+             $activePdfName = 'Dokument_WI_' . $dateActive . '.pdf';
              $activePdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.wi_single_document', $activeData)
                          ->setPaper('a4', 'landscape');
              $activePath = storage_path("app/public/{$activePdfName}");
