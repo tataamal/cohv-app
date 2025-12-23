@@ -169,11 +169,15 @@ class CreateWiController extends Controller
                     $aufnr = $item['aufnr'] ?? null;
                     $vornr = $item['vornr'] ?? ''; // Get VORNR
                     $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
+                    $remarkQty = floatval(str_replace(',', '.', $item['remark_qty'] ?? 0)); // Get Remark Qty
+                    
+                    // Subtract remark qty (failed items) so they become available again
+                    $effectiveAssigned = max(0, $assignedQty - $remarkQty);
 
                     if ($aufnr) {
                         $key = $aufnr . '-' . $vornr;
                         $currentTotal = $assignedProQuantities[$key] ?? 0;
-                        $assignedProQuantities[$key] = $currentTotal + $assignedQty;
+                        $assignedProQuantities[$key] = $currentTotal + $effectiveAssigned;
                     }
                 }
             }
@@ -510,9 +514,11 @@ class CreateWiController extends Controller
                  $totalProjected = $currentUsed + $newLoadMins;
                  
                  if ($limitMins > 0 && $totalProjected > $limitMins) {
-                      return response()->json([
-                          'message' => "Kapasitas Workcenter {$wcCode} terlampaui! (Max: " . number_format($limitMins) . " Min, Used+New: " . number_format($totalProjected) . " Min)"
-                      ], 400);
+                      // ALLOW OVER CAPACITY (User Request 2025-12-23)
+                      // return response()->json([
+                      //     'message' => "Kapasitas Workcenter {$wcCode} terlampaui! (Max: " . number_format($limitMins) . " Min, Used+New: " . number_format($totalProjected) . " Min)"
+                      // ], 400);
+                      Log::warning("Capacity Exceeded for {$wcCode}: limit={$limitMins}, projected={$totalProjected}");
                  }
             }
             // --- END VALIDATION ---

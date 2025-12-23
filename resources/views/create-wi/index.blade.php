@@ -792,31 +792,9 @@
                     }
 
                     if ((currentLoad + incomingLoad) > (maxMins + 0.1)) { // Tolerance
-                        // REVERT DROP (Bulk / Single)
-                        
-                        // 1. Determine items to revert
-                        let itemsToRevert = [item];
-                        if (draggedItemsCache && draggedItemsCache.length > 0) {
-                            itemsToRevert = draggedItemsCache;
-                        }
-
-                        // 2. Move them back to source
-                        itemsToRevert.forEach(revItem => {
-                            if(revItem) fromList.appendChild(revItem);
-                        });
-
-                        // 3. Reset Mirror/Ghost effects if any (handled by Sortable usually, but good to be safe)
-                        draggedItemsCache = []; // Clear cache to avoid side effects
-                        document.body.classList.remove('dragging-active');
-
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Kapasitas Penuh!',
-                            text: `Workcenter ${targetWcId} tidak mencukupi untuk ${itemsToRevert.length} item ini.`,
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                        return;
+                        // NO REVERT (User Request: 2025-12-23 - Allow Over Capacity)
+                        // Just warn (or do nothing, since progress bar will turn red later)
+                        console.warn("Capacity exceeded for " + targetWcId + ", but allowing drop.");
                     }
                 }
                 // --- CAPACITY PRE-CHECK END ---
@@ -2499,13 +2477,16 @@
 
                 if (typeof hasCapacityError !== 'undefined' && hasCapacityError) {
                     const confirmBtn = document.getElementById('confirmSaveBtn');
-                    if(confirmBtn) confirmBtn.disabled = true;
+                    // ALLOW SAVE even if capacity error (User Request 2025-12-23)
+                    if(confirmBtn) confirmBtn.disabled = false; 
+                    
                     // Inject warning alert
                     content.insertAdjacentHTML('afterbegin', `
                         <div class="col-12 mb-3">
-                            <div class="alert alert-danger fw-bold shadow-sm">
-                                <i class="fa-solid fa-triangle-exclamation me-2"></i> 
-                                Terdapat Workcenter yang melebihi kapasitas! Silakan kurangi beban kerja sebelum menyimpan.
+                            <div class="alert alert-warning fw-bold shadow-sm border-warning text-dark">
+                                <i class="fa-solid fa-triangle-exclamation me-2 text-warning"></i> 
+                                PERINGATAN: Terdapat Workcenter yang melebihi kapasitas! Mohon perhatikan beban kerja. 
+                                (Transaksi tetap dapat dilanjutkan).
                             </div>
                         </div>
                     `);

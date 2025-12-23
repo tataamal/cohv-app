@@ -346,15 +346,40 @@
                                                         </span>
                                                     </div>
                                                 </div>
+                                                @php
+                                                    $diff = $cap['used_mins'] - $cap['max_mins'];
+                                                    $absDiff = abs($diff);
+                                                    
+                                                    // Default Pas
+                                                    $diffText = "Pas";
+                                                    $diffClass = "text-success"; 
+                                                    $progressBarClass = "bg-success";
+                                                    $progressWidth = 100; // Full bar if perfect
+
+                                                    if ($diff > 0) {
+                                                        $diffText = "Kelebihan " . number_format($absDiff, 0, ',', '.') . " Menit";
+                                                        $diffClass = "text-danger"; 
+                                                        $progressBarClass = "bg-danger";
+                                                        // If over, bar is full red
+                                                        $progressWidth = 100; 
+                                                    } elseif ($diff < 0) {
+                                                        $diffText = "Kurang " . number_format($absDiff, 0, ',', '.') . " Menit";
+                                                        $diffClass = "text-warning"; 
+                                                        $progressBarClass = "bg-warning";
+                                                        // Usage percentage for bar visual
+                                                        $progressWidth = ($cap['max_mins'] > 0) ? ($cap['used_mins'] / $cap['max_mins']) * 100 : 0;
+                                                    }
+                                                @endphp
+                                                
                                                 <div class="progress" style="height: 6px; background-color: #e2e8f0;">
-                                                    <div class="progress-bar {{ $cap['percentage'] > 100 ? 'bg-danger' : 'bg-primary' }}" 
+                                                    <div class="progress-bar {{ $progressBarClass }}" 
                                                          role="progressbar" 
-                                                         style="width: {{ min($cap['percentage'], 100) }}%">
+                                                         style="width: {{ $progressWidth }}%">
                                                     </div>
                                                 </div>
                                                 <div class="d-flex justify-content-end mt-1">
-                                                     <span class="fw-bold {{ $cap['percentage'] > 100 ? 'text-danger' : 'text-primary' }}" style="font-size: 0.65rem;">
-                                                        {{ number_format($cap['percentage'], 1) }}% Used
+                                                     <span class="fw-bold {{ $diffClass }}" style="font-size: 0.65rem;">
+                                                        {{ $diffText }}
                                                     </span>
                                                 </div>
                                             </div>
