@@ -323,6 +323,47 @@
                 <div class="tab-content" id="historyTabsContent">
                     {{-- TAB 1: ACTIVE --}}
                     <div class="tab-pane fade {{ $activeTab == 'active' ? 'show active' : '' }}" id="active-content" role="tabpanel">
+                        
+                        {{-- CAPACITY SUMMARY BAR (NEW) --}}
+                        @if(isset($activeWorkcenterCapacities) && count($activeWorkcenterCapacities) > 0)
+                        <div class="card border-0 shadow-sm mb-4 bg-white" style="border-left: 5px solid #3b82f6 !important;">
+                            <div class="card-body py-3 px-4">
+                                <h6 class="fw-bold text-dark mb-3 text-uppercase" style="font-size: 0.8rem; letter-spacing: 0.5px;">
+                                    <i class="fa-solid fa-chart-pie me-2 text-primary"></i> Kapasitas Workcenter (Active)
+                                </h6>
+                                <div class="row g-3">
+                                    @foreach($activeWorkcenterCapacities as $cap)
+                                        <div class="col-lg-4 col-md-6">
+                                            <div class="p-2 border rounded-3 bg-light position-relative overflow-hidden">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <div class="text-truncate pe-2">
+                                                        <span class="fw-bold text-dark text-uppercase" style="font-size: 0.75rem;">{{ $cap['code'] }}</span>
+                                                        <span class="text-muted small ms-1" style="font-size: 0.7rem;">{{ \Illuminate\Support\Str::limit($cap['name'], 20) }}</span>
+                                                    </div>
+                                                    <div class="text-end">
+                                                        <span class="badge bg-white text-dark border small fw-bold" style="font-size: 0.65rem;">
+                                                            {{ number_format($cap['used_mins'], 0, ',', '.') }} / {{ number_format($cap['max_mins'], 0, ',', '.') }} M
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="progress" style="height: 6px; background-color: #e2e8f0;">
+                                                    <div class="progress-bar {{ $cap['percentage'] > 100 ? 'bg-danger' : 'bg-primary' }}" 
+                                                         role="progressbar" 
+                                                         style="width: {{ min($cap['percentage'], 100) }}%">
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex justify-content-end mt-1">
+                                                     <span class="fw-bold {{ $cap['percentage'] > 100 ? 'text-danger' : 'text-primary' }}" style="font-size: 0.65rem;">
+                                                        {{ number_format($cap['percentage'], 1) }}% Used
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                         @if($activeWIDocuments->count() > 0 || (!request()->has('search')))
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold text-dark mb-0">Active Documents</h5>
@@ -1413,9 +1454,22 @@
             }
         }
 
-        // Serialize Mappings
-        const wcMappings = @json($workcenterMappings ?? []);
-        const wiCapacityMap = @json($wiCapacityMap ?? []); 
+        // --- DEBUG EXECUTION ---
+        console.log("History Script: Checkpoint 1 - Modal Setup Complete");
+
+        // Serialize Mappings with Safety
+        let wcMappings = [];
+        try {
+            wcMappings = @json($workcenterMappings ?? []);
+        } catch(e) { console.error("Error parsing wcMappings", e); }
+        
+        console.log("History Script: Checkpoint 2 - wcMappings Loaded", wcMappings.length);
+
+        let wiCapacityMap = [];
+        try {
+             wiCapacityMap = @json($wiCapacityMap ?? []);
+        } catch(e) { console.error("Error parsing wiCapacityMap", e); }
+
         let availableItemsMap = {}; // Cache for validation
         
         // Helper: Calculate Minutes
@@ -1658,10 +1712,18 @@
 
             const buildOpt = (code, name) => {
                 let capLabel = '';
-                const wcInfo = workcentersData[code];
-                // FIXED RULE: 570 Min
-                let k = 570;
-                capLabel = ` (Cap: ${k} Min)`;
+                // [UPDATED] Use .find() because workcentersData is array now
+                // Also kapaz is already in Minutes from controller
+                const wcInfo = workcentersData.find(w => w.workcenter_code === code) || {};
+                let k = parseFloat(wcInfo.kapaz) || 0;
+                
+                // If 0, try to check refWorkcentersData (table raw)
+                if(k === 0) {
+                     // logic to fallback? But backend handles parent sum logic. 
+                     // If 0, it is 0.
+                }
+
+                capLabel = ` (Cap: ${k.toLocaleString()} Min)`;
                 
                 let totalOps = 0;
                 employeesList.forEach(e => {
@@ -2513,7 +2575,7 @@
                              errorMsg.innerText = 'EXCEEDS DAILY CAPACITY!';
                              errorMsg.classList.remove('d-none');
                          }
-                         // if(btnSave) btnSave.disabled = true; // Optional: block saving?
+                         if(btnSave) btnSave.disabled = true; // STRICT BLOCKING
                 } else {
                         // Reset capacity warning (but don't clear qty warning if exists)
                          if(qtyWrapper && !inputNewQty.classList.contains('text-danger')) { // Only reset if not qty error

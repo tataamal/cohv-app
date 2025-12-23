@@ -443,6 +443,80 @@ class CreateWiController extends Controller
         $wiDocuments = [];
 
         try {
+            // --- STRICT CAPACITY VALIDATION ---
+            // 1. Fetch Capacities
+            $wcCodesToCheck = array_column($payload, 'workcenter');
+            $wcMap = workcenter::whereIn('kode_wc', $wcCodesToCheck)->pluck('kapaz', 'kode_wc')->toArray(); // Kapaz in Hours
+            
+            // Allow checking parent/child relationship if needed (assuming simple check first)
+            // Ideally should fetch current load from DB + new load. 
+            // BUT user requirement implies atomic check for "current transaction" or "current state"
+            // For now, let's checking the NEW payload against MAX. 
+            // Better: Check Current Active Load + New Load > Max.
+            
+            $activeDocs = HistoryWi::where('plant_code', $plantCode)
+                ->where('expired_at', '>', Carbon::now())
+                ->get();
+
+            $currentLoadMap = [];
+            foreach ($activeDocs as $ad) {
+                // Simplified load calc (similar to history but without full overhead)
+                // Just extracting total minutes.
+                // Assuming we stored 'calculated_tak_time' in payload.
+                $pItems = is_string($ad->payload_data) ? json_decode($ad->payload_data, true) : (is_array($ad->payload_data) ? $ad->payload_data : []);
+                if (is_array($pItems)) {
+                    foreach ($pItems as $pi) {
+                        $w = $ad->workcenter_code; // Load is attributed to the WC of the doc?
+                        // Actually, items in a doc belong to the Doc's Workcenter (Parent or Child).
+                        if (!isset($currentLoadMap[$w])) $currentLoadMap[$w] = 0;
+                        $currentLoadMap[$w] += floatval(str_replace(',', '.', $pi['calculated_tak_time'] ?? 0));
+                    }
+                }
+            }
+
+            foreach ($payload as $wcAllocation) {
+                 $wcCode = $wcAllocation['workcenter'];
+                 $proItems = $wcAllocation['pro_items'] ?? [];
+                 
+                 // Calculate New Load
+                 $newLoadMins = 0;
+                 foreach ($proItems as $pi) {
+                      $newLoadMins += floatval(str_replace(',', '.', $pi['calculated_tak_time'] ?? 0));
+                 }
+                 
+                 // Get Max Capacity
+                 // Note: If Parent, we need sum of children. If Child, use its own.
+                 // We need to fetch relationships to be precise.
+                 // Fetch this WC and its children.
+                 $thisWcObj = workcenter::where('kode_wc', $wcCode)->first();
+                 $rawKapaz = $thisWcObj ? floatval(str_replace(',', '.', $thisWcObj->kapaz)) : 0;
+                 $limitMins = $rawKapaz * 60;
+                 
+                 // Check if it is a parent
+                 $children = WorkcenterMapping::where('wc_induk', $wcCode)
+                    ->where('workcenter', '!=', $wcCode)
+                    ->get();
+                 
+                 if ($children->count() > 0) {
+                      $limitMins = 0; // Reset to sum children
+                      $childCodes = $children->pluck('workcenter')->toArray();
+                      $childWcs = workcenter::whereIn('kode_wc', $childCodes)->get();
+                      foreach($childWcs as $cw) {
+                          $limitMins += (floatval(str_replace(',', '.', $cw->kapaz)) * 60);
+                      }
+                 }
+                 
+                 $currentUsed = $currentLoadMap[$wcCode] ?? 0;
+                 $totalProjected = $currentUsed + $newLoadMins;
+                 
+                 if ($limitMins > 0 && $totalProjected > $limitMins) {
+                      return response()->json([
+                          'message' => "Kapasitas Workcenter {$wcCode} terlampaui! (Max: " . number_format($limitMins) . " Min, Used+New: " . number_format($totalProjected) . " Min)"
+                      ], 400);
+                 }
+            }
+            // --- END VALIDATION ---
+
             foreach ($payload as $wcAllocation) {
                 $workcenterCode = $wcAllocation['workcenter'];
                 DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, &$wiDocuments) {
@@ -577,25 +651,57 @@ class CreateWiController extends Controller
             return [$m->wc_induk, $m->workcenter];
         })->filter()->unique()->map(function($code) { return strtoupper($code); });
         
-        $rawCapacities = ProductionTData1::where('WERKSX', $plantCode)
-            ->whereIn('ARBPL', $allWcCodes)
-            ->select('ARBPL', 'KAPAZ', 'VGE01')
-            ->distinct() 
-            ->get()
-            ->keyBy('ARBPL');
+        // --- CAPACITY SOURCING FROM WORKCENTERS TABLE ---
+        $rawWcData = workcenter::where('WERKSX', $plantCode)
+            ->orWhere('WERKS', $plantCode)
+            ->get();
             
-        $workcenters = $rawCapacities->map(function($item) {
-             $k = floatval(str_replace(',', '.', $item->KAPAZ));
-             $unit =  strtoupper($item->VGE01);
-             
-             $mins = $k * 60;
-             
-             return (object) [
-                 'workcenter_code' => $item->ARBPL,
-                 'kapaz' => $mins, 
-                 'raw_unit' => $unit
-             ];
-        });
+        // 1. Build Base Capacity Map (Single WCs)
+        $wcCapacityMap = [];
+        foreach ($rawWcData as $rw) {
+            $code = strtoupper($rw->kode_wc);
+            $kapazHours = floatval(str_replace(',', '.', $rw->kapaz ?? 0));
+            $wcCapacityMap[$code] = $kapazHours * 60; // Convert to Minutes
+        }
+
+        // 2. Resolve Parent Capacities (Sum of Children)
+        $workcenters = collect();
+        foreach ($allWcCodes as $wcCode) {
+            $isParent = false;
+            // Check if this WC code appears as 'wc_induk' for OTHERS
+            $children = $workcenterMappings->filter(function($m) use ($wcCode) {
+                 return strtoupper($m->wc_induk) === $wcCode && 
+                        strtoupper($m->workcenter) !== $wcCode;
+            });
+
+            if ($children->isNotEmpty()) {
+                // It is a Parent
+                $totalCap = 0;
+                foreach ($children as $child) {
+                    $cCode = strtoupper($child->workcenter);
+                    $totalCap += ($wcCapacityMap[$cCode] ?? 0);
+                }
+                $finalCap = $totalCap;
+            } else {
+                // It is a Single/Child WC
+                $finalCap = $wcCapacityMap[$wcCode] ?? 0;
+            }
+
+            $workcenters->push((object) [
+                 'workcenter_code' => $wcCode,
+                 'kapaz' => $finalCap,
+                 'raw_unit' => 'MIN'
+            ]);
+            
+            if ($finalCap == 0 && $children->isNotEmpty()) {
+                Log::info("DEBUG CAPACITY WC ZERO: {$wcCode}. Children Count: " . $children->count());
+                foreach($children as $child) {
+                     $cCode = strtoupper($child->workcenter);
+                     $cap = $wcCapacityMap[$cCode] ?? 'MISSING';
+                     Log::info(" - Child {$cCode}: {$cap}");
+                }
+            }
+        }
         
         $concurrentUsageMap = [];
         $today = Carbon::today();
@@ -765,19 +871,28 @@ class CreateWiController extends Controller
                      }
                 }
             }
-            $fixedSingleMins = 570;
-            
-            $childrenOfThisWc = $workcenterMappings->filter(function($m) use ($doc) {
-                 return strtoupper($m->wc_induk) === strtoupper($doc->workcenter_code) && 
-                        strtoupper($m->workcenter) !== strtoupper($m->wc_induk);
-            });
-            
-            $childCount = $childrenOfThisWc->count();
-            
-            if ($childCount > 0) {
-                 $maxMins = $childCount * $fixedSingleMins;
+            // --- RESOLVE MAX CAPACITY FROM WORKCENTERS TABLE ---
+            $targetWcCode = strtoupper($doc->workcenter_code);
+            $maxMins = 0;
+
+            // Check if Parent (Has children in mapping)
+             $childrenOfThisWc = $workcenterMappings->filter(function($m) use ($targetWcCode) {
+                 return strtoupper($m->wc_induk) === $targetWcCode && 
+                        strtoupper($m->workcenter) !== $targetWcCode;
+             });
+
+            if ($childrenOfThisWc->count() > 0) {
+                // It is a Parent - Sum Children
+                foreach ($childrenOfThisWc as $child) {
+                     $cCode = strtoupper($child->workcenter);
+                     $cap = $wcCapacityMap[$cCode] ?? 0;
+                     if ($cap == 0) $cap = 570; // Fallback Default
+                     $maxMins += $cap;
+                }
             } else {
-                 $maxMins = $fixedSingleMins;
+                 // Single - Check self
+                 $maxMins = $wcCapacityMap[$targetWcCode] ?? 0;
+                 if ($maxMins == 0) $maxMins = 570; // Fallback Default
             }
 
             $percentageLoad = $maxMins > 0 ? ($summary['total_load_mins'] / $maxMins) * 100 : 0;
@@ -806,6 +921,34 @@ class CreateWiController extends Controller
             $wiCapacityMap[$doc->document_code] = $doc->capacity_info ?? ['max_mins' => 0, 'used_mins' => 0];
         }
 
+        // --- AGGREGATE WORKCENTER CAPACITIES FOR PROGRESS BAR ---
+        $aggregatedCapacities = [];
+        foreach ($activeWIDocuments as $doc) {
+            $wcCode = $doc->workcenter_code;
+            if (!isset($aggregatedCapacities[$wcCode])) {
+                $aggregatedCapacities[$wcCode] = [
+                    'code' => $wcCode,
+                    'name' => $wcNames[strtoupper($wcCode)] ?? $wcCode,
+                    'max_mins' => $doc->capacity_info['max_mins'] ?? 0, // Using max from first doc as reference for the WC
+                    'used_mins' => 0
+                ];
+            }
+            $aggregatedCapacities[$wcCode]['used_mins'] += $doc->capacity_info['used_mins'] ?? 0;
+        }
+
+        // Finalize percentages
+        foreach ($aggregatedCapacities as &$cap) {
+            // Note: max_mins is per DAY per WC. 
+            // If multiple docs use the same WC, they share the SAME daily capacity bucket.
+            // So we sum used_mins against the single max_mins value.
+            if ($cap['max_mins'] > 0) {
+                $cap['percentage'] = ($cap['used_mins'] / $cap['max_mins']) * 100;
+            } else {
+                $cap['percentage'] = 0;
+            }
+        }
+        unset($cap);
+
         return view('create-wi.history', [
             'plantCode' => $plantCode,
             'nama_bagian' => $nama_bagian,
@@ -818,6 +961,7 @@ class CreateWiController extends Controller
             'refWorkcenters' => $childWorkcenters, 
             'workcenterMappings' => $workcenterMappings, 
             'wiCapacityMap' => $wiCapacityMap, 
+            'activeWorkcenterCapacities' => $aggregatedCapacities,
             'employees' => [], // Empty initially, fetched via AJAX
             'search' => $request->search,
             'date' => $request->date,
@@ -947,6 +1091,77 @@ class CreateWiController extends Controller
                     $itemNik === $targetNik && 
                     $itemVornr === $targetVornr
                 ) {
+                    
+                    // Capacity Check for UPDATE
+                    $newQty = floatval($request->new_qty);
+                    $unitTime = floatval(str_replace(',', '.', $item['vgw01'] ?? 0));
+                    $unit = strtoupper($item['vge01'] ?? '');
+                    
+                    // Normalize to Minutes
+                    $newTimeMins = ($unit == 'S' || $unit == 'SEC') ? ($newQty * $unitTime / 60) : ($newQty * $unitTime);
+                    
+                    // Fetch Limits
+                    $wcCode = $doc->workcenter_code;
+                    $thisWcObj = workcenter::where('kode_wc', $wcCode)->first();
+                    $rawKapaz = $thisWcObj ? floatval(str_replace(',', '.', $thisWcObj->kapaz)) : 0;
+                    $limitMins = $rawKapaz * 60;
+
+                    // Handle Parent
+                    $children = WorkcenterMapping::where('wc_induk', $wcCode)
+                    ->where('workcenter', '!=', $wcCode)
+                    ->get();
+                    if ($children->count() > 0) {
+                        $limitMins = 0;
+                        $childCodes = $children->pluck('workcenter')->toArray();
+                        $childWcs = workcenter::whereIn('kode_wc', $childCodes)->get();
+                        foreach($childWcs as $cw) {
+                            $k = floatval(str_replace(',', '.', $cw->kapaz));
+                            if ($k == 0) $k = 9.5; // Fallback 570 mins
+                            $limitMins += ($k * 60);
+                        }
+                    }
+                    if ($limitMins == 0) $limitMins = 570; // Fallback Single
+
+                    // Calculate Current Load (excluding this specific item's OLD value)
+                    $plantCode = $doc->plant_code;
+                    $activeDocs = HistoryWi::where('plant_code', $plantCode)
+                        ->where('expired_at', '>', Carbon::now())
+                        ->get();
+                    
+                    $currentUsed = 0;
+                    foreach ($activeDocs as $ad) {
+                        $pItems = is_string($ad->payload_data) ? json_decode($ad->payload_data, true) : (is_array($ad->payload_data) ? $ad->payload_data : []);
+                        if (is_array($pItems)) {
+                            foreach ($pItems as $pi) {
+                                // Exclude the CURRENT ITEM being updated
+                                // Logic: If DocID matches AND Aufnr/Nik/Vornr matches.
+                                $piAufnr = $pi['aufnr'] ?? '';
+                                $piNik = $pi['nik'] ?? '';
+                                $piVornr = $pi['vornr'] ?? '';
+
+                                if ($ad->id == $doc->id && 
+                                    $piAufnr === $request->aufnr && 
+                                    $piNik === $targetNik &&
+                                    $piVornr === $targetVornr
+                                ) {
+                                    continue; 
+                                }
+
+                                if ($ad->workcenter_code === $wcCode) {
+                                    $currentUsed += floatval(str_replace(',', '.', $pi['calculated_tak_time'] ?? 0));
+                                }
+                            }
+                        }
+                    }
+
+                    $totalProjected = $currentUsed + $newTimeMins;
+                    
+                    if ($limitMins > 0 && $totalProjected > $limitMins) {
+                         return response()->json([
+                             'message' => "Kapasitas Workcenter {$wcCode} terlampaui! (Max: " . number_format($limitMins) . " Min, Used+New: " . number_format($totalProjected) . " Min)"
+                         ], 400);
+                    }
+
                     // Refine "otherUsage" specifically for this Item's VORNR
                     // We re-iterate relatedDocs logic briefly or just filter if we stored it properly.
                     // To be efficient: we already fetched relatedDocs. Let's scan them now that we know the specific VORNR.

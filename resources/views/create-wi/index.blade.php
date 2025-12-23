@@ -389,22 +389,33 @@
                 <div class="target-scroll-area custom-scrollbar">
                     @foreach ($workcenters as $wc)
                         @php
-                            // [UPDATED] Fixed Capacity Rule: 9.5 Hours (570 Mins) per Single/Child WC
-                            // Parent Capacity = Sum of Children * 570 Mins
-                            $fixedSingleMins = 570;
-                            $fixedSingleHours = 9.5;
+                            // [UPDATED] Dynamic Capacity from DB
+                            // Parent Capacity = Sum of Children's Real DB Capacity
                             
                             if (array_key_exists($wc->kode_wc, $parentWorkcenters)) {
-                                $childCount = count($parentWorkcenters[$wc->kode_wc]);
-                                $kapazHours = $childCount * $fixedSingleHours;
+                                $children = $parentWorkcenters[$wc->kode_wc];
+                                $totalMins = 0;
+                                foreach($children as $child) {
+                                    $k = floatval(str_replace(',', '.', $child['kapaz'] ?? 0));
+                                    if ($k == 0) $k = 9.5; // Fallback 570 mins
+                                    $totalMins += ($k * 60);
+                                }
+                                $kapazMins = $totalMins;
                             } else {
-                                $kapazHours = $fixedSingleHours;
+                                $k = floatval(str_replace(',', '.', $wc->kapaz ?? 0));
+                                if ($k == 0) $k = 9.5; // Fallback 570 mins
+                                $kapazMins = $k * 60;
                             }
-                            $isUnknown = false; // Always known now due to fixed rule
+                            
+                            // If DB is 0, fallback to 570?? No, strict means strict. But maybe 0 means unlimited or config error?
+                            // User said: "konfersi dulu menjadi menit". Implies DB has value.
+                            // If 0, it means 0 capacity (Strict). 
+                            // But usually safe to assume 0 might be an error. 
+                            // Let's stick to DB value. If 0, it blocks. User can update DB.
                         @endphp
 
                         {{-- @if (!$isUnknown) --}}
-                            <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-kapaz-wc="{{ $kapazHours }}">
+                            <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-capacity-mins="{{ $kapazMins }}">
                                 {{-- Card Header --}}
                                 <div class="wc-header">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
@@ -897,7 +908,9 @@
                                 <div class="row g-2" id="topCapacityContainer">
                                     <!-- Child Status Bars Injected Here Dynamically via updateCardSummary -->
                                     ${children.map(child => {
-                                        const limit = 570; // FIXED RULE
+                                        let rawKapaz = parseFloat(String(child.kapaz).replace(',', '.')) || 0;
+                                        if (rawKapaz === 0) rawKapaz = 9.5; // Fallback
+                                        const limit = rawKapaz * 60; 
                                         return `
                                         <div class="col-md-6">
                                             <div class="d-flex justify-content-between text-xs fw-bold mb-1">
@@ -1331,6 +1344,31 @@
                         oper: item.dataset.vornr || '0010',
                         pwwrk: item.dataset.pwwrk || ''
                     }));
+
+                    // --- Capacity Check before Bulk Move ---
+                    const targetWcCard = document.querySelector(`.wc-card-container[data-wc-id="${targetWc}"]`);
+                    if (targetWcCard) {
+                        let currentUsed = parseFloat(targetWcCard.dataset.currentMins) || 0;
+                        const maxCap = parseFloat(targetWcCard.dataset.capacityMins) || 0;
+                        
+                        let additionalLoad = 0;
+                        itemsToProcess.forEach(item => {
+                            const qty = parseFloat(item.dataset.sisaQty) || 0;
+                            const vgw01 = parseFloat(item.dataset.vgw01) || 0;
+                            additionalLoad += (qty * vgw01); // Assuming MIN
+                        });
+
+                        if (maxCap > 0 && (currentUsed + additionalLoad) > maxCap) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Kapasitas Penuh!',
+                                text: `Workcenter ${targetWc} tidak mencukupi. (Max: ${Math.round(maxCap)} min, Existing+New: ${Math.round(currentUsed + additionalLoad)} min)`,
+                            });
+                            // Re-open mismatch modal? Or just stop.
+                            // mismatchModalInstance.show(); // Maybe keep open?
+                            return; 
+                        }
+                    }
 
                     mismatchModalInstance.hide();
                     cancelDrop();
