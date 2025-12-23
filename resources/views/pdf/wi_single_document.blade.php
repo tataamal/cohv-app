@@ -46,10 +46,12 @@
         .page-number:after { content: counter(page); }
 
         /* --- FRAMEWORK --- */
+        /* --- FRAMEWORK --- */
         .container-frame {
             width: 100%;
             border: 2px solid #000;
-            height: 98%; 
+            min-height: 98%; /* Use min-height to allow expansion */
+            /* height: 98%; REMOVED fixed height to prevent forcing breaks */
             display: block;
         }
 
@@ -57,6 +59,10 @@
         /* --- PAGE BREAK UTILITY --- */
         .page-break {
             page-break-after: always;
+        }
+        
+        .avoid-break {
+            page-break-inside: avoid;
         }
 
         /* --- TABLE STYLING --- */
@@ -67,6 +73,13 @@
             padding: 4px;
             vertical-align: middle;
         }
+
+        /* ... (Keep existing Header/Info styles if match/implied, but skipping to save tokens if unchanged. Wait, I must replacing contiguous block.) ... */
+        /* Re-including Header/Info styles for safety since I'm replacing a large block? No, I can target specific blocks. */
+        
+        /* Let's target the logic block specifically for minRows and the signature wrapper. */
+        /* BUT wait, I need to update CSS first. I will do this in chunks. Check lines. */
+
 
         /* --- HEADER SECTION --- */
         .header-left {
@@ -200,7 +213,7 @@
         </table>
 
         {{-- 3. DATA TABLE --}}
-        <table style="table-layout: fixed;">
+        <table style="table-layout: fixed; page-break-after: avoid;">
             <thead>
                 <tr class="data-header">
                     <th width="3%">NO</th>
@@ -220,7 +233,7 @@
             </thead>
             <tbody>
                 @php
-                    $minRows = 14; 
+                    $minRows = 12;  // Reduced from 14 to prevent signature pushing
                     $itemCount = count($items);
                     $rowsToFill = max(0, $minRows - $itemCount);
                 @endphp
@@ -300,22 +313,24 @@
         </table>
 
         {{-- 4. FOOTER --}}
-        <table>
-            <tr>
-                <td class="footer-cell" width="33%">
-                    <div class="sig-title">PREPARED BY</div>
-                    <div class="sig-content"><br>( .............................................. )</div>
-                </td>
-                <td class="footer-cell" width="33%">
-                    <div class="sig-title">CHECKED BY</div>
-                    <div class="sig-content"><br>( .............................................. )</div>
-                </td>
-                <td class="footer-cell" width="34%" style="border-right: none;">
-                    <div class="sig-title">APPROVED BY</div>
-                    <div class="sig-content"><br>( .............................................. )</div>
-                </td>
-            </tr>
-        </table>
+        <div class="avoid-break">
+            <table>
+                <tr>
+                    <td class="footer-cell" width="33%">
+                        <div class="sig-title">PREPARED BY</div>
+                        <div class="sig-content"><br>( .............................................. )</div>
+                    </td>
+                    <td class="footer-cell" width="33%">
+                        <div class="sig-title">CHECKED BY</div>
+                        <div class="sig-content"><br>( .............................................. )</div>
+                    </td>
+                    <td class="footer-cell" width="34%" style="border-right: none;">
+                        <div class="sig-title">APPROVED BY</div>
+                        <div class="sig-content"><br>( .............................................. )</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
     </div>
 
     {{-- PAGE BREAK JIKA BUKAN HALAMAN TERAKHIR --}}
