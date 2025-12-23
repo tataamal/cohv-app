@@ -434,7 +434,7 @@
 
                                 <div class="card-body-area">
                                     {{-- Capacity Bar --}}
-                                    <div class="mb-3">
+                                    <!-- <div class="mb-3">
                                         <div class="d-flex justify-content-between text-xs fw-bold text-muted mb-1">
                                             <span>KAPASITAS KERJA HARIAN</span>
                                             <span>{{ number_format($usedMins, 1, ',', '.') }} / {{ number_format($maxMins, 0, ',', '.') }} Min</span>
@@ -444,7 +444,7 @@
                                                  role="progressbar" 
                                                  style="width: {{ min($percentage, 100) }}%"></div>
                                         </div>
-                                    </div>
+                                    </div> -->
 
                                     {{-- Accordion --}}
                                     <div class="accordion-trigger-area d-flex justify-content-between align-items-center pe-3">
@@ -482,8 +482,6 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    {{-- FULL WIDTH PROGRESS BAR --}}
-                                                    {{-- FULL WIDTH PROGRESS BAR --}}
                                                     <div class="d-flex justify-content-end mb-1">
                                                         <span class="text-xs fw-bold text-muted">
                                                              Sukses: {{ $item['confirmed_qty'] ?? 0 }}
@@ -1527,18 +1525,9 @@
             // --- POPULATE CHILD WC DASHBOARD ---
             const dashboardContainer = document.getElementById('childWcDashboard');
             if(dashboardContainer) {
-                // Find all children for this Parent WC (wcCode)
-                // We use wcMappings (but it is flattened). 
-                // Better: Use refWorkcentersData keys? No, that's just data.
-                // We need the RELATIONSHIP. 
-                // Creating a helper map if not exists? 
-                // Controller passed workcenterMappings as JSON.
                 
                 dashboardContainer.innerHTML = '';
                 const parentCode = wcCode.toUpperCase();
-                
-                // Filter Mappings for this Parent
-                // workcenterMappings structure: [{ workcenter: 'CHILD', wc_induk: 'PARENT', ... }]
                 const children = wcMappings.filter(m => (m.wc_induk || '').toUpperCase() === parentCode);
                 
                 if(children.length > 0) {
@@ -1547,7 +1536,6 @@
                     children.forEach(c => {
                         const childCode = c.workcenter;
                         const childName = c.nama_workcenter || '';
-                        
                         const ref = refWorkcentersData[childCode];
                         let maxMins = 570; 
                         if(ref && ref.kapaz) maxMins = parseFloat(ref.kapaz) || 570;
@@ -1600,7 +1588,6 @@
                     return;
                 }
                 
-                // Show loading indicator in Modal? Or global?
                 // For now just fetch.
                 fetch('{{ route("wi.get-employees", ["kode" => $plantCode]) }}')
                     .then(res => res.json())
@@ -1610,7 +1597,7 @@
                             resolve();
                         } else {
                             console.error('Failed to load employees:', res.message);
-                            resolve(); // Resolve anyway so modal opens matching fallback
+                            resolve();
                         }
                     })
                     .catch(e => {
@@ -1619,31 +1606,24 @@
                     });
             });
         };
-        // workcentersData = Parent/Display Capacity (TData1). 
         const workcentersData = @json($workcenters ?? []); 
-        // refWorkcentersData = Child Capacity Calculation (Table Workcenters).
         const refWorkcentersData = @json($refWorkcenters ?? []);
 
-        // Helper: Get Operator Options for a specific WC
         function getOperatorOptions(wcCode, excludeNiks = []) {
             const targetWc = (wcCode || '').toUpperCase();
             let opts = '<option value="">-- Pilih Operator --</option>';
             let count = 0;
             
             employeesList.forEach(e => {
-                // [UPDATED] Show ALL operators for this Plant (ignore WC filter)
-                // const eWc = (e.arbpl || '').toUpperCase(); 
-                // if (eWc === targetWc) { 
-                    const nik = e.pernr;
-                    const name = e.stext; 
-                    
-                    if (excludeNiks.includes(nik.toString())) {
-                         opts += `<option value="${nik}" disabled style="color:#ccc;">${nik} - ${name} (Terpakai)</option>`;
-                    } else {
+                const nik = e.pernr;
+                const name = e.stext; 
+                
+                if (excludeNiks.includes(nik.toString())) {
+                     opts += `<option value="${nik}" disabled style="color:#ccc;">${nik} - ${name} (Terpakai)</option>`;
+                } else {
                         opts += `<option value="${nik}" data-name="${name}">${nik} - ${name}</option>`;
                         count++;
                     }
-                // }
             });
             
             if (count === 0 && excludeNiks.length > 0) {
@@ -1666,7 +1646,6 @@
             return used;
         }
 
-        // Exposed function for onchange event in split rows
         window.filterOperators = function(wcSelect, targetId) {
             const wcCode = wcSelect.value;
             const targetSelect = document.getElementById(targetId);
@@ -1712,15 +1691,10 @@
 
             const buildOpt = (code, name) => {
                 let capLabel = '';
-                // [UPDATED] Use .find() because workcentersData is array now
-                // Also kapaz is already in Minutes from controller
                 const wcInfo = workcentersData.find(w => w.workcenter_code === code) || {};
                 let k = parseFloat(wcInfo.kapaz) || 0;
                 
-                // If 0, try to check refWorkcentersData (table raw)
                 if(k === 0) {
-                     // logic to fallback? But backend handles parent sum logic. 
-                     // If 0, it is 0.
                 }
 
                 capLabel = ` (Cap: ${k.toLocaleString()} Min)`;
@@ -1751,7 +1725,6 @@
             return opts.join('');
         }
 
-        // --- SPLIT & RENDER LOGIC ---
         window.fetchAvailableItems = function() {
             const wc = document.getElementById('filter_wc_add').value;
             const searchInput = document.getElementById('search_available_item');
@@ -1767,7 +1740,7 @@
                 .then(res => res.json())
                 .then(res => {
                     const items = res.data;
-                    availableItemsMap = {}; // Reset cache
+                    availableItemsMap = {};
                     
                     if(items.length === 0) {
                         if(container) container.innerHTML = '<div class="text-center p-5 border rounded-3 bg-white text-muted"><i class="fa-solid fa-box-open fa-2x mb-3 opacity-25"></i><p>Tidak ada item tersedia atau tidak cocok dengan pencarian.</p></div>';
@@ -1835,10 +1808,7 @@
                 });
         };
         window.updateDashboardUsage = function() {
-            // 1. Reset Usage Map
             let usageMap = {};
-            
-            // 2. Scan all Split Rows in the Modal
             const rows = document.querySelectorAll('#addItemModal .split-row-item');
             rows.forEach(r => {
                 const wcS = r.querySelector('.child-select');
@@ -1851,7 +1821,6 @@
                 }
             });
             
-            // 3. Update Dashboard Elements
             for (const [wc, ref] of Object.entries(refWorkcentersData)) {
                 const el = document.getElementById(`dashboard_val_${wc}`);
                 if(el) {
@@ -1860,14 +1829,13 @@
                     const pct = max > 0 ? (used / max) * 100 : 0;
                     el.innerText = `${used.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ${max.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Min`;
                     
-                    // Bar Update
                     const elBar = document.getElementById(`dashboard_bar_${wc}`);
                     if(elBar) {
                         elBar.style.width = `${Math.min(pct, 100)}%`;
                         if(used > max) {
-                            elBar.classList.remove('bg-success'); // Remove success
-                            elBar.classList.add('bg-danger');    // Add danger
-                            el.classList.add('text-danger');     // Text Text color
+                            elBar.classList.remove('bg-success');
+                            elBar.classList.add('bg-danger');    
+                            el.classList.add('text-danger');     
                         } else {
                             elBar.classList.remove('bg-danger');
                             elBar.classList.add('bg-success');
@@ -1889,9 +1857,7 @@
             const qty = parseFloat(qtyInput.value) || 0;
             const item = availableItemsMap[itemKey]; 
             
-            // Update Time Field regardless of WC Capacity existence
             if(item) {
-                 // 2. Calculate Time Required (Tak Time * Qty)
                  let takTime = parseFloat(item.vgw01) || 0;
                  if(item.vge01 === 'S') {
                     takTime = takTime / 60; 
@@ -1915,8 +1881,6 @@
             const rowCount = container.children.length;
             const uniqueId = `${itemKey}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
             
-            // Build WC Options (Already HTML String)
-            // Pass container to check usage and disable full WCs
             const wcOptsHtml = getWcFamilyOptions(item.workcenter, container);
             
             let wcSelectHtml = `<select class="form-select form-select-sm child-select" 
@@ -1926,8 +1890,6 @@
                                     ${wcOptsHtml}
                                 </select>`;
             
-            // Initial Operator Select (Populate Immediately)
-            // Fix: Calculate excludeNiks from existing rows in container
             const excludeNiks = getUsedNiksInBatch(container, null);
             const opOptions = getOperatorOptions(null, excludeNiks);
             
@@ -1962,7 +1924,6 @@
             `;
             container.appendChild(rowDiv);
             
-            // --- BIND EVENTS VIA JS (Safer Syntax) ---
             const wcSel = rowDiv.querySelector('.child-select');
             if(wcSel) {
                 wcSel.addEventListener('change', function() { 
@@ -1994,7 +1955,7 @@
             if(row) {
                 row.remove();
                 updateTotalBatch(itemKey);
-                updateDashboardUsage(); // Update dashboard on remove
+                updateDashboardUsage();
             }
         };
 
@@ -2004,7 +1965,6 @@
              if(!maxSpan) return;
              const max = parseFloat(maxSpan.innerText.replace(/,/g, '')) || 0;
              
-             // Calculate Total of OTHER inputs
              const container = document.getElementById(`split_container_${itemKey}`);
              let otherTotal = 0;
              container.querySelectorAll('.qty-input').forEach(inp => {
@@ -2016,12 +1976,9 @@
              const remaining = max - otherTotal;
              let val = parseFloat(currentInput.value);
              
-             // Check absolute max
              if(val > remaining) {
-                 // Clamp
-                 currentInput.value = Math.max(0, remaining); // Ensure not negative if something weird
+                 currentInput.value = Math.max(0, remaining); 
                  
-                 // Toast Warning
                  const Toast = Swal.mixin({
                     toast: true,
                     position: 'top-end',
@@ -2046,12 +2003,11 @@
             const inputs = container.querySelectorAll('.qty-input');
             inputs.forEach(inp => total += (parseFloat(inp.value) || 0));
             
-            totalDisplay.innerText = total.toLocaleString(); // Format nice
+            totalDisplay.innerText = total.toLocaleString(); 
             
             const max = parseFloat(maxSpan.innerText.replace(/,/g, '')) || 0;
             if(total > max + 0.0001) {
                  totalDisplay.className = 'fw-bold text-danger';
-                 // Should be impossible nicely with clamp, but good as fallback
             } else {
                  totalDisplay.className = 'fw-bold text-dark';
             }
@@ -2104,7 +2060,6 @@
                 return Swal.fire('Over Capacity', `Total quantity (${totalQty}) melebihi sisa tersedia (${max}).`, 'warning');
             }
 
-            // --- CAPACITY PRE-CHECK (Client Side) ---
             const capInfo = wiCapacityMap[currentAddWiCode] || { max_mins: 0, used_mins: 0 };
             const itemData = availableItemsMap[itemKey];
             let additionalMins = 0;
@@ -2135,8 +2090,6 @@
                     if(data.success) {
                         window.hasAddedItems = true;
                         
-                        // Update Cap Map
-                        // Update Cap Map
                         let newUsed = 0; 
                         let newMax = 0;
                         if(wiCapacityMap && wiCapacityMap[currentAddWiCode]) {
@@ -2187,7 +2140,6 @@
             }
         };
 
-        // Helper to update Main Bar (same as before)
         function updateCapacityBarUI(wiCode, used, max) {
             const cards = document.querySelectorAll('.wi-item-card');
             cards.forEach(card => {
@@ -2199,7 +2151,6 @@
                         const pct = max > 0 ? (used / max) * 100 : 0;
                         progress.style.width = Math.min(pct, 100) + '%';
                         progress.className = pct > 100 ? 'progress-bar bg-danger' : 'progress-bar bg-primary';
-                        // Update to 2 decimal places
                         textLabel.innerText = `${used.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ${max.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Min`;
                     }
                 }
@@ -2244,7 +2195,6 @@
             });
         };
 
-        // --- 4. GLOBAL OPEN MODAL ---
         window.openPrintModal = function(type) {
             let ids = [];
             if(type === 'active') {

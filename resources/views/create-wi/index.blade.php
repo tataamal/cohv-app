@@ -1924,8 +1924,8 @@
             function updateCapacity(cardContainer) {
                 if (!cardContainer) return;
                 const wcId = cardContainer.dataset.wcId;
-                const kapazHours = parseFloat(cardContainer.dataset.kapazWc) || 0;
-                const maxMins = kapazHours * 60;
+                const kapazMins = parseFloat(cardContainer.dataset.capacityMins) || 0;
+                const maxMins = kapazMins;
 
                 let currentLoad = 0;
                 cardContainer.querySelectorAll('.pro-item-card').forEach(item => {
