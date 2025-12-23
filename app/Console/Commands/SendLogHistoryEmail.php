@@ -339,8 +339,8 @@ class SendLogHistoryEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No reports/files to send.");
         } else {
-            // $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com'];
-            $recipients = ['tataamal1128@gmail.com'];
+            $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateActive)->locale('id')->translatedFormat('d F Y');
 
             try {

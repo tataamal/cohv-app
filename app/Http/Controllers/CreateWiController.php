@@ -966,12 +966,12 @@ class CreateWiController extends Controller
             'search' => $request->search,
             'date' => $request->date,
             'defaultRecipients' => [
-                // 'finc.smg@pawindo.com',
-                // 'kmi356smg@gmail.com',
-                // 'adm.mkt5.smg@pawindo.com',
-                // 'lily.smg@pawindo.com',
-                // 'kmi3.60.smg@gmail.com',
-                // 'kmi3.31.smg@gmail.com',
+                'finc.smg@pawindo.com',
+                'kmi356smg@gmail.com',
+                'adm.mkt5.smg@pawindo.com',
+                'lily.smg@pawindo.com',
+                'kmi3.60.smg@gmail.com',
+                'kmi3.31.smg@gmail.com',
                 'tataamal1128@gmail.com',
             ]
         ]);
