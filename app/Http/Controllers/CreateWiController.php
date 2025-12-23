@@ -434,7 +434,7 @@ class CreateWiController extends Controller
         if ($docPrefix === 'WIH') {
             $expiredAt = $dateTime->copy()->addDay()->startOfDay();
         } else {
-            $expiredAt = $dateTime->copy()->addHours(12);
+            $expiredAt = $dateTime->copy()->addHours(24);
         }
         $dateForDb = $dateTime->toDateString();
         $timeForDb = $dateTime->toTimeString();
