@@ -259,11 +259,9 @@
 
                         <div class="search-input-group px-3 py-1 d-flex align-items-center" style="width: 350px;">
                             <i class="fa-solid fa-magnifying-glass text-muted me-2"></i>
-                            <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Cari Material, PRO, or SO...">
+                            <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Cari apapun pisahkan dengan titik koma (;)">
                         </div>
 
-                        {{-- FILTER DISABLED TEMPORARILY (DEFAULT ALL) --}}
-                        {{-- 
                         <div class="ms-auto me-3">
                              <div class="btn-group btn-group-sm" role="group">
                                 <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'today']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'today' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">Today</a>
@@ -271,10 +269,8 @@
                                 <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'all']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'all' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">All</a>
                             </div>
                         </div> 
-                        --}}
                     </div>
                     
-                    {{-- ADVANCED SEARCH (MANUAL COLLAPSE) --}}
                     <div class="mb-2">
                         <button class="btn btn-sm btn-light w-100 border text-start text-secondary fw-bold d-flex align-items-center justify-content-between" 
                                 type="button" 
@@ -2004,11 +2000,7 @@
                     tbody.innerHTML = ''; // Clear current
                     spinner.classList.remove('d-none');
                     endOfData.classList.add('d-none');
-                    
-                    // Main search value might be updated by keyup listener above,
-                    // but let's grab it fresh to be sure if called from elsewhere
                     currentSearch = searchInput.value; 
-                    
                     fetchData(1, currentSearch, true);
                 }
 
@@ -2022,14 +2014,11 @@
                     const url = new URL(window.location.href);
                     url.searchParams.set('page', page);
                     
-                    // Main Search
                     if(search) url.searchParams.set('search', search);
                     else url.searchParams.delete('search');
 
-                    // Advanced Search Params
                     advIds.forEach(id => {
                         const val = document.getElementById(id)?.value?.trim();
-                        // ID: advAufnr -> Param: adv_aufnr
                         const key = id.replace(/([A-Z])/g, '_$1').toLowerCase(); 
                         
                         if(val) url.searchParams.set(key, val);

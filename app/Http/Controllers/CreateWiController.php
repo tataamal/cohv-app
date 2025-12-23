@@ -822,13 +822,13 @@ class CreateWiController extends Controller
             'search' => $request->search,
             'date' => $request->date,
             'defaultRecipients' => [
-                'finc.smg@pawindo.com',
-                'kmi356smg@gmail.com',
-                'adm.mkt5.smg@pawindo.com',
-                'lily.smg@pawindo.com',
-                'kmi3.60.smg@gmail.com',
+                // 'finc.smg@pawindo.com',
+                // 'kmi356smg@gmail.com',
+                // 'adm.mkt5.smg@pawindo.com',
+                // 'lily.smg@pawindo.com',
+                // 'kmi3.60.smg@gmail.com',
+                // 'kmi3.31.smg@gmail.com',
                 'tataamal1128@gmail.com',
-                'kmi3.31.smg@gmail.com'
             ]
         ]);
     }
@@ -1064,7 +1064,7 @@ class CreateWiController extends Controller
             $fileName = 'log_wi_' . now()->format('Ymd_His') . '.pdf';
             $filePath = storage_path('app/public/' . $fileName);
             
-            $pdf = Pdf::loadView('pdf.log_history', ['reports' => [$data['report']]])
+            $pdf = Pdf::loadView('pdf.log_history', ['reports' => $data['reports']])
                     ->setPaper('a4', 'landscape');
             $pdf->save($filePath);
             
@@ -1104,7 +1104,7 @@ class CreateWiController extends Controller
             return response($data['message'], 404);
         }
 
-        $pdf = Pdf::loadView('pdf.log_history', ['reports' => [$data['report']]])
+        $pdf = Pdf::loadView('pdf.log_history', ['reports' => $data['reports']])
                 ->setPaper('a4', 'landscape');
         
         return $pdf->stream('preview_log.pdf');
@@ -1142,27 +1142,6 @@ class CreateWiController extends Controller
             });
         }
         $documents = $query->orderBy('created_at', 'desc')->get();
-        $csvDataRaw = $this->_prepareLogData($documents);
-
-        // Filter Logic
-        $statusFilter = $request->input('filter_status');
-        $csvData = array_values(array_filter($csvDataRaw, function($item) use ($statusFilter) {
-            if (in_array($item['status'], ['ACTIVE', 'INACTIVE'])) return false;
-            if ($statusFilter) {
-                if ($statusFilter === 'NOT COMPLETED') { 
-                    if (!in_array($item['status'], ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) return false;
-                } elseif ($statusFilter === 'COMPLETED') {
-                     if ($item['status'] !== 'COMPLETED') return false;
-                } else {
-                    if ($item['status'] !== $statusFilter) return false;
-                }
-            }
-            return true;
-        }));
-
-        if (empty($csvData) && $documents->isEmpty()) {
-             return ['success' => false, 'message' => 'Tidak ada data history.'];
-        }
 
         $printedBy = $request->input('printed_by') ?? session('username');
         $department = $request->input('department') ?? '-';
@@ -1172,62 +1151,172 @@ class CreateWiController extends Controller
         if($search) $filterInfo[] = "Search: $search";
         $filterString = empty($filterInfo) ? "All Data" : implode(', ', $filterInfo);
 
-        $totalAssigned = collect($csvData)->sum('assigned');
-        $totalConfirmed = collect($csvData)->sum('confirmed'); 
-        $totalFailed = $totalAssigned - $totalConfirmed;
-        $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
-        
-        // --- Calculate Total Prices ---
-        $totalPriceOk = 0;
-        $totalPriceFail = 0;
-        
-        $currency = 'IDR'; // Default
-        if(!empty($csvData)) {
-            foreach($csvData as $row) {
-                if(!empty($row['currency'])) {
-                    $currency = $row['currency'];
-                    break;
-                }
-            }
-        }
-        
-        foreach($csvData as $row) {
-        $totalPriceOk += ($row['confirmed_price'] ?? 0);
-        $totalPriceFail += ($row['failed_price'] ?? 0);
-    }
-
-        $isUsd = strtoupper($currency) === 'USD';
-        $prefix = $isUsd ? '$ ' : 'Rp ';
-        $decimals = $isUsd ? 2 : 0;
-        
-        $totalOkFmt = $prefix . number_format($totalPriceOk, $decimals, ',', '.');
-        $totalFailFmt = $prefix . number_format($totalPriceFail, $decimals, ',', '.');
-
-        // Fetch Nama Bagian
+        // Fetch Nama Bagian Once
         $kodeModel = Kode::where('kode', $plantCode)->first();
         $namaBagian = $kodeModel ? $kodeModel->nama_bagian : '-';
 
-        $singleReport = [
-            'items' => $csvData,
-            'summary' => [
-                'total_assigned' => $totalAssigned,
-                'total_confirmed' => $totalConfirmed,
-                'total_failed' => $totalFailed,
-                'total_remark_qty' => collect($csvData)->sum('remark_qty'),
-                'achievement_rate' => $achievement,
-                'total_price_ok' => $totalOkFmt,     
-                'total_price_fail' => $totalFailFmt   
-            ],
-            'printedBy' => $printedBy,
-            'department' => $department,
-            'nama_bagian' => $namaBagian,
-            'printDate' => now()->format('d-M-Y H:i'),
-            'filterInfo' => $filterString
-        ];
+        $allReports = [];
+        $statusFilter = $request->input('filter_status');
+        
+        // Loop Each Doc
+        foreach($documents as $doc) {
+            $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
+            if (!is_array($payload)) $payload = [];
+
+            $csvData = [];
+            foreach ($payload as $item) {
+                // Item Processing Logic (Same as Command)
+                $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
+                $matnr = $item['material_number'] ?? '';
+                if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
+
+                $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
+                $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
+                $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
+                $waerk = isset($item['waerk']) ? $item['waerk'] : '';
+                
+                // Remark Data
+                $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
+                $remarkText = isset($item['remark']) ? $item['remark'] : '-';
+                $remarkText = str_replace('; ', "\n", $remarkText);
+
+                $confirmedPrice = $netpr * $confirmed;
+                $balance = $assigned - ($confirmed + $remarkQty);
+                $failedPrice = $netpr * ($balance + $remarkQty);
+
+                $hasRemark = ($remarkQty > 0 || ($remarkText !== '-' && !empty($remarkText)));
+                
+                $expiredAt = Carbon::parse($doc->expired_at);
+                
+                if ($hasRemark) {
+                    $status = 'NOT COMPLETED WITH REMARK';
+                } elseif ($balance <= 0) {
+                    $status = 'COMPLETED'; 
+                } elseif (now()->gt($expiredAt)) {
+                    $status = 'NOT COMPLETED';
+                } else {
+                    $status = 'ACTIVE';
+                }
+
+                // FILTER LOGIC PER ITEM
+                $keep = true;
+                if (in_array($status, ['ACTIVE', 'INACTIVE'])) $keep = false;
+                if ($statusFilter) {
+                    if ($statusFilter === 'NOT COMPLETED') { 
+                        if (!in_array($status, ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) $keep = false;
+                    } elseif ($statusFilter === 'COMPLETED') {
+                         if ($status !== 'COMPLETED') $keep = false;
+                    } else {
+                        if ($status !== $statusFilter) $keep = false;
+                    }
+                }
+                if (!$keep) continue;
+
+                // Rest of Fields
+                $kdauf = $item['kdauf'] ?? '';
+                $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                $soItem = $kdauf . '-' . $kdpos;
+
+                $baseTime = isset($item['vgw01']) ? floatval($item['vgw01']) : 0;
+                $unit = isset($item['vge01']) ? strtoupper($item['vge01']) : '';
+                $totalTime = $baseTime * $assigned;
+
+                if ($unit == 'S' || $unit == 'SEC') {
+                    $finalTime = $totalTime / 60; 
+                    $finalUnit = 'Menit';
+                } else {
+                    $finalTime = $totalTime;
+                    $finalUnit = $unit; 
+                }
+                $taktDisplay = (fmod($finalTime, 1) !== 0.00) ? number_format($finalTime, 2) : number_format($finalTime, 0);
+                $taktFull = $taktDisplay . ' ' . $finalUnit;
+
+                 // Format Prices
+                 if (strtoupper($waerk) === 'USD') {
+                    $prefixInfo = '$ ';
+                } elseif (strtoupper($waerk) === 'IDR') {
+                    $prefixInfo = 'Rp ';
+                } else {
+                    $prefixInfo = '';
+                }
+                
+                $priceFormatted = $prefixInfo . number_format($confirmedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
+                $failedPriceFormatted = $prefixInfo . number_format($failedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
+
+                $csvData[] = [
+                    'doc_no'        => $doc->wi_document_code,
+                    'created_at'    => $doc->created_at,
+                    'expired_at'    => $expiredAt->format('m-d H:i'),
+                    'workcenter'    => $wc,
+                    'aufnr'         => $item['aufnr'] ?? '-',
+                    'material'      => $matnr,
+                    'description'   => $item['material_desc'] ?? '-',
+                    'assigned'      => $assigned,
+                    'confirmed'     => $confirmed,
+                    'balance'       => $balance,
+                    'remark_qty'    => $remarkQty,
+                    'remark_text'   => $remarkText,
+                    'price_formatted' => $priceFormatted,
+                    'confirmed_price' => $confirmedPrice, 
+                    'failed_price'    => $failedPrice,
+                    'price_ok_fmt'    => $priceFormatted,       
+                    'price_fail_fmt'  => $failedPriceFormatted,   
+                    'currency'        => strtoupper($waerk),
+                    'buyer'           => $item['name1'] ?? '-',
+                    'nik'             => $item['nik'] ?? '-',
+                    'name'            => $item['name'] ?? '-',
+                    'status'          => $status,
+                    'so_item'         => $soItem,
+                    'takt_time'       => $taktFull,
+                ];
+            } // End Item Loop
+
+            if (!empty($csvData)) {
+                $totalAssigned = collect($csvData)->sum('assigned');
+                $totalConfirmed = collect($csvData)->sum('confirmed'); 
+                $totalRemarkQty = collect($csvData)->sum('remark_qty');
+                $totalFailed = $totalAssigned - $totalConfirmed; 
+                
+                $totalConfirmedPrice = collect($csvData)->sum('confirmed_price');
+                $totalFailedPrice = collect($csvData)->sum('failed_price');
+
+                $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+
+                $firstCurrency = collect($csvData)->first()['currency'] ?? '';
+                $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
+                $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
+
+                $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
+                $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
+
+                $reportData = [
+                    'items' => $csvData,
+                    'summary' => [
+                        'total_assigned' => $totalAssigned,
+                        'total_confirmed' => $totalConfirmed,
+                        'total_failed' => $totalFailed,
+                        'total_remark_qty' => $totalRemarkQty,
+                        'achievement_rate' => $achievement,
+                        'total_price_ok' => $totalConfirmedPriceFmt,
+                        'total_price_fail' => $totalFailedPriceFmt
+                    ],
+                    'printedBy' => $printedBy,
+                    'department' => $department,
+                    'nama_bagian' => $namaBagian,
+                    'printDate' => now()->format('d-M-Y H:i'),
+                    'filterInfo' => $filterString . " | Doc: " . $doc->wi_document_code
+                ];
+                $allReports[] = $reportData;
+            }
+        } // End Doc Loop
+
+        if (empty($allReports)) {
+             return ['success' => false, 'message' => 'Tidak ada data history.'];
+        }
 
         return [
             'success' => true, 
-            'report' => $singleReport,
+            'reports' => $allReports, // Return Reports Array
             'printedBy' => $printedBy,
             'department' => $department,
             'filterInfoString' => $dateInfo
@@ -1700,7 +1789,7 @@ class CreateWiController extends Controller
                        ->orWhere('VORNR', '=', $term);
                  });
              } else {
-                 $terms = preg_split('/[\s,]+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+                 $terms = array_filter(array_map('trim', explode(';', $search)));
                  
                  $tData1->where(function($q) use ($terms) {
                      foreach ($terms as $term) {
@@ -2165,7 +2254,7 @@ class CreateWiController extends Controller
                       ->orWhere('VORNR', '=', $term);
                 });
             } else {
-                $terms = preg_split('/[\s,]+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+                $terms = array_filter(array_map('trim', explode(';', $search)));
                 $query->where(function($q) use ($terms) {
                     foreach ($terms as $term) {
                         $q->orWhere(function($subQ) use ($term) {
@@ -2257,4 +2346,5 @@ class CreateWiController extends Controller
         
         return $query;
     }
+
 }

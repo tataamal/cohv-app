@@ -6,6 +6,7 @@
         @page {
             size: A4 landscape;
             margin: 5mm; 
+            margin-bottom: 15mm; /* Space for footer */
         }
         
         body {
@@ -15,6 +16,35 @@
             padding: 0;
         }
 
+        /* --- FOOTER / WATERMARK --- */
+        .page-footer {
+            position: fixed;
+            bottom: -10mm;
+            left: 0;
+            right: 0;
+            height: 10mm;
+            font-size: 8pt;
+            color: #555;
+            border-top: 1px solid #ccc;
+            padding-top: 2px;
+        }
+        .footer-content {
+            width: 100%;
+            display: table;
+        }
+        .footer-left {
+            display: table-cell;
+            text-align: left;
+            width: 50%;
+            font-style: italic;
+        }
+        .footer-right {
+            display: table-cell;
+            text-align: right;
+            width: 50%;
+        }
+        .page-number:after { content: counter(page); }
+
         /* --- FRAMEWORK --- */
         .container-frame {
             width: 100%;
@@ -22,6 +52,7 @@
             height: 98%; 
             display: block;
         }
+
 
         /* --- PAGE BREAK UTILITY --- */
         .page-break {
@@ -113,6 +144,14 @@
 </head>
 <body>
 
+    {{-- FOOTER GLOBAL --}}
+    <div class="page-footer">
+        <div class="footer-content">
+            <div class="footer-left">PT KAYU MEBEL INDONESIA - INTERNAL USE ONLY</div>
+            <div class="footer-right">Page <span class="page-number"></span></div>
+        </div>
+    </div>
+
 {{-- LOOPING DOKUMEN (Agar setiap dokumen punya halaman sendiri) --}}
 @foreach($documents as $doc)
 
@@ -165,29 +204,18 @@
             <thead>
                 <tr class="data-header">
                     <th width="3%">NO</th>
-                    @if(isset($isEmail) && $isEmail)
-                        <th width="7%">WORK CENTER</th>
-                        <th width="8%">SO-ITEM</th>
-                        <th width="8%">PRO</th>
-                        <th width="9%">MATERIAL NO</th>
-                        <th width="15%">DESCRIPTION</th>
-                        <th width="5%">QTY WI</th>
-                        <th width="6%">Time Req</th>
-                        <th width="7%">NIK</th>
-                        <th width="10%">NAME</th>
-                        <th width="12%">BUYER</th>
-                        <th width="10%">PRICE</th>
-                    @else
-                        <th width="8%">WORK CENTER</th>
-                        <th width="10%">SO-ITEM</th>
-                        <th width="10%">PRO</th>
-                        <th width="10%">MATERIAL NO</th>
-                        <th width="23%">DESCRIPTION</th>
-                        <th width="6%">QTY WI</th>
-                        <th width="7%">Time Required</th>
-                        <th width="8%">NIK</th>
-                        <th width="15%">NAME</th>
-                    @endif
+                    <th width="7%">WORK CENTER</th>
+                    <th width="8%">SO-ITEM</th>
+                    <th width="8%">PRO</th>
+                    <th width="9%">MATERIAL NO</th>
+                    <th width="15%">DESCRIPTION</th>
+                    <th width="5%">QTY WI</th>
+                    <th width="5%">CONF</th>
+                    <th width="6%">Time Req</th>
+                    <th width="7%">NIK</th>
+                    <th width="10%">NAME</th>
+                    <th width="8%">REMARK</th>
+                    <th width="9%">PRICE</th>
                 </tr>
             </thead>
             <tbody>
@@ -229,6 +257,9 @@
                     // NIK & Name
                     $nik = $item['nik'] ?? '-';
                     $empName = $item['employee_name'] ?? ($item['name'] ?? '-');
+                    
+                    // Price
+                    $priceDisp = $item['price_sourced'] ?? '-';
                 @endphp
                 <tr class="data-row">
                     <td class="text-center">{{ $index + 1 }}</td>
@@ -238,18 +269,17 @@
                     <td class="text-center">{{ $matnr }}</td>
                     <td>{{ $item['material_desc'] ?? '-' }}</td>
                     <td class="text-center fw-bold">{{ $qtyWi }}</td>
+                    <td class="text-center fw-bold">0</td> {{-- Default 0 as requested --}}
                     <td class="text-center fw-bold">{{ $taktDisplay }} {{ $finalUnit }}</td>
                     <td class="text-center">{{ $nik }}</td>
                     <td>{{ $empName }}</td>
-                    @if(isset($isEmail) && $isEmail)
-                        <td class="text-center">{{ $item['buyer_sourced'] ?? '-' }}</td>
-                        <td class="text-center">{{ $item['price_sourced'] ?? '-' }}</td>
-                    @endif
+                    <td class="text-center">-</td> {{-- Remark Default - --}}
+                    <td class="text-center">{{ $priceDisp }}</td>
                 </tr>
                 @endforeach
 
                 {{-- AUTO FILL ROWS --}}
-                @for($i = 0; $i < $rowsToFill; $i++)
+                @foreach(range(1, $rowsToFill) as $i)
                 <tr class="data-row">
                     <td class="text-center">&nbsp;</td>
                     <td>&nbsp;</td>
@@ -261,12 +291,11 @@
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
-                    @if(isset($isEmail) && $isEmail)
-                        <td>&nbsp;</td>
-                        <td>&nbsp;</td>
-                    @endif
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
                 </tr>
-                @endfor
+                @endforeach
             </tbody>
         </table>
 

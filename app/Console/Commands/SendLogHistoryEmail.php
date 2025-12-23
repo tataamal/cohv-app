@@ -86,12 +86,13 @@ class SendLogHistoryEmail extends Command
                 // Determine Dept Docs
                 $deptDocs = $historyDocs->where('department', $department);
                 
-                $csvData = [];
-
+                // --- REFACTOR: Process PER DOCUMENT ---
                 foreach ($deptDocs as $doc) {
-                  $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
-                  if (!is_array($payload)) $payload = [];
-                  foreach ($payload as $item) {
+                    $csvData = [];
+                    $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
+                    if (!is_array($payload)) $payload = [];
+
+                    foreach ($payload as $item) {
                         $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                         $matnr = $item['material_number'] ?? '';
                         if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
@@ -143,6 +144,26 @@ class SendLogHistoryEmail extends Command
                          // $printedBy ... (Removed redundant query)
                          // Department is already known from loop
 
+                        // SO Item Logic
+                        $kdauf = $item['kdauf'] ?? '';
+                        $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                        $soItem = $kdauf . '-' . $kdpos;
+
+                        // Takt Time Logic
+                        $baseTime = isset($item['vgw01']) ? floatval($item['vgw01']) : 0;
+                        $unit = isset($item['vge01']) ? strtoupper($item['vge01']) : '';
+                        $totalTime = $baseTime * $assigned;
+
+                        if ($unit == 'S' || $unit == 'SEC') {
+                            $finalTime = $totalTime / 60; 
+                            $finalUnit = 'Menit';
+                        } else {
+                            $finalTime = $totalTime;
+                            $finalUnit = $unit; 
+                        }
+                        $taktDisplay = (fmod($finalTime, 1) !== 0.00) ? number_format($finalTime, 2) : number_format($finalTime, 0);
+                        $taktFull = $taktDisplay . ' ' . $finalUnit;
+
                         // Format Prices
                         if (strtoupper($waerk) === 'USD') {
                             $prefixInfo = '$ ';
@@ -178,49 +199,52 @@ class SendLogHistoryEmail extends Command
                             'nik'           => $item['nik'] ?? '-',
                             'name'          => $item['name'] ?? '-',
                             'status'        => $status,
+                            'so_item'       => $soItem,
+                            'takt_time'     => $taktFull,
                         ];
+                    } // End Payload Loop
+
+                    if (!empty($csvData)) {
+                        $totalAssigned = collect($csvData)->sum('assigned');
+                        $totalConfirmed = collect($csvData)->sum('confirmed'); 
+                        $totalRemarkQty = collect($csvData)->sum('remark_qty');
+                        $totalFailed = $totalAssigned - $totalConfirmed; 
+    
+                        $totalConfirmedPrice = collect($csvData)->sum('confirmed_price');
+                        $totalFailedPrice = collect($csvData)->sum('failed_price');
+    
+                        $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+    
+                        // Use the currency from the first item (assuming same currency per department/report) 
+                        // or handle mixed currencies. For simplicity, we grab the first valid one.
+                        $firstCurrency = collect($csvData)->first()['currency'] ?? '';
+                        $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
+                        $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
+    
+                        $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
+                        $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
+    
+                        $reportData = [
+                            'items' => $csvData,
+                            'summary' => [
+                                'total_assigned' => $totalAssigned,
+                                'total_confirmed' => $totalConfirmed,
+                                'total_failed' => $totalFailed,
+                                'total_remark_qty' => $totalRemarkQty,
+                                'achievement_rate' => $achievement,
+                                'total_price_ok' => $totalConfirmedPriceFmt,
+                                'total_price_fail' => $totalFailedPriceFmt
+                            ],
+                            'printedBy' => $printedBy ?? 'SYSTEM',
+                            'department' => $department,
+                            'nama_bagian' => $namaBagian,  
+                            'printDate' => now()->format('d-M-Y H:i'),
+                            'filterInfo' => "History Date: " . $dateHistory . " | Doc: " . $doc->wi_document_code
+                        ];
+                        // APPEND EACH DOC REPORT AS A SEPARATE ENTRY
+                        $allReports[] = $reportData;
                     }
-                }
-
-                if (!empty($csvData)) {
-                     $totalAssigned = collect($csvData)->sum('assigned');
-                     $totalConfirmed = collect($csvData)->sum('confirmed'); 
-                     $totalRemarkQty = collect($csvData)->sum('remark_qty');
-                     $totalFailed = $totalAssigned - $totalConfirmed; 
-
-                     $totalConfirmedPrice = collect($csvData)->sum('confirmed_price');
-                     $totalFailedPrice = collect($csvData)->sum('failed_price');
-
-                     $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
-
-                     // Use the currency from the first item (assuming same currency per department/report) 
-                     // or handle mixed currencies. For simplicity, we grab the first valid one.
-                     $firstCurrency = collect($csvData)->first()['currency'] ?? '';
-                     $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
-                     $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
-
-                     $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
-                     $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
-
-                     $reportData = [
-                        'items' => $csvData,
-                        'summary' => [
-                            'total_assigned' => $totalAssigned,
-                            'total_confirmed' => $totalConfirmed,
-                            'total_failed' => $totalFailed,
-                            'total_remark_qty' => $totalRemarkQty,
-                            'achievement_rate' => $achievement,
-                            'total_price_ok' => $totalConfirmedPriceFmt,
-                            'total_price_fail' => $totalFailedPriceFmt
-                        ],
-                        'printedBy' => $printedBy ?? 'SYSTEM',
-                        'department' => $department,
-                        'nama_bagian' => $namaBagian, // NEW 
-                        'printDate' => now()->format('d-M-Y H:i'),
-                        'filterInfo' => "History Date: " . $dateHistory
-                     ];
-                     $allReports[] = $reportData;
-                }
+                } // End Doc Loop
             } // End Dept Loop
 
             // --- 2. COLLECT ACTIVE DOCUMENTS ---
@@ -315,8 +339,8 @@ class SendLogHistoryEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No reports/files to send.");
         } else {
-            $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com'];
-            // $recipients = ['tataamal1128@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com'];
+            $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateActive)->locale('id')->translatedFormat('d F Y');
 
             try {
