@@ -2310,6 +2310,11 @@ class CreateWiController extends Controller
                 return $item['aufnr'] . '_' . $item['vornr'];
             });
 
+            // Pre-fetch mappings for optimization
+            $allMappings = WorkcenterMapping::where('plant', $plantCode)
+                                            ->orWhere('kode_laravel', $plantCode)
+                                            ->get();
+
             $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
             if (!is_array($payload)) $payload = [];
 
@@ -2394,6 +2399,20 @@ class CreateWiController extends Controller
                          throw new \Exception("Operator {$req['name']} dipilih lebih dari satu kali untuk PRO/Workcenter yang sama dalam batch ini.");
                     }
 
+                    // Resolve Workcenter Hierarchy
+                    $wcTarget = $req['target_workcenter'];
+                    $mapping = $allMappings->first(function($m) use ($wcTarget) {
+                        return strtoupper($m->workcenter) === strtoupper($wcTarget);
+                    });
+
+                    if ($mapping) {
+                        $childWc = $wcTarget;
+                        $parentWc = $mapping->wc_induk;
+                    } else {
+                        $childWc = $wcTarget;
+                        $parentWc = $wcTarget;
+                    }
+
                     $newItem = [
                         'aufnr' => $targetItem->AUFNR,
                         'vornr' => $targetItem->VORNR,
@@ -2406,9 +2425,18 @@ class CreateWiController extends Controller
                         'uom' => $targetItem->MEINS,
                         'nik' => $req['nik'],
                         'name' => $req['name'],
-                        'target_workcenter' => $req['target_workcenter'],
+                        'child_workcenter' => $childWc,
+                        'workcenter_induk' => $parentWc,
                         'vge01' => $targetItem->VGE01,
                         'vgw01' => $targetItem->VGW01,
+                        'kdauf' => $targetItem->KDAUF,
+                        'kdpos' => $targetItem->KDPOS,
+                        'dispo' => $targetItem->DISPO,
+                        'steus' => $targetItem->STEUS,
+                        'sssld' => $targetItem->SSSLD,
+                        'ssavd' => $targetItem->SSAVD,
+                        'kapaz' => $targetItem->KAPAZ, // Raw string from DB
+                        'material_number' => $targetItem->MATNR, // Alias for material
                     ];
                     
                     $baseTime = floatval($targetItem->VGW01);
