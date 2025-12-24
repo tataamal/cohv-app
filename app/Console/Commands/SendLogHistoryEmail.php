@@ -301,9 +301,7 @@ class SendLogHistoryEmail extends Command
                   $allActiveDocs->push($doc);
              }
 
-        } // End Plant Loop
-        
-        // --- GLOBAL GENERATION ---
+        } 
         $filesToAttach = [];
 
         // 1. Generate History PDF
@@ -318,7 +316,7 @@ class SendLogHistoryEmail extends Command
         }
 
         // 2. Generate Active PDF
-        if ($allActiveDocs->isNotEmpty()) {
+        /*if ($allActiveDocs->isNotEmpty()) {
              $activeData = [
                 'documents' => $allActiveDocs,
                 'printedBy' => 'Scheduler',
@@ -333,7 +331,7 @@ class SendLogHistoryEmail extends Command
              $activePdf->save($activePath);
              $filesToAttach[] = $activePath;
              $this->info("   Generated Global Active PDF (" . $allActiveDocs->count() . " docs).");
-        }
+        }*/
 
         // 3. Send Email
         if (empty($filesToAttach)) {

@@ -525,6 +525,55 @@ class CreateWiController extends Controller
 
             foreach ($payload as $wcAllocation) {
                 $workcenterCode = $wcAllocation['workcenter'];
+
+                // --- MERGE LOGIC (User Request 2025-12-24) ---
+                // Automatically merge split rows for the same person/PRO into one entry
+                $rawItems = $wcAllocation['pro_items'] ?? [];
+                Log::info("Raw Items Received: " . count($rawItems), ['items' => $rawItems]);
+                $mergedMap = [];
+                
+                foreach ($rawItems as $item) {
+                     // Create a unique key for grouping
+                     // Use trim for robust matching
+                     $uAufnr = trim($item['aufnr'] ?? '');
+                     $uVornr = trim($item['vornr'] ?? '');
+                     $uNik = trim($item['nik'] ?? '');
+                     $uWc = trim($item['child_workcenter'] ?? ''); // Use child_workcenter as per frontend payload
+                     
+                     $key = "{$uAufnr}_{$uVornr}_{$uNik}_{$uWc}";
+                     
+                     // Debug Logging
+                     Log::info("Merge Check: Key = $key. Existing? " . (isset($mergedMap[$key]) ? "YES" : "NO"));
+                     
+                     if (isset($mergedMap[$key])) {
+                         // Merge
+                         $mergedMap[$key]['assigned_qty'] = floatval($mergedMap[$key]['assigned_qty']) + floatval($item['assigned_qty']);
+                         
+                         // Recalculate Time
+                         $baseTime = floatval($mergedMap[$key]['vgw01'] ?? 0);
+                         $newQty = $mergedMap[$key]['assigned_qty'];
+                         $unit = strtoupper($mergedMap[$key]['vge01'] ?? '');
+                         
+                         $totalRaw = $baseTime * $newQty;
+                         $mins = $totalRaw;
+                         
+                         if ($unit === 'S' || $unit === 'SEC') $mins = $totalRaw / 60;
+                         elseif ($unit === 'H' || $unit === 'HUR') $mins = $totalRaw * 60;
+                         
+                         $mergedMap[$key]['calculated_tak_time'] = number_format($mins, 2, '.', '');
+                         Log::info("Merged Item. New Qty: {$newQty}");
+                         
+                     } else {
+                         // First occurrence
+                         $mergedMap[$key] = $item;
+                     }
+                }
+                
+                // Replace original items with merged list
+                $wcAllocation['pro_items'] = array_values($mergedMap); // Reset keys
+                Log::info("Final Items Count: " . count($wcAllocation['pro_items']));
+                // --- END MERGE LOGIC ---
+
                 DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, &$wiDocuments) {
                     $latestHistory = HistoryWi::withTrashed()
                         ->where('wi_document_code', 'LIKE', $docPrefix . '%')
@@ -2284,20 +2333,56 @@ class CreateWiController extends Controller
                     $requestedNik = $req['nik'];
                     $requestedWc = $req['target_workcenter'];
                     
-                    foreach ($payload as $existing) {
+                    $isMerged = false;
+                    foreach ($payload as &$existing) {
                         $exNik = $existing['nik'] ?? '-';
-                        $exWc = $existing['target_workcenter'] ?? ($existing['workcenter'] ?? ''); 
+                        // Check multiple possible keys for workcenter
+                        $exWc = $existing['target_workcenter'] ?? ($existing['workcenter'] ?? ($existing['child_workcenter'] ?? '')); 
+                        
+                        // If still empty, it might be the parent WC or implicit?
+                        // But logic requires specific WC match.
+                        
                         $exAufnr = $existing['aufnr'] ?? '-';
                         $exVornr = $existing['vornr'] ?? '-';
+                        
+                        // Debug Log
+                        Log::info("Compare AddItem: Req[N:{$requestedNik}, W:{$requestedWc}, A:{$req['aufnr']}] vs Ex[N:{$exNik}, W:{$exWc}, A:{$exAufnr}]");
 
-                        if ($exNik === $requestedNik && 
-                            $exWc === $requestedWc && 
-                            $exAufnr == $req['aufnr'] && 
-                            ($exVornr == ($req['vornr'] ?? ''))
+                        // Use loose comparison (==) to handle potential type differences (e.g. string vs int from JSON)
+                        if (trim($exNik) == trim($requestedNik) && 
+                            trim($exWc) == trim($requestedWc) && 
+                            trim($exAufnr) == trim($req['aufnr']) && 
+                            (trim($exVornr) == trim($req['vornr'] ?? ''))
                            ) {
-                             throw new \Exception("Operator {$req['name']} ({$requestedNik}) sudah ditugaskan untuk PRO ini di Workcenter {$requestedWc}.");
+                             $confirmed = floatval($existing['confirmed_qty'] ?? 0);
+                             if ($confirmed > 0) {
+                                 throw new \Exception("Item PRO {$exAufnr} untuk Operator {$req['name']} tidak bisa ditambahkan karena sudah ada item yang dikonfirmasi.");
+                             } else {
+                                 Log::info("MATCH FOUND! Merging.");
+                                 // MERGE LOGIC
+                                 $currentAssigned = floatval($existing['assigned_qty']);
+                                 $newAssigned = $currentAssigned + floatval($req['qty']);
+                                 $existing['assigned_qty'] = $newAssigned;
+
+                                 // Recalculate Time
+                                 $baseTime = floatval($existing['vgw01'] ?? 0);
+                                 $unit = strtoupper($existing['vge01'] ?? '');
+                                 $totalRaw = $baseTime * $newAssigned;
+                                 
+                                 $mins = $totalRaw;
+                                 if ($unit === 'S' || $unit === 'SEC') $mins = $totalRaw / 60;
+                                 elseif ($unit === 'H' || $unit === 'HUR') $mins = $totalRaw * 60;
+                                 
+                                 $existing['calculated_tak_time'] = number_format($mins, 2, '.', '');
+                                 
+                                 $isMerged = true;
+                                 break; 
+                             }
                         }
                     }
+                    unset($existing); // Break reference
+
+                    if ($isMerged) continue; // Skip creating new item
 
                     $duplicatesInBatch = $requests->filter(function($r) use ($requestedNik, $requestedWc, $req) {
                         return $r['nik'] === $requestedNik && 

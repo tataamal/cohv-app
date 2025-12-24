@@ -1244,8 +1244,8 @@
                      if (totalAssigned > maxQty + 0.0001) hasError = true;
                 });
                 
-                const redBars = document.querySelectorAll('#topCapacityContainer .bg-danger');
-                if (redBars.length > 0) hasError = true;
+                // const redBars = document.querySelectorAll('#topCapacityContainer .bg-danger');
+                // if (redBars.length > 0) hasError = true; // DISABLED: Allow Over Capacity
 
                 confirmBtn.disabled = hasError;
             };
@@ -1336,6 +1336,7 @@
                             additionalLoad += (qty * vgw01); // Assuming MIN
                         });
 
+                        /* DISABLED: Allow Over Capacity
                         if (maxCap > 0 && (currentUsed + additionalLoad) > maxCap) {
                             Swal.fire({
                                 icon: 'error',
@@ -1346,6 +1347,7 @@
                             // mismatchModalInstance.show(); // Maybe keep open?
                             return; 
                         }
+                        */
                     }
 
                     mismatchModalInstance.hide();
