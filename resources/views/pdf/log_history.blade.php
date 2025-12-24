@@ -193,7 +193,7 @@
             <tr class="info-bar">
                 <td width="25%">BAGIAN: <span class="info-val fw-bold">{{ strtoupper($report['nama_bagian']) }}</span></td>
                 <td width="25%">PRINT DATE: <span class="info-val">{{ $report['printDate'] }}</span></td>
-                <td width="50%" style="border-right: none;">FILTER: <span class="info-val">{{ $report['filterInfo'] ?? '-' }}</span></td>
+                <td width="50%" style="border-right: none;">RANGE DATA: <span class="info-val">{{ $report['filterInfo'] ?? '-' }}</span></td>
             </tr>
         </table>
 
@@ -263,7 +263,7 @@
                     {{-- Remark Logic --}}
                     <td class="text-center" style="font-size: 7pt;">
                         @if(floatval($row['remark_qty']) > 0)
-                            {{ $row['remark_text'] }} (Qty: {{ floatval($row['remark_qty']) }})
+                            {{ $row['remark_text'] }}
                         @elseif(!empty($row['remark_text']) && $row['remark_text'] !== '-')
                             {{ $row['remark_text'] }}
                         @else

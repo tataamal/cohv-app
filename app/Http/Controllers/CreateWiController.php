@@ -1574,7 +1574,7 @@ class CreateWiController extends Controller
                     'department' => $department,
                     'nama_bagian' => $namaBagian,
                     'printDate' => now()->format('d-M-Y H:i'),
-                    'filterInfo' => $filterString . " | Doc: " . $doc->wi_document_code
+                    'filterInfo' => $filterString // Removed Doc Code as per User Request
                 ];
                 $allReports[] = $reportData;
             }

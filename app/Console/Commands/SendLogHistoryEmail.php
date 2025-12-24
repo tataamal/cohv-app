@@ -114,6 +114,8 @@ class SendLogHistoryEmail extends Command
                         // Remark Data
                         $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
                         $remarkText = isset($item['remark']) ? $item['remark'] : '-';
+                        // Clean up "Qty X: " prefix if present (User Request 2025-12-24)
+                        $remarkText = preg_replace('/^Qty\s+\d+:\s*/i', '', $remarkText);
                         $remarkText = str_replace('; ', "\n", $remarkText);
 
                         $confirmedPrice = $netpr * $confirmed;
@@ -138,11 +140,6 @@ class SendLogHistoryEmail extends Command
                         } else {
                             $status = 'ACTIVE';
                         }
-                        
-                        // Extract dynamically (MOVED UP)
-                         // $kodeData... (Removed redundant query)
-                         // $printedBy ... (Removed redundant query)
-                         // Department is already known from loop
 
                         // SO Item Logic
                         $kdauf = $item['kdauf'] ?? '';
@@ -239,7 +236,7 @@ class SendLogHistoryEmail extends Command
                             'department' => $department,
                             'nama_bagian' => $namaBagian,  
                             'printDate' => now()->format('d-M-Y H:i'),
-                            'filterInfo' => "History Date: " . $dateHistory . " | Doc: " . $doc->wi_document_code
+                            'filterInfo' => "History Date: " . $dateHistory // Removed Doc Code
                         ];
                         // APPEND EACH DOC REPORT AS A SEPARATE ENTRY
                         $allReports[] = $reportData;
