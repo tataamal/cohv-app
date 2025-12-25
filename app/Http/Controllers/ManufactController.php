@@ -173,14 +173,8 @@ class ManufactController extends Controller
                             $children_t1 = $t1_grouped->get($key_t1_t4, []);
                             $children_t4 = $t4_grouped->get($key_t1_t4, []);
                             
-                            foreach ($children_t1 as $t1_row) {
-                                // 5. TData1 Unique Check (AUFNR + VORNR) - Peranakan T3
-                                // Karena di dalam loop T3, AUFNR pasti sama. Cek VORNR.
-                                // Tapi data T1 mungkin punya AUFNR yang berbeda jika grouping salah? 
-                                // Tidak, karena mengambil dari grouping by AUFNR yang sama.
-                                
+                            foreach ($children_t1 as $t1_row) {      
                                 $vornr = trim($t1_row['VORNR'] ?? '');
-                                // Key global: AUFNR-VORNR (Jaga-jaga jika ada order lain dgn nomor operasi sama)
                                 $key_t1_unique = $aufnr . '-' . $vornr;
                                 
                                 if (isset($seenTData1[$key_t1_unique])) {
@@ -192,7 +186,6 @@ class ManufactController extends Controller
                                 $sssl2 = $formatTanggal($t1_row['SSSLDPV2'] ?? '');
                                 $sssl3 = $formatTanggal($t1_row['SSSLDPV3'] ?? '');
                                 
-                                // Logika baru untuk PV1
                                 $partsPv1 = [];
                                 if (!empty($t1_row['ARBPL1'])) {
                                     $partsPv1[] = strtoupper($t1_row['ARBPL1']);
@@ -202,7 +195,6 @@ class ManufactController extends Controller
                                 }
                                 $t1_row['PV1'] = !empty($partsPv1) ? implode(' - ', $partsPv1) : null;
 
-                                // Logika baru untuk PV2
                                 $partsPv2 = [];
                                 if (!empty($t1_row['ARBPL2'])) {
                                     $partsPv2[] = strtoupper($t1_row['ARBPL2']);
@@ -212,7 +204,6 @@ class ManufactController extends Controller
                                 }
                                 $t1_row['PV2'] = !empty($partsPv2) ? implode(' - ', $partsPv2) : null;
 
-                                // Logika baru untuk PV3
                                 $partsPv3 = [];
                                 if (!empty($t1_row['ARBPL3'])) {
                                     $partsPv3[] = strtoupper($t1_row['ARBPL3']);
@@ -222,16 +213,11 @@ class ManufactController extends Controller
                                 }
                                 $t1_row['PV3'] = !empty($partsPv3) ? implode(' - ', $partsPv3) : null;
 
-                                // --- [PERUBAHAN SELESAI] ---
-                                
-                                $t1_row['WERKSX'] = $kode; // Perbaikan dari diskusi sebelumnya
+                                $t1_row['WERKSX'] = $kode; 
                                 ProductionTData1::create($t1_row);
                             }
                             
                             foreach ($children_t4 as $t4_row) {
-                                // 4. TData4 Unique Check (AUFNR + RSNUM + RSPOS)
-                                // AUFNR sudah dari parent (atau row).
-                                // Gunakan row data untuk memastikan.
                                 $aufnr_t4 = trim($t4_row['AUFNR'] ?? '');
                                 $rsnum = trim($t4_row['RSNUM'] ?? '');
                                 $rspos = trim($t4_row['RSPOS'] ?? '');
@@ -243,7 +229,6 @@ class ManufactController extends Controller
                                 }
                                 $seenTData4[$key_t4_unique] = true;
 
-                                // Penting: Pastikan T_DATA4 punya kolom WERKSX
                                 $t4_row['WERKSX'] = $kode;
                                 ProductionTData4::create($t4_row);
                             }
@@ -267,7 +252,6 @@ class ManufactController extends Controller
     {
         $kodeInfo = Kode::where('kode', $kode)->firstOrFail();
         
-        // 1. Ambil data utama (T_DATA) - Tidak ada perubahan
         $query = ProductionTData::where('WERKSX', $kode);
 
         $search = $request->input('search');
@@ -287,27 +271,22 @@ class ManufactController extends Controller
             ->orderBy('NAME1')
             ->get();
 
-        // 2. Ambil T_DATA2 (Anak dari T_DATA)
         $name1Values = $tdata->pluck('NAME1')->filter()->unique();
         
-        // Ambil semua T_DATA2 yang berpotensi terkait dengan halaman ini
         $allTData2_flat = ProductionTData2::where('WERKSX', $kode)
             ->whereIn('NAME1', $name1Values)
             ->get();
 
-        // PERBAIKAN KUNCI: Kelompokkan T_DATA2 berdasarkan KUNNR dan NAME1 agar cocok dengan T_DATA
         $allTData2 = $allTData2_flat->groupBy(function ($r) {
             return trim($r->KUNNR ?? '') . '-' . trim($r->NAME1 ?? '');
         });
 
-        // 3. Ambil T_DATA3 (Anak dari T_DATA2)
-        // PERBAIKAN SUMBER: Ambil kunci dari $allTData2_flat, bukan dari $tdata
         $t2Keys = $allTData2_flat->map(function ($item) {
             return trim($item->KDAUF ?? '') . '-' . trim($item->KDPOS ?? '');
         })->filter()->unique();
 
+
         $allTData3_flat = ProductionTData3::where('WERKSX', $kode)
-            // Gunakan CONCAT untuk mencocokkan pasangan kunci di database
             ->when($t2Keys->isNotEmpty(), function ($query) use ($t2Keys) {
                 $query->whereIn(DB::raw("CONCAT(KDAUF, '-', KDPOS)"), $t2Keys);
             })
@@ -319,7 +298,6 @@ class ManufactController extends Controller
         });
 
         // 4. Ambil T_DATA1 & T_DATA4 (Anak dari T_DATA3)
-        // Logika ini sekarang akan menerima data yang benar karena sumbernya (allTData3_flat) sudah benar
         $aufnrValues = $allTData3_flat->pluck('AUFNR')->filter()->unique();
         $plnumValues = $allTData3_flat->pluck('PLNUM')->filter()->unique();
 
@@ -336,7 +314,6 @@ class ManufactController extends Controller
         
         $werksValue = $allTData3_flat->isNotEmpty() ? $allTData3_flat->first()->PWWRK : null;
 
-        // 5. Kirim semua data yang sudah benar ke view
         return view('Admin.detail-data2', [
             'plant'            => $kode,
             'categories'       => $kodeInfo->kategori,
@@ -355,7 +332,6 @@ class ManufactController extends Controller
 
     public function list_gr($kode)
     {
-        // 1. Cek Kode Model
         $kodeModel = Kode::where('kode', $kode)->first();
         $kategori = Kode::where('kode', $kode)->value('kategori');
         $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
@@ -370,7 +346,6 @@ class ManufactController extends Controller
             ]);
         }
 
-        // 2. Cek MRP List (INI HARUS DI ATAS, SEBELUM QUERY GR)
         $mrpList = Mrp::where('kode', $kode)->pluck('mrp');
 
         if ($mrpList->isEmpty()) {
@@ -385,10 +360,10 @@ class ManufactController extends Controller
             ]);
         }
 
-        // 3. Ambil Data GR
         $dataGr = Gr::whereIn('DISPO', $mrpList)
+            ->where('MENGE', '>', 0)
             ->select(
-                'AUFNR', 'MAKTX', 'KDAUF', 'KDPOS', 'PSMNG',
+                'AUFNR', 'MAKTX', 'MAT_KDAUF', 'MAT_KDPOS', 'PSMNG',
                 'MENGE', 'MEINS', 'BUDAT_MKPF', 'DISPO', 'WEMNG', 'NETPR',
                 'ARBPL', 'WAERS' // Wajib ada untuk grouping workcenter
             )

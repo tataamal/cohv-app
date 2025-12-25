@@ -252,8 +252,8 @@ def sync_data_for_date(target_date):
                                 'CHARG': row.get('CHARG'),
                                 'MATNR': row.get('MATNR'),
                                 'MAKTX': row.get('MAKTX'),
-                                'KDAUF': row.get('MAT_KDAUF'),
-                                'KDPOS': row.get('MAT_KDPOS'),
+                                'MAT_KDAUF': row.get('MAT_KDAUF'),
+                                'MAT_KDPOS': row.get('MAT_KDPOS'),
                                 'KUNNR': row.get('KUNNR'),
                                 'NAME2': row.get('NAME2'),
                                 'PSMNG': safe_convert(row.get('PSMNG'), float, 0.0),
@@ -271,6 +271,8 @@ def sync_data_for_date(target_date):
                                 'BUDAT_MKPF': sync_date_mysql,
                                 'CPUDT_MKPF': row.get('CPUDT_MKPF'),
                                 'NODAY': safe_convert(row.get('NODAY'), int, 0),
+                                'AUFNR2': row.get('AUFNR2'),
+                                'CSMG': row.get('CSMG'),
                                 'TXT50': row.get('TXT50'),
                                 'NETPR': safe_convert(row.get('NETPR'), float, 0.0),
                                 'WAERK': row.get('WAERK'),
@@ -415,7 +417,7 @@ def run_historical_sync():
     logger.info("===== MEMULAI SINKRONISASI DATA HISTORIS (PER BULAN) =====")
 
     # 1. Tentukan tanggal mulai dan akhir global
-    current_date_tracker = datetime(2025, 11, 1)  # <--- PERBAIKAN (INI YANG ERROR)
+    current_date_tracker = datetime(2025, 9, 1)  # <--- PERBAIKAN (INI YANG ERROR)
     today = datetime.now()
     yesterday = today - timedelta(days=1)
 
