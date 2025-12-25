@@ -489,6 +489,7 @@
                                                                 <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
                                                                 <span class="badge bg-success text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
                                                             </div>
+                                                            <div class="text-muted text-xs text-truncate ps-1">{{ $item['kdauf'] ?? '' }} - {{ $item['kdpos'] ?? '' }}</div>
                                                             <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                         </div>
                                                         <div class="col-lg-4 text-end">

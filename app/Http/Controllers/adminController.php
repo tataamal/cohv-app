@@ -144,11 +144,99 @@ class adminController extends Controller
         $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
         $kategori = Kode::where('kode', $kode)->value('kategori');
         
-        $searchReservasi = $request->input('search_reservasi');
+        // A. PENANGANAN AJAX LOAD MORE (Untuk Infinite Scroll)
+        if ($request->ajax() && $request->has('load_more')) {
+            $section = $request->input('load_more');
 
+            if ($section === 'reservasi') {
+                $searchReservasi = $request->input('search_reservasi');
+                $TData4 = ProductionTData4::where('WERKSX', $kode)
+                    ->when($searchReservasi, function ($query, $term) {
+                        return $query->where(function($q) use ($term) {
+                            $q->where('RSNUM', 'like', "%{$term}%")
+                              ->orWhere('MATNR', 'like', "%{$term}%")
+                              ->orWhere('MAKTX', 'like', "%{$term}%");
+                        });
+                    })
+                    ->paginate(50, ['*'], 'page_reservasi')
+                    ->withQueryString();
+                
+                // Transform string MAKTX
+                $TData4->getCollection()->transform(function ($item) {
+                    $item->MAKTX = trim(preg_replace('/\s+/', ' ', $item->MAKTX ?? ''));
+                    return $item;
+                });
+
+                return view('Admin.partials.rows_reservasi', ['TData4' => $TData4])->render();
+            }
+
+            if ($section === 'pro') {
+                $today = Carbon::today();
+                $searchPro = $request->input('search_pro');
+                $ongoingProData = ProductionTData3::where('WERKSX', $kode)
+                    ->whereDate('GSTRP', $today)
+                    ->where('STATS', 'REL')
+                    ->when($searchPro, function ($query, $term) {
+                        return $query->where(function($q) use ($term) {
+                             $q->where('AUFNR', 'like', "%{$term}%")
+                              ->orWhere('KDAUF', 'like', "%{$term}%")
+                              ->orWhere('MATNR', 'like', "%{$term}%")
+                              ->orWhere('MAKTX', 'like', "%{$term}%");
+                        });
+                    })
+                    ->latest('AUFNR')
+                    ->paginate(50, ['*'], 'page_pro')
+                    ->withQueryString();
+
+                return view('Admin.partials.rows_ongoing_pro', ['ongoingProData' => $ongoingProData])->render();
+            }
+
+            if ($section === 'total_pro') {
+                $searchTotalPro = $request->input('search_total_pro');
+                $allProData = ProductionTData3::where('WERKSX', $kode)
+                    ->when($searchTotalPro, function ($query, $term) {
+                        return $query->where(function($q) use ($term) {
+                             $q->where('AUFNR', 'like', "%{$term}%")
+                              ->orWhere('KDAUF', 'like', "%{$term}%")
+                              ->orWhere('MATNR', 'like', "%{$term}%")
+                              ->orWhere('MAKTX', 'like', "%{$term}%");
+                        });
+                    })
+                    ->latest('AUFNR')
+                    ->paginate(50, ['*'], 'page_total_pro')
+                    ->withQueryString();
+
+                return view('Admin.partials.rows_total_pro', ['allProData' => $allProData])->render();
+            }
+
+            if ($section === 'so') {
+                $searchSo = $request->input('search_so');
+                $salesOrderData = ProductionTData2::where('WERKSX', $kode)
+                    ->when($searchSo, function ($query, $term) {
+                         return $query->where(function($q) use ($term) {
+                            $q->where('KDAUF', 'like', "%{$term}%")
+                              ->orWhere('MATFG', 'like', "%{$term}%")
+                              ->orWhere('MAKFG', 'like', "%{$term}%");
+                         });
+                    })
+                    ->latest('KDAUF')
+                    ->paginate(50, ['*'], 'page_so')
+                    ->withQueryString();
+
+                return view('Admin.partials.rows_sales_order', ['salesOrderData' => $salesOrderData])->render();
+            }
+            
+            return '';
+        }
+
+        // B. LOAD HALAMAN UTAMA (INITIAL LOAD) - Tetap gunakan pagination 10 item awal
+        
+        // 1. TData4 (Reservasi) - Page Name: page_reservasi
         $TData1 = ProductionTData1::where('WERKSX', $kode)->count();
         $TData2 = ProductionTData2::where('WERKSX', $kode)->count();
         $TData3 = ProductionTData3::where('WERKSX', $kode)->count();
+        
+        $searchReservasi = $request->input('search_reservasi');
         $TData4 = ProductionTData4::where('WERKSX', $kode)
             ->when($searchReservasi, function ($query, $term) {
                 return $query->where(function($q) use ($term) {
@@ -156,34 +244,70 @@ class adminController extends Controller
                       ->orWhere('MATNR', 'like', "%{$term}%")
                       ->orWhere('MAKTX', 'like', "%{$term}%");
                 });
-            })->get()
-            ->map(function ($item) {
-                $item->MAKTX = trim(preg_replace('/\s+/', ' ', $item->MAKTX ?? ''));
-                return $item;
-            });
+            })
+            ->paginate(10, ['*'], 'page_reservasi')
+            ->withQueryString();
+
+        $TData4->getCollection()->transform(function ($item) {
+            $item->MAKTX = trim(preg_replace('/\s+/', ' ', $item->MAKTX ?? ''));
+            return $item;
+        });
         
         $outstandingReservasi = ProductionTData4::where('WERKSX', $kode)
                                       ->whereColumn('KALAB', '<', 'BDMNG')
                                       ->count();
+
         $today = Carbon::today();
-            $ongoingPRO = ProductionTData3::where('WERKSX', $kode)
-                ->whereDate('GSTRP', $today)
-                ->where('STATS', 'REL')
-                ->count();
+        $ongoingPRO = ProductionTData3::where('WERKSX', $kode)
+            ->whereDate('GSTRP', $today)
+            ->where('STATS', 'REL')
+            ->count();
 
-            $ongoingProData = ProductionTData3::where('WERKSX', $kode)
-                ->whereDate('GSTRP', $today)
-                ->where('STATS', 'REL')
-                ->latest('AUFNR')
-                ->get();
+        // 2. Ongoing PRO - Page Name: page_pro
+        $searchPro = $request->input('search_pro');
+        $ongoingProData = ProductionTData3::where('WERKSX', $kode)
+            ->whereDate('GSTRP', $today)
+            ->where('STATS', 'REL')
+            ->when($searchPro, function ($query, $term) {
+                return $query->where(function($q) use ($term) {
+                    $q->where('AUFNR', 'like', "%{$term}%")
+                      ->orWhere('KDAUF', 'like', "%{$term}%")
+                      ->orWhere('MATNR', 'like', "%{$term}%")
+                      ->orWhere('MAKTX', 'like', "%{$term}%");
+                });
+            })
+            ->latest('AUFNR')
+            ->paginate(10, ['*'], 'page_pro')
+            ->withQueryString();
 
+        // 3. All PRO (Total PRO) - Page Name: page_total_pro
+        $searchTotalPro = $request->input('search_total_pro');
         $allProData = ProductionTData3::where('WERKSX', $kode)
-                                ->latest('AUFNR')
-                                ->get();
+            ->when($searchTotalPro, function ($query, $term) {
+                return $query->where(function($q) use ($term) {
+                    $q->where('AUFNR', 'like', "%{$term}%")
+                      ->orWhere('KDAUF', 'like', "%{$term}%")
+                      ->orWhere('MATNR', 'like', "%{$term}%")
+                      ->orWhere('MAKTX', 'like', "%{$term}%");
+                });
+            })
+            ->latest('AUFNR')
+            ->paginate(10, ['*'], 'page_total_pro')
+            ->withQueryString();
 
+        // 4. Sales Order - Page Name: page_so
+        $searchSo = $request->input('search_so');
         $salesOrderData = ProductionTData2::where('WERKSX', $kode)
-                                ->latest('KDAUF')
-                                ->get();
+            ->when($searchSo, function ($query, $term) {
+                 return $query->where(function($q) use ($term) {
+                    $q->where('KDAUF', 'like', "%{$term}%")
+                      ->orWhere('MATFG', 'like', "%{$term}%")
+                      ->orWhere('MAKFG', 'like', "%{$term}%");
+                 });
+            })
+            ->latest('KDAUF')
+            ->paginate(10, ['*'], 'page_so')
+            ->withQueryString();
         
         return view('Admin.dashboard', [
             'TData1' => $TData1, 
@@ -210,6 +334,12 @@ class adminController extends Controller
             'kategori' => $kategori,
             'nama_bagian' => $nama_bagian,
             'sub_kategori' => $sub_kategori,
+            
+            // Pass search terms back to view to keep input filled
+            'searchReservasi' => $searchReservasi,
+            'searchPro' => $searchPro,
+            'searchTotalPro' => $searchTotalPro,
+            'searchSo' => $searchSo
         ]);  
     }
 

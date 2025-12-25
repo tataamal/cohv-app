@@ -299,15 +299,20 @@
 
                     {{-- Kolom Pencarian --}}
                     <div class="mb-3" style="max-width: 320px;">
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                            <input type="text" id="realtimeSearchInputSo" placeholder="Search Order, Material..."
-                                class="form-control border-start-0">
-                        </div>
+                        <form action="{{ url()->current() }}" method="GET">
+                            @foreach(request()->except(['search_so', 'page_so']) as $key => $value)
+                                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                            @endforeach
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
+                                <input type="text" name="search_so" value="{{ $searchSo ?? '' }}" placeholder="Search Order... (Enter)"
+                                    class="form-control border-start-0">
+                            </div>
+                        </form>
                     </div>
 
                     {{-- Tabel Responsif --}}
-                    <div class="table-container-scroll">
+                    <div class="table-container-scroll" data-section="so" data-next-page="{{ $salesOrderData->currentPage() + 1 }}" data-has-more="{{ $salesOrderData->hasMorePages() ? 'true' : 'false' }}" style="max-height: 500px; overflow-y: auto;">
                         <table class="table table-hover table-striped table-sm align-middle mb-0 responsive-so-table">
                             <thead class="table-light">
                                 <tr class="small text-uppercase align-middle">
@@ -328,33 +333,15 @@
                                 </tr>
                             </thead>
                             <tbody id="outstandingSoTableBody">
-                                @forelse($salesOrderData ?? [] as $item)
-                                    <tr class="clickable-row" data-order="{{ $item->KDAUF ?? '-' }}"
-                                        data-item="{{ $item->KDPOS ?? '-' }}"
-                                        data-material="{{ $item->MATFG ? ltrim((string) $item->MATFG, '0') : '-' }}"
-                                        data-description="{{ $item->MAKFG ?? '-' }}"
-                                        data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->MATFG ?? '') . ' ' . ($item->MAKFG ?? '')) }}">
-                                        <td class="text-center small d-none d-md-table-cell">{{ $loop->iteration }}
-                                        </td>
-                                        <td class="text-center small" data-col="order">{{ $item->KDAUF ?? '-' }}</td>
-                                        <td class="small text-center" data-col="item">{{ $item->KDPOS ?? '-' }}</td>
-                                        <td class="small text-center d-none d-md-table-cell" data-col="material">
-                                            {{ $item->MATFG ? ltrim((string) $item->MATFG, '0') : '-' }}</td>
-                                        <td class="small d-none d-md-table-cell" data-col="description">
-                                            {{ $item->MAKFG ?? '-' }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="text-center p-5 text-muted">Tidak ada data Sales
-                                            Order.</td>
-                                    </tr>
-                                @endforelse
-                                <tr id="noResultsSoRow" style="display: none;">
-                                    <td colspan="5" class="text-center p-5 text-muted">Tidak ada data yang cocok.
-                                    </td>
-                                </tr>
+                                @include('Admin.partials.rows_sales_order')
                             </tbody>
                         </table>
+                        <div class="text-center py-2 loading-spinner d-none">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="scroll-sentinel"></div>
                     </div>
 
                 </div>
@@ -378,15 +365,20 @@
                         </button>
                     </div>
                     <div class="mb-3" style="max-width: 320px;">
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                            <input type="text" id="realtimeSearchInput" placeholder="Search Reservasi...."
-                                class="form-control border-start-0">
-                        </div>
+                        <form action="{{ url()->current() }}" method="GET">
+                            @foreach(request()->except(['search_reservasi', 'page_reservasi']) as $key => $value)
+                                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                            @endforeach
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
+                                <input type="text" name="search_reservasi" value="{{ $searchReservasi ?? '' }}" placeholder="Search Reservasi... (Enter)"
+                                    class="form-control border-start-0">
+                            </div>
+                        </form>
                     </div>
 
                     {{-- Tabel Responsif --}}
-                    <div class="table-container-scroll">
+                    <div class="table-container-scroll" data-section="reservasi" data-next-page="{{ $TData4->currentPage() + 1 }}" data-has-more="{{ $TData4->hasMorePages() ? 'true' : 'false' }}" style="max-height: 500px; overflow-y: auto;">
                         <table class="table table-hover table-striped align-middle mb-0 reservasi-responsive-table">
                             <thead class="table-light">
                                 <tr class="small text-uppercase">
@@ -419,46 +411,15 @@
                                 </tr>
                             </thead>
                             <tbody id="reservasiTableBody">
-                                @forelse($TData4 as $item)
-                                    <tr class="clickable-row" data-no="{{ $loop->iteration }}"
-                                        data-reservasi="{{ $item->RSNUM ?? '-' }}"
-                                        data-material-code="{{ $item->MATNR ? (ltrim((string) $item->MATNR, '0') ?: '0') : '-' }}"
-                                        data-description="{{ $item->MAKTX ?? '-' }}"
-                                        data-req-qty="{{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}"
-                                        {{-- [UBAH] Menambahkan atribut data untuk field VMENG --}}
-                                        data-req-commited="{{ number_format($item->VMENG ?? 0, 0, ',', '.') }}"
-                                        data-stock="{{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}"
-                                        data-searchable-text="{{ strtolower(($item->RSNUM ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
-
-                                        <td class="text-center d-none d-md-table-cell">{{ $loop->iteration }}</td>
-                                        <td data-col="reservasi">{{ $item->RSNUM ?? '-' }}</td>
-                                        <td data-col="material_code">
-                                            {{ $item->MATNR ? (ltrim((string) $item->MATNR, '0') ?: '0') : '-' }}</td>
-                                        <td class="d-none d-md-table-cell" data-col="description">
-                                            {{ $item->MAKTX ?? '-' }}</td>
-                                        <td class="text-center d-none d-md-table-cell" data-col="req_qty">
-                                            {{ number_format($item->BDMNG ?? 0, 0, ',', '.') }}</td>
-                                        {{-- [UBAH] Menambahkan sel data baru untuk field VMENG --}}
-                                        <td class="text-center d-none d-md-table-cell" data-col="vmeng">
-                                            {{ number_format($item->VMENG ?? 0, 0, ',', '.') }}</td>
-                                        <td class="text-center d-none d-md-table-cell" data-col="stock">
-                                            {{ number_format(($item->BDMNG ?? 0) - ($item->KALAB ?? 0), 0, ',', '.') }}
-                                        </td>
-                                    </tr>
-                                @empty
-                                    {{-- [UBAH] Mengubah colspan dari 6 menjadi 7 --}}
-                                    <tr>
-                                        <td colspan="7" class="text-center p-5 text-muted">Tidak ada data reservasi
-                                            ditemukan.</td>
-                                    </tr>
-                                @endforelse
-                                {{-- [UBAH] Mengubah colspan dari 6 menjadi 7 --}}
-                                <tr id="noResultsRow" style="display: none;">
-                                    <td colspan="7" class="text-center p-5 text-muted">Tidak ada data yang cocok.
-                                    </td>
-                                </tr>
+                                @include('Admin.partials.rows_reservasi')
                             </tbody>
                         </table>
+                        <div class="text-center py-2 loading-spinner d-none">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="scroll-sentinel"></div>
                     </div>
 
                 </div>
@@ -480,15 +441,20 @@
                     </button>
                 </div>
                 <div class="mb-3" style="max-width: 320px;">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                        <input type="text" id="realtimeSearchInputPro" placeholder="Search SO, PRO, Material..."
-                            class="form-control border-start-0">
-                    </div>
+                    <form action="{{ url()->current() }}" method="GET">
+                        @foreach(request()->except(['search_pro', 'page_pro']) as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
+                            <input type="text" name="search_pro" value="{{ $searchPro ?? '' }}" placeholder="Search SO, PRO... (Enter)"
+                                class="form-control border-start-0">
+                        </div>
+                    </form>
                 </div>
 
                 {{-- Tabel Responsif --}}
-                <div class="table-container-scroll">
+                <div class="table-container-scroll" data-section="pro" data-next-page="{{ $ongoingProData->currentPage() + 1 }}" data-has-more="{{ $ongoingProData->hasMorePages() ? 'true' : 'false' }}" style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-hover table-striped table-sm align-middle mb-0 pro-responsive-table">
                         <thead class="table-light">
                             <tr class="small text-uppercase align-middle">
@@ -539,81 +505,15 @@
                             </tr>
                         </thead>
                         <tbody id="ongoingProTableBody">
-                            @forelse($ongoingProData ?? [] as $item)
-                                @php
-                                    $status = strtoupper($item->STATS ?? '');
-                                    $badgeClass = 'bg-secondary-subtle text-secondary-emphasis';
-                                    if (in_array($status, ['REL', 'PCNF', 'CNF'])) {
-                                        $badgeClass = 'bg-success-subtle text-success-emphasis';
-                                    } elseif ($status === 'CRTD') {
-                                        $badgeClass = 'bg-info-subtle text-info-emphasis';
-                                    } elseif ($status === 'TECO') {
-                                        $badgeClass = 'bg-dark-subtle text-dark-emphasis';
-                                    }
-                                @endphp
-                                <tr class="clickable-row" data-no="{{ $loop->iteration }}"
-                                    data-pro="{{ $item->AUFNR ?? '-' }}" data-status="{{ $status ?: '-' }}"
-                                    data-status-class="{{ $badgeClass }}" data-so="{{ $item->KDAUF ?? '-' }}"
-                                    data-so-item="{{ $item->KDPOS ?? '-' }}"
-                                    data-material-code="{{ $item->MATNR ? ltrim((string) $item->MATNR, '0') : '-' }}"
-                                    data-description="{{ $item->MAKTX ?? '-' }}"
-                                    data-plant="{{ $item->PWWRK ?? '-' }}" data-mrp="{{ $item->DISPO ?? '-' }}"
-                                    data-qty-order="{{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}"
-                                    data-qty-gr="{{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}"
-                                    data-outs-gr="{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}"
-                                    data-start-date="{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}"
-                                    data-end-date="{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}"
-                                    data-searchable-text="{{ strtolower(($item->KDAUF ?? '') . ' ' . ($item->AUFNR ?? '') . ' ' . ($item->MATNR ?? '') . ' ' . ($item->MAKTX ?? '')) }}">
-
-                                    {{-- [DISEMBUNYIKAN DI MOBILE] --}}
-                                    <td class="text-center small d-none d-md-table-cell">{{ $loop->iteration }}</td>
-                                    <td class="text-center small d-none d-md-table-cell" data-col="so">
-                                        {{ $item->KDAUF ?? '-' }}</td>
-                                    <td class="text-center small d-none d-md-table-cell" data-col="so_item">
-                                        {{ $item->KDPOS ?? '-' }}</td>
-
-                                    {{-- [TETAP TAMPIL DI MOBILE] --}}
-                                    <td class="text-center small" data-col="pro">{{ $item->AUFNR ?? '-' }}</td>
-                                    <td class="text-center" data-col="status"><span
-                                            class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span>
-                                    </td>
-
-                                    {{-- [DISEMBUNYIKAN DI MOBILE] --}}
-                                    <td class="text-center small d-none d-md-table-cell" data-col="material_code">
-                                        {{ $item->MATNR ? ltrim((string) $item->MATNR, '0') : '-' }}</td>
-                                    <td class="text-center small d-none d-md-table-cell" data-col="description">
-                                        {{ $item->MAKTX ?? '-' }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="plant">
-                                        {{ $item->PWWRK ?? '-' }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="mrp">
-                                        {{ $item->DISPO ?? '-' }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="qty_order">
-                                        {{ number_format($item->PSMNG ?? 0, 0, ',', '.') }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="qty_gr">
-                                        {{ number_format($item->WEMNG ?? 0, 0, ',', '.') }}</td>
-                                    <td class="small text-center fw-bold d-none d-md-table-cell" data-col="outs_gr">
-                                        {{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 0, ',', '.') }}
-                                    </td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="start_date"
-                                        data-sort-value="{{ $item->GSTRP ?? '0' }}">
-                                        {{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}
-                                    </td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="end_date"
-                                        data-sort-value="{{ $item->GLTRP ?? '0' }}">
-                                        {{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="14" class="text-center p-5 text-muted">Tidak ada data Ongoing PRO.
-                                    </td>
-                                </tr>
-                            @endforelse
-                            <tr id="noResultsProRow" style="display: none;">
-                                <td colspan="14" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td>
-                            </tr>
+                             @include('Admin.partials.rows_ongoing_pro')
                         </tbody>
                     </table>
+                    <div class="text-center py-2 loading-spinner d-none">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="scroll-sentinel"></div>
                 </div>
             </div>
         </div>
@@ -643,24 +543,29 @@
                     </div>
                 </div>
                 <div class="mb-3" style="max-width: 450px;"> <!-- Sedikit diperlebar -->
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                        <input type="text" id="realtimeSearchInputTotalPro" placeholder="Cari SO-Item, PRO..."
-                            class="form-control">
+                    <form action="{{ url()->current() }}" method="GET">
+                        @foreach(request()->except(['search_total_pro', 'page_total_pro']) as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
+                            <input type="text" name="search_total_pro" value="{{ $searchTotalPro ?? '' }}" placeholder="Search SO, PRO... (Enter)"
+                                class="form-control">
 
-                        <!-- Tombol Multi Filter Material -->
-                        <button class="btn btn-outline-secondary" type="button" id="btnMultiMatnr"
-                            data-bs-toggle="modal" data-bs-target="#multiMatnrModal" title="Filter Banyak Material">
-                            <i class="fas fa-layer-group me-1"></i>
-                            <span id="matnrBadge" class="badge bg-primary rounded-pill d-none">0</span>
-                        </button>
+                            <!-- Tombol Multi Filter Material -->
+                            <button class="btn btn-outline-secondary" type="button" id="btnMultiMatnr"
+                                data-bs-toggle="modal" data-bs-target="#multiMatnrModal" title="Filter Banyak Material">
+                                <i class="fas fa-layer-group me-1"></i>
+                                <span id="matnrBadge" class="badge bg-primary rounded-pill d-none">0</span>
+                            </button>
 
-                        <!-- TOMBOL BARU: CLEAR FILTER -->
-                        <button class="btn btn-outline-danger" type="button" id="btnClearTotalProFilter"
-                            title="Reset Semua Filter & Pencarian">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
+                            <!-- TOMBOL BARU: CLEAR FILTER -->
+                            <a href="{{ url()->current() }}" class="btn btn-outline-danger" 
+                                title="Reset Semua Filter & Pencarian">
+                                <i class="fas fa-times"></i>
+                            </a>
+                        </div>
+                    </form>
                 </div>
 
                 <div class="modal fade" id="multiMatnrModal" tabindex="-1" aria-hidden="true">
@@ -694,7 +599,7 @@
                     </div>
                 </div>
 
-                <div class="table-container-scroll">
+                <div class="table-container-scroll" data-section="total_pro" data-next-page="{{ $allProData->currentPage() + 1 }}" data-has-more="{{ $allProData->hasMorePages() ? 'true' : 'false' }}" style="max-height: 500px; overflow-y: auto;">
                     <table
                         class="table table-hover table-striped table-sm align-middle mb-0 total-pro-responsive-table">
                         <thead class="table-light">
@@ -745,82 +650,15 @@
                             </tr>
                         </thead>
                         <tbody id="totalProTableBody">
-                            @forelse($allProData ?? [] as $item)
-                                @php
-                                    $status = strtoupper($item->STATS ?? '');
-                                    $badgeClass = 'bg-secondary-subtle text-secondary-emphasis';
-                                    if (in_array($status, ['REL', 'PCNF', 'CNF'])) {
-                                        $badgeClass = 'bg-success-subtle text-success-emphasis';
-                                    } elseif ($status === 'CRTD') {
-                                        $badgeClass = 'bg-info-subtle text-info-emphasis';
-                                    } elseif ($status === 'TECO') {
-                                        $badgeClass = 'bg-dark-subtle text-dark-emphasis';
-                                    }
-                                    $dataStatus = in_array($status, ['REL', 'PCNF', 'CNF', 'CRTD', 'TECO'])
-                                        ? $status
-                                        : 'Lainnya';
-                                @endphp
-                                <tr class="clickable-row" data-status="{{ $dataStatus }}"
-                                    data-no="{{ $loop->iteration }}" data-so="{{ $item->KDAUF ?? '-' }}"
-                                    data-so-item="{{ $item->KDPOS ?? '-' }}" data-pro="{{ $item->AUFNR ?? '-' }}"
-                                    data-status-text="{{ $status ?: '-' }}" data-status-class="{{ $badgeClass }}"
-                                    data-material-code="{{ $item->MATNR ? ltrim((string) $item->MATNR, '0') : '-' }}"
-                                    data-description="{{ $item->MAKTX ?? '-' }}"
-                                    data-plant="{{ $item->PWWRK ?? '-' }}" data-mrp="{{ $item->DISPO ?? '-' }}"
-                                    data-qty-order="{{ number_format($item->PSMNG ?? 0, 2, ',', '.') }}"
-                                    data-qty-gr="{{ number_format($item->WEMNG ?? 0, 2, ',', '.') }}"
-                                    data-outs-gr="{{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 2, ',', '.') }}"
-                                    data-start-date="{{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}"
-                                    data-end-date="{{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}">
-                                    <td class="text-center">
-                                        <input class="form-check-input pro-checkbox" type="checkbox"
-                                            value="{{ $item->AUFNR ?? '' }}"
-                                            id="pro-check-{{ $loop->iteration }}">
-                                    </td>
-                                    <td class="text-center small d-none d-md-table-cell">{{ $loop->iteration }}</td>
-                                    <td class="text-center small d-none d-md-table-cell" data-col="so">
-                                        {{ $item->KDAUF ?? '-' }}</td>
-                                    <td class="text-center small d-none d-md-table-cell" data-col="so_item">
-                                        {{ $item->KDPOS ?? '-' }}</td>
-                                    <td class="text-center small" data-col="pro">{{ $item->AUFNR ?? '-' }}</td>
-                                    <td class="text-center" data-col="status"><span
-                                            class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span>
-                                    </td>
-                                    <td class="text-center small d-none d-md-table-cell" data-col="material_code">
-                                        {{ $item->MATNR ? ltrim((string) $item->MATNR, '0') : '-' }}</td>
-                                    <td class="text-center small d-none d-md-table-cell" data-col="description">
-                                        {{ $item->MAKTX ?? '-' }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="plant">
-                                        {{ $item->PWWRK ?? '-' }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="mrp">
-                                        {{ $item->DISPO ?? '-' }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="qty_order">
-                                        {{ number_format($item->PSMNG ?? 0, 2, ',', '.') }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="qty_gr">
-                                        {{ number_format($item->WEMNG ?? 0, 2, ',', '.') }}</td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="outs_gr">
-                                        {{ number_format(($item->PSMNG ?? 0) - ($item->WEMNG ?? 0), 2, ',', '.') }}
-                                    </td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="start_date"
-                                        data-sort-value="{{ $item->GSTRP ?? '0' }}">
-                                        {{ $item->GSTRP && $item->GSTRP != '00000000' ? \Carbon\Carbon::parse($item->GSTRP)->format('d M Y') : '-' }}
-                                    </td>
-                                    <td class="small text-center d-none d-md-table-cell" data-col="end_date"
-                                        data-sort-value="{{ $item->GLTRP ?? '0' }}">
-                                        {{ $item->GLTRP && $item->GLTRP != '00000000' ? \Carbon\Carbon::parse($item->GLTRP)->format('d M Y') : '-' }}
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="15" class="text-center p-5 text-muted">Tidak ada data PRO yang
-                                        ditemukan.</td>
-                                </tr>
-                            @endforelse
-                            <tr id="noResultsTotalProRow" style="display: none;">
-                                <td colspan="15" class="text-center p-5 text-muted">Tidak ada data yang cocok.</td>
-                            </tr>
+                            @include('Admin.partials.rows_total_pro')
                         </tbody>
                     </table>
+                    <div class="text-center py-2 loading-spinner d-none">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="scroll-sentinel"></div>
                 </div>
             </div>
         </div>
@@ -847,6 +685,165 @@
     @include('components.modals.dashboard-modal.ongoing-detail')
     @include('components.modals.dashboard-modal.pro-detail')
     @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const scrollContainers = document.querySelectorAll('.table-container-scroll');
+                let loadingStates = {};
+
+                const observerOptions = {
+                    root: null, // Use viewport or closest scrollable ancestor? unique scroll containers need careful root. 
+                    // Actually, if we use default root (null), it checks viewport. This is FINE if the container is on screen.
+                    // But if the container clips the content, the sentinel might be "visible" to the container but not viewport? No.
+                    // IntersectionObserver works relative to root. If root is null, it's viewport.
+                    // If content is Inside a scrollable div, the sentinel is only visible when scrolled to.
+                    // So we MUST use the container as root to detect when it enters the *container's* view.
+                    rootMargin: '200px', // Load before reaching bottom
+                    threshold: 0.1
+                };
+
+                // We need separate observers if we want different roots (each container is a root).
+                scrollContainers.forEach(container => {
+                    const sentinel = container.querySelector('.scroll-sentinel');
+                    if (!sentinel) return;
+
+                    const observer = new IntersectionObserver((entries) => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                loadMoreData(container);
+                            }
+                        });
+                    }, {
+                        root: container,
+                        rootMargin: '200px',
+                        threshold: 0.1
+                    });
+                    
+                    observer.observe(sentinel);
+                });
+
+                function loadMoreData(container) {
+                    const section = container.dataset.section;
+                    // Ensure attributes exist
+                    if (!section) return;
+                    
+                    const hasMore = container.dataset.hasMore === 'true';
+                    let nextPage = parseInt(container.dataset.nextPage);
+                    
+                    if (!hasMore || loadingStates[section]) return;
+                    
+                    loadingStates[section] = true;
+                    
+                    const spinner = container.querySelector('.loading-spinner');
+                    if(spinner) spinner.classList.remove('d-none');
+
+                    // Ambil parameter URL saat ini (search, sort, dll)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('load_more', section);
+                    urlParams.set('page_' + section, nextPage);
+
+                    fetch(`${window.location.pathname}?${urlParams.toString()}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.text())
+                    .then(html => {
+                        if (html.trim().length > 0) {
+                            const tbody = container.querySelector('tbody');
+                            if (tbody) {
+                                tbody.insertAdjacentHTML('beforeend', html);
+                                container.dataset.nextPage = nextPage + 1;
+                            }
+                        } else {
+                            container.dataset.hasMore = 'false';
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error loading more data:', err);
+                        container.dataset.hasMore = 'false'; 
+                    })
+                    .finally(() => {
+                        loadingStates[section] = false;
+                        if(spinner) spinner.classList.add('d-none');
+                    });
+                }
+                // --- REALTIME SEARCH IMPLEMENTATION ---
+                const searchInputs = {
+                    'so': document.querySelector('input[name="search_so"]'),
+                    'reservasi': document.querySelector('input[name="search_reservasi"]'),
+                    'pro': document.querySelector('input[name="search_pro"]'),
+                    'total_pro': document.querySelector('input[name="search_total_pro"]')
+                };
+
+                const debounce = (func, wait) => {
+                    let timeout;
+                    return function executedFunction(...args) {
+                        const later = () => {
+                            clearTimeout(timeout);
+                            func(...args);
+                        };
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                    };
+                };
+
+                Object.keys(searchInputs).forEach(section => {
+                    const input = searchInputs[section];
+                    if (input) {
+                        // Prevent form submission on Enter
+                        input.closest('form').addEventListener('submit', (e) => e.preventDefault());
+
+                        input.addEventListener('input', debounce((e) => {
+                            performSearch(section, e.target.value);
+                        }, 500));
+                    }
+                });
+
+                function performSearch(section, searchTerm) {
+                    const container = document.querySelector(`.table-container-scroll[data-section="${section}"]`);
+                    if (!container) return;
+
+                    const spinner = container.querySelector('.loading-spinner');
+                    if (spinner) spinner.classList.remove('d-none');
+
+                    // Reset pagination for new search
+                    container.dataset.nextPage = 2; // Next page to load will be 2
+                    container.dataset.hasMore = 'true';
+                    container.scrollTop = 0; // Scroll to top
+
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('load_more', section);
+                    urlParams.set(`page_${section}`, 1); // Request page 1
+                    urlParams.set(`search_${section}`, searchTerm); // Update search term
+                    
+                    // Update URL without reloading (optional, helps if user wants to copy/paste link)
+                    const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+                    window.history.replaceState({}, '', newUrl);
+
+                    fetch(newUrl, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(response => response.text())
+                    .then(html => {
+                        const tbody = container.querySelector('tbody');
+                        if (tbody) {
+                            tbody.innerHTML = html; // REPLACE content
+                            
+                            // If response is empty, no more pages
+                            if (html.trim().length === 0) {
+                                container.innerHTML += '<div class="text-center p-3 text-muted">No results found.</div>';
+                                container.dataset.hasMore = 'false';
+                            }
+                        }
+                    })
+                    .catch(err => console.error('Search error:', err))
+                    .finally(() => {
+                        if (spinner) spinner.classList.add('d-none');
+                        loadingStates[section] = false; // Reset loading state
+                    });
+                }
+            });
+        </script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         {{-- JavaScript untuk mengontrol modal --}}
         <script>
