@@ -262,6 +262,16 @@
                             <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Cari apapun pisahkan dengan titik koma (;)">
                         </div>
 
+                        {{-- SELECTION CONTROLS (NEW) --}}
+                        <div id="selectionControls" class="d-flex align-items-center gap-2 ms-3">
+                            <span class="badge bg-primary text-white shadow-sm" style="font-size: 0.75rem;">
+                                <span id="selectionCount">0</span> selected
+                            </span>
+                            <button type="button" id="btnClearSelection" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold shadow-sm rounded-pill d-none" onclick="clearSourceSelection()" style="font-size: 0.7rem; height: 24px;">
+                                <i class="fa-solid fa-xmark me-1"></i> Clear All
+                            </button>
+                        </div>
+
                         <div class="ms-auto me-3">
                              <div class="btn-group btn-group-sm" role="group">
                                 <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'today']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'today' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">Today</a>
@@ -606,119 +616,60 @@
                 });
             });
 
-            // New: Multi Input Logic
-            window.openMultiInput = function(targetId, title, isSo = false) {
-                const input = document.getElementById(targetId);
-                const textarea = document.getElementById('multiInputTextarea');
+            // --- SELECTION LOGIC (NEW) ---
+            function updateSelectionUI() {
+                const checkboxes = document.querySelectorAll('#source-list .pro-item .row-checkbox');
+                const selected = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
+                const count = selected.length;
                 
-                multiInputTargetId = targetId;
-                document.getElementById('multiInputTitle').innerText = 'Input List: ' + title;
-                
-                // Pre-fill textarea from current input (replace commas with newlines for editing)
-                let currentVal = input.value;
-                if(currentVal) {
-                    // Split by comma+space or just comma
-                    let vals = currentVal.split(/\s*,\s*/);
-                    textarea.value = vals.join('\n');
-                } else {
-                    textarea.value = '';
+                const countSpan = document.getElementById('selectionCount');
+                const clearBtn = document.getElementById('btnClearSelection');
+
+                // Update Select All Checkbox State
+                const selectAllCb = document.getElementById('selectAll');
+                if (selectAllCb) {
+                    if (count > 0 && count === checkboxes.length) {
+                        selectAllCb.checked = true;
+                        selectAllCb.indeterminate = false;
+                    } else if (count > 0) {
+                        selectAllCb.checked = false;
+                        selectAllCb.indeterminate = true;
+                    } else {
+                        selectAllCb.checked = false;
+                        selectAllCb.indeterminate = false;
+                    }
                 }
-                
-                if(isSo) {
-                    textarea.placeholder = "Format: SO - Item\nContoh:\nMake Stock - 10\nOther Order - 20";
+
+                if(countSpan) countSpan.innerText = count;
+
+                if (count > 0) {
+                    if(clearBtn) clearBtn.classList.remove('d-none');
                 } else {
-                    textarea.placeholder = "Contoh:\nValue 1\nValue 2\nValue 3";
+                    if(clearBtn) clearBtn.classList.add('d-none');
                 }
-
-                multiInputModalInstance.show();
-            };
-
-            window.applyMultiInput = function() {
-                const textarea = document.getElementById('multiInputTextarea');
-                const targetInput = document.getElementById(multiInputTargetId);
-                
-                if(!targetInput) return;
-                
-                // Split by newline or comma
-                let rawVal = textarea.value;
-                let lines = rawVal.split(/[\n,]+/);
-                
-                // Clean and Filter
-                let cleanVals = lines.map(l => l.trim()).filter(l => l.length > 0);
-                
-                // Join back with comma space
-                targetInput.value = cleanVals.join(', ');
-                
-                // Trigger Event for Search
-                targetInput.dispatchEvent(new Event('keyup'));
-                
-                multiInputModalInstance.hide();
-            };
-
-            function setupDragAndDrop() {
-                const sourceList = document.getElementById('source-list');
-                const wcZones = document.querySelectorAll('.wc-drop-zone');
-
-                new Sortable(sourceList, {
-                    group: 'shared-pro',
-                    animation: 150,
-                    forceFallback: true,
-                    fallbackClass: "sortable-drag",
-                    ghostClass: "sortable-ghost",
-                    sort: false,
-                    onStart: function(evt) { 
-                        document.body.classList.add('dragging-active');
-                        const checked = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
-                        const draggedIsChecked = evt.item.querySelector('.row-checkbox')?.checked;
-                        
-                        if (checked.length > 0 && draggedIsChecked) {
-                            draggedItemsCache = Array.from(checked).map(cb => cb.closest('.pro-item'));
-                        } else {
-                            draggedItemsCache = [evt.item];
-                        }
-                        
-                        if (checked.length > 1 && draggedIsChecked) {
-                            setTimeout(() => {
-                                const mirror = document.querySelector('.sortable-drag');
-                                if (mirror) {
-                                    const badge = document.createElement('div');
-                                    badge.innerText = checked.length + " Items";
-                                    badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white shadow-sm';
-                                    badge.style.zIndex = '9999';
-                                    badge.style.fontSize = '0.7rem';
-                                    
-                                    mirror.style.position = 'fixed'; 
-                                    mirror.style.overflow = 'visible'; 
-                                    mirror.appendChild(badge);
-                                }
-                            }, 10);
-                        }
-                    },
-                    onAdd: function(evt) {
-                        document.body.classList.remove('dragging-active');
-                        handleReturnToTable(evt.item, null);
-                    },
-                    onEnd: function(evt) { document.body.classList.remove('dragging-active'); }
-                });
-
-                wcZones.forEach(zone => {
-                    new Sortable(zone, {
-                        group: 'shared-pro',
-                        animation: 150,
-                        forceFallback: true,
-                        onStart: function(evt) { document.body.classList.add('dragging-active'); },
-                        onAdd: function(evt) {
-                            document.body.classList.remove('dragging-active');
-                            handleDropToWc(evt);
-                        },
-                        onEnd: function(evt) {
-                            document.body.classList.remove('dragging-active');
-                            updateCapacity(zone.closest('.wc-card-container'));
-                        }
-                    });
-                    checkEmptyPlaceholder(zone);
-                });
             }
+
+            window.clearSourceSelection = function() {
+                const checkboxes = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
+                checkboxes.forEach(cb => {
+                    cb.checked = false;
+                    const row = cb.closest('.pro-item');
+                    if (row) row.classList.remove('selected-row');
+                });
+                
+                // Clear Global Flag
+                window.isSelectAllActive = false;
+                const selectAll = document.getElementById('selectAll');
+                if(selectAll) {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
+                }
+                
+                updateSelectionUI();
+            };
+
+            // Duplicate setupCheckboxes removed
+
 
             function getAssignedChildWCs(aufnr) {
                 const assignedWCs = [];
@@ -1944,6 +1895,120 @@
                 if (placeholder) placeholder.style.display = hasItems ? 'none' : 'block';
             }
 
+            // New: Multi Input Logic
+            window.openMultiInput = function(targetId, title, isSo = false) {
+                const input = document.getElementById(targetId);
+                const textarea = document.getElementById('multiInputTextarea');
+                
+                multiInputTargetId = targetId;
+                document.getElementById('multiInputTitle').innerText = 'Input List: ' + title;
+                
+                // Pre-fill textarea from current input (replace commas with newlines for editing)
+                let currentVal = input.value;
+                if(currentVal) {
+                    // Split by comma+space or just comma
+                    let vals = currentVal.split(/\s*,\s*/);
+                    textarea.value = vals.join('\n');
+                } else {
+                    textarea.value = '';
+                }
+                
+                if(isSo) {
+                    textarea.placeholder = "Format: SO - Item\nContoh:\nMake Stock - 10\nOther Order - 20";
+                } else {
+                    textarea.placeholder = "Contoh:\nValue 1\nValue 2\nValue 3";
+                }
+
+                multiInputModalInstance.show();
+            };
+
+            window.applyMultiInput = function() {
+                const textarea = document.getElementById('multiInputTextarea');
+                const targetInput = document.getElementById(multiInputTargetId);
+                
+                if(!targetInput) return;
+                
+                // Split by newline or comma
+                let rawVal = textarea.value;
+                let lines = rawVal.split(/[\n,]+/);
+                
+                // Clean and Filter
+                let cleanVals = lines.map(l => l.trim()).filter(l => l.length > 0);
+                
+                // Join back with comma space
+                targetInput.value = cleanVals.join(', ');
+                
+                // Trigger Event for Search
+                targetInput.dispatchEvent(new Event('keyup'));
+                
+                multiInputModalInstance.hide();
+            };
+
+            function setupDragAndDrop() {
+                const sourceList = document.getElementById('source-list');
+                const wcZones = document.querySelectorAll('.wc-drop-zone');
+
+                new Sortable(sourceList, {
+                    group: 'shared-pro',
+                    animation: 150,
+                    forceFallback: true,
+                    fallbackClass: "sortable-drag",
+                    ghostClass: "sortable-ghost",
+                    sort: false,
+                    onStart: function(evt) { 
+                        document.body.classList.add('dragging-active');
+                        const checked = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
+                        const draggedIsChecked = evt.item.querySelector('.row-checkbox')?.checked;
+                        
+                        if (checked.length > 0 && draggedIsChecked) {
+                            draggedItemsCache = Array.from(checked).map(cb => cb.closest('.pro-item'));
+                        } else {
+                            draggedItemsCache = [evt.item];
+                        }
+                        
+                        if (checked.length > 1 && draggedIsChecked) {
+                            setTimeout(() => {
+                                const mirror = document.querySelector('.sortable-drag');
+                                if (mirror) {
+                                    const badge = document.createElement('div');
+                                    badge.innerText = checked.length + " Items";
+                                    badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white shadow-sm';
+                                    badge.style.zIndex = '9999';
+                                    badge.style.fontSize = '0.7rem';
+                                    
+                                    mirror.style.position = 'fixed'; 
+                                    mirror.style.overflow = 'visible'; 
+                                    mirror.appendChild(badge);
+                                }
+                            }, 10);
+                        }
+                    },
+                    onAdd: function(evt) {
+                        document.body.classList.remove('dragging-active');
+                        handleReturnToTable(evt.item, null);
+                    },
+                    onEnd: function(evt) { document.body.classList.remove('dragging-active'); }
+                });
+
+                wcZones.forEach(zone => {
+                    new Sortable(zone, {
+                        group: 'shared-pro',
+                        animation: 150,
+                        forceFallback: true,
+                        onStart: function(evt) { document.body.classList.add('dragging-active'); },
+                        onAdd: function(evt) {
+                            document.body.classList.remove('dragging-active');
+                            handleDropToWc(evt);
+                        },
+                        onEnd: function(evt) {
+                            document.body.classList.remove('dragging-active');
+                            updateCapacity(zone.closest('.wc-card-container'));
+                        }
+                    });
+                    checkEmptyPlaceholder(zone);
+                });
+            }
+
             function setupSearch() {
                 let timeout = null;
                 const searchInput = document.getElementById('searchInput');
@@ -2015,7 +2080,7 @@
                 function resetAndFetch() {
                     nextPage = 1; 
                     isLoading = true;
-                    tbody.innerHTML = ''; // Clear current
+                    // tbody.innerHTML = ''; // removed to preserve selection for capture in fetchData
                     spinner.classList.remove('d-none');
                     endOfData.classList.add('d-none');
                     currentSearch = searchInput.value; 
@@ -2043,6 +2108,23 @@
                         else url.searchParams.delete(key);
                     });
 
+                    // [NEW] Capture Selected Items before Reset (Sticky Logic)
+                    let preservedRows = [];
+                    if (isReset) {
+                         const currentSelected = tbody.querySelectorAll('.pro-item .row-checkbox:checked');
+                         currentSelected.forEach(cb => {
+                             const row = cb.closest('.pro-item');
+                             if(row) {
+                                 const clone = row.cloneNode(true);
+                                 // IMPORTANT: Explicitly set checked property on clone, as cloneNode doesn't persist 'checked' state reliably for JS-modified inputs
+                                 const cloneCb = clone.querySelector('.row-checkbox');
+                                 if(cloneCb) cloneCb.checked = true; 
+                                 
+                                 preservedRows.push(clone); 
+                             }
+                         });
+                    }
+
                     fetch(url, {
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest'
@@ -2052,6 +2134,25 @@
                     .then(data => {
                         if (isReset) {
                             tbody.innerHTML = data.html;
+                            
+                            // [NEW] Prepend Selected Items (Sticky Logic)
+                            if (preservedRows.length > 0) {
+                                // Reverse loop to maintain order when prepending
+                                preservedRows.reverse().forEach(row => {
+                                    const aufnr = row.dataset.aufnr;
+                                    // Check if this item exists in the newly loaded data (duplicate)
+                                    const duplicate = tbody.querySelector(`.pro-item[data-aufnr="${aufnr}"]`);
+                                    if(duplicate) {
+                                        // If found in new data, remove the NEW one, keep the OLD one (which is selected)
+                                        // OR replace new one's visuals but keep checked? 
+                                        // Better: Remove double, put preserved at TOP.
+                                        duplicate.remove();
+                                    }
+                                    
+                                    // Prepend to top
+                                    tbody.prepend(row);
+                                });
+                            }
                         } else {
                             tbody.insertAdjacentHTML('beforeend', data.html); // Append
                         }
@@ -2070,7 +2171,9 @@
                                  cb.closest('tr').classList.add('selected-row');
                              });
                         }
-
+                        
+                        // [NEW] Force UI Update
+                        updateSelectionUI();
                         
                     })
                     .catch(e => console.error('Load Error:', e))
@@ -2085,45 +2188,101 @@
 
             function setupCheckboxes() {
                 const selectAll = document.getElementById('selectAll');
-                const selectedCountMsg = document.getElementById('selectedCountMsg'); // If exists in UI
+                const sourceList = document.getElementById('source-list');
 
-                selectAll.addEventListener('change', function() {
-                    window.isSelectAllActive = this.checked;
-                    
-                    // 1. Visually check/uncheck loaded rows
-                    const visibleRows = Array.from(document.querySelectorAll('#source-list tr.draggable-item')).filter(r => r.style.display !== 'none');
-                    visibleRows.forEach(row => {
-                        const cb = row.querySelector('.row-checkbox');
-                        if (cb) {
-                            cb.checked = this.checked;
-                            this.checked ? row.classList.add('selected-row') : row.classList.remove('selected-row');
+                if (selectAll) {
+                     selectAll.addEventListener('change', function() {
+                        window.isSelectAllActive = this.checked;
+                        
+                        // 1. Visually check/uncheck loaded rows
+                        const visibleRows = Array.from(document.querySelectorAll('#source-list tr.pro-item')).filter(r => r.style.display !== 'none');
+                        visibleRows.forEach(row => {
+                            const cb = row.querySelector('.row-checkbox');
+                            if (cb) {
+                                cb.checked = this.checked;
+                                this.checked ? row.classList.add('selected-row') : row.classList.remove('selected-row');
+                                if(this.checked) sourceList.prepend(row); // Sticky
+                            }
+                        });
+                        updateSelectionUI();
+                    });
+                }
+
+                if (sourceList) {
+                    sourceList.addEventListener('change', (e) => {
+                        if (e.target.classList.contains('row-checkbox')) {
+                            const row = e.target.closest('tr');
+                            if (e.target.checked) {
+                                row.classList.add('selected-row');
+                                sourceList.prepend(row); // Sticky Logic
+                                document.querySelector('.table-scroll-area').scrollTop = 0; 
+                            } else {
+                                row.classList.remove('selected-row');
+                                
+                                // [NEW] If Unchecked: Check if we should remove it (if it doesn't match current search)
+                                if (shouldRemoveUncheckedRow(row)) {
+                                    row.remove();
+                                }
+                            }
+                            
+                            if(!e.target.checked && window.isSelectAllActive) {
+                                 window.isSelectAllActive = false;
+                                 selectAll.checked = false;
+                            }
+                            updateSelectionUI();
                         }
                     });
-                    
-                    // 2. Feedback (Optional)
-                    if(window.isSelectAllActive) {
-                        // We don't know total count easily here without API call, 
-                        // but we can say "All items selected".
-                        console.log("Global Select All Active");
-                    }
-                });
+                }
 
-                document.getElementById('source-list').addEventListener('change', (e) => {
-                    if (e.target.classList.contains('row-checkbox')) {
-                        const row = e.target.closest('tr');
-                        e.target.checked ? row.classList.add('selected-row') : row.classList.remove('selected-row');
+                function shouldRemoveUncheckedRow(row) {
+                    // 1. Check if any search is active
+                    const basicSearch = document.getElementById('searchInput').value.toLowerCase().trim();
+                    const advIsActive = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advKdauf', 'advKdpos'].some(id => document.getElementById(id).value.trim() !== '');
+                    
+                    if (!basicSearch && !advIsActive) return false; // No search active = keep it
+                    
+                    // 2. Client-side match check
+                    let matches = true;
+
+                    // Basic Search Match (heuristic: simple text includes)
+                    if (basicSearch) {
+                        // Check specific visible columns logic usually used in basic search
+                         const text = (
+                            (row.dataset.aufnr || '') + " " +
+                            (row.dataset.matnr || '') + " " +
+                            (row.dataset.maktx || '') + " " +
+                            (row.dataset.arbpl || '')
+                        ).toLowerCase();
                         
-                        // If user unchecks one, Global Select All is broken
-                        if(!e.target.checked && window.isSelectAllActive) {
-                             window.isSelectAllActive = false;
-                             selectAll.checked = false;
-                        }
-                        
-                        // If all loaded are checked, should we check SelectAll? 
-                        // No, because we don't know if unloading/next pages are matches. 
-                        // Keep simple: Manual Select All = Global. Manual Uncheck = Not Global.
+                        if (!text.includes(basicSearch)) matches = false;
                     }
-                });
+
+                    // Advanced Search Match
+                    if (matches && advIsActive) {
+                        const checkField = (id, dataAttr) => {
+                            const val = document.getElementById(id).value.toLowerCase().trim();
+                            if (!val) return true;
+                            // Search allows comma separated
+                            const terms = val.split(',').map(s => s.trim()).filter(s => s);
+                             // If any term matches EXACTLY (or partial? standard logic is usually partial or exact depending on field)
+                             // User requirement for Adv Search says "Specific Fields", previously we made it strict or partial?
+                             // Let's assume partial for safety, or strict if numbers.
+                             // Actually, let's use partial includes for flexibility unless it's numeric ID which might be strict.
+                             
+                             const rowVal = (row.dataset[dataAttr] || '').toLowerCase();
+                             return terms.some(term => rowVal.includes(term));
+                        };
+
+                        if (!checkField('advAufnr', 'aufnr')) matches = false;
+                        if (!checkField('advMatnr', 'matnr')) matches = false;
+                        if (!checkField('advMaktx', 'maktx')) matches = false;
+                        if (!checkField('advArbpl', 'arbpl')) matches = false;
+                        if (!checkField('advKdauf', 'kdauf')) matches = false;
+                        if (!checkField('advKdpos', 'kdpos')) matches = false;
+                    }
+
+                    return !matches; // If it does NOT match, we should remove it
+                }
             }
 
             function saveAllocation(isFinalSave = false) {
