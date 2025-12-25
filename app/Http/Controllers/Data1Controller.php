@@ -210,7 +210,7 @@ class Data1Controller extends Controller
     public function changeWcBulkStream(Request $request)
     {
         // Increase memory limit for this long running process
-        ini_set('memory_limit', '512M');
+        ini_set('memory_limit', '5G');
         set_time_limit(0);
 
         $bulkPros = $request->input('bulk_pros');

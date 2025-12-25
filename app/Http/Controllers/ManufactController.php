@@ -109,7 +109,7 @@ class ManufactController extends Controller
                     if ($kunnr === '' && $name1 === '') continue;
 
                     // 1. TData Unique Check (NAME1 + KUNNR)
-                    $key_tdata = $name1 . '-' . $kunnr;
+                    $key_tdata = $kode . '-' . $name1 . '-' . $kunnr;
                     if (isset($seenTData[$key_tdata])) {
                         continue;
                     }
@@ -130,7 +130,7 @@ class ManufactController extends Controller
                         // 2. TData2 Unique Check (KDAUF + KDPOS)
                         $kdauf = trim($t2_row['KDAUF'] ?? '');
                         $kdpos = trim($t2_row['KDPOS'] ?? '');
-                        $key_t2_unique = $kdauf . '-' . $kdpos;
+                        $key_t2_unique = $kode . '-' . $kdauf . '-' . $kdpos;
                         
                         // Perbaikan: Jika data kosong, skip? Atau tetap insert? 
                         // Asumsi unique key harus ada nilainya.
@@ -158,10 +158,12 @@ class ManufactController extends Controller
                             $aufnr = trim($t3_row['AUFNR'] ?? '');
                             if ($aufnr === '') continue;
 
-                            if (isset($seenTData3[$aufnr])) {
+                            $key_t3_unique = $kode . '-' . $aufnr;
+
+                            if (isset($seenTData3[$key_t3_unique])) {
                                 continue;
                             }
-                            $seenTData3[$aufnr] = true;
+                            $seenTData3[$key_t3_unique] = true;
 
                             $t3_row['WERKSX'] = $kode;
                             $t3Record = ProductionTData3::create($t3_row);
@@ -175,7 +177,7 @@ class ManufactController extends Controller
                             
                             foreach ($children_t1 as $t1_row) {      
                                 $vornr = trim($t1_row['VORNR'] ?? '');
-                                $key_t1_unique = $aufnr . '-' . $vornr;
+                                $key_t1_unique = $kode . '-' . $aufnr . '-' . $vornr;
                                 
                                 if (isset($seenTData1[$key_t1_unique])) {
                                     continue;
@@ -222,7 +224,7 @@ class ManufactController extends Controller
                                 $rsnum = trim($t4_row['RSNUM'] ?? '');
                                 $rspos = trim($t4_row['RSPOS'] ?? '');
                                 
-                                $key_t4_unique = $aufnr_t4 . '-' . $rsnum . '-' . $rspos;
+                                $key_t4_unique = $kode . '-' . $aufnr_t4 . '-' . $rsnum . '-' . $rspos;
 
                                 if (isset($seenTData4[$key_t4_unique])) {
                                     continue;

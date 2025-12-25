@@ -40,90 +40,104 @@ class CreateWiController extends Controller
     }
     public function index(Request $request, $kode)
     {
-        $filter = $request->query('filter', 'all');
-        $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
-        $apiToken = env('API_TOKEN_NIK'); 
-        $employees = []; 
-
         try {
-            $response = Http::withToken($apiToken)->post($apiUrl, ['kode_laravel' => $kode]);
-            if ($response->successful()) {
-                $employees = $response->json()['data'];
+            $filter = $request->query('filter', 'all');
+            $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
+            $apiToken = env('API_TOKEN_NIK'); 
+            $employees = []; 
+
+            try {
+                $response = Http::withToken($apiToken)->timeout(5)->post($apiUrl, ['kode_laravel' => $kode]);
+                if ($response->successful()) {
+                    $employees = $response->json()['data'];
+                }
+            } catch (\Exception $e) {
+                Log::error('Koneksi API NIK Error: ' . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            Log::error('Koneksi API NIK Error: ' . $e->getMessage());
-        }
-        // --- REFACTORED QUERY USAGE ---
-        $tData1 = $this->_buildSourceQuery($request, $kode);
-        $perPage = 30;
-        $page = $request->input('page', 1);
-        $tDataQuery = $tData1;
-        $pagination = $tDataQuery->paginate($perPage); 
-        $assignedProQuantities = $this->getAssignedProQuantities($kode);
-        $processedCollection = $pagination->getCollection()->transform(function ($item) use ($assignedProQuantities) {
-            $aufnr = $item->AUFNR;
-            $key = $aufnr . '-' . ($item->VORNR ?? '');
+
+            // --- REFACTORED QUERY USAGE ---
+            $tData1 = $this->_buildSourceQuery($request, $kode);
+            $perPage = 30;
+            $page = $request->input('page', 1);
+            $tDataQuery = $tData1;
             
-            $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
-            $qtyAllocatedInWi = $assignedProQuantities[$key] ?? 0;
+            // Check if tData1 is valid
+            if (!$tData1) {
+                Log::error("tData1 query builder is null in index");
+                 return abort(500, "Query builder failed");
+            }
+
+            $pagination = $tDataQuery->paginate($perPage); 
+            $assignedProQuantities = $this->getAssignedProQuantities($kode);
             
-            $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
-            $item->real_sisa_qty = $qtySisaAkhir; 
-            $item->qty_wi = $qtyAllocatedInWi; 
-            return $item;
-        })->filter(function ($item) {
-             return $item->real_sisa_qty > 0.001; 
-        });
+            $processedCollection = $pagination->getCollection()->transform(function ($item) use ($assignedProQuantities) {
+                $aufnr = $item->AUFNR;
+                $key = $aufnr . '-' . ($item->VORNR ?? '');
+                
+                $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
+                $qtyAllocatedInWi = $assignedProQuantities[$key] ?? 0;
+                
+                $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
+                $item->real_sisa_qty = $qtySisaAkhir; 
+                $item->qty_wi = $qtyAllocatedInWi; 
+                return $item;
+            })->filter(function ($item) {
+                 return $item->real_sisa_qty > 0.001; 
+            });
 
-        $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
+            $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
 
-        $wcNames = [];
-        foreach ($workcenterMappings as $m) {
-            if ($m->wc_induk) $wcNames[strtoupper($m->wc_induk)] = $m->nama_wc_induk;
-            if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
-        }
+            $wcNames = [];
+            foreach ($workcenterMappings as $m) {
+                if ($m->wc_induk) $wcNames[strtoupper($m->wc_induk)] = $m->nama_wc_induk;
+                if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
+            }
 
-        if ($request->ajax()) {
-            $html = view('create-wi.partials.source_table_rows', [
-                'tData1' => $processedCollection,
-                'wcNames' => $wcNames, // Pass to partial
-            ])->render();
-            return response()->json([
-                'html' => $html,
-                'next_page' => $pagination->hasMorePages() ? $pagination->currentPage() + 1 : null
+            if ($request->ajax()) {
+                $html = view('create-wi.partials.source_table_rows', [
+                    'tData1' => $processedCollection,
+                    'wcNames' => $wcNames, // Pass to partial
+                ])->render();
+                return response()->json([
+                    'html' => $html,
+                    'next_page' => $pagination->hasMorePages() ? $pagination->currentPage() + 1 : null
+                ]);
+            }
+            
+            $allWorkcenters = workcenter::where('werksx', $kode)->get();
+            $parentWorkcenters = $this->buildWorkcenterHierarchy($allWorkcenters, $workcenterMappings);
+            $childCodes = $workcenterMappings->pluck('workcenter')
+                ->filter()
+                ->map(fn($code) => strtoupper($code))
+                ->unique()
+                ->all();
+
+            $workcenters = $allWorkcenters->reject(function ($wc) use ($childCodes) {
+                return in_array(strtoupper($wc->kode_wc), $childCodes);
+            });
+            $capacityData = ProductionTData1::where('WERKSX', $kode)
+                ->whereRaw('MGVRG2 > LMNGA') // Only active items
+                ->select('ARBPL', 'KAPAZ')
+                ->distinct()
+                ->get();
+                
+            $capacityMap = $capacityData->pluck('KAPAZ', 'ARBPL')->toArray();
+
+            return view('create-wi.index', [
+                'kode'                 => $kode,
+                'employees'            => $employees,
+                'tData1'               => $processedCollection,
+                'workcenters'          => $workcenters,
+                'parentWorkcenters'    => $parentWorkcenters,
+                'capacityMap'          => $capacityMap,
+                'wcNames'              => $wcNames, // Pass Map
+                'currentFilter'        => $filter,
+                'nextPage'             => $pagination->hasMorePages() ? 2 : null
             ]);
+        } catch (\Exception $e) {
+            Log::error("Create WI Index Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return response()->view('errors.500', ['exception' => $e], 500);
         }
-        
-        $allWorkcenters = workcenter::where('werksx', $kode)->get();
-        $parentWorkcenters = $this->buildWorkcenterHierarchy($allWorkcenters, $workcenterMappings);
-        $childCodes = $workcenterMappings->pluck('workcenter')
-            ->filter()
-            ->map(fn($code) => strtoupper($code))
-            ->unique()
-            ->all();
-
-        $workcenters = $allWorkcenters->reject(function ($wc) use ($childCodes) {
-            return in_array(strtoupper($wc->kode_wc), $childCodes);
-        });
-        $capacityData = ProductionTData1::where('WERKSX', $kode)
-            ->whereRaw('MGVRG2 > LMNGA') // Only active items
-            ->select('ARBPL', 'KAPAZ')
-            ->distinct()
-            ->get();
-            
-        $capacityMap = $capacityData->pluck('KAPAZ', 'ARBPL')->toArray();
-
-        return view('create-wi.index', [
-            'kode'                 => $kode,
-            'employees'            => $employees,
-            'tData1'               => $processedCollection,
-            'workcenters'          => $workcenters,
-            'parentWorkcenters'    => $parentWorkcenters,
-            'capacityMap'          => $capacityMap,
-            'wcNames'              => $wcNames, // Pass Map
-            'currentFilter'        => $filter,
-            'nextPage'             => $pagination->hasMorePages() ? 2 : null
-        ]);
     }
 
     protected function getAssignedProQuantities(string $kodePlant)
