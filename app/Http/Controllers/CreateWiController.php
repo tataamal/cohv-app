@@ -892,8 +892,18 @@ class CreateWiController extends Controller
                 elseif ($confirmedQty > 0) $statusItem = 'On Progress';
                 else $statusItem = 'Created';
 
+                // Fetch KDAUF & KDPOS
+                $t3Data = $prodDataMap3[$auf] ?? null;
+                $kdaufRaw = $t3Data->KDAUF ?? ($item['kdauf'] ?? '-');
+                $kdposRaw = $t3Data->KDPOS ?? ($item['kdpos'] ?? '-');
+                
+                // Format KDPOS: Remove leading zeros
+                $kdposDisplay = ($kdposRaw !== '-' && $kdposRaw !== '') ? ltrim($kdposRaw, '0') : $kdposRaw;
+
                 $summary['details'][] = [
                     'aufnr'         => $item['aufnr'] ?? '-',
+                    'kdauf'         => $kdaufRaw,
+                    'kdpos'         => $kdposDisplay,
                     'material'      => $item['material_desc'] ?? ($item['material'] ?? '-'),
                     'nik'           => $item['nik'] ?? '-',
                     'name'          => $item['name'] ?? '-',
