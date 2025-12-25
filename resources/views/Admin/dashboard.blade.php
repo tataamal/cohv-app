@@ -551,6 +551,9 @@
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
                             <input type="text" name="search_total_pro" value="{{ $searchTotalPro ?? '' }}" placeholder="Search SO, PRO... (Enter)"
                                 class="form-control">
+                            
+                            {{-- Input Hidden untuk Multi Material Filter --}}
+                            <input type="hidden" name="multi_matnr" id="multiMatnrHiddenInput" value="{{ request('multi_matnr') }}">
 
                             <!-- Tombol Multi Filter Material -->
                             <button class="btn btn-outline-secondary" type="button" id="btnMultiMatnr"
@@ -560,10 +563,10 @@
                             </button>
 
                             <!-- TOMBOL BARU: CLEAR FILTER -->
-                            <a href="{{ url()->current() }}" class="btn btn-outline-danger" 
+                            <button type="button" class="btn btn-outline-danger" id="btnResetFilter"
                                 title="Reset Semua Filter & Pencarian">
                                 <i class="fas fa-times"></i>
-                            </a>
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -585,7 +588,7 @@
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-2">
                                     <small class="text-secondary" id="matnrCountInfo">0 kode terdeteksi</small>
-                                    <button class="btn btn-sm btn-link text-danger text-decoration-none"
+                                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none"
                                         id="clearMatnrFilter">Hapus Filter</button>
                                 </div>
                             </div>
@@ -799,6 +802,11 @@
                     }
                 });
 
+
+                
+                // Expose performSearch to global scope for other scripts to use
+                window.performSearch = performSearch;
+
                 function performSearch(section, searchTerm) {
                     const container = document.querySelector(`.table-container-scroll[data-section="${section}"]`);
                     if (!container) return;
@@ -815,6 +823,16 @@
                     urlParams.set('load_more', section);
                     urlParams.set(`page_${section}`, 1); // Request page 1
                     urlParams.set(`search_${section}`, searchTerm); // Update search term
+                    
+                    // [NEW] Check for multi_matnr input if section is total_pro
+                    if (section === 'total_pro') {
+                        const multiMatnrInput = document.getElementById('multiMatnrHiddenInput');
+                        if (multiMatnrInput && multiMatnrInput.value) {
+                             urlParams.set('multi_matnr', multiMatnrInput.value);
+                        } else {
+                             urlParams.delete('multi_matnr');
+                        }
+                    }
                     
                     // Update URL without reloading (optional, helps if user wants to copy/paste link)
                     const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
@@ -1558,6 +1576,122 @@
                     console.warn(
                         "Elemen 'Select All', 'Copy PRO', atau 'totalProTableBody' tidak ditemukan. Fungsionalitas Copy dinonaktifkan."
                     );
+                }
+
+                // ===================================================================
+                // LOGIKA MULTI MATERIAL FILTER
+                // ===================================================================
+                const btnApplyMatnr = document.getElementById('applyMatnrFilter');
+                const btnClearMatnr = document.getElementById('clearMatnrFilter');
+                const textareaMatnr = document.getElementById('multiMatnrInput');
+                const matnrCountInfo = document.getElementById('matnrCountInfo');
+                const matnrBadge = document.getElementById('matnrBadge');
+                const hiddenInputMatnr = document.getElementById('multiMatnrHiddenInput');
+                const modalElementMatnr = document.getElementById('multiMatnrModal');
+                let matnrModal;
+
+                if (modalElementMatnr) {
+                    matnrModal = new bootstrap.Modal(modalElementMatnr);
+                }
+
+                function updateBadge(count) {
+                    if (matnrBadge) {
+                        matnrBadge.innerText = count;
+                        if (count > 0) {
+                            matnrBadge.classList.remove('d-none');
+                        } else {
+                            matnrBadge.classList.add('d-none');
+                        }
+                    }
+                }
+
+                // Initialize state from existing hidden input (if any, e.g. after reload)
+                if (hiddenInputMatnr && hiddenInputMatnr.value) {
+                    const existingCodes = hiddenInputMatnr.value.split(',').filter(s => s.trim());
+                    updateBadge(existingCodes.length);
+                    if (textareaMatnr) {
+                        textareaMatnr.value = existingCodes.join('\n');
+                        if (matnrCountInfo) matnrCountInfo.innerText = `${existingCodes.length} kode terdeteksi`;
+                    }
+                }
+
+                if (textareaMatnr) {
+                    textareaMatnr.addEventListener('input', function() {
+                        const lines = this.value.split('\n').filter(line => line.trim() !== '');
+                        if (matnrCountInfo) matnrCountInfo.innerText = `${lines.length} kode terdeteksi`;
+                    });
+                }
+
+                if (btnClearMatnr) {
+                    btnClearMatnr.addEventListener('click', function() {
+                        if (textareaMatnr) {
+                            textareaMatnr.value = '';
+                            if (matnrCountInfo) matnrCountInfo.innerText = '0 kode terdeteksi';
+                        }
+                    });
+                }
+
+                if (btnApplyMatnr) {
+                    btnApplyMatnr.addEventListener('click', function() {
+                        const rawText = textareaMatnr.value;
+                        // Split by newline or comma, trim, filter empty
+                        const codes = rawText.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '');
+                        
+                        if (hiddenInputMatnr) {
+                            hiddenInputMatnr.value = codes.join(','); // Join with comma for backend
+                        }
+
+                        updateBadge(codes.length);
+
+                        // Close modal
+                        if (matnrModal) {
+                            matnrModal.hide();
+                        } else {
+                            // Fallback if modal instance not stored
+                            const modalInstance = bootstrap.Modal.getInstance(modalElementMatnr);
+                            if(modalInstance) modalInstance.hide();
+                        }
+
+
+
+                        // Submit form using AJAX (performSearch)
+                        if (typeof window.performSearch === 'function') {
+                            const searchInput = document.querySelector('input[name="search_total_pro"]');
+                            const searchTerm = searchInput ? searchInput.value : '';
+                            window.performSearch('total_pro', searchTerm);
+                        } else {
+                            // Fallback if performSearch not ready
+                            const form = document.querySelector('input[name="search_total_pro"]').closest('form');
+                            if (form) form.submit();
+                        }
+                    });
+                }
+                
+                // [NEW] Tambahkan Logika untuk Tombol RESET Filter di main input group (icon X merah)
+                // Tombol ini: <a href="..." class="btn btn-outline-danger">...</a>
+                // Kita akan override behavior-nya agar tidak reload page jika memungkinkan
+                const btnResetAll = document.getElementById('btnResetFilter');
+                if(btnResetAll) {
+                    btnResetAll.addEventListener('click', function(e) {
+                         e.preventDefault();
+                         
+                         // Clear Search Input
+                         const searchInput = document.querySelector('input[name="search_total_pro"]');
+                         if(searchInput) searchInput.value = '';
+                         
+                         // Clear Multi Matnr Input
+                         if(textareaMatnr) textareaMatnr.value = '';
+                         if(hiddenInputMatnr) hiddenInputMatnr.value = '';
+                         updateBadge(0);
+                         if(matnrCountInfo) matnrCountInfo.innerText = '0 kode terdeteksi';
+                         
+                         // Trigger Search Reset
+                         if (typeof window.performSearch === 'function') {
+                            window.performSearch('total_pro', '');
+                         } else {
+                             window.location.href = this.href;
+                         }
+                    });
                 }
             });
         </script>
