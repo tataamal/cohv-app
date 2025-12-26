@@ -453,19 +453,37 @@ class Data1Controller extends Controller
         Log::info("Memulai transaksi DB untuk sinkronisasi PRO {$proCode}.");
 
         // Menggunakan updateOrCreate untuk data utama agar idempotent
+        $t_data_row = $t_data[0];
+        $t_data_row['WERKSX'] = $plant;
+        $t_data_row['EDATU'] = (empty($t_data_row['EDATU']) || trim($t_data_row['EDATU']) === '00000000') ? null : $t_data_row['EDATU'];
+
         ProductionTData::updateOrCreate(
-            ['KUNNR' => $t_data[0]['KUNNR'], 'NAME1' => $t_data[0]['NAME1']],
-            $t_data[0] + ['WERKSX' => $plant]
+            ['KUNNR' => $t_data_row['KUNNR'], 'NAME1' => $t_data_row['NAME1']],
+            $t_data_row
         );
 
+        $t_data2_row = $t_data2[0];
+        $t_data2_row['WERKSX'] = $plant;
+        $t_data2_row['EDATU'] = (empty($t_data2_row['EDATU']) || trim($t_data2_row['EDATU']) === '00000000') ? null : $t_data2_row['EDATU'];
+
         ProductionTData2::updateOrCreate(
-            ['KDAUF' => $t_data2[0]['KDAUF'], 'KDPOS' => $t_data2[0]['KDPOS']],
-            $t_data2[0] + ['WERKSX' => $plant]
+            ['KDAUF' => $t_data2_row['KDAUF'], 'KDPOS' => $t_data2_row['KDPOS']],
+            $t_data2_row
         );
         
+        $t_data3_row = $t_data3[0];
+        $t_data3_row['WERKSX'] = $plant;
+        $dateFieldsT3 = ['SSSLD', 'SSAVD', 'GLTRP', 'GSTRP'];
+        foreach ($dateFieldsT3 as $field) {
+            if (isset($t_data3_row[$field])) {
+                $val = $t_data3_row[$field];
+                $t_data3_row[$field] = (empty($val) || trim($val) === '00000000') ? null : $val;
+            }
+        }
+
         ProductionTData3::updateOrCreate(
             ['AUFNR' => $proCode],
-            $t_data3[0] + ['WERKSX' => $plant]
+            $t_data3_row
         );
 
         ProductionTData1::where('AUFNR', $proCode)->delete();
