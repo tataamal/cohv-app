@@ -266,7 +266,7 @@
                 <tr>
                     <td class="text-center">{{ $item->AUFNR }}</td>
                     <td>{{ $item->MAKTX }}</td>
-                    <td class="text-center">{{ $item->KDAUF ?? '-' }} / {{ intval($item->KDPOS) }}</td>
+                    <td class="text-center">{{ $item->MAT_KDAUF ?? '-' }} / {{ intval($item->MAT_KDPOS) }}</td>
                     <td class="text-center">{{ $item->DISPO }}</td>
                     <td class="text-center">{{ \Carbon\Carbon::parse($item->BUDAT_MKPF)->format('d/m/Y') }}</td>
                     <td class="text-center">{{ number_format($item->PSMNG, 0, ',', '.') }}</td>
