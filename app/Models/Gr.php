@@ -50,6 +50,8 @@ class Gr extends Model
         'BUDAT_MKPF',
         'CPUDT_MKPF',
         'NODAY',
+        'AUFNR2',
+        'CSMG',
         'TXT50',
         'NETPR',
         'WAERK',

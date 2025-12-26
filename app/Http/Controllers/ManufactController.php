@@ -367,7 +367,8 @@ class ManufactController extends Controller
             ->select(
                 'AUFNR', 'MAKTX', 'MAT_KDAUF', 'MAT_KDPOS', 'PSMNG',
                 'MENGE', 'MEINS', 'BUDAT_MKPF', 'DISPO', 'WEMNG', 'NETPR',
-                'ARBPL', 'WAERS' // Wajib ada untuk grouping workcenter
+                'ARBPL', 'WAERS', // Wajib ada untuk grouping workcenter
+                'AUFNR2', 'MATNR', 'CSMG' // Field tambahan untuk Hitung Set
             )
             ->orderBy('BUDAT_MKPF', 'desc')
             ->get();
@@ -391,6 +392,63 @@ class ManufactController extends Controller
                 $qty   = $item->MENGE ?? 0; // Pakai WEMNG
                 return $harga * $qty;
             });
+
+            // HITUNG SET & DETAIL (LOGIKA REVISI)
+            // Logika: 
+            // 1. Group by AUFNR2 (Abaikan grouping awal AUFNR)
+            // 2. Consolidate MATNR (Sum MENGE per Material) -> Uniqueness
+            // 3. Ambil nilai MIN(Total MENGE per Material)
+            // 4. Jika MIN(Total MENGE) >= CSMG, maka hitung 1 Set
+            
+            $totalSets = 0;
+            $setsDetails = [];
+
+            // Group by AUFNR2 directly
+            $groupByAufnr2 = $dailyRecords->groupBy(function($item) {
+                 return $item->AUFNR2 ?? 'EMPTY'; 
+            });
+
+            foreach ($groupByAufnr2 as $aufnr2 => $items) {
+                if ($aufnr2 === 'EMPTY') continue;
+
+                // Ambil CSMG (Asumsi sama untuk 1 grup AUFNR2)
+                $csmg = (float) ($items->first()->CSMG ?? 0);
+                
+                if ($csmg <= 0) continue;
+
+                // Konsolidasi Material (Sum MENGE jika MATNR sama)
+                $consolidatedItems = $items->groupBy('MATNR')->map(function($matItems) {
+                    return [
+                        'MATNR' => $matItems->first()->MATNR,
+                        'MAKTX' => $matItems->first()->MAKTX,
+                        'MENGE' => $matItems->sum('MENGE'), // Total MENGE
+                        'ARBPL' => $matItems->first()->ARBPL,
+                        // Optional: List PRO contributing
+                        'AUFNR_LIST' => $matItems->pluck('AUFNR')->unique()->values()->toArray()
+                    ];
+                });
+                
+                // Cari Min Menge dari item yang sudah dikonsolidasi
+                $minMenge = $consolidatedItems->min('MENGE');
+                
+                // Cek Kondisi Set
+                if ($minMenge >= $csmg) {
+                    $totalSets++;
+                    
+                    $firstItem = $items->first();
+                    $setsDetails[] = [
+                        'AUFNR' => $items->pluck('AUFNR')->unique()->implode(', '), // Tampilkan semua PRO
+                        'AUFNR2' => $aufnr2,
+                        'MAT_KDAUF' => $firstItem->MAT_KDAUF, // Sales Order
+                        'MAT_KDPOS' => $firstItem->MAT_KDPOS, // SO Item
+                        'CSMG' => $csmg,
+                        'MIN_MENGE' => (float)$minMenge,
+                        'MATNR_COUNT' => $consolidatedItems->count(),
+                        'ITEMS' => $consolidatedItems->values()->toArray()
+                    ];
+                }
+            }
+
 
             // A. Breakdown per DISPO
             $dispoBreakdown = $dailyRecords->groupBy('DISPO')->map(function ($items, $dispo) {
@@ -424,6 +482,8 @@ class ManufactController extends Controller
                     'totalPro'            => $totalPro,
                     'totalGrCount'        => $totalGrCount,
                     'totalValue'          => $totalValue,
+                    'totalSets'           => $totalSets, // Tambahan field Set
+                    'setsDetails'         => $setsDetails, // Detail Set untuk Modal Baru
                     'dispoBreakdown'      => $dispoBreakdown,
                     'workcenterBreakdown' => $workcenterBreakdown, 
                 ]
@@ -663,5 +723,130 @@ class ManufactController extends Controller
             }
         }
         Log::info(" -> Update spesifik untuk PRO {$proNumber} selesai.");
+    }
+
+    // --- PRINT SET PDF (HARIAN) ---
+    public function printSetPdf(Request $request) {
+        $kode = $request->input('kode'); // Plant Code
+        $date = $request->input('date'); // YYYY-MM-DD
+
+        if (!$date) {
+             return redirect()->back()->with('error', 'Tanggal wajib ada.');
+        }
+
+        // 1. Get MRP List for Plant (Scope Filtering)
+        $mrpList = [];
+        if ($kode) {
+            $mrpList = \App\Models\MRP::where('kode', $kode)->pluck('mrp'); // Case sensitive filename
+        }
+
+        // 2. Fetch Raw Data (Use Default Connection)
+        // Get ALL Data specific to this Date
+        $query = \App\Models\Gr::where('BUDAT_MKPF', $date);
+
+        // Apply DISPO Filter if we have MRP list
+        if (!empty($mrpList) && $mrpList->isNotEmpty()) {
+            $query->whereIn('DISPO', $mrpList);
+        }
+
+        $rawData = $query->orderBy('AUFNR2')->get(); // Sort by AUFNR2 for grouping
+
+        if ($rawData->isEmpty()) {
+             return redirect()->back()->with('error', 'Data Set tidak ditemukan untuk tanggal dan bagian ini.');
+        }
+
+        // 3. Process All Sets (Group by AUFNR2)
+        $groupedByAufnr2 = $rawData->groupBy(function($item) {
+             return $item->AUFNR2 ?? 'EMPTY'; 
+        });
+
+        $finalConsolidatedList = collect();
+
+        foreach ($groupedByAufnr2 as $aufnr2 => $items) {
+             if ($aufnr2 === 'EMPTY') continue;
+
+             // Validate Set Logic
+             $csmg = (float)($items->first()->CSMG ?? 0);
+             if ($csmg <= 0) continue;
+
+             // Consolidate Items within this potential Set
+             $consolidatedItems = $items->groupBy('MATNR')->map(function($matItems) use ($aufnr2) {
+                $first = $matItems->first();
+                
+                // Return Object-like array or Object for View Compatibility
+                $obj = new \stdClass();
+                $obj->AUFNR2 = $aufnr2; // Main Group Key
+                $obj->CSMG = $first->CSMG;
+                $obj->MIN_MENGE_SET = 0; // Will be set later
+
+                $obj->MAKTX = $first->MAKTX;
+                $obj->MATNR = $first->MATNR;
+                $obj->MAT_KDAUF = $first->MAT_KDAUF;
+                $obj->MAT_KDPOS = $first->MAT_KDPOS;
+                
+                $obj->DISPO = $first->DISPO;
+                $obj->BUDAT_MKPF = $first->BUDAT_MKPF;
+                $obj->ARBPL = $first->ARBPL; 
+                
+                $obj->MENGE = $matItems->sum('MENGE'); // Total GR Qty
+                $obj->NETPR = $first->NETPR;
+                
+                $obj->TOTAL_VAL = $matItems->sum(function($i){ return ($i->NETPR ?? 0) * ($i->MENGE ?? 0); });
+                $obj->WAERS = $first->WAERS;
+
+                return $obj;
+            });
+
+             // Check Min Menge
+             $minMenge = $consolidatedItems->min('MENGE');
+             
+             if ($minMenge >= $csmg) {
+                 // Add these items to the final list, attaching the Set property
+                 foreach($consolidatedItems as $ci) {
+                     $ci->MIN_MENGE_SET = $minMenge; // Assign to each item for easy access in view grouping
+                     $finalConsolidatedList->push($ci);
+                 }
+             }
+        }
+
+        if ($finalConsolidatedList->isEmpty()) {
+            return redirect()->back()->with('error', 'Tidak ada Set yang valid (Complete) untuk tanggal ini.');
+       }
+
+        // 4. Prepare Summary
+        $totalItems = $finalConsolidatedList->count();
+        $totalQty = $finalConsolidatedList->sum('MENGE');
+
+        // Calculate Total Values per Currency
+        $totalValues = [];
+        
+        foreach ($finalConsolidatedList as $item) {
+             $curr = $item->WAERS ?? 'IDR';
+             if (!isset($totalValues[$curr])) $totalValues[$curr] = 0;
+             $totalValues[$curr] += $item->TOTAL_VAL;
+        }
+
+        $summary = [
+            'total_items' => $totalItems,
+            'total_qty' => $totalQty,
+            'total_values' => $totalValues,
+            'print_date' => now()->format('d/m/Y H:i'),
+            'user' => auth()->user()->name ?? 'Guest',
+            'filter_info' => [
+                'date_start' => $date,
+                'plant_code' => $kode,
+            ]
+        ];
+
+        // 5. Generate PDF
+        // Sort by AUFNR2 for View Grouping
+        $sortedData = $finalConsolidatedList->sortBy('AUFNR2');
+
+        $pdf = Pdf::loadView('pdf.gr_set_report', [
+            'data' => $sortedData,
+            'summary' => $summary
+        ]);
+
+        return $pdf->stream('Laporan_GR_Set_Harian_' . $date . '.pdf');
     }
 }

@@ -44,6 +44,28 @@ window.appLoader = {
     }
 };
 
+window.formatNumber = function(num) {
+    return new Intl.NumberFormat('id-ID', { 
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0 
+    }).format(num || 0);
+};
+
+window.formatCurrency = (num) => new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 2
+}).format(num || 0);
+
+window.formatDate = (dateStr) => {
+    if (!dateStr || dateStr === '0000-00-00') return '-';
+    // Gunakan regex untuk parsing YYYY-MM-DD
+    const parts = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!parts) return dateStr;
+    const date = new Date(parts[1], parts[2] - 1, parts[3]);
+    return new Intl.DateTimeFormat('id-ID', { 
+        day: '2-digit', month: 'short', year: 'numeric' 
+    }).format(date);
+};
+
 window.addEventListener('load', () => {
     window.appLoader.hide();
 });
@@ -204,16 +226,23 @@ function initializeGoodReceiptCalendar() {
 
     // [FIX] Cek keberadaan modal secara aman
     let detailModal = null;
+    let setDetailModal = null; // New Set Modal
     let modalTitle = null;
     let modalTableBody = null;
 
     const modalElement = document.getElementById('detailModal');
+    const setModalElement = document.getElementById('setDetailModal'); // New
+
     if (modalElement) {
         detailModal = new bootstrap.Modal(modalElement);
         modalTitle = document.getElementById('modalTitle');
         modalTableBody = document.getElementById('modal-table-body');
     } else {
         console.warn('⚠️ Modal #detailModal tidak ditemukan. Fitur klik detail tanggal akan dinonaktifkan.');
+    }
+
+    if (setModalElement) {
+        setDetailModal = new bootstrap.Modal(setModalElement);
     }
 
     // --- State & Render Logic Modal ---
@@ -276,25 +305,7 @@ function initializeGoodReceiptCalendar() {
         }
     }
 
-    // --- Formatters ---
-    function formatNumber(num) {
-        return new Intl.NumberFormat('id-ID', { 
-            maximumFractionDigits: 2,
-            minimumFractionDigits: 0 
-        }).format(num || 0);
-    }
-    
-    // Formatter USD
-    const formatCurrency = (num) => new Intl.NumberFormat('en-US', {
-        style: 'currency', currency: 'USD', minimumFractionDigits: 2
-    }).format(num || 0);
-
-    const formatDate = (dateStr) => {
-        if (!dateStr || dateStr === '0000-00-00') return '-';
-        return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('id-ID', {
-            day: '2-digit', month: 'short', year: 'numeric'
-        });
-    };
+    // --- Formatters (Moved to Global) ---
 
     function renderModalContent() {
         if (!modalTableBody || !modalElement) return;
@@ -526,10 +537,19 @@ function initializeGoodReceiptCalendar() {
         // 1. Tampilan Kartu di Kalender
         eventContent: function (arg) {
             const grCount = arg.event.extendedProps.totalGrCount;
+            const setCount = arg.event.extendedProps.totalSets || 0;
+            
             const formattedGrCount = formatNumber(grCount);
+            const formattedSetCount = formatNumber(setCount);
+
             let eventCardEl = document.createElement('div');
             eventCardEl.classList.add('fc-event-card-gr');
-            eventCardEl.innerHTML = `GR: <span class="fw-bold">${formattedGrCount}</span>`;
+            
+            // Tampilan GR dan Set (Simple Text)
+            eventCardEl.innerHTML = `
+                <div class="lh-1 js-click-gr" style="pointer-events: auto;">GR: <span class="fw-bold js-click-gr">${formattedGrCount}</span></div>
+                ${setCount > 0 ? `<div class="lh-1 mt-1 pt-1 border-top border-primary border-opacity-25 js-click-set" style="font-size: 0.85em; color: #084298; pointer-events: auto;">Set: <span class="fw-bold js-click-set">${setCount}</span></div>` : ''}
+            `;
             return { domNodes: [eventCardEl] };
         },
 
@@ -556,6 +576,10 @@ function initializeGoodReceiptCalendar() {
                         <span>Total GR:</span>
                         <span class="fw-bold text-success">${formatNumber(props.totalGrCount)}</span>
                     </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Total Set:</span>
+                        <span class="fw-bold text-info">${formatNumber(props.totalSets || 0)}</span>
+                    </div>
                     <div class="d-flex justify-content-between mb-2">
                         <span>Total Value:</span>
                         <span class="fw-bold text-primary">${formatCurrency(props.totalValue)}</span>
@@ -578,6 +602,29 @@ function initializeGoodReceiptCalendar() {
 
         // 3. Klik Tanggal -> Buka Modal
         eventClick: function (info) {
+            // Cek target klik
+            const target = info.jsEvent.target;
+            const isSetClick = target.classList.contains('js-click-set') || target.closest('.js-click-set');
+
+            // --- CASE A: KLIK SET ---
+            if (isSetClick) {
+                 if (!setDetailModal) return;
+                 const setsDetails = info.event.extendedProps.setsDetails || [];
+                 const eventDate = info.event.start;
+                 
+                 // Update Title Modal Set
+                const setModalTitle = document.getElementById('setModalTitle');
+                if (setModalTitle) {
+                    setModalTitle.innerHTML = `<i class="bi bi-collection me-2"></i>Detail Set: ${formatDate(info.event.startStr)}`;
+                }
+
+                 // Render Content
+                 renderSetModalContent(setsDetails, info.event.startStr);
+                 setDetailModal.show();
+                 return; 
+            }
+
+            // --- CASE B: KLIK GR (DEFAULT) ---
             // [Safety Check] Jika modal tidak ada, jangan lakukan apa-apa
             if (!detailModal) return;
 
@@ -625,6 +672,109 @@ function initializeGoodReceiptCalendar() {
         });
     }
 }
+
+// =================================================================
+// [BARU] FUNGSI RENDER MODAL SET
+// =================================================================
+function renderSetModalContent(setsDetails, dateStr) {
+    const container = document.getElementById('set-modal-content');
+    if (!container) return;
+    
+    container.innerHTML = '';
+
+    // [NEW] Add Global Print Button
+    const printBtnHtml = `
+        <div class="d-flex justify-content-end mb-3">
+             <button class="btn btn-primary btn-sm" 
+                onclick="printSetPdf('${dateStr}')">
+                <i class="bi bi-printer me-1"></i> Print Laporan Set (Harian)
+             </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', printBtnHtml);
+
+    if (!setsDetails || setsDetails.length === 0) {
+        container.innerHTML += '<div class="alert alert-info text-center">Tidak ada data set untuk tanggal ini.</div>';
+        return;
+    }
+
+    setsDetails.forEach((set, index) => {
+        // Build Material List
+        let materialList = '';
+        set.ITEMS.forEach(item => {
+            materialList += `
+                <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-0 py-1 ps-0">
+                   <div class="d-flex align-items-center text-truncate">
+                       <i class="bi bi-box-seam text-secondary me-2"></i>
+                       <small class="text-truncate" style="max-width: 300px;" title="${item.MAKTX}">${item.MAKTX}</small>
+                   </div>
+                   <span class="badge bg-light text-dark border">${parseFloat(item.MENGE)}</span>
+                </li>
+            `;
+        });
+
+        const cardHtml = `
+            <div class="card mb-3 shadow-sm border-0">
+                <div class="card-body p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start">
+                         <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">Set #${index + 1}</span>
+                                <span class="fw-bold text-dark fs-5">${set.AUFNR2}</span>
+                            </div>
+                            <div class="small text-muted ms-1">
+                                ${set.MAT_KDAUF || '-'} <span class="mx-1">-</span> ${(set.MAT_KDPOS || '').replace(/^0+/, '') || '-'}
+                            </div>
+                         </div>
+                          <div class="text-end">
+                             <div class="small text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">QTY SET</div>
+                             <div class="fs-4 fw-bold text-success lh-1">${formatNumber(set.MIN_MENGE)}</div>
+                          </div>
+                     </div>
+                     <hr class="my-2 border-secondary-subtle">
+                     
+                     <div class="bg-light p-2 rounded border border-light-subtle">
+                         <div class="small text-uppercase text-muted fw-bold mb-2">Items (${set.MATNR_COUNT} Unique Materials)</div>
+                         <div class="list-group list-group-flush">
+                             ${materialList}
+                         </div>
+                     </div>
+                 </div>
+             </div>
+         `;
+        container.insertAdjacentHTML('beforeend', cardHtml);
+    });
+}
+
+// Global Function for Printing Set
+window.printSetPdf = function(date) {
+    // Create hidden form
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/gr/print-set-pdf'; // Corrected URL (Removed /manufaktur prefix)
+    form.target = '_blank';
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const plantCode = document.querySelector('meta[name="plant-code"]')?.getAttribute('content');
+    
+    const fields = {
+        _token: csrfToken,
+        date: date,
+        kode: plantCode // Send Plant Code
+    };
+
+    for (const key in fields) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = fields[key];
+        form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+};
 
 // =================================================================
 // 5. FUNGSI UNTUK MENGELOLA TABEL DETAIL UTAMA (STATIS DI BAWAH)

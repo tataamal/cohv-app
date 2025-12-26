@@ -61,6 +61,7 @@ Route::middleware('auth')->group(function (){
     // route untuk kelola gr
     Route::get('gr/{kode}', [ManufactController::class, 'list_gr'])->name('list.gr');
     Route::post('/gr/print-pdf', [ManufactController::class, 'printPdf'])->name('gr.print_pdf');
+    Route::post('/gr/print-set-pdf', [ManufactController::class, 'printSetPdf'])->name('gr.print_set_pdf');
 
     // Route untuk kelola PRO
     Route::post('/refresh-pro', [ManufactController::class, 'refreshPro'])->name('refresh.pro');

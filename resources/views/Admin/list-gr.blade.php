@@ -1,4 +1,6 @@
 <x-layouts.app title="List GR - PT. Kayu Mebel Indonesia">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="plant-code" content="{{ $kode }}">
     @push('styles')
     <style>
         /* === Kontainer & Header === */
@@ -292,7 +294,7 @@
         </div>
     </div>
 
-    <!-- Modal Detail Tanggal -->
+    <!-- Modal Detail Tanggal (GR) -->
     <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
@@ -319,6 +321,29 @@
                             <tbody id="modal-table-body">
                             </tbody>
                         </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detail Set (NEW) -->
+    <div class="modal fade" id="setDetailModal" tabindex="-1" aria-labelledby="setModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary-subtle text-primary-emphasis">
+                    <h1 class="modal-title fs-5 fw-bold" id="setModalTitle">
+                        <i class="bi bi-collection me-2"></i>Detail Set
+                    </h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3 bg-light">
+                    <!-- Container untuk daftar Set -->
+                    <div id="set-modal-content" class="d-flex flex-column gap-3">
+                        <!-- Items rendered via JS -->
                     </div>
                 </div>
                 <div class="modal-footer">

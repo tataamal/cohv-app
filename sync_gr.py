@@ -32,7 +32,7 @@ logger = logging.getLogger()
 MRP_MAPPING = {
      # Contoh kalau nanti butuh plant lain:
      '1001': [['WW1', 'WW4', 'WW3', 'WW2']],
-     '1000': [['WE1','WE2','WM1','PN1','PV1','PV2','VN1','VN2','PN2','RW3','RW1',
+     '1000': [['WE1','WE2','WM1','WM2','PN1','PV1','PV2','VN1','VN2','PN2','RW3','RW1',
                'GW1','GW2','GW3','PJ1','PJ2','PJ3','PJ4']],
      '1200': [['WH1']],
      '2000': [['GT1','GT2','GT5','GT6','GT7','CH4','CH5','CH7','C11','C12','UH1',
@@ -43,8 +43,8 @@ MRP_MAPPING = {
         # Group 1: semua DISPO lain
         [
             'DR3', 'G31', 'D21', 'D26', 'D27', 'D22', 'D23', 'D28',
-            'MF4', 'D31', 'MA4', 'MA7',
-            'MS1', 'MS3', 'MS4',
+            'MF4', 'D31', 'MA4', 'MA7', 'MF3', 'MW1', 'MW2', 'MW3',
+            'MS1', 'MS3', 'MS4', 
             'MA1', 'MA2', 'MA3', 'MA5',
             'PG1', 'PG2', 'PG3'
         ],
@@ -130,10 +130,10 @@ def connect_mysql():
     """Membuka koneksi ke MySQL menggunakan PyMySQL."""
     try:
         cnx = pymysql.connect(
-            host=os.getenv('DB_HOST', '127.0.0.1'),
+            host=os.getenv('DB_HOST', '192.168.90.114'),
             user=os.getenv('DB_USERNAME', 'root'),
-            password=os.getenv('DB_PASSWORD', ''),
-            database=os.getenv('DB_DATABASE', 'cohv'),
+            password=os.getenv('DB_PASSWORD', 'karenamereka'),
+            database=os.getenv('DB_DATABASE', 'cohv_app'),
             charset='utf8mb4',
             autocommit=False
         )
@@ -271,7 +271,7 @@ def sync_data_for_date(target_date):
                                 'BUDAT_MKPF': sync_date_mysql,
                                 'CPUDT_MKPF': row.get('CPUDT_MKPF'),
                                 'NODAY': safe_convert(row.get('NODAY'), int, 0),
-                                'AUFNR2': row.get('AUFNR2'),
+								'AUFNR2': row.get('AUFNR2'),
                                 'CSMG': row.get('CSMG'),
                                 'TXT50': row.get('TXT50'),
                                 'NETPR': safe_convert(row.get('NETPR'), float, 0.0),
@@ -279,8 +279,8 @@ def sync_data_for_date(target_date):
                                 'VALUSX': safe_convert(row.get('VALUSX'), float, 0.0),
                                 'VALUS': safe_convert(row.get('VALUS'), float, 0.0),
                                 'PERNR': row.get('PERNR'),
-                                'ARBPL': row.get('ARBPL'),
-                                'KTEXT': row.get('KTEXT'),
+								'ARBPL': row.get('ARBPL'),
+								'KTEXT': row.get('KTEXT'),
                                 'created_at': datetime.now(),
                                 'updated_at': datetime.now()
                             }
@@ -409,53 +409,56 @@ def run_sync_for_one_month(year, month, start_day, end_day_of_month):
     return True
 
 
-def run_historical_sync():
+def run_historical_sync(start_date_str):
     """
-    Modifikasi: Menjalankan sinkronisasi per BULAN
-    dari September 2025 hingga bulan ini (H-1).
+    MODE 1: User menentukan tanggal start. 
+    Akan sync dari start_date sampai H-1 hari ini.
     """
-    logger.info("===== MEMULAI SINKRONISASI DATA HISTORIS (PER BULAN) =====")
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        end_date = datetime.now() - timedelta(days=1)
+        
+        if start_date > end_date:
+            logger.warning(f"Tanggal mulai {start_date_str} lebih besar dari hari kemarin. Tidak ada yang diproses.")
+            return
 
-    # 1. Tentukan tanggal mulai dan akhir global
-    current_date_tracker = datetime(2025, 9, 1)  # <--- PERBAIKAN (INI YANG ERROR)
+        logger.info(f"===== START HISTORICAL SYNC: {start_date.date()} s/d {end_date.date()} =====")
+        
+        current = start_date
+        while current <= end_date:
+            success = sync_data_for_date(current)
+            if not success:
+                logger.error(f"Proses terhenti di tanggal {current.date()} karena error.")
+                break
+            current += timedelta(days=1)
+            time.sleep(1) # Jeda singkat antar hari
+            
+        logger.info("===== HISTORICAL SYNC SELESAI =====")
+    except ValueError:
+        logger.error(f"Format tanggal salah: {start_date_str}. Gunakan YYYY-MM-DD.")
+
+def run_sync_for_current_month():
+    """
+    MODE 2: Deteksi otomatis bulan ini.
+    Sync dari tanggal 1 sampai H-1 hari ini.
+    """
     today = datetime.now()
-    yesterday = today - timedelta(days=1)
+    start_date = today.replace(day=1) # Tanggal 1 bulan ini
+    end_date = today - timedelta(days=1) # H-1
+    
+    if start_date > end_date:
+        logger.warning("Hari ini adalah tanggal 1, tidak ada data H-1 untuk bulan berjalan.")
+        return
 
-    # 2. Loop Luar (per bulan)
-    while (
-        current_date_tracker.year < yesterday.year or
-        (current_date_tracker.year == yesterday.year and
-         current_date_tracker.month <= yesterday.month)
-    ):
-        year = current_date_tracker.year
-        month = current_date_tracker.month
+    logger.info(f"===== START MONTHLY SYNC (Bulan Berjalan): {start_date.date()} s/d {end_date.date()} =====")
+    
+    current = start_date
+    while current <= end_date:
+        sync_data_for_date(current)
+        current += timedelta(days=1)
+        time.sleep(1)
 
-        start_day = 1
-
-        # 3. Tentukan tanggal akhir untuk bulan ini
-        if year == yesterday.year and month == yesterday.month:
-            end_day = yesterday.day
-        else:
-            _, end_day = calendar.monthrange(year, month)
-
-        # 4. Jalankan "Loop Dalam"
-        success = run_sync_for_one_month(year, month, start_day, end_day)
-
-        if not success:
-            logger.error(
-                f"Sinkronisasi untuk bulan {year}-{month:02d} GAGAL. Proses historis dihentikan."
-            )
-            break
-
-        # 5. Jeda antar BULAN
-        logger.info("Jeda 5 detik sebelum pindah ke bulan berikutnya...")
-        time.sleep(5)
-
-        # 6. Maju ke bulan berikutnya
-        next_month = current_date_tracker.replace(day=1) + timedelta(days=32)
-        current_date_tracker = next_month.replace(day=1)
-
-    logger.info("===== SINKRONISASI DATA HISTORIS (PER BULAN) SELESAI =====")
+    logger.info("===== MONTHLY SYNC SELESAI =====")
 
 
 # --- Scheduler ---
@@ -480,35 +483,22 @@ if __name__ == '__main__':
         mode = sys.argv[1]
 
         if mode == 'run_now':
-            logger.info("Mode: Eksekusi Manual Sekali Jalan (untuk hari ini).")
-            run_sync_for_today()
+            sync_data_for_date(datetime.now())
 
         elif mode == 'run_historical':
-            logger.info(
-                "Mode: Eksekusi Sinkronisasi Historis (September 2025 - Sekarang, setiap hari)."
-            )
-            run_historical_sync()
+            # Contoh: python script.py run_historical 2025-09-01
+            if len(sys.argv) < 3:
+                logger.error("Gunakan: python script.py run_historical YYYY-MM-DD")
+            else:
+                run_historical_sync(sys.argv[2])
+
+        elif mode == 'run_month':
+            # Contoh: python script.py run_month
+            run_sync_for_current_month()
 
         elif mode == 'run_for_date':
-            if len(sys.argv) < 3:
-                logger.error(
-                    "Mode 'run_for_date' memerlukan argumen tanggal (YYYY-MM-DD)."
-                )
-                logger.error(
-                    "Contoh: python sync_gr.py run_for_date 2025-09-04"
-                )
-            else:
-                try:
-                    date_str = sys.argv[2]
-                    target_date = datetime.strptime(date_str, '%Y-%m-%d')
-                    logger.info(
-                        f"Mode: Eksekusi Manual untuk tanggal spesifik: {date_str}"
-                    )
-                    sync_data_for_date(target_date)
-                except ValueError:
-                    logger.error(
-                        f"Format tanggal salah: '{date_str}'. Gunakan format YYYY-MM-DD."
-                    )
+            if len(sys.argv) >= 3:
+                target_date = datetime.strptime(sys.argv[2], '%Y-%m-%d')
+                sync_data_for_date(target_date)
     else:
-        logger.info("Mode: Menjalankan Scheduler Service (untuk data harian).")
         start_scheduler()
