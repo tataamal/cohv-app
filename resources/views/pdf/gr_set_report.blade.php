@@ -115,7 +115,7 @@
         
         <div class="company-info">
             <h1 class="company-name">PT. Kayu Mebel Indonesia</h1>
-            <div class="report-title">LAPORAN GR HARIAN (DETAIL SET)</div>
+            <div class="report-title">LAPORAN SET HARIAN</div>
             
             <div class="filter-info">
                 @php
@@ -123,7 +123,7 @@
                 @endphp
                 <span class="bold">Tanggal:</span> {{ \Carbon\Carbon::parse($f['date_start'])->format('d/m/Y') }} 
                 @if(!empty($f['plant_code']))
-                    &nbsp;&nbsp;|&nbsp;&nbsp; <span class="bold">Bagian/Plant:</span> {{ $f['plant_code'] }}
+                    &nbsp;&nbsp;|&nbsp;&nbsp; <span class="bold">Bagian/Plant:</span> {{ $f['nama_bagian'] }}
                 @endif
             </div>
 
@@ -164,7 +164,7 @@
                     @endphp
                     <tr class="group-header">
                         <td colspan="7">
-                            <span class="bold">REF PRO (SET): {{ $currentGroup }}</span>
+                            <span class="bold">REF PRO (SET): {{ $currentGroup }} {{ !empty($item->MAKTX2) ? ' - ' . $item->MAKTX2 : '' }}</span>
                             
                             <div class="qty-set-badge">
                                 TOTAL QTY SET: <span style="font-size:11pt; font-weight:bold;">{{ number_format($qtySet, 0, ',', '.') }}</span>

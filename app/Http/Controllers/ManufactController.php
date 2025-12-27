@@ -365,7 +365,7 @@ class ManufactController extends Controller
         $dataGr = Gr::whereIn('DISPO', $mrpList)
             ->where('MENGE', '>', 0)
             ->select(
-                'AUFNR', 'MAKTX', 'MAT_KDAUF', 'MAT_KDPOS', 'PSMNG',
+                'AUFNR', 'MAKTX', 'MAKTX2', 'MAT_KDAUF', 'MAT_KDPOS', 'PSMNG',
                 'MENGE', 'MEINS', 'BUDAT_MKPF', 'DISPO', 'WEMNG', 'NETPR',
                 'ARBPL', 'WAERS', // Wajib ada untuk grouping workcenter
                 'AUFNR2', 'MATNR', 'CSMG' // Field tambahan untuk Hitung Set
@@ -393,12 +393,11 @@ class ManufactController extends Controller
                 return $harga * $qty;
             });
 
-            // HITUNG SET & DETAIL (LOGIKA REVISI)
-            // Logika: 
-            // 1. Group by AUFNR2 (Abaikan grouping awal AUFNR)
-            // 2. Consolidate MATNR (Sum MENGE per Material) -> Uniqueness
-            // 3. Ambil nilai MIN(Total MENGE per Material)
-            // 4. Jika MIN(Total MENGE) >= CSMG, maka hitung 1 Set
+            // HITUNG SET & DETAIL (LOGIKA REVISI - USER REQUEST)
+            // 1. Group by AUFNR2
+            // 2. Ambil Unique MATNR Count -> Bandingkan dengan CSMG
+            // 3. Jika Unique Count >= CSMG -> Valid Set
+            // 4. Qty Set = Min(Sum Qty per Material)
             
             $totalSets = 0;
             $setsDetails = [];
@@ -411,7 +410,7 @@ class ManufactController extends Controller
             foreach ($groupByAufnr2 as $aufnr2 => $items) {
                 if ($aufnr2 === 'EMPTY') continue;
 
-                // Ambil CSMG (Asumsi sama untuk 1 grup AUFNR2)
+                // Ambil CSMG
                 $csmg = (float) ($items->first()->CSMG ?? 0);
                 
                 if ($csmg <= 0) continue;
@@ -421,29 +420,36 @@ class ManufactController extends Controller
                     return [
                         'MATNR' => $matItems->first()->MATNR,
                         'MAKTX' => $matItems->first()->MAKTX,
-                        'MENGE' => $matItems->sum('MENGE'), // Total MENGE
+                        'MENGE' => $matItems->sum('MENGE'), // Total MENGE per Item
                         'ARBPL' => $matItems->first()->ARBPL,
-                        // Optional: List PRO contributing
                         'AUFNR_LIST' => $matItems->pluck('AUFNR')->unique()->values()->toArray()
                     ];
                 });
                 
-                // Cari Min Menge dari item yang sudah dikonsolidasi
-                $minMenge = $consolidatedItems->min('MENGE');
+                // 1. Hitung Jumlah Item Unik
+                $uniqueItemCount = $consolidatedItems->count();
                 
-                // Cek Kondisi Set
-                if ($minMenge >= $csmg) {
-                    $totalSets++;
+                // 2. Cek Kondisi Set: Bandingkan Jumlah Unik dengan CSMG
+                if ($uniqueItemCount >= $csmg) {
+                    
+                    // 3. Tentukan Qty Set (Ambil terkecil dari consolidated quantities)
+                    $qtySet = $consolidatedItems->min('MENGE');
+
+                    // Update Total Sets (Jika ingin menghitung Volume Set yang jadi, gunakan += qtySet. 
+                    // Jika hanya menghitung 'Line Item/Group' Set, gunakan ++. 
+                    // Berdasarkan konteks "Total Qty Set", kita gunakan Qty.)
+                    $totalSets += $qtySet;
                     
                     $firstItem = $items->first();
                     $setsDetails[] = [
-                        'AUFNR' => $items->pluck('AUFNR')->unique()->implode(', '), // Tampilkan semua PRO
+                        'AUFNR' => $items->pluck('AUFNR')->unique()->implode(', '), 
                         'AUFNR2' => $aufnr2,
-                        'MAT_KDAUF' => $firstItem->MAT_KDAUF, // Sales Order
-                        'MAT_KDPOS' => $firstItem->MAT_KDPOS, // SO Item
+                        'MAKTX2' => $firstItem->MAKTX2, // [NEW] Ambil MAKTX2 untuk Header
+                        'MAT_KDAUF' => $firstItem->MAT_KDAUF, 
+                        'MAT_KDPOS' => $firstItem->MAT_KDPOS, 
                         'CSMG' => $csmg,
-                        'MIN_MENGE' => (float)$minMenge,
-                        'MATNR_COUNT' => $consolidatedItems->count(),
+                        'MIN_MENGE' => (float)$qtySet,
+                        'MATNR_COUNT' => $uniqueItemCount,
                         'ITEMS' => $consolidatedItems->values()->toArray()
                     ];
                 }
@@ -780,6 +786,7 @@ class ManufactController extends Controller
                 $obj->MIN_MENGE_SET = 0; // Will be set later
 
                 $obj->MAKTX = $first->MAKTX;
+                $obj->MAKTX2 = $first->MAKTX2; // [NEW] for PDF Header
                 $obj->MATNR = $first->MATNR;
                 $obj->MAT_KDAUF = $first->MAT_KDAUF;
                 $obj->MAT_KDPOS = $first->MAT_KDPOS;
@@ -797,13 +804,16 @@ class ManufactController extends Controller
                 return $obj;
             });
 
-             // Check Min Menge
-             $minMenge = $consolidatedItems->min('MENGE');
-             
-             if ($minMenge >= $csmg) {
+             // Check Set Condition based on Unique Items Count (New Logic)
+             $uniqueItemCount = $consolidatedItems->count();
+
+             if ($uniqueItemCount >= $csmg) {
+                 // Calculate Set Quantity (Volume)
+                 $qtySet = $consolidatedItems->min('MENGE');
+
                  // Add these items to the final list, attaching the Set property
                  foreach($consolidatedItems as $ci) {
-                     $ci->MIN_MENGE_SET = $minMenge; // Assign to each item for easy access in view grouping
+                     $ci->MIN_MENGE_SET = $qtySet; // Assign to each item for easy access in view grouping
                      $finalConsolidatedList->push($ci);
                  }
              }
@@ -816,6 +826,9 @@ class ManufactController extends Controller
         // 4. Prepare Summary
         $totalItems = $finalConsolidatedList->count();
         $totalQty = $finalConsolidatedList->sum('MENGE');
+
+        // [USER REQUEST] Get Nama Bagian from Plant Code
+        $namaBagian = \App\Models\Kode::where('kode', $kode)->value('nama_bagian') ?? $kode;
 
         // Calculate Total Values per Currency
         $totalValues = [];
@@ -835,6 +848,7 @@ class ManufactController extends Controller
             'filter_info' => [
                 'date_start' => $date,
                 'plant_code' => $kode,
+                'nama_bagian' => $namaBagian // Pass Name Section
             ]
         ];
 

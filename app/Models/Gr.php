@@ -58,5 +58,7 @@ class Gr extends Model
         'VALUSX',
         'VALUS',
         'PERNR',
+        'MATNR2',
+        'MAKTX2',
     ];
 }

@@ -213,6 +213,26 @@ function injectCustomStyles() {
         }
         #main-detail-table thead th.sort-asc::after { content: '\\F537'; }
         #main-detail-table thead th.sort-desc::after { content: '\\F282'; }
+
+        /* [BARU] Styling untuk tombol terpisah GR dan Set di Kalender */
+        .fc-event-btn {
+            padding: 2px 4px; border-radius: 4px; font-size: 0.75rem; 
+            text-align: center; cursor: pointer; transition: all 0.1s;
+            border: 1px solid transparent;
+        }
+        .fc-event-btn-gr {
+            background-color: #fff; border-color: #0d6efd; color: #0d6efd;
+        }
+        .fc-event-btn-gr:hover {
+            background-color: #0d6efd; color: #fff;
+        }
+        .fc-event-btn-set {
+            background-color: #fff; border-color: #198754; color: #198754;
+            margin-top: 2px;
+        }
+        .fc-event-btn-set:hover {
+            background-color: #198754; color: #fff;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -455,8 +475,8 @@ function initializeGoodReceiptCalendar() {
     
             // C. DETAIL ITEMS
             group.items.forEach(item => {
-                const cleanKdpos = item.KDPOS ? parseInt(item.KDPOS) : '-';
-                const soCombined = item.KDAUF ? `${item.KDAUF} / ${cleanKdpos}` : '-';
+                const cleanKdpos = item.MAT_KDPOS ? parseInt(item.MAT_KDPOS) : '-';
+                const soCombined = item.MAT_KDAUF ? `${item.MAT_KDAUF} / ${cleanKdpos}` : '-';
                 
                 const lineValue = (parseFloat(item.NETPR) || 0) * (parseFloat(item.MENGE) || 0);
                 const currency = item.WAERS || 'IDR';
@@ -535,22 +555,31 @@ function initializeGoodReceiptCalendar() {
         events: window.processedCalendarData || [],
 
         // 1. Tampilan Kartu di Kalender
+        // 1. Tampilan Kartu di Kalender (Updated: GR & Set Terpisah)
         eventContent: function (arg) {
             const grCount = arg.event.extendedProps.totalGrCount;
             const setCount = arg.event.extendedProps.totalSets || 0;
             
             const formattedGrCount = formatNumber(grCount);
-            const formattedSetCount = formatNumber(setCount);
-
-            let eventCardEl = document.createElement('div');
-            eventCardEl.classList.add('fc-event-card-gr');
             
-            // Tampilan GR dan Set (Simple Text)
-            eventCardEl.innerHTML = `
-                <div class="lh-1 js-click-gr" style="pointer-events: auto;">GR: <span class="fw-bold js-click-gr">${formattedGrCount}</span></div>
-                ${setCount > 0 ? `<div class="lh-1 mt-1 pt-1 border-top border-primary border-opacity-25 js-click-set" style="font-size: 0.85em; color: #084298; pointer-events: auto;">Set: <span class="fw-bold js-click-set">${setCount}</span></div>` : ''}
-            `;
-            return { domNodes: [eventCardEl] };
+            let container = document.createElement('div');
+            container.className = 'd-flex flex-column';
+
+            // Tombol GR
+            let grBtn = document.createElement('div');
+            grBtn.className = 'fc-event-btn fc-event-btn-gr js-click-gr fw-bold';
+            grBtn.innerHTML = `GR: ${formattedGrCount}`;
+            container.appendChild(grBtn);
+
+            // Tombol Set (Jika ada)
+            if (setCount > 0) {
+                 let setBtn = document.createElement('div');
+                 setBtn.className = 'fc-event-btn fc-event-btn-set js-click-set fw-bold';
+                 setBtn.innerHTML = `Set: ${formatNumber(setCount)}`;
+                 container.appendChild(setBtn);
+            }
+            
+            return { domNodes: [container] };
         },
 
         // 2. Popover (Hover)
@@ -682,16 +711,35 @@ function renderSetModalContent(setsDetails, dateStr) {
     
     container.innerHTML = '';
 
-    // [NEW] Add Global Print Button
-    const printBtnHtml = `
-        <div class="d-flex justify-content-end mb-3">
-             <button class="btn btn-primary btn-sm" 
-                onclick="printSetPdf('${dateStr}')">
-                <i class="bi bi-printer me-1"></i> Print Laporan Set (Harian)
-             </button>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', printBtnHtml);
+    // [NEW] Inject Print Button to HEADER (Samping Tombol Close)
+    const modalHeader = document.querySelector('#setDetailModal .modal-header');
+    if (modalHeader) {
+        // Ensure Title pushes everything to the right using flex-grow-1
+        const title = modalHeader.querySelector('.modal-title');
+        if (title) {
+            title.classList.remove('me-auto'); // Remove if exists
+            title.classList.add('flex-grow-1'); // Force title to take available space
+        }
+
+        // Hapus tombol print lama jika ada
+        const oldBtn = modalHeader.querySelector('#btn-print-set-header');
+        if (oldBtn) oldBtn.remove();
+
+        const printBtn = document.createElement('button');
+        printBtn.id = 'btn-print-set-header';
+        // Gunakan 'btn-sm' dan 'me-2' untuk jarak yang pas dengan tombol Close
+        printBtn.className = 'btn btn-sm btn-outline-success me-2 fw-bold d-flex align-items-center gap-2 shadow-sm';
+        printBtn.innerHTML = '<i class="bi bi-printer-fill"></i> Print Set';
+        printBtn.onclick = function() { printSetPdf(dateStr); };
+
+        // Insert before btn-close
+        const closeBtn = modalHeader.querySelector('.btn-close');
+        if (closeBtn) {
+            modalHeader.insertBefore(printBtn, closeBtn);
+        } else {
+            modalHeader.appendChild(printBtn);
+        }
+    }
 
     if (!setsDetails || setsDetails.length === 0) {
         container.innerHTML += '<div class="alert alert-info text-center">Tidak ada data set untuk tanggal ini.</div>';
@@ -701,14 +749,15 @@ function renderSetModalContent(setsDetails, dateStr) {
     setsDetails.forEach((set, index) => {
         // Build Material List
         let materialList = '';
-        set.ITEMS.forEach(item => {
+        
+        set.ITEMS.forEach((item, idx) => {
             materialList += `
                 <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-0 py-1 ps-0">
-                   <div class="d-flex align-items-center text-truncate">
+                   <div class="d-flex align-items-center">
                        <i class="bi bi-box-seam text-secondary me-2"></i>
-                       <small class="text-truncate" style="max-width: 300px;" title="${item.MAKTX}">${item.MAKTX}</small>
+                       <span class="text-wrap">${item.MAKTX}</span>
                    </div>
-                   <span class="badge bg-light text-dark border">${parseFloat(item.MENGE)}</span>
+                   <span class="badge bg-light text-dark border ms-2">${parseFloat(item.MENGE)}</span>
                 </li>
             `;
         });
@@ -718,16 +767,18 @@ function renderSetModalContent(setsDetails, dateStr) {
                 <div class="card-body p-3 border-bottom">
                     <div class="d-flex justify-content-between align-items-start">
                          <div>
-                            <div class="d-flex align-items-center gap-2 mb-1">
+                            <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">Set #${index + 1}</span>
                                 <span class="fw-bold text-dark fs-5">${set.AUFNR2}</span>
+                                <span class="text-muted d-none d-md-inline">-</span>
+                                <span class="text-secondary fw-medium text-wrap">${set.MAKTX2 || ''}</span>
                             </div>
-                            <div class="small text-muted ms-1">
-                                ${set.MAT_KDAUF || '-'} <span class="mx-1">-</span> ${(set.MAT_KDPOS || '').replace(/^0+/, '') || '-'}
+                            <div class="small text-muted ms-1 mt-1">
+                                SO: ${set.MAT_KDAUF || '-'} <span class="mx-1">-</span> ${(set.MAT_KDPOS || '').replace(/^0+/, '') || '-'}
                             </div>
                          </div>
-                          <div class="text-end">
-                             <div class="small text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">QTY SET</div>
+                          <div class="text-end ms-2">
+                             <div class="small text-uppercase text-muted fw-bold" style="font-size: 0.7rem; white-space:nowrap;">QTY SET</div>
                              <div class="fs-4 fw-bold text-success lh-1">${formatNumber(set.MIN_MENGE)}</div>
                           </div>
                      </div>
