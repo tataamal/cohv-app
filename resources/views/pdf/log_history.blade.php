@@ -50,7 +50,8 @@
             width: 100%;
             border: 2px solid #000;
             display: block;
-            height: 98%;
+            /* height: 98%; Removed to allow natural flow */
+            padding-bottom: 20px;
         }
 
         /* --- PAGE BREAK UTILITY --- */
@@ -167,9 +168,10 @@
 @foreach($reports as $report)
     <div class="container-frame">
         {{-- 1. HEADER --}}
+        {{-- 1. HEADER --}}
         <table style="width: 100%;">
             <tr>
-                <td class="header-left">
+                <td class="header-left" style="width: 100%; border-right: 2px solid #000 !important;">
                     <table class="branding-table">
                         <tr>
                             <td class="logo-img">
@@ -177,23 +179,13 @@
                             </td>
                             <td>
                                 <div class="company-name">PT KAYU MEBEL INDONESIA</div>
-                                <div class="doc-title">WORK INSTRUCTION RESULT REPORT</div>
+                                <!-- New Title Format -->
+                                <div class="doc-title">DAILY REPORT WI - {{ $report['nama_bagian'] }} - {{ $report['filterInfo'] }}</div>
                             </td>
                         </tr>
                     </table>
                 </td>
-                <td class="header-right">
-                    <div class="report-type-display">{{ $report['items'][0]['doc_no'] ?? 'REPORT WI' }}</div>
-                </td>
-            </tr>
-        </table>
-
-        {{-- 2. INFO BAR --}}
-        <table>
-            <tr class="info-bar">
-                <td width="25%">BAGIAN: <span class="info-val fw-bold">{{ strtoupper($report['nama_bagian']) }}</span></td>
-                <td width="25%">PRINT DATE: <span class="info-val">{{ $report['printDate'] }}</span></td>
-                <td width="50%" style="border-right: none;">RANGE DATA: <span class="info-val">{{ $report['filterInfo'] ?? '-' }}</span></td>
+                <!-- Removed Right Header (Doc No) as requested -->
             </tr>
         </table>
 
@@ -222,16 +214,16 @@
             <thead>
                 <tr class="data-header">
                     <th width="3%">NO</th>
-                    <th width="7%">WORK CENTER</th>
+                    <th width="8%">DOC NO</th>
+                    <th width="6%">NIK</th>
+                    <th width="10%">NAME</th>
                     <th width="8%">SO-ITEM</th>
                     <th width="8%">PRO</th>
                     <th width="9%">MATERIAL NO</th>
                     <th width="15%">DESCRIPTION</th>
-                    <th width="5%">QTY WI</th>
-                    <th width="5%">CONF</th>
-                    <th width="6%">TIME REQ</th>
-                    <th width="7%">NIK</th>
-                    <th width="10%">NAME</th>
+                    <th width="4%">QTY</th>
+                    <th width="4%">CONF</th>
+                    <th width="6%">TIME</th>
                     <th width="9%">REMARK</th>
                     <th width="8%">PRICE OK</th>
                     <th width="8%">PRICE FAIL</th>
@@ -240,70 +232,73 @@
             <tbody>
                 @php 
                     $no = 1; 
-                    $minRows = 10; // Slightly less due to summary occupying space
+                    $currentWc = null;
                     $items = $report['items'];
-                    $itemCount = count($items);
-                    $rowsToFill = max(0, $minRows - $itemCount);
                 @endphp
 
                 @foreach($items as $row)
-                <tr class="data-row">
-                    <td class="text-center">{{ $no++ }}</td>
-                    <td class="text-center fw-bold">{{ $row['workcenter'] }}</td>
-                    <td class="text-center">{{ $row['so_item'] }}</td>
-                    <td class="text-center fw-bold">{{ $row['aufnr'] }}</td>
-                    <td class="text-center">{{ $row['material'] }}</td>
-                    <td>{{ $row['description'] }}</td>
-                    <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
-                    <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
-                    <td class="text-center fw-bold">{{ $row['takt_time'] ?? '-' }}</td>
-                    <td class="text-center">{{ $row['nik'] ?? '-' }}</td>
-                    <td>{{ $row['name'] ?? '-' }}</td>
-                    
-                    {{-- Remark Logic --}}
-                    <td class="text-center" style="font-size: 7pt;">
-                        @if(floatval($row['remark_qty']) > 0)
-                            {{ $row['remark_text'] }}
-                        @elseif(!empty($row['remark_text']) && $row['remark_text'] !== '-')
-                            {{ $row['remark_text'] }}
-                        @else
-                            -
-                        @endif
-                    </td>
+                    {{-- GROUP HEADER ROW --}}
+                    @if($currentWc !== $row['workcenter'])
+                        @php 
+                            $currentWc = $row['workcenter']; 
+                            // Calculate Group Totals (Optional but nice, Image 2 shows "1 Transaksi | Total Qty: 20")
+                            // We can calculate this using collection inside the view or pass it.
+                            // For simplicty/performance in Blade, let's filter the collection (might be heavy if large list).
+                            // But usually list is < 100 items.
+                            $groupItems = collect($items)->where('workcenter', $currentWc);
+                            $groupCount = $groupItems->count();
+                            $groupQty = $groupItems->sum('confirmed');
+                            $wcDesc = $row['wc_description'] ?? '';
+                        @endphp
+                        <tr>
+                            <td colspan="14" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
+                                <strong>WORKCENTER: {{ $currentWc }} 
+                                @if(!empty($wcDesc) && $wcDesc !== '-') - {{ $wcDesc }} @endif
+                                </strong> 
+                                <span style="font-size: 8pt; margin-left: 10px;">
+                                    ({{ $groupCount }} Transaksi | Total Confirmed: {{ $groupQty }})
+                                </span>
+                            </td>
+                        </tr>
+                    @endif
 
-                    <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
-                    <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
-                </tr>
+                    <tr class="data-row">
+                        <td class="text-center">{{ $no++ }}</td>
+                        <td class="text-center fw-bold">{{ $row['doc_no'] }}</td>
+                        <td class="text-center">{{ $row['nik'] }}</td>
+                        <td>{{ $row['name'] }}</td>
+                        <td class="text-center">{{ $row['so_item'] }}</td>
+                        <td class="text-center fw-bold">{{ $row['aufnr'] }}</td>
+                        <td class="text-center">{{ $row['material'] }}</td>
+                        <td>{{ $row['description'] }}</td>
+                        <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
+                        <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
+                        <td class="text-center fw-bold">{{ $row['takt_time'] ?? '-' }}</td>
+                        
+                        {{-- Remark --}}
+                        <td class="text-center" style="font-size: 7pt;">
+                            @if(floatval($row['remark_qty']) > 0)
+                                M:{{ floatval($row['remark_qty']) }} {{ $row['remark_text'] }}
+                            @elseif(!empty($row['remark_text']) && $row['remark_text'] !== '-')
+                                {{ $row['remark_text'] }}
+                            @else
+                                -
+                            @endif
+                        </td>
+
+                        <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
+                        <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
+                    </tr>
                 @endforeach
-
-                  {{-- AUTO FILL ROWS --}}
-                  @foreach(range(1, $rowsToFill) as $i)
-                  <tr class="data-row">
-                      <td class="text-center">&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                  </tr>
-                  @endforeach
             </tbody>
         </table>
 
 
     </div>
 
-    @if(!$loop->last)
-        <div class="page-break"></div>
-    @endif
+    </div>
+
+    {{-- Page Break Removed --}}
 
 @endforeach
 

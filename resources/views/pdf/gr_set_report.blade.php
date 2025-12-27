@@ -133,8 +133,6 @@
         </div>
     </div>
 
-    {{-- SUMMARY BOX REMOVED AS REQUESTED --}}
-
     {{-- TABEL DATA UTAMA --}}
     <table class="data-table">
         <thead>
@@ -142,9 +140,8 @@
                 <th width="5%" class="text-center">NO</th>
                 <th width="15%" class="text-center">SO / Item</th>
                 <th width="12%">Material Code</th>
-                <th width="35%">Material Description</th>
+                <th width="43%">Material Description</th>
                 <th width="10%" class="text-center">Workcenter</th>
-                <th width="8%" class="text-center">CSMG</th>
                 <th width="10%" class="text-center">QTY SET</th>
             </tr>
         </thead>
@@ -163,7 +160,7 @@
                         $qtySet = $item->MIN_MENGE_SET;
                     @endphp
                     <tr class="group-header">
-                        <td colspan="7">
+                        <td colspan="6">
                             <span class="bold">REF PRO (SET): {{ $currentGroup }} {{ !empty($item->MAKTX2) ? ' - ' . $item->MAKTX2 : '' }}</span>
                             
                             <div class="qty-set-badge">
@@ -178,11 +175,9 @@
                     <td class="text-center">
                         {{ $item->MAT_KDAUF ?? '-' }} / {{ intval($item->MAT_KDPOS) }}
                     </td>
-                    {{-- Remove leading zeros --}}
                     <td class="text-center">{{ ltrim($item->MATNR, '0') }}</td>
                     <td>{{ $item->MAKTX }}</td>
                     <td class="text-center">{{ $item->ARBPL }}</td>
-                    <td class="text-center">{{ number_format($item->CSMG ?? 0, 0, ',', '.') }}</td>
                     <td class="text-center bold">{{ number_format($item->MENGE, 0, ',', '.') }}</td>
                 </tr>
             @endforeach

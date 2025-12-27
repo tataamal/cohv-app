@@ -93,10 +93,20 @@ class CreateWiController extends Controller
                 if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
             }
 
+            // [NEW] Fetch Descriptions from WORKCENTERS table
+            $wcDescriptions = workcenter::where('werksx', $kode)
+                ->orWhere('werks', $kode)
+                ->get()
+                ->mapWithKeys(function ($item) {
+                     return [strtoupper($item->kode_wc) => $item->description];
+                })
+                ->toArray();
+
             if ($request->ajax()) {
                 $html = view('create-wi.partials.source_table_rows', [
                     'tData1' => $processedCollection,
-                    'wcNames' => $wcNames, // Pass to partial
+                    'wcNames' => $wcNames, 
+                    'wcDescriptions' => $wcDescriptions, // Pass to partial
                 ])->render();
                 return response()->json([
                     'html' => $html,
@@ -130,7 +140,8 @@ class CreateWiController extends Controller
                 'workcenters'          => $workcenters,
                 'parentWorkcenters'    => $parentWorkcenters,
                 'capacityMap'          => $capacityMap,
-                'wcNames'              => $wcNames, // Pass Map
+                'wcNames'              => $wcNames, 
+                'wcDescriptions'       => $wcDescriptions, // Pass Map
                 'currentFilter'        => $filter,
                 'nextPage'             => $pagination->hasMorePages() ? 2 : null
             ]);
@@ -1051,6 +1062,8 @@ class CreateWiController extends Controller
                 'lily.smg@pawindo.com',
                 'kmi3.60.smg@gmail.com',
                 'kmi3.31.smg@gmail.com',
+                'kmi3.16.smg@gmail.com',
+                'kmi3.29.smg@gmail.com',
                 'tataamal1128@gmail.com',
             ]
         ]);
@@ -1449,7 +1462,7 @@ class CreateWiController extends Controller
         $kodeModel = Kode::where('kode', $plantCode)->first();
         $namaBagian = $kodeModel ? $kodeModel->nama_bagian : '-';
 
-        $allReports = [];
+        $allProcessedItems = [];
         $statusFilter = $request->input('filter_status');
         
         // Loop Each Doc
@@ -1457,7 +1470,7 @@ class CreateWiController extends Controller
             $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
             if (!is_array($payload)) $payload = [];
 
-            $csvData = [];
+            // $csvData = [];
             foreach ($payload as $item) {
                 // Item Processing Logic (Same as Command)
                 $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
@@ -1537,7 +1550,7 @@ class CreateWiController extends Controller
                 $priceFormatted = $prefixInfo . number_format($confirmedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
                 $failedPriceFormatted = $prefixInfo . number_format($failedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
 
-                $csvData[] = [
+                $allProcessedItems[] = [
                     'doc_no'        => $doc->wi_document_code,
                     'created_at'    => $doc->created_at,
                     'expired_at'    => $expiredAt->format('m-d H:i'),
@@ -1564,45 +1577,63 @@ class CreateWiController extends Controller
                     'takt_time'       => $taktFull,
                 ];
             } // End Item Loop
-
-            if (!empty($csvData)) {
-                $totalAssigned = collect($csvData)->sum('assigned');
-                $totalConfirmed = collect($csvData)->sum('confirmed'); 
-                $totalRemarkQty = collect($csvData)->sum('remark_qty');
-                $totalFailed = $totalAssigned - $totalConfirmed; 
-                
-                $totalConfirmedPrice = collect($csvData)->sum('confirmed_price');
-                $totalFailedPrice = collect($csvData)->sum('failed_price');
-
-                $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
-
-                $firstCurrency = collect($csvData)->first()['currency'] ?? '';
-                $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
-                $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
-
-                $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
-                $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
-
-                $reportData = [
-                    'items' => $csvData,
-                    'summary' => [
-                        'total_assigned' => $totalAssigned,
-                        'total_confirmed' => $totalConfirmed,
-                        'total_failed' => $totalFailed,
-                        'total_remark_qty' => $totalRemarkQty,
-                        'achievement_rate' => $achievement,
-                        'total_price_ok' => $totalConfirmedPriceFmt,
-                        'total_price_fail' => $totalFailedPriceFmt
-                    ],
-                    'printedBy' => $printedBy,
-                    'department' => $department,
-                    'nama_bagian' => $namaBagian,
-                    'printDate' => now()->format('d-M-Y H:i'),
-                    'filterInfo' => $filterString // Removed Doc Code as per User Request
-                ];
-                $allReports[] = $reportData;
-            }
         } // End Doc Loop
+
+        // === UNIFIED REPORT LOGIC START ===
+        if (empty($allProcessedItems)) {
+             return ['success' => false, 'message' => 'Tidak ada data history (Items Empty).'];
+        }
+
+        // 1. Sort
+        $sortedItems = collect($allProcessedItems)->sortBy([
+            ['workcenter', 'asc'],
+            ['nik', 'asc']
+        ])->values()->all();
+
+        // 2. Summary
+        $totalAssigned = collect($sortedItems)->sum('assigned');
+        $totalConfirmed = collect($sortedItems)->sum('confirmed'); 
+        $totalRemarkQty = collect($sortedItems)->sum('remark_qty');
+        $totalFailed = $totalAssigned - $totalConfirmed; 
+        
+        $totalConfirmedPrice = collect($sortedItems)->sum('confirmed_price');
+        $totalFailedPrice = collect($sortedItems)->sum('failed_price');
+
+        $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+
+        $firstCurrency = collect($sortedItems)->first()['currency'] ?? '';
+        $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
+        $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
+
+        $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
+        $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
+
+        $reportData = [
+            'items' => $sortedItems,
+            'summary' => [
+                'total_assigned' => $totalAssigned,
+                'total_confirmed' => $totalConfirmed,
+                'total_failed' => $totalFailed,
+                'total_remark_qty' => $totalRemarkQty,
+                'achievement_rate' => $achievement,
+                'total_price_ok' => $totalConfirmedPriceFmt,
+                'total_price_fail' => $totalFailedPriceFmt
+            ],
+            'nama_bagian' => $namaBagian,  
+            'printDate' => now()->format('d-M-Y H:i'),
+            'filterInfo' => $filterString
+        ];
+        
+        $finalReport = [$reportData];
+
+        return [
+            'success' => true, 
+            'reports' => $finalReport, 
+            'printedBy' => $printedBy,
+            'department' => $department,
+            'filterInfoString' => $dateInfo ?? $filterString
+        ];
+        // === UNIFIED REPORT LOGIC END ===
 
         if (empty($allReports)) {
              return ['success' => false, 'message' => 'Tidak ada data history.'];

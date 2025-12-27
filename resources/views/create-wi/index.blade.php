@@ -526,7 +526,7 @@
                     <option value="" selected disabled>Pilih Operator...</option>
                     @foreach ($employees as $emp)
                         <option value="{{ $emp['pernr'] }}" data-name="{{ $emp['stext'] }}" data-arbpl="{{ $emp['arbpl'] ?? '' }}">
-                            {{ $emp['pernr'] }} - {{ $emp['stext'] }}
+                            {{ $emp['pernr'] }} - {{ $emp['stext'] }} - {{ $emp['arbpl'] ?? '' }}
                         </option>
                     @endforeach
                 </select>

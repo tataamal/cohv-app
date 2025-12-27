@@ -70,7 +70,7 @@
         </td>
         <td class="text-center table-col">
             <span class="badge bg-light text-dark border">
-                {{ $item->ARBPL }}
+                {{ $item->ARBPL }} {{ isset($wcDescriptions[$item->ARBPL]) ? '- ' . $wcDescriptions[$item->ARBPL] : '' }}
             </span>
         </td>
         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>
