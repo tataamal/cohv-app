@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schedule;
 //     ->withoutOverlapping();
 
 // --- Scheduler Email WI Harian (07:00 Pagi) ---
-Schedule::command('wi:send-log-email 356')
+Schedule::command('wi:send-log-email')
     ->dailyAt('07:00')
     ->timezone('Asia/Jakarta');
 

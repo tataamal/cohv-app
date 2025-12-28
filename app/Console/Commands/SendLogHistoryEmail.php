@@ -14,7 +14,7 @@ class SendLogHistoryEmail extends Command
      *
      * @var string
      */
-    protected $signature = 'wi:send-log-email {plant_code : The plant code to filter data} {--date= : Specific date YYYY-MM-DD}';
+    protected $signature = 'wi:send-log-email {date? : Specific date dd-mm-yyyy}';
 
     /**
      * The console command description.
@@ -28,9 +28,20 @@ class SendLogHistoryEmail extends Command
      */
     public function handle()
     {
-        $argPlant = $this->argument('plant_code');
         // Date Logic:
-        $dateHistory = $this->option('date') ?? Carbon::today()->subDay()->toDateString(); 
+        $dateArg = $this->argument('date');
+        
+        if ($dateArg) {
+            try {
+                $dateHistory = Carbon::createFromFormat('d-m-Y', $dateArg)->format('Y-m-d');
+            } catch (\Exception $e) {
+                $this->error("Invalid date format. Please use dd-mm-yyyy. Example: 29-12-2025");
+                return 1;
+            }
+        } else {
+            $dateHistory = Carbon::today()->subDay()->toDateString(); 
+        }
+
         $dateActive = Carbon::parse($dateHistory)->addDay()->toDateString();
 
         $this->info("Processing Reports (Global Scheduler)");
@@ -47,12 +58,6 @@ class SendLogHistoryEmail extends Command
                     ->where('wi_document_code', 'LIKE', 'WIH%')
                     ->whereDate('document_date', $dateActive)
                     ->orderBy('created_at', 'desc');
-
-        // Filter by Plant Argument
-        if ($argPlant && strtolower($argPlant) !== 'all') {
-             $queryHistory->where('plant_code', $argPlant);
-             $queryActive->where('plant_code', $argPlant);
-        }
 
         $historyDocsAll = $queryHistory->get();
         $activeDocsAll = $queryActive->get();
