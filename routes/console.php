@@ -34,6 +34,11 @@ Schedule::command('wi:send-log-email')
     ->dailyAt('07:00')
     ->timezone('Asia/Jakarta');
 
+// --- Scheduler Email WI Weekly (Sabtu 07:00) ---
+Schedule::command('wi:send-weekly-email')
+    ->weeklyOn(6, '07:00')
+    ->timezone('Asia/Jakarta');
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');

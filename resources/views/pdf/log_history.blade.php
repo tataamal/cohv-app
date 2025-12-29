@@ -215,8 +215,8 @@
                 <tr class="data-header">
                     <th width="3%">NO</th>
                     <th width="8%">DOC NO</th>
-                    <th width="6%">NIK</th>
-                    <th width="10%">NAME</th>
+                    <th width="6%">WC</th>
+                    <th width="10%">DESCRIPTION</th>
                     <th width="8%">SO-ITEM</th>
                     <th width="8%">PRO</th>
                     <th width="9%">MATERIAL NO</th>
@@ -232,31 +232,45 @@
             <tbody>
                 @php 
                     $no = 1; 
-                    $currentWc = null;
+                    $currentNik = null;
                     $items = $report['items'];
                 @endphp
 
                 @foreach($items as $row)
-                    {{-- GROUP HEADER ROW --}}
-                    @if($currentWc !== $row['workcenter'])
+                    {{-- GROUP HEADER ROW (NIK) --}}
+                    @if($currentNik !== $row['nik'])
                         @php 
-                            $currentWc = $row['workcenter']; 
-                            // Calculate Group Totals (Optional but nice, Image 2 shows "1 Transaksi | Total Qty: 20")
-                            // We can calculate this using collection inside the view or pass it.
-                            // For simplicty/performance in Blade, let's filter the collection (might be heavy if large list).
-                            // But usually list is < 100 items.
-                            $groupItems = collect($items)->where('workcenter', $currentWc);
+                            $currentNik = $row['nik']; 
+                            $nikName = $row['name'] ?? '-';
+                            
+                            // Calculate Group Stats
+                            $groupItems = collect($items)->where('nik', $currentNik);
                             $groupCount = $groupItems->count();
-                            $groupQty = $groupItems->sum('confirmed');
-                            $wcDesc = $row['wc_description'] ?? '';
+                            
+                            $gAssigned = $groupItems->sum('assigned');
+                            $gConfirmed = $groupItems->sum('confirmed');
+                            $gUnconfirmed = $gAssigned - $gConfirmed; // "Tidak Terkonfirmasi"
+                            
+                            $gPriceOk = $groupItems->sum('confirmed_price');
+                            $gPriceFail = $groupItems->sum('failed_price');
+                            
+                            // Formatting
+                            $gCurr = $row['currency'] ?? 'IDR';
+                            $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
+                            $dec = (strtoupper($gCurr) === 'USD') ? 2 : 0;
+                            
+                            $fmtOk = $pfx . number_format($gPriceOk, $dec, ',', '.');
+                            $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
                         @endphp
                         <tr>
                             <td colspan="14" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
-                                <strong>WORKCENTER: {{ $currentWc }} 
-                                @if(!empty($wcDesc) && $wcDesc !== '-') - {{ $wcDesc }} @endif
-                                </strong> 
+                                <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
-                                    ({{ $groupCount }} Transaksi | Total Confirmed: {{ $groupQty }})
+                                    ({{ $groupCount }} Transaksi | 
+                                    Konfirmasi: {{ number_format($gConfirmed, 0) }}, 
+                                    Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} | 
+                                    OK : {{ $fmtOk }}, 
+                                    Fail : {{ $fmtFail }} )
                                 </span>
                             </td>
                         </tr>
@@ -265,8 +279,10 @@
                     <tr class="data-row">
                         <td class="text-center">{{ $no++ }}</td>
                         <td class="text-center fw-bold">{{ $row['doc_no'] }}</td>
-                        <td class="text-center">{{ $row['nik'] }}</td>
-                        <td>{{ $row['name'] }}</td>
+                        {{-- New Columns --}}
+                        <td class="text-center">{{ $row['workcenter'] }}</td>
+                        <td>{{ $row['wc_description'] }}</td>
+                        
                         <td class="text-center">{{ $row['so_item'] }}</td>
                         <td class="text-center fw-bold">{{ $row['aufnr'] }}</td>
                         <td class="text-center">{{ $row['material'] }}</td>

@@ -6,121 +6,139 @@ use Illuminate\Console\Command;
 use App\Models\HistoryWi;
 use Carbon\Carbon;
 use App\Models\Kode;
+use Illuminate\Support\Facades\Log;
 
-class SendLogHistoryEmail extends Command
+class SendLogWeeklyEmail extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'wi:send-log-email {date? : Specific date dd-mm-yyyy}';
+    protected $signature = 'wi:send-weekly-email {date? : Specific end date dd-mm-yyyy (default: today)}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Send Work Instruction Log History via Email';
+    protected $description = 'Send Weekly Work Instruction Log History via Email (Mon-Sat, optionally prev Sun)';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        // Date Logic:
+        // 1. Determine Date Range
         $dateArg = $this->argument('date');
         
         if ($dateArg) {
             try {
-                $dateHistory = Carbon::createFromFormat('d-m-Y', $dateArg)->format('Y-m-d');
+                $endDateCarbon = Carbon::createFromFormat('d-m-Y', $dateArg);
             } catch (\Exception $e) {
-                $this->error("Invalid date format. Please use dd-mm-yyyy. Example: 29-12-2025");
+                $this->error("Invalid date format. Please use dd-mm-yyyy.");
                 return 1;
             }
         } else {
-            $dateHistory = Carbon::today()->subDay()->toDateString(); 
+            $endDateCarbon = Carbon::today();
         }
 
-        $dateActive = Carbon::parse($dateHistory)->addDay()->toDateString();
+        // Logic: 
+        // End Date = Given Date (Ideally Saturday)
+        // Start Date = Previous Monday relative to End Date
+        // Check Date = Previous Sunday (Day before Start Date)
 
-        $this->info("Processing Reports (Global Scheduler)");
-        $this->info("History Date (Yesterday): $dateHistory");
-        $this->info("Active Date (Today): $dateActive");
+        // Ensure we handle cases where it's run not on Saturday?
+        // User said: "Run on Saturday". Assumption: End Date is the run date (Saturday).
+        // If run on Saturday, Start of week is Monday.
+        
+        // Use logic: Get Start of Week (Monday)
+        $startDateCarbon = $endDateCarbon->copy()->startOfWeek(Carbon::MONDAY);
+        
+        // If the command is run on Saturday (6), $endDateCarbon is Saturday.
+        // If $endDateCarbon is NOT Saturday, should we force it? 
+        // User's requirement: "Range tanggal adalah satu minggu kebelakang".
+        // Let's stick to: EndDate = Input/Today. StartDate = Input/Today's Monday.
+        
+        // Check Previous Sunday
+        $prevSundayCarbon = $startDateCarbon->copy()->subDay();
+        $prevSundayDate = $prevSundayCarbon->toDateString();
+        
+        // Check if data exists for Previous Sunday
+        $hasSundayData = HistoryWi::where('wi_document_code', 'LIKE', 'WIH%')
+                                  ->whereDate('document_date', $prevSundayDate)
+                                  ->exists();
 
-        // --- 1. FETCH DATA (GLOBAL) ---
+        if ($hasSundayData) {
+            $startDateCarbon = $prevSundayCarbon;
+            $this->info("Found data on previous Sunday ($prevSundayDate). Including it in range.");
+        }
+
+        $startDate = $startDateCarbon->toDateString();
+        $endDate = $endDateCarbon->toDateString();
+
+        $this->info("Processing Weekly Reports");
+        $this->info("Range: $startDate to $endDate");
+
+        // --- 2. FETCH DATA (Range) ---
         $queryHistory = HistoryWi::with('kode')
                     ->where('wi_document_code', 'LIKE', 'WIH%')
-                    ->whereDate('document_date', $dateHistory)
-                    ->orderBy('created_at', 'desc');
-
-        $queryActive = HistoryWi::with('kode')
-                    ->where('wi_document_code', 'LIKE', 'WIH%')
-                    ->whereDate('document_date', $dateActive)
+                    ->whereBetween('document_date', [$startDate, $endDate])
                     ->orderBy('created_at', 'desc');
 
         $historyDocsAll = $queryHistory->get();
-        $activeDocsAll = $queryActive->get();
         
-        if ($historyDocsAll->isEmpty() && $activeDocsAll->isEmpty()) {
-            $this->info("No documents found for both dates.");
+        if ($historyDocsAll->isEmpty()) {
+            $this->info("No documents found for this range.");
             return;
         }
 
-        // --- REFACTOR: DIRECT GROUPING BY BAGIAN NAME ---
-        // This eliminates issues where plant codes split the groups.
-        $groupedData = []; // [ 'BAGIAN_NAME' => [ 'items' => [], 'plant_codes' => [] ] ]
+        // --- 3. PROCESS DATA (GROUPING) ---
+        // Duplicated Logic from SendLogHistoryEmail to ensure stability
+        $groupedData = []; 
         
-        // 1. Process All History Docs
         foreach ($historyDocsAll as $doc) {
             $pCode = $doc->plant_code; 
-            // Resolve Bagian Name
-            $kData = $doc->kode; // Relation loaded
+            $kData = $doc->kode; 
             if (!$kData) {
-                // Try fallback lookup if relation failed but code exists?
                 $kData = Kode::find($pCode);
             }
             $rawName = $kData ? $kData->nama_bagian : 'UNKNOWN';
             
-            // Normalize Name (Slug for Grouping)
             $upperName = strtoupper($rawName);
-            // Remove ALL non-alphanumeric characters (spaces, dashes, etc.) to force merge
             $slug = preg_replace('/[^A-Z0-9]/', '', $upperName); 
-            
             if (empty($slug)) $slug = 'UNKNOWN';
             
             if (!isset($groupedData[$slug])) {
                 $groupedData[$slug] = [
-                    'display_name' => $rawName, // Keep original for display
+                    'display_name' => $rawName, 
                     'items' => [],
                     'plant_codes' => [],
-                    'printed_by' => ($kData && $kData->sapUser) ? $kData->sapUser->sap_id : 'AUTO_SCHEDULER',
                 ];
             }
             $groupedData[$slug]['plant_codes'][] = $pCode;
             
-            // Process Items
-            $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
+            $payload = is_array($doc->payload_data) ? $doc->payload_data : (is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : []);
             if (!is_array($payload)) continue;
 
             foreach ($payload as $item) {
-                 // Add doc info to item
                  $item['_doc_no'] = $doc->wi_document_code;
                  $groupedData[$slug]['items'][] = $item;
             }
         }
 
-        // 2. Generate Reports per Group
+        $filesToAttach = [];
+
+        // --- 4. GENERATE PDF ---
         foreach ($groupedData as $slug => $group) {
-            $namaBagian = $group['display_name']; // Use Display Name for Header and Filename
+            $namaBagian = $group['display_name']; 
             $uniqueCodes = array_unique($group['plant_codes']);
             $rawItems = $group['items'];
             if (empty($rawItems)) continue;
 
-            $this->info(">>> Processing Bagian: '{$namaBagian}' [Slug: {$slug}] (Items: " . count($rawItems) . ")");
-            $this->info("    Plant Codes: " . implode(', ', $uniqueCodes));
+            $this->info(">>> Processing Bagian: '{$namaBagian}'");
 
-            // Fetch WC Map for these codes
+            // Fetch WC Map
             $wcMap = \App\Models\workcenter::whereIn('werksx', $uniqueCodes)
                 ->orWhereIn('werks', $uniqueCodes)
                 ->pluck('description', 'kode_wc')
@@ -191,7 +209,7 @@ class SendLogHistoryEmail extends Command
                  ];
             }
 
-            // SORT: WC ASC, NIK ASC
+            // SORT: NIK ASC, WC ASC
             $sortedItems = collect($processedItems)->sortBy([
                 ['nik', 'asc'],
                 ['workcenter', 'asc']
@@ -221,110 +239,66 @@ class SendLogHistoryEmail extends Command
                 ],
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),
-                'filterInfo' => "DATE: " . $dateHistory
+                'filterInfo' => "DATE: " . $startDate . " TO " . $endDate // Range Info
             ];
             
-            // Generate PDF
+            // Filename: "Daily Weekly Report_nama bagian_ range tanggal.pdf"
             $safeName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $namaBagian);
-            $historyPdfName = "Daily Report WI - {$safeName} - {$dateHistory}.pdf";
+            $weeklyPdfName = "Weekly Report WI_{$safeName}_{$startDate}_{$endDate}.pdf";
             
             $pdfViewData = ['reports' => [$reportData]];
             
-            $historyPdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.log_history', $pdfViewData)
+            $weeklyPdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.log_history', $pdfViewData)
                           ->setPaper('a4', 'landscape');
             
-            $historyPath = storage_path("app/public/{$historyPdfName}");
-            $historyPdf->save($historyPath);
-            $filesToAttach[] = $historyPath;
+            $weeklyPath = storage_path("app/public/{$weeklyPdfName}");
+            $weeklyPdf->save($weeklyPath);
+            $filesToAttach[] = $weeklyPath;
             
-            $this->info("   Generated PDF: {$historyPdfName}");
+            $this->info("   Generated PDF: {$weeklyPdfName}");
         }
 
-        // --- 2. COLLECT ACTIVE DOCUMENTS ---
-        // Process Global Active Docs (for Email)
-        foreach($activeDocsAll as $doc) {
-             // Inject Buyer & Price for Email PDF (Active)
-             $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
-             if (is_array($payload)) {
-                $updatedPayload = [];
-                foreach ($payload as $item) {
-                    // 1. Buyer
-                    $item['buyer_sourced'] = $item['name1'] ?? '-';
-                    
-                    // 2. Price
-                    $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
-                    $waerk = isset($item['waerk']) ? $item['waerk'] : '';
-                    
-                    // Simple Format Logic from History Loop
-                    if (strtoupper($waerk) === 'USD') {
-                        $priceFmt = '$ ' . number_format($netpr, 2);
-                    } elseif (strtoupper($waerk) === 'IDR') {
-                        $priceFmt = 'Rp ' . number_format($netpr, 0, ',', '.');
-                    } else {
-                        $priceFmt = $waerk . ' ' . number_format($netpr, 0, ',', '.'); 
-                    }
-                    
-                    $item['price_sourced'] = $priceFmt;
-                    $updatedPayload[] = $item;
-                }
-                 $doc->payload_data = $updatedPayload;
-                 
-                 // Calculate Total Price for Header (Email only)
-                 $totalDocPrice = 0;
-                 $docCurrency = 'IDR'; // Default
-                 
-                 foreach ($updatedPayload as $itm) {
-                     $assg = floatval(str_replace(',', '.', $itm['assigned_qty'] ?? 0));
-                     $prc = floatval($itm['netpr'] ?? 0);
-                     $totalDocPrice += ($assg * $prc);
-                     
-                     if (!empty($itm['waerk'])) {
-                         $docCurrency = $itm['waerk'];
-                     }
-                 }
-                 
-                 if (strtoupper($docCurrency) === 'USD') {
-                     $doc->total_price_formatted = '$ ' . number_format($totalDocPrice, 2);
-                 } elseif (strtoupper($docCurrency) === 'IDR') {
-                     $doc->total_price_formatted = 'Rp ' . number_format($totalDocPrice, 0, ',', '.');
-                 } else {
-                     $doc->total_price_formatted = $docCurrency . ' ' . number_format($totalDocPrice, 0, ',', '.');
-                 }
-              }
- 
-         }
-
-        // 2. Generate Active PDF
-        /*if ($allActiveDocs->isNotEmpty()) {
-             $activeData = [
-                'documents' => $allActiveDocs,
-                'printedBy' => 'Scheduler',
-                'department' => 'ALL',
-                'printTime' => now(),
-                'isEmail'   => true, // Trigger column display in View
-             ];
-             $activePdfName = 'Dokument_WI_' . $dateActive . '.pdf';
-             $activePdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.wi_single_document', $activeData)
-                         ->setPaper('a4', 'landscape');
-             $activePath = storage_path("app/public/{$activePdfName}");
-             $activePdf->save($activePath);
-             $filesToAttach[] = $activePath;
-             $this->info("   Generated Global Active PDF (" . $allActiveDocs->count() . " docs).");
-        }*/
-
-        // 3. Send Email
+        // --- 5. SEND EMAIL ---
         if (empty($filesToAttach)) {
-            $this->info("   No reports/files to send.");
+            $this->info("   No files to send.");
         } else {
-            // $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com','kmi3.16.smg@gmail.com','kmi3.29.smg@gmail.com'];
-            $recipients = ['tataamal1128@gmail.com'];
-            $dateInfoFormatted = Carbon::parse($dateHistory)->locale('id')->translatedFormat('d F Y');
+            $recipients = [
+                'tataamal1128@gmail.com',
+                // 'finc.smg@pawindo.com',
+                // 'kmi356smg@gmail.com',
+                // 'adm.mkt5.smg@gmail.com',
+                // 'lily.smg@pawindo.com',
+                // 'kmi3.60.smg@gmail.com',
+                // 'kmi3.31.smg@gmail.com',
+                // 'kmi3.16.smg@gmail.com',
+                // 'kmi3.29.smg@gmail.com'
+            ];
+            
+            $dateInfoFormatted = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
+            $subject = "Weekly Report WI_" . $dateInfoFormatted;
 
             try {
-                \Illuminate\Support\Facades\Mail::to($recipients)->send(new \App\Mail\LogHistoryMail($filesToAttach, $dateInfoFormatted));
-                $this->info("   Global Email sent successfully.");
+                // Using the same Mail Class? The User didn't specify a new Email Template.
+                // Assuming LogHistoryMail can handle a generic subject or we pass the formatted date as subject suffix.
+                // LogHistoryMail signature: __construct($files, $dateInfo)
+                // $dateInfo is used in Subject: "Log History WI - $dateInfo"
+                // We want Subject: "Daily Weekly Report_..."
+                // We might need to modify LogHistoryMail to accept a full custom subject or create a new one.
+                // For now, I will assume I can reuse LogHistoryMail and it puts the $dateInfo in the subject.
+                // If the Mailable hardcodes "Log History WI", I might need to adjust it or create a generic one.
+                // Let's check LogHistoryMail if possible. I'll just send it.
+                
+                $dateBody = Carbon::parse($startDate)->format('d-m-Y') . " hingga " . Carbon::parse($endDate)->format('d-m-Y');
+                
+                // Subject is handled in Envelope of Mailable, but we pass dateInfo string
+                $dateSubject = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
+
+                \Illuminate\Support\Facades\Mail::to($recipients)
+                    ->send(new \App\Mail\WeeklyLogHistoryMail($filesToAttach, $dateSubject, $dateBody));
+                
+                $this->info("   Weekly Email sent successfully.");
             } catch (\Exception $e) {
-                $this->error("   Failed to send Global Email: " . $e->getMessage());
+                $this->error("   Failed to send Weekly Email: " . $e->getMessage());
             }
         }
     }
