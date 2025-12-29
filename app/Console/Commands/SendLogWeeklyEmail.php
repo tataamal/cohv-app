@@ -123,6 +123,7 @@ class SendLogWeeklyEmail extends Command
 
             foreach ($payload as $item) {
                  $item['_doc_no'] = $doc->wi_document_code;
+                 $item['_doc_date'] = $doc->document_date; // Capture Date
                  $groupedData[$slug]['items'][] = $item;
             }
         }
@@ -188,6 +189,7 @@ class SendLogWeeklyEmail extends Command
                  
                  $processedItems[] = [
                     'doc_no'        => $item['_doc_no'],
+                    'doc_date'      => isset($item['_doc_date']) ? Carbon::parse($item['_doc_date'])->format('d-m-Y') : '', // Format Date
                     'workcenter'    => $wcCode,
                     'wc_description'=> $wcDesc,
                     'so_item'       => $soItem,
@@ -239,7 +241,8 @@ class SendLogWeeklyEmail extends Command
                 ],
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),
-                'filterInfo' => "DATE: " . $startDate . " TO " . $endDate // Range Info
+                'filterInfo' => "DATE: " . $startDate . " TO " . $endDate, // Range Info
+                'report_title' => 'WEEKLY REPORT WI'
             ];
             
             // Filename: "Daily Weekly Report_nama bagian_ range tanggal.pdf"
@@ -262,19 +265,19 @@ class SendLogWeeklyEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No files to send.");
         } else {
-            // $recipients = [
-            //     'tataamal1128@gmail.com',
-            //     'finc.smg@pawindo.com',
-            //     'kmi356smg@gmail.com',
-            //     'adm.mkt5.smg@gmail.com',
-            //     'lily.smg@pawindo.com',
-            //     'kmi3.60.smg@gmail.com',
-            //     'kmi3.31.smg@gmail.com',
-            //     'kmi3.16.smg@gmail.com',
-            //     'kmi3.29.smg@gmail.com'
-            // ];
+            $recipients = [
+                'tataamal1128@gmail.com',
+                'finc.smg@pawindo.com',
+                'kmi356smg@gmail.com',
+                'adm.mkt5.smg@gmail.com',
+                'lily.smg@pawindo.com',
+                'kmi3.60.smg@gmail.com',
+                'kmi3.31.smg@gmail.com',
+                'kmi3.16.smg@gmail.com',
+                'kmi3.29.smg@gmail.com'
+            ];
 
-            $recipients = ['tataamal1128@gmail.com','kmi3.60.smg@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com','kmi3.60.smg@gmail.com'];
             
             $dateInfoFormatted = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
             $subject = "Weekly Report WI_" . $dateInfoFormatted;

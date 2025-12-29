@@ -180,7 +180,7 @@
                             <td>
                                 <div class="company-name">PT KAYU MEBEL INDONESIA</div>
                                 <!-- New Title Format -->
-                                <div class="doc-title">DAILY REPORT WI - {{ $report['nama_bagian'] }} - {{ $report['filterInfo'] }}</div>
+                                <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT WI' }} - {{ $report['nama_bagian'] }} - {{ $report['filterInfo'] }}</div>
                             </td>
                         </tr>
                     </table>
@@ -278,7 +278,13 @@
 
                     <tr class="data-row">
                         <td class="text-center">{{ $no++ }}</td>
-                        <td class="text-center fw-bold">{{ $row['doc_no'] }}</td>
+                        <td class="text-center fw-bold">
+                            {{ $row['doc_no'] }}
+                            @if(str_contains($report['report_title'] ?? '', 'WEEKLY'))
+                                <br>
+                                <span style="font-size: 7pt; font-weight: normal;">{{ $row['doc_date'] ?? '' }}</span>
+                            @endif
+                        </td>
                         {{-- New Columns --}}
                         <td class="text-center">{{ $row['workcenter'] }}</td>
                         <td>{{ $row['wc_description'] }}</td>
