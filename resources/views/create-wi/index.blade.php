@@ -1238,18 +1238,9 @@
                         const totalCap = potentialNiks.length;
                         const remaining = totalCap - usedCount;
 
-                        const isFull = remaining <= 0;
-                        const isMySelection = (wcCode === myCurrentWc);
-
-                        if (isFull && !isMySelection) {
-                            opt.disabled = true;
-                            if (!opt.innerText.includes('(Full)')) {
-                                opt.innerText = opt.innerText.replace(' (Full)', '') + ' (Full)';
-                            }
-                        } else {
-                            opt.disabled = false;
-                            opt.innerText = opt.innerText.replace(' (Full)', '');
-                        }
+                        // REMOVED "FULL" CHECK - ALLOW UNLIMITED ASSIGNMENT
+                        opt.disabled = false;
+                        opt.innerText = opt.innerText.replace(' (Full)', '');
                     });
                 });
             };
