@@ -173,7 +173,12 @@
                 <tr>
                     <td class="text-center">{{ $no++ }}</td>
                     <td class="text-center">
-                        {{ $item->MAT_KDAUF ?? '-' }} / {{ intval($item->MAT_KDPOS) }}
+                        @php
+                            $kdaufSet = $item->MAT_KDAUF ?? ($item->KDAUF ?? '');
+                            $isMakeStockSet = (strcasecmp($kdaufSet, 'Make Stock') === 0);
+                            $soItemSet = $isMakeStockSet ? $kdaufSet : ($kdaufSet . ($item->MAT_KDPOS ? ' / ' . intval($item->MAT_KDPOS) : ''));
+                        @endphp
+                        {{ $soItemSet }}
                     </td>
                     <td class="text-center">{{ ltrim($item->MATNR, '0') }}</td>
                     <td>{{ $item->MAKTX }}</td>

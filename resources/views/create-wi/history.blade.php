@@ -489,7 +489,14 @@
                                                                 <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
                                                                 <span class="badge bg-success text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
                                                             </div>
-                                                            <div class="text-muted text-xs text-truncate ps-1">{{ $item['kdauf'] ?? '' }} - {{ $item['kdpos'] ?? '' }}</div>
+                                                            @php
+                                                                $kdaufHist = $item['kdauf'] ?? '';
+                                                                $matKdaufHist = $item['mat_kdauf'] ?? '';
+                                                                $isMakeStockHist = (strcasecmp($kdaufHist, 'Make Stock') === 0) || (strcasecmp($matKdaufHist, 'Make Stock') === 0);
+                                                                $kdposHist = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                                                                $soItemHist = $isMakeStockHist ? $kdaufHist : ($kdaufHist . ($kdposHist ? ' - ' . $kdposHist : ''));
+                                                            @endphp
+                                                            <div class="text-muted text-xs text-truncate ps-1">{{ $soItemHist }}</div>
                                                             <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                         </div>
                                                         <div class="col-lg-4 text-end">

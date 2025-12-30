@@ -266,7 +266,12 @@
                 <tr>
                     <td class="text-center">{{ $item->AUFNR }}</td>
                     <td>{{ $item->MAKTX }}</td>
-                    <td class="text-center">{{ $item->MAT_KDAUF ?? '-' }} / {{ intval($item->MAT_KDPOS) }}</td>
+                    @php
+                        $kdaufGR = $item->MAT_KDAUF ?? ($item->KDAUF ?? '');
+                        $isMakeStockGR = (strcasecmp($kdaufGR, 'Make Stock') === 0);
+                        $soItemGR = $isMakeStockGR ? $kdaufGR : ($kdaufGR . ($item->MAT_KDPOS ? ' / ' . intval($item->MAT_KDPOS) : ''));
+                    @endphp
+                    <td class="text-center">{{ $soItemGR }}</td>
                     <td class="text-center">{{ $item->DISPO }}</td>
                     <td class="text-center">{{ \Carbon\Carbon::parse($item->BUDAT_MKPF)->format('d/m/Y') }}</td>
                     <td class="text-center">{{ number_format($item->PSMNG, 0, ',', '.') }}</td>

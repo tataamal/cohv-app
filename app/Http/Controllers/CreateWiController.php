@@ -1019,7 +1019,7 @@ class CreateWiController extends Controller
                 $aggregatedCapacities[$wcCode] = [
                     'code' => $wcCode,
                     'name' => $wcNames[strtoupper($wcCode)] ?? $wcCode,
-                    'max_mins' => $doc->capacity_info['max_mins'] ?? 0, // Using max from first doc as reference for the WC
+                    'max_mins' => $doc->capacity_info['max_mins'] ?? 0, 
                     'used_mins' => 0
                 ];
             }
@@ -1028,9 +1028,6 @@ class CreateWiController extends Controller
 
         // Finalize percentages
         foreach ($aggregatedCapacities as &$cap) {
-            // Note: max_mins is per DAY per WC. 
-            // If multiple docs use the same WC, they share the SAME daily capacity bucket.
-            // So we sum used_mins against the single max_mins value.
             if ($cap['max_mins'] > 0) {
                 $cap['percentage'] = ($cap['used_mins'] / $cap['max_mins']) * 100;
             } else {
@@ -1056,14 +1053,14 @@ class CreateWiController extends Controller
             'search' => $request->search,
             'date' => $request->date,
             'defaultRecipients' => [
-                'finc.smg@pawindo.com',
-                'kmi356smg@gmail.com',
-                'adm.mkt5.smg@pawindo.com',
-                'lily.smg@pawindo.com',
-                'kmi3.60.smg@gmail.com',
-                'kmi3.31.smg@gmail.com',
-                'kmi3.16.smg@gmail.com',
-                'kmi3.29.smg@gmail.com',
+                // 'finc.smg@pawindo.com',
+                // 'kmi356smg@gmail.com',
+                // 'adm.mkt5.smg@pawindo.com',
+                // 'lily.smg@pawindo.com',
+                // 'kmi3.60.smg@gmail.com',
+                // 'kmi3.31.smg@gmail.com',
+                // 'kmi3.16.smg@gmail.com',
+                // 'kmi3.29.smg@gmail.com',
                 'tataamal1128@gmail.com',
             ]
         ]);

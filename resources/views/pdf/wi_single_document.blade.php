@@ -244,8 +244,11 @@
                     $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                     
                     $kdauf = $item['kdauf'] ?? '';
+                    $matKdauf = $item['mat_kdauf'] ?? '';
+                    $isMakeStock = (strcasecmp($kdauf, 'Make Stock') === 0) || (strcasecmp($matKdauf, 'Make Stock') === 0);
                     $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
-                    $soItem = $kdauf . '-' . $kdpos;
+                    
+                    $soItem = $isMakeStock ? $kdauf : ($kdauf . '-' . $kdpos);
 
                     $matnr = $item['material_number'] ?? '';
                     if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }

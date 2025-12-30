@@ -43,22 +43,8 @@ class SendLogWeeklyEmail extends Command
             $endDateCarbon = Carbon::today();
         }
 
-        // Logic: 
-        // End Date = Given Date (Ideally Saturday)
-        // Start Date = Previous Monday relative to End Date
-        // Check Date = Previous Sunday (Day before Start Date)
-
-        // Ensure we handle cases where it's run not on Saturday?
-        // User said: "Run on Saturday". Assumption: End Date is the run date (Saturday).
-        // If run on Saturday, Start of week is Monday.
-        
         // Use logic: Get Start of Week (Monday)
         $startDateCarbon = $endDateCarbon->copy()->startOfWeek(Carbon::MONDAY);
-        
-        // If the command is run on Saturday (6), $endDateCarbon is Saturday.
-        // If $endDateCarbon is NOT Saturday, should we force it? 
-        // User's requirement: "Range tanggal adalah satu minggu kebelakang".
-        // Let's stick to: EndDate = Input/Today. StartDate = Input/Today's Monday.
         
         // Check Previous Sunday
         $prevSundayCarbon = $startDateCarbon->copy()->subDay();
@@ -93,8 +79,6 @@ class SendLogWeeklyEmail extends Command
             return;
         }
 
-        // --- 3. PROCESS DATA (GROUPING) ---
-        // Duplicated Logic from SendLogHistoryEmail to ensure stability
         $groupedData = []; 
         
         foreach ($historyDocsAll as $doc) {
@@ -166,7 +150,8 @@ class SendLogWeeklyEmail extends Command
                  
                  $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
                  $remarkText = isset($item['remark']) ? $item['remark'] : '-';
-                 $remarkText = preg_replace('/^Qty\s+\d+:\s*/i', '', $remarkText);
+                 // Strip "Qty X:" or "M:X" prefix to avoid duplication with the view's "Qty:" label
+                 $remarkText = preg_replace('/^(Qty|M)[:\s]*\d+[:]?\s*/i', '', $remarkText);
                  
                  $balance = $assigned - ($confirmed + $remarkQty);
                  $failedPrice = $netpr * ($balance + $remarkQty);
@@ -182,8 +167,11 @@ class SendLogWeeklyEmail extends Command
                  $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
 
                  $kdauf = $item['kdauf'] ?? '';
+                 $matKdauf = $item['mat_kdauf'] ?? '';
+                 $isMakeStock = (strcasecmp($kdauf, 'Make Stock') === 0) || (strcasecmp($matKdauf, 'Make Stock') === 0);
                  $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
-                 $soItem = $kdauf . ($kdpos ? '-' . $kdpos : '');
+                 
+                 $soItem = $isMakeStock ? $kdauf : ($kdauf . ($kdpos ? '-' . $kdpos : ''));
 
                  $nik = $item['nik'] ?? '-';
                  
@@ -207,17 +195,16 @@ class SendLogWeeklyEmail extends Command
                     'price_fail_fmt'  => $priceFailFmt,
                     'confirmed_price' => $confirmedPrice, 
                     'failed_price'    => $failedPrice,
-                    'currency'        => strtoupper($waerk)
+                    'currency'        => strtoupper($waerk),
+                    'raw_total_time'  => $finalTime // Add raw time for summation
                  ];
             }
 
-            // SORT: NIK ASC, WC ASC
             $sortedItems = collect($processedItems)->sortBy([
                 ['nik', 'asc'],
                 ['workcenter', 'asc']
             ])->values()->all();
 
-            // Summary
             $totalAssigned = collect($sortedItems)->sum('assigned');
             $totalConfirmed = collect($sortedItems)->sum('confirmed'); 
             $totalFailed = $totalAssigned - $totalConfirmed; 
@@ -245,7 +232,6 @@ class SendLogWeeklyEmail extends Command
                 'report_title' => 'WEEKLY REPORT WI'
             ];
             
-            // Filename: "Daily Weekly Report_nama bagian_ range tanggal.pdf"
             $safeName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $namaBagian);
             $weeklyPdfName = "Weekly Report WI_{$safeName}_{$startDate}_{$endDate}.pdf";
             
@@ -265,37 +251,26 @@ class SendLogWeeklyEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No files to send.");
         } else {
-            $recipients = [
-                'tataamal1128@gmail.com',
-                'finc.smg@pawindo.com',
-                'kmi356smg@gmail.com',
-                'adm.mkt5.smg@gmail.com',
-                'lily.smg@pawindo.com',
-                'kmi3.60.smg@gmail.com',
-                'kmi3.31.smg@gmail.com',
-                'kmi3.16.smg@gmail.com',
-                'kmi3.29.smg@gmail.com'
-            ];
+            // $recipients = [
+            //     'tataamal1128@gmail.com',
+            //     'finc.smg@pawindo.com',
+            //     'kmi356smg@gmail.com',
+            //     'adm.mkt5.smg@gmail.com',
+            //     'lily.smg@pawindo.com',
+            //     'kmi3.60.smg@gmail.com',
+            //     'kmi3.31.smg@gmail.com',
+            //     'kmi3.16.smg@gmail.com',
+            //     'kmi3.29.smg@gmail.com'
+            // ];
 
-            // $recipients = ['tataamal1128@gmail.com','kmi3.60.smg@gmail.com'];
+            $recipients = ['tataamal1128@gmail.com'];
             
             $dateInfoFormatted = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
             $subject = "Weekly Report WI_" . $dateInfoFormatted;
 
             try {
-                // Using the same Mail Class? The User didn't specify a new Email Template.
-                // Assuming LogHistoryMail can handle a generic subject or we pass the formatted date as subject suffix.
-                // LogHistoryMail signature: __construct($files, $dateInfo)
-                // $dateInfo is used in Subject: "Log History WI - $dateInfo"
-                // We want Subject: "Daily Weekly Report_..."
-                // We might need to modify LogHistoryMail to accept a full custom subject or create a new one.
-                // For now, I will assume I can reuse LogHistoryMail and it puts the $dateInfo in the subject.
-                // If the Mailable hardcodes "Log History WI", I might need to adjust it or create a generic one.
-                // Let's check LogHistoryMail if possible. I'll just send it.
                 
                 $dateBody = Carbon::parse($startDate)->format('d-m-Y') . " hingga " . Carbon::parse($endDate)->format('d-m-Y');
-                
-                // Subject is handled in Envelope of Mailable, but we pass dateInfo string
                 $dateSubject = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
 
                 \Illuminate\Support\Facades\Mail::to($recipients)

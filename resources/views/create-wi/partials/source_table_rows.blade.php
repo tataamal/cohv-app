@@ -1,6 +1,7 @@
 @foreach ($tData1 as $item)
     @php
-        $soItem = ltrim($item->KDAUF, '0') . ' - ' . ltrim($item->KDPOS, '0');
+        $isMakeStock = (strcasecmp($item->KDAUF, 'Make Stock') === 0) || (strcasecmp($item->MAT_KDAUF ?? '', 'Make Stock') === 0);
+        $soItem = $isMakeStock ? $item->KDAUF : ($item->KDAUF . ' - ' . ltrim($item->KDPOS, '0'));
         $matnr = ctype_digit($item->MATNR) ? ltrim($item->MATNR, '0') : $item->MATNR;
         $sisaQty = $item->real_sisa_qty ?? $item->MGVRG2 - $item->LMNGA;
     @endphp

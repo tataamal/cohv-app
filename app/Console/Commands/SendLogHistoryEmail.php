@@ -147,7 +147,9 @@ class SendLogHistoryEmail extends Command
                  
                  $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
                  $remarkText = isset($item['remark']) ? $item['remark'] : '-';
-                 $remarkText = preg_replace('/^Qty\s+\d+:\s*/i', '', $remarkText);
+                 $remarkText = isset($item['remark']) ? $item['remark'] : '-';
+                 // Strip "Qty X:" or "M:X" prefix to avoid duplication with the view's "Qty:" label
+                 $remarkText = preg_replace('/^(Qty|M)[:\s]*\d+[:]?\s*/i', '', $remarkText);
                  
                  $balance = $assigned - ($confirmed + $remarkQty);
                  $failedPrice = $netpr * ($balance + $remarkQty);
@@ -163,8 +165,11 @@ class SendLogHistoryEmail extends Command
                  $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
 
                  $kdauf = $item['kdauf'] ?? '';
+                 $matKdauf = $item['mat_kdauf'] ?? '';
+                 $isMakeStock = (strcasecmp($kdauf, 'Make Stock') === 0) || (strcasecmp($matKdauf, 'Make Stock') === 0);
                  $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
-                 $soItem = $kdauf . ($kdpos ? '-' . $kdpos : '');
+                 
+                 $soItem = $isMakeStock ? $kdauf : ($kdauf . ($kdpos ? '-' . $kdpos : ''));
 
                  $nik = $item['nik'] ?? '-';
                  
@@ -317,8 +322,8 @@ class SendLogHistoryEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No reports/files to send.");
         } else {
-            $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com','kmi3.16.smg@gmail.com','kmi3.29.smg@gmail.com'];
-            // $recipients = ['tataamal1128@gmail.com','kmi3.60.smg@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com','kmi3.16.smg@gmail.com','kmi3.29.smg@gmail.com'];
+            $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateHistory)->locale('id')->translatedFormat('d F Y');
 
             try {

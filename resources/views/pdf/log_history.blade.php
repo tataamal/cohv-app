@@ -254,11 +254,16 @@
                             $gPriceOk = $groupItems->sum('confirmed_price');
                             $gPriceFail = $groupItems->sum('failed_price');
                             
+                            // Calculate Totals for Header
+                            $gTotalTimeMin = $groupItems->sum('raw_total_time');
+                            $gTotalTimeHours = $gTotalTimeMin > 0 ? $gTotalTimeMin / 60 : 0;
+                            $gTotalTimeHoursFmt = number_format($gTotalTimeHours, 2) . ' Jam';
+
                             // Formatting
                             $gCurr = $row['currency'] ?? 'IDR';
                             $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
                             $dec = (strtoupper($gCurr) === 'USD') ? 2 : 0;
-                            
+
                             $fmtOk = $pfx . number_format($gPriceOk, $dec, ',', '.');
                             $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
                         @endphp
@@ -266,7 +271,9 @@
                             <td colspan="14" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
                                 <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
-                                    ({{ $groupCount }} Transaksi | 
+                                    (Total Qty WI: {{ number_format($gAssigned, 0) }} | 
+                                    Total Time Working Hours: {{ $gTotalTimeHoursFmt }} |
+                                    {{ $groupCount }} Transaksi | 
                                     Konfirmasi: {{ number_format($gConfirmed, 0) }}, 
                                     Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} | 
                                     OK : {{ $fmtOk }}, 
@@ -300,7 +307,7 @@
                         {{-- Remark --}}
                         <td class="text-center" style="font-size: 7pt;">
                             @if(floatval($row['remark_qty']) > 0)
-                                M:{{ floatval($row['remark_qty']) }} {{ $row['remark_text'] }}
+                                Qty:{{ floatval($row['remark_qty']) }} {{ $row['remark_text'] }}
                             @elseif(!empty($row['remark_text']) && $row['remark_text'] !== '-')
                                 {{ $row['remark_text'] }}
                             @else
