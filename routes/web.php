@@ -117,6 +117,7 @@ Route::middleware('auth')->group(function (){
     Route::get('/work-instruction/history/preview/{kode}', [CreateWiController::class, 'previewLog'])->name('wi.preview-log');
     Route::post('/work-instruction/history/email/{kode}', [CreateWiController::class, 'emailLog'])->name('wi.email-log');
     Route::post('/work-instruction/delete', [CreateWiController::class, 'delete'])->name('wi.delete'); // Added Delete Route
+    Route::post('/work-instruction/history/print-log-nik/{kode}', [CreateWiController::class, 'printLogByNik'])->name('wi.print-log-nik');
     
     // Edit WI Routes
     Route::get('/work-instruction/available-items/{kode}', [CreateWiController::class, 'getAvailableItems'])->name('wi.available-items');

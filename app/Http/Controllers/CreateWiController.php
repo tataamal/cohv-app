@@ -993,6 +993,17 @@ class CreateWiController extends Controller
                 'percentage' => $percentageLoad
             ];
 
+            // Sort details by NIK ascending
+            usort($summary['details'], function($a, $b) {
+                // Ensure we compare strings or numbers correctly
+                // Use 'nik' key
+                $nikA = $a['nik'] ?? '';
+                $nikB = $b['nik'] ?? '';
+                
+                // Natural string comparison is usually best for NIKs
+                return strnatcmp($nikA, $nikB);
+            });
+
             $doc->pro_summary = $summary;
 
             if ($isFullyCompleted) {
@@ -1062,7 +1073,7 @@ class CreateWiController extends Controller
                 'kmi3.16.smg@gmail.com',
                 'kmi3.29.smg@gmail.com',
                 'tataamal1128@gmail.com',
-            ]
+            ] 
         ]);
     }
 
@@ -1368,7 +1379,7 @@ class CreateWiController extends Controller
             $fileName = 'log_wi_' . now()->format('Ymd_His') . '.pdf';
             $filePath = storage_path('app/public/' . $fileName);
             
-            $pdf = Pdf::loadView('pdf.log_history', ['reports' => $data['reports']])
+            $pdf = Pdf::loadView('pdf.log_history', ['reports' => $data['reports'], 'isEmail' => true])
                     ->setPaper('a4', 'landscape');
             $pdf->save($filePath);
             
@@ -1408,7 +1419,7 @@ class CreateWiController extends Controller
             return response($data['message'], 404);
         }
 
-        $pdf = Pdf::loadView('pdf.log_history', ['reports' => $data['reports']])
+        $pdf = Pdf::loadView('pdf.log_history', ['reports' => $data['reports'], 'isEmail' => true])
                 ->setPaper('a4', 'landscape');
         
         return $pdf->stream('preview_log.pdf');
@@ -1447,27 +1458,66 @@ class CreateWiController extends Controller
         }
         $documents = $query->orderBy('created_at', 'desc')->get();
 
-        $printedBy = $request->input('printed_by') ?? session('username');
-        $department = $request->input('department') ?? '-';
-        
         $filterInfo = [];
         if($date) $filterInfo[] = "Date: " . $date;
         if($search) $filterInfo[] = "Search: $search";
         $filterString = empty($filterInfo) ? "All Data" : implode(', ', $filterInfo);
 
+        return $this->_processDocumentsToReport($documents, $request, $plantCode, $dateInfo ?? $filterString, false);
+    }
+
+    public function printLogByNik(Request $request, $plantCode)
+    {
+        $wiCodes = $request->input('wi_codes');
+        if (empty($wiCodes)) {
+            return back()->with('error', 'Tidak ada dokumen yang dipilih.');
+        }
+
+        $codesArray = explode(',', $wiCodes);
+        $documents = HistoryWi::where('plant_code', $plantCode)
+            ->whereIn('wi_document_code', $codesArray)
+            ->get();
+
+        if ($documents->isEmpty()) {
+            return back()->with('error', 'Dokumen tidak ditemukan.');
+        }
+
+        // Use "Selected Documents" as filter info
+        $filterString = "Selected " . $documents->count() . " Documents";
+        
+        $data = $this->_processDocumentsToReport($documents, $request, $plantCode, $filterString, false);
+
+        if (!$data['success']) {
+             return back()->with('error', $data['message']);
+        }
+
+        $pdf = Pdf::loadView('pdf.log_history', ['reports' => $data['reports'], 'isEmail' => false])
+                ->setPaper('a4', 'landscape');
+        
+        return $pdf->stream('log_monitor_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    private function _processDocumentsToReport($documents, Request $request, $plantCode, $filterString, $groupByDoc = false) {
+        $printedBy = $request->input('printed_by') ?? session('username');
+        $department = $request->input('department') ?? '-';
+
         // Fetch Nama Bagian Once
         $kodeModel = Kode::where('kode', $plantCode)->first();
         $namaBagian = $kodeModel ? $kodeModel->nama_bagian : '-';
 
+        // Fetch Workcenter Descriptions
+        $wcDescriptions = \App\Models\workcenter::where('werks', $plantCode)->pluck('description', 'kode_wc')->toArray();
+
         $allProcessedItems = [];
+        $finalReports = [];
         $statusFilter = $request->input('filter_status');
         
         // Loop Each Doc
         foreach($documents as $doc) {
+            $docItems = [];
             $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
             if (!is_array($payload)) $payload = [];
 
-            // $csvData = [];
             foreach ($payload as $item) {
                 // Item Processing Logic (Same as Command)
                 $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
@@ -1492,10 +1542,10 @@ class CreateWiController extends Controller
                 
                 $expiredAt = Carbon::parse($doc->expired_at);
                 
-                if ($hasRemark) {
-                    $status = 'NOT COMPLETED WITH REMARK';
-                } elseif ($balance <= 0) {
+                if ($balance <= 0) {
                     $status = 'COMPLETED'; 
+                } elseif ($hasRemark) {
+                    $status = 'NOT COMPLETED WITH REMARK';
                 } elseif (now()->gt($expiredAt)) {
                     $status = 'NOT COMPLETED';
                 } else {
@@ -1504,7 +1554,6 @@ class CreateWiController extends Controller
 
                 // FILTER LOGIC PER ITEM
                 $keep = true;
-                if (in_array($status, ['ACTIVE', 'INACTIVE'])) $keep = false;
                 if ($statusFilter) {
                     if ($statusFilter === 'NOT COMPLETED') { 
                         if (!in_array($status, ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) $keep = false;
@@ -1514,6 +1563,41 @@ class CreateWiController extends Controller
                         if ($status !== $statusFilter) $keep = false;
                     }
                 }
+                // Override for manual selection print: We generally want ALL items in selected docs unless user expects standard filtering?
+                // The user said "reference from document sent by email.. but make sure only CURRENT data is printed".
+                // 'Current data is printed' likely means whatever is in the doc.
+                // However, the EMAIL LOG logic has `if (in_array($status, ['ACTIVE', 'INACTIVE'])) $keep = false;`
+                // This HIDES active items. 
+                // The user wants "Cetak by NIK". If the doc is ACTIVE, we probably want to see it?
+                // The "Email Log" usually sends history of completed/expired?
+                // The user command: "Cetak by NIK mengambil referensi dari dokumen yang dikirim melalui email".
+                // The "Email Log" logic specifically filters OUT Active/Inactive.
+                // If I am printing ACTIVE documents "By NIK", and I use this logic, I will get EMPTY result.
+                // I should DISABLE the status filter if we are printing manually selected codes (implied by context of 'Cetak Terpilih').
+                // Let distinguish by checking if we are coming from 'printLogByNik'.
+                // Or simplified: If statusFilter is NOT set, do we keep active?
+                // Original logic: if (in_array($status, ['ACTIVE', 'INACTIVE'])) $keep = false;
+                // This seems to enforce that the LOG report is ONLY for finalized items.
+                
+                // CRITICAL decision: If I apply this logic to "Active Documents" tab, it will show nothing.
+                // I must allow ACTIVE status if we are not strictly in "Email Report" mode.
+                // But `_generateReportData` is used for Email Report.
+                // I'll add a flag or check if specific WI codes are requested.
+                
+                if (!$statusFilter && !$request->has('wi_codes')) {
+                     // Standard Email Report Behavior: Exclude Active
+                     if (in_array($status, ['ACTIVE', 'INACTIVE'])) $keep = false;
+                }
+                
+                // If specific WI Codes are requested (Manual Print), we probably want to see ALL items in those docs regardless of status.
+                // So I skip the 'ACTIVE' check if 'wi_codes' is present.
+                
+                if (!$keep && $request->has('wi_codes')) {
+                    // Re-evaluate for Manual Print
+                    $keep = true; 
+                    // But still respect explicit status filter if passed (which usually isn't for manual print)
+                }
+
                 if (!$keep) continue;
 
                 // Rest of Fields
@@ -1547,11 +1631,16 @@ class CreateWiController extends Controller
                 $priceFormatted = $prefixInfo . number_format($confirmedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
                 $failedPriceFormatted = $prefixInfo . number_format($failedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
 
-                $allProcessedItems[] = [
+                // Fetch WC Description if missing
+                // Optimize: Fetch outside loop ideally, but for now check caching or simple query if needed. 
+                // Better: Load all RefWorkcenter at start.
+                
+                $processedItem = [
                     'doc_no'        => $doc->wi_document_code,
                     'created_at'    => $doc->created_at,
                     'expired_at'    => $expiredAt->format('m-d H:i'),
                     'workcenter'    => $wc,
+                    'wc_description'=> $wcDescriptions[$wc] ?? '-', // Populated via lookup
                     'aufnr'         => $item['aufnr'] ?? '-',
                     'material'      => $matnr,
                     'description'   => $item['material_desc'] ?? '-',
@@ -1573,59 +1662,140 @@ class CreateWiController extends Controller
                     'so_item'         => $soItem,
                     'takt_time'       => $taktFull,
                 ];
+
+                if ($groupByDoc) {
+                    $docItems[] = $processedItem;
+                } else {
+                    $allProcessedItems[] = $processedItem;
+                }
             } // End Item Loop
+
+            if ($groupByDoc && !empty($docItems)) {
+                $sortedItems = collect($docItems)->sortBy([
+                    ['workcenter', 'asc'],
+                    ['nik', 'asc']
+                ])->values()->all();
+
+                $totalAssigned = collect($sortedItems)->sum('assigned');
+                $totalConfirmed = collect($sortedItems)->sum('confirmed');
+                $totalFailed = collect($sortedItems)->sum('balance'); 
+                $totalRemarkQty = collect($sortedItems)->sum('remark_qty');
+                $achievement = ($totalAssigned > 0) ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+                
+                $totalConfirmedPrice = collect($sortedItems)->sum('confirmed_price');
+                $totalFailedPrice = collect($sortedItems)->sum('failed_price');
+
+                $curr = $sortedItems[0]['currency'] ?? 'IDR';
+                $pfx = ($curr === 'USD') ? '$ ' : 'Rp ';
+                $dec = ($curr === 'USD') ? 2 : 0;
+
+                $finalReports[] = [
+                    'report_title' => 'WORK INSTRUCTION SHEET', 
+                    'items' => $sortedItems,
+                    'summary' => [
+                        'total_assigned' => $totalAssigned,
+                        'total_confirmed' => $totalConfirmed,
+                        'total_failed' => $totalFailed,
+                        'total_remark_qty' => $totalRemarkQty,
+                        'achievement_rate' => $achievement,
+                        'total_price_ok' => $pfx . number_format($totalConfirmedPrice, $dec, ',', '.'),
+                        'total_price_fail' => $pfx . number_format($totalFailedPrice, $dec, ',', '.')
+                    ],
+                    'nama_bagian' => $namaBagian,  
+                    'printDate' => now()->format('d-M-Y H:i'),
+                    'filterInfo' => $filterString,
+                    'doc_metadata' => [
+                         'code'     => $doc->wi_document_code,
+                         'status'   => (now()->gt($doc->expired_at)) ? 'EXPIRED' : (
+                                        (collect($sortedItems)->sum('balance') <= 0) ? 'COMPLETED' : 'ACTIVE'
+                                      ),
+                         'date'     => $doc->created_at->format('d-M-Y'),
+                         'expired'  => $doc->expired_at ? \Carbon\Carbon::parse($doc->expired_at)->format('d-M-Y H:i') : '-',
+                    ]
+                ];
+            }
         } // End Doc Loop
 
         // === UNIFIED REPORT LOGIC START ===
-        if (empty($allProcessedItems)) {
-             return ['success' => false, 'message' => 'Tidak ada data history (Items Empty).'];
+        // === UNIFIED REPORT LOGIC START ===
+        if (!$groupByDoc && !empty($allProcessedItems)) {
+            // 1. Sort
+            $sortedItems = collect($allProcessedItems)->sortBy([
+                ['workcenter', 'asc'],
+                ['nik', 'asc']
+            ])->values()->all();
+
+            // 2. Summary
+            $totalAssigned = collect($sortedItems)->sum('assigned');
+            $totalConfirmed = collect($sortedItems)->sum('confirmed'); 
+            $totalRemarkQty = collect($sortedItems)->sum('remark_qty');
+            $totalFailed = $totalAssigned - $totalConfirmed; 
+            
+            $totalConfirmedPrice = collect($sortedItems)->sum('confirmed_price');
+            $totalFailedPrice = collect($sortedItems)->sum('failed_price');
+
+            $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+
+            $firstCurrency = collect($sortedItems)->first()['currency'] ?? '';
+            $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
+            $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
+
+            $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
+            $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
+
+            // Calculate Aggregate Status
+            $uniqueStatuses = collect($sortedItems)->pluck('status')->unique();
+            $aggStatus = 'ACTIVE';
+            
+            if ($uniqueStatuses->contains('ACTIVE') || $uniqueStatuses->contains('INACTIVE')) {
+                $aggStatus = 'ACTIVE';
+            } elseif ($uniqueStatuses->contains('NOT COMPLETED') || $uniqueStatuses->contains('NOT COMPLETED WITH REMARK')) {
+                $aggStatus = 'EXPIRED';
+            } elseif ($uniqueStatuses->contains('COMPLETED')) {
+                $aggStatus = 'COMPLETED';
+            }
+
+            $reportData = [
+                'report_title' => 'DAILY REPORT WI',
+                'items' => $sortedItems,
+                'summary' => [
+                    'total_assigned' => $totalAssigned,
+                    'total_confirmed' => $totalConfirmed,
+                    'total_failed' => $totalFailed,
+                    'total_remark_qty' => $totalRemarkQty,
+                    'achievement_rate' => $achievement,
+                    'total_price_ok' => $totalConfirmedPriceFmt,
+                    'total_price_fail' => $totalFailedPriceFmt
+                ],
+                'nama_bagian' => $namaBagian,  
+                'printDate' => now()->format('d-M-Y H:i'),
+                'filterInfo' => $filterString,
+                'doc_metadata' => [
+                     'code'     => $documents->count() === 1 ? $documents->first()->wi_document_code : 'MULTIPLE (' . $documents->count() . ')',
+                     'status'   => $aggStatus,
+                     'date'     => ($documents->count() > 0) ? (
+                                     ($documents->min('created_at')->format('Y-m-d') === $documents->max('created_at')->format('Y-m-d')) 
+                                     ? $documents->first()->created_at->format('d-M-Y') 
+                                     : $documents->min('created_at')->format('d-M-Y') . ' - ' . $documents->max('created_at')->format('d-M-Y')
+                                   ) : '-',
+                     'expired'  => ($documents->count() > 0 && $documents->first()->expired_at) ? (
+                                      ($documents->min('expired_at') === $documents->max('expired_at'))
+                                      ? \Carbon\Carbon::parse($documents->first()->expired_at)->format('d-M-Y H:i')
+                                      : \Carbon\Carbon::parse($documents->min('expired_at'))->format('d-M-Y') . ' - ' . \Carbon\Carbon::parse($documents->max('expired_at'))->format('d-M-Y')
+                                   ) : '-',
+                ]
+            ];
+            
+            $finalReports = [$reportData];
         }
 
-        // 1. Sort
-        $sortedItems = collect($allProcessedItems)->sortBy([
-            ['workcenter', 'asc'],
-            ['nik', 'asc']
-        ])->values()->all();
-
-        // 2. Summary
-        $totalAssigned = collect($sortedItems)->sum('assigned');
-        $totalConfirmed = collect($sortedItems)->sum('confirmed'); 
-        $totalRemarkQty = collect($sortedItems)->sum('remark_qty');
-        $totalFailed = $totalAssigned - $totalConfirmed; 
-        
-        $totalConfirmedPrice = collect($sortedItems)->sum('confirmed_price');
-        $totalFailedPrice = collect($sortedItems)->sum('failed_price');
-
-        $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
-
-        $firstCurrency = collect($sortedItems)->first()['currency'] ?? '';
-        $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
-        $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
-
-        $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
-        $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
-
-        $reportData = [
-            'items' => $sortedItems,
-            'summary' => [
-                'total_assigned' => $totalAssigned,
-                'total_confirmed' => $totalConfirmed,
-                'total_failed' => $totalFailed,
-                'total_remark_qty' => $totalRemarkQty,
-                'achievement_rate' => $achievement,
-                'total_price_ok' => $totalConfirmedPriceFmt,
-                'total_price_fail' => $totalFailedPriceFmt
-            ],
-            'nama_bagian' => $namaBagian,  
-            'printDate' => now()->format('d-M-Y H:i'),
-            'filterInfo' => $filterString
-        ];
-        
-        $finalReport = [$reportData];
+        if (empty($finalReports)) {
+             return ['success' => false, 'message' => 'Tidak ada data history untuk diprint.'];
+        }
 
         return [
             'success' => true, 
-            'reports' => $finalReport, 
+            'reports' => $finalReports, 
             'printedBy' => $printedBy,
             'department' => $department,
             'filterInfoString' => $dateInfo ?? $filterString

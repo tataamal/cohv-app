@@ -235,7 +235,7 @@ class SendLogWeeklyEmail extends Command
             $safeName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $namaBagian);
             $weeklyPdfName = "Weekly Report WI_{$safeName}_{$startDate}_{$endDate}.pdf";
             
-            $pdfViewData = ['reports' => [$reportData]];
+            $pdfViewData = ['reports' => [$reportData], 'isEmail' => true];
             
             $weeklyPdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.log_history', $pdfViewData)
                           ->setPaper('a4', 'landscape');

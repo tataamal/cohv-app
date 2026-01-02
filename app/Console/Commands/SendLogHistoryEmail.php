@@ -234,7 +234,7 @@ class SendLogHistoryEmail extends Command
             $safeName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $namaBagian);
             $historyPdfName = "Daily Report WI - {$safeName} - {$dateHistory}.pdf";
             
-            $pdfViewData = ['reports' => [$reportData]];
+            $pdfViewData = ['reports' => [$reportData], 'isEmail' => true];
             
             $historyPdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.log_history', $pdfViewData)
                           ->setPaper('a4', 'landscape');
@@ -323,7 +323,7 @@ class SendLogHistoryEmail extends Command
             $this->info("   No reports/files to send.");
         } else {
             $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com','kmi3.16.smg@gmail.com','kmi3.29.smg@gmail.com'];
-            //$recipients = ['tataamal1128@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateHistory)->locale('id')->translatedFormat('d F Y');
 
             try {

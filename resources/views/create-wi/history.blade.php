@@ -401,9 +401,19 @@
                                     <button type="button" id="btnActiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('active')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countActiveDel">0</span>)
                                     </button>
-                                    <button type="button" id="btnActiveAction" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="openPrintModal('active')">
-                                        <i class="fa-solid fa-print me-1"></i> Cetak Terpilih (<span id="countActive">0</span>)
+                                    <button type="button" id="btnActiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('active')">
+                                        <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countActiveDel">0</span>)
                                     </button>
+                                    
+                                    <div class="dropdown d-none" id="btnActiveAction">
+                                        <button class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fa-solid fa-print me-1"></i> Cetak (<span id="countActive">0</span>)
+                                        </button>
+                                        <ul class="dropdown-menu shadow border-0 rounded-4">
+                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('active', 'document')"><i class="fa-solid fa-file-invoice me-2 text-success"></i>By Document</a></li>
+                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('active', 'nik')"><i class="fa-solid fa-users-viewfinder me-2 text-primary"></i>By NIK</a></li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -496,7 +506,10 @@
                                                                 $kdposHist = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
                                                                 $soItemHist = $isMakeStockHist ? $kdaufHist : ($kdaufHist . ($kdposHist ? ' - ' . $kdposHist : ''));
                                                             @endphp
-                                                            <div class="text-muted text-xs text-truncate ps-1">{{ $soItemHist }}</div>
+                                                            <div class="text-muted text-xs text-truncate ps-1">
+                                                                {{ $soItemHist }}
+                                                                <span class="ms-1 text-primary">Time Required: {{ number_format($item['item_mins'] ?? 0, 2) }} min</span>
+                                                            </div>
                                                             <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                         </div>
                                                         <div class="col-lg-4 text-end">
@@ -731,9 +744,15 @@
                                     <button type="button" id="btnExpiredDelete" class="btn btn-outline-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('expired')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countExpiredDel">0</span>)
                                     </button>
-                                    <button type="button" id="btnExpiredAction" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="openPrintModal('expired')">
-                                        <i class="fa-solid fa-file-invoice me-1"></i> Cetak Report (<span id="countExpired">0</span>)
-                                    </button>
+                                    <div class="dropdown d-none" id="btnExpiredAction">
+                                        <button class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fa-solid fa-file-invoice me-1"></i> Report (<span id="countExpired">0</span>)
+                                        </button>
+                                        <ul class="dropdown-menu shadow border-0 rounded-4">
+                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('expired', 'document')"><i class="fa-solid fa-file-export me-2 text-danger"></i>Result Report</a></li>
+                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('expired', 'nik')"><i class="fa-solid fa-users-viewfinder me-2 text-primary"></i>By NIK</a></li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -769,6 +788,17 @@
                                                               <div class="fw-bold text-dark small">{{ $item['nik'] ?? ($item['nik'] ?? '-') }}</div>
                                                               <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
                                                               <span class="badge bg-danger text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
+                                                          </div>
+                                                          @php
+                                                              $kdaufHist = $item['kdauf'] ?? '';
+                                                              $matKdaufHist = $item['mat_kdauf'] ?? '';
+                                                              $isMakeStockHist = (strcasecmp($kdaufHist, 'Make Stock') === 0) || (strcasecmp($matKdaufHist, 'Make Stock') === 0);
+                                                              $kdposHist = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                                                              $soItemHist = $isMakeStockHist ? $kdaufHist : ($kdaufHist . ($kdposHist ? ' - ' . $kdposHist : ''));
+                                                          @endphp
+                                                          <div class="text-muted text-xs text-truncate ps-1">
+                                                              {{ $soItemHist }}
+                                                              <span class="ms-1 fw-bold text-primary" style="font-size: 0.65rem;">(Tak: {{ number_format($item['item_mins'] ?? 0, 2) }} min)</span>
                                                           </div>
                                                           <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                       </div>
@@ -831,9 +861,15 @@
                                     <button type="button" id="btnCompletedDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('completed')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countCompletedDel">0</span>)
                                     </button>
-                                     <button type="button" id="btnCompletedAction" class="btn btn-info text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="openPrintModal('completed')">
-                                        <i class="fa-solid fa-file-invoice me-1"></i> Report (<span id="countCompleted">0</span>)
-                                    </button>
+                                     <div class="dropdown d-none" id="btnCompletedAction">
+                                        <button class="btn btn-info text-white btn-sm px-3 rounded-pill fw-bold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fa-solid fa-file-invoice me-1"></i> Report (<span id="countCompleted">0</span>)
+                                        </button>
+                                        <ul class="dropdown-menu shadow border-0 rounded-4">
+                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('completed', 'document')"><i class="fa-solid fa-file-export me-2 text-info"></i>Completed Report</a></li>
+                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('completed', 'nik')"><i class="fa-solid fa-users-viewfinder me-2 text-primary"></i>By NIK</a></li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -869,6 +905,17 @@
                                                              <div class="fw-bold text-dark small">{{ $item['nik'] ?? ($item['nik'] ?? '-') }}</div>
                                                              <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
                                                               <span class="badge bg-info text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
+                                                         </div>
+                                                         @php
+                                                             $kdaufHist = $item['kdauf'] ?? '';
+                                                             $matKdaufHist = $item['mat_kdauf'] ?? '';
+                                                             $isMakeStockHist = (strcasecmp($kdaufHist, 'Make Stock') === 0) || (strcasecmp($matKdaufHist, 'Make Stock') === 0);
+                                                             $kdposHist = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                                                             $soItemHist = $isMakeStockHist ? $kdaufHist : ($kdaufHist . ($kdposHist ? ' - ' . $kdposHist : ''));
+                                                         @endphp
+                                                         <div class="text-muted text-xs text-truncate ps-1">
+                                                             {{ $soItemHist }}
+                                                             <span class="ms-1 fw-bold text-primary" style="font-size: 0.65rem;">(Tak: {{ number_format($item['item_mins'] ?? 0, 2) }} min)</span>
                                                          </div>
                                                          <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                      </div>
@@ -1231,13 +1278,13 @@
             
             // Buka Modal dengan konfigurasi type tersebut
             const modalEl = document.getElementById('universalPrintModal');
-            setupModalUI(type, 1);
+            setupModalUI(type, 1, 'document'); // Default to document mode for single print
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
         }
 
         // --- 3. UI SETUP FOR MODAL ---
-        function setupModalUI(type, count) {
+        function setupModalUI(type, count, mode = 'document') {
             const form = document.getElementById('printForm');
             const alertMsg = document.getElementById('modalAlert');
             const modalTitle = document.getElementById('modalTitle');
@@ -1267,39 +1314,20 @@
             const recipientContainer = document.getElementById('emailRecipientsContainer');
             if(recipientContainer) recipientContainer.classList.add('d-none'); // Hide recipients by default
             
-            // Helper for manual email add
-            const btnAddEmail = document.getElementById('btnAddEmailManual');
-            const inputNewEmail = document.getElementById('newRecipientInput');
-            const manualList = document.getElementById('manualEmailsList');
+            // Manual Email Logic Block (Keep existing if needed or rely on existing initialization)
             
-            if(btnAddEmail) {
-                btnAddEmail.onclick = function() {
-                    const email = inputNewEmail.value.trim();
-                    if(email && email.includes('@')) {
-                        // Check Duplicate
-                        const existing = Array.from(document.querySelectorAll('.email-recipient-cb')).map(cb => cb.value);
-                        if(existing.includes(email)) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: 'Email sudah ada',
-                                text: 'Email tersebut sudah masuk dalam daftar penerima.',
-                                confirmButtonColor: '#3085d6'
-                            });
-                            return;
-                        }
-
-                        const div = document.createElement('div');
-                        div.className = 'form-check';
-                        div.innerHTML = `
-                            <input class="form-check-input email-recipient-cb" type="checkbox" value="${email}" checked>
-                            <label class="form-check-label small font-monospace">${email} <i class="fa-solid fa-user-plus text-success ms-1"></i></label>
-                        `;
-                        manualList.appendChild(div);
-                        inputNewEmail.value = '';
-                    } else {
-                        Swal.fire('Error', 'Format email tidak valid.', 'error');
-                    }
-                };
+            // Handle Print Modes
+            if (mode === 'nik') {
+                form.action = "{{ route('wi.print-log-nik', ['kode' => $plantCode]) }}";
+                modalTitle.innerText = 'CETAK LOG BY NIK';
+                headerBg.style.background = '#6366f1'; // Indigo/Purple
+                
+                alertMsg.className = 'alert bg-primary-subtle text-primary border-0 fw-bold';
+                alertMsg.innerHTML = `<i class="fa-solid fa-users me-2"></i>Mencetak Log History berdasarkan NIK untuk ${count} dokumen.`;
+                
+                btnSubmit.className = 'btn btn-primary px-4 rounded-pill fw-bold shadow-sm';
+                btnSubmit.innerHTML = '<i class="fa-solid fa-print me-2"></i>Print by NIK';
+                return; // Exit early as mode overrides standard types
             }
 
             if (type === 'active') {
@@ -2228,20 +2256,11 @@
             });
         };
 
-        window.openPrintModal = function(type) {
-            let ids = [];
-            if(type === 'active') {
-                document.querySelectorAll('.cb-active:checked').forEach(c => ids.push(c.value));
-                if(ids.length === 0) return Swal.fire('Pilih dokumen dulu');
-                
-                const modalEl = document.getElementById('universalPrintModal');
-                const inputCodes = document.getElementById('inputWiCodes');
-                inputCodes.value = ids.join(',');
-                setupModalUI(type, ids.length);
-                new bootstrap.Modal(modalEl).show();
-            } 
-            else if (type === 'log') {
-               // Open Email Log Modal
+        window.openPrintModal = function(type, mode = 'document') {
+            console.log("Open Print Modal Triggered", type, mode);
+
+            // Handle Legacy Log Type (Export Log Button)
+            if (type === 'log') {
                const modalEl = document.getElementById('emailLogModal');
                if(modalEl) {
                    const field = document.getElementById('emailRecipients');
@@ -2251,24 +2270,35 @@
                    }
                    new bootstrap.Modal(modalEl).show();
                }
+               return;
             }
-            else { 
-                let selector;
-                if (type === 'expired') selector = '.cb-expired:checked';
-                else if (type === 'completed') selector = '.cb-completed:checked';
-                else selector = '.cb-inactive:checked';
 
-                document.querySelectorAll(selector).forEach(cb => ids.push(cb.value));
-                if(ids.length === 0) return Swal.fire('Pilih dokumen dulu');
-
-                const modalEl = document.getElementById('universalPrintModal');
-                const inputCodes = document.getElementById('inputWiCodes');
-                inputCodes.value = ids.join(',');
-                setupModalUI(type, ids.length);
-
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
+            // 1. Collect Checked Items based on Type
+            let ids = [];
+            let selector = '';
+            if (type === 'active') selector = '.cb-active:checked';
+            else if (type === 'expired') selector = '.cb-expired:checked';
+            else if (type === 'completed') selector = '.cb-completed:checked';
+            else if (type === 'inactive') selector = '.cb-inactive:checked';
+            
+            if (selector) {
+                document.querySelectorAll(selector).forEach(c => ids.push(c.value));
             }
+
+            if(ids.length === 0) {
+                Swal.fire('Peringatan', 'Pilih minimal satu dokumen untuk dicetak.', 'warning');
+                return;
+            }
+
+            // 2. Setup Modal
+            const modalEl = document.getElementById('universalPrintModal');
+            const inputCodes = document.getElementById('inputWiCodes');
+            inputCodes.value = ids.join(',');
+
+            setupModalUI(type, ids.length, mode); // Pass mode
+            
+            // 3. Show Modal
+            new bootstrap.Modal(modalEl).show();
         };
 
         window.previewEmailLog = function() {

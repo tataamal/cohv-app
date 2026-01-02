@@ -180,32 +180,73 @@
                             <td>
                                 <div class="company-name">PT KAYU MEBEL INDONESIA</div>
                                 <!-- New Title Format -->
-                                <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT WI' }} - {{ $report['nama_bagian'] }} - {{ $report['filterInfo'] }}</div>
+                                @if($isEmail ?? false)
+                                    <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT WI' }} - {{ $report['nama_bagian'] }} - {{ $report['filterInfo'] }}</div>
+                                @else
+                                    @php
+                                        $docStatus = strtoupper($report['doc_metadata']['status'] ?? '');
+                                        $headerTitle = 'WORK INSTRUCTION SHEET';
+                                        if (str_contains($docStatus, 'COMPLETED') && !str_contains($docStatus, 'NOT')) {
+                                            $headerTitle = 'COMPLETED WORK INSTRUCTION';
+                                        } elseif (str_contains($docStatus, 'EXPIRED') || str_contains($docStatus, 'NOT COMPLETED')) {
+                                            $headerTitle = 'EXPIRED WORK INSTRUCTION';
+                                        }
+                                    @endphp
+                                    <div class="doc-title" style="font-size: 14pt; color: #000;">{{ $headerTitle }}</div>
+                                @endif
                             </td>
                         </tr>
                     </table>
                 </td>
-                <!-- Removed Right Header (Doc No) as requested -->
-            </tr>
         </table>
 
+        {{-- 2. INFO ROW (For Manual Print) --}}
+        @if(!($isEmail ?? false))
+            <table class="info-bar" style="width: 100%; border: 2px solid #000; border-top: none; margin-bottom: 0px;">
+                <tr>
+                    <td style="width: 35%; border-right: 2px solid #000;">
+                        DEPARTMENT: <span class="info-val">{{ $report['nama_bagian'] }}</span>
+                    </td>
+                    <td style="width: 25%; border-right: 2px solid #000;">
+                        STATUS: <span class="info-val">{{ $report['doc_metadata']['status'] ?? '-' }}</span>
+                    </td>
+                    <td style="width: 20%; border-right: 2px solid #000;">
+                        DATE: <span class="info-val">{{ $report['doc_metadata']['date'] ?? '-' }}</span>
+                    </td>
+                    <td style="width: 20%;">
+                        EXPIRED: <span class="info-val" style="color: #d00;">{{ $report['doc_metadata']['expired'] ?? '-' }}</span>
+                    </td>
+                </tr>
+            </table>
+        @endif
+
          {{-- 3. SUMMARY TABLE (Inserted Here) --}}
+         {{-- 3. SUMMARY TABLE --}}
          <table>
             <tr class="summary-header">
-                <td width="16%">Quantity WI</td>
-                <td width="16%">Quantity Terkonfirmasi</td>
-                <td width="16%">Quantity Tidak Terkonfirmasi</td>
-                <td width="16%">Total Price OK</td>
-                <td width="16%">Total Price Fail</td>
-                <td width="20%">Rata-rata Keberhasilan</td>
+                @if($isEmail ?? false)
+                    <td width="16%">Quantity WI</td>
+                    <td width="16%">Quantity Terkonfirmasi</td>
+                    <td width="16%">Quantity Tidak Terkonfirmasi</td>
+                    <td width="20%">Rata-rata Keberhasilan</td>
+                    <td width="16%">Total Price OK</td>
+                    <td width="16%">Total Price Fail</td>
+                @else
+                    <td width="25%">Quantity WI</td>
+                    <td width="25%">Quantity Terkonfirmasi</td>
+                    <td width="25%">Quantity Tidak Terkonfirmasi</td>
+                    <td width="25%">Rata-rata Keberhasilan</td>
+                @endif
             </tr>
             <tr class="summary-values">
                 <td>{{ number_format($report['summary']['total_assigned'], 0) }}</td>
                 <td class="text-success">{{ number_format($report['summary']['total_confirmed'], 0) }}</td>
                 <td class="text-danger">{{ number_format($report['summary']['total_failed'], 0) }}</td>
-                <td class="text-success">{{ $report['summary']['total_price_ok'] }}</td>
-                <td class="text-danger">{{ $report['summary']['total_price_fail'] }}</td>
                 <td>{{ $report['summary']['achievement_rate'] }}</td>
+                @if($isEmail ?? false)
+                    <td class="text-success">{{ $report['summary']['total_price_ok'] }}</td>
+                    <td class="text-danger">{{ $report['summary']['total_price_fail'] }}</td>
+                @endif
             </tr>
         </table>
 
@@ -225,8 +266,10 @@
                     <th width="4%">CONF</th>
                     <th width="6%">TIME</th>
                     <th width="9%">REMARK</th>
-                    <th width="8%">PRICE OK</th>
-                    <th width="8%">PRICE FAIL</th>
+                    @if($isEmail ?? false)
+                        <th width="8%">PRICE OK</th>
+                        <th width="8%">PRICE FAIL</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -234,6 +277,7 @@
                     $no = 1; 
                     $currentNik = null;
                     $items = $report['items'];
+                    $isActiveStatus = in_array(strtoupper($report['doc_metadata']['status'] ?? ''), ['ACTIVE', 'INACTIVE']);
                 @endphp
 
                 @foreach($items as $row)
@@ -271,13 +315,18 @@
                             <td colspan="14" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
                                 <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
-                                    (Total Qty WI: {{ number_format($gAssigned, 0) }} | 
-                                    Total Time Working Hours: {{ $gTotalTimeHoursFmt }} |
-                                    {{ $groupCount }} Transaksi | 
-                                    Konfirmasi: {{ number_format($gConfirmed, 0) }}, 
-                                    Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} | 
-                                    OK : {{ $fmtOk }}, 
-                                    Fail : {{ $fmtFail }} )
+                                    @if($isEmail ?? false)
+                                        (Total Qty WI: {{ number_format($gAssigned, 0) }} | 
+                                        Total Time Working Hours: {{ $gTotalTimeHoursFmt }} |
+                                        {{ $groupCount }} Transaksi | 
+                                        Konfirmasi: {{ number_format($gConfirmed, 0) }}, 
+                                        Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }}
+                                         | OK : {{ $fmtOk }}, 
+                                         Fail : {{ $fmtFail }} 
+                                        )
+                                    @else
+                                        (Total Qty WI: {{ number_format($gAssigned, 0) }})
+                                    @endif
                                 </span>
                             </td>
                         </tr>
@@ -294,7 +343,7 @@
                         </td>
                         {{-- New Columns --}}
                         <td class="text-center">{{ $row['workcenter'] }}</td>
-                        <td>{{ $row['wc_description'] }}</td>
+                        <td>{{ $row['wc_description'] ?? '-' }}</td>
                         
                         <td class="text-center">{{ $row['so_item'] }}</td>
                         <td class="text-center fw-bold">{{ $row['aufnr'] }}</td>
@@ -307,7 +356,7 @@
                         {{-- Remark --}}
                         <td class="text-center" style="font-size: 7pt;">
                             @if(floatval($row['remark_qty']) > 0)
-                                Qty:{{ floatval($row['remark_qty']) }} {{ $row['remark_text'] }}
+                                {{ $row['remark_text'] }}
                             @elseif(!empty($row['remark_text']) && $row['remark_text'] !== '-')
                                 {{ $row['remark_text'] }}
                             @else
@@ -315,19 +364,69 @@
                             @endif
                         </td>
 
-                        <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
-                        <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
+                        @if($isEmail ?? false)
+                            <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
+                            <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
+                        @endif
                     </tr>
                 @endforeach
+                
+                {{-- FILL EMPTY ROWS (For Active Documents Manual Print) --}}
+                @if(!($isEmail ?? false) && $isActiveStatus)
+                    @php
+                        // Estimate rows per page or fixed target. 
+                        // Assuming landscape A4, roughly 15-20 rows fit well.
+                        $minRows = 9;
+                        $rowCount = count($items); // Roughly count items
+                        $emptyRowsNeeded = max(0, $minRows - $rowCount);
+                    @endphp
+
+                    @for($i = 0; $i < $emptyRowsNeeded; $i++)
+                        <tr class="data-row">
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            <td style="border: 1px solid #000;">&nbsp;</td>
+                        </tr>
+                    @endfor
+                @endif
             </tbody>
         </table>
 
-
+        @if(!($isEmail ?? false) && $isActiveStatus)
+            <table style="width: 100%; border: 1px solid #000; border-top: none; page-break-inside: avoid;">
+                <tr style="background-color: #ccc;">
+                    <th style="border-right: 1px solid #000; width: 33%; height: 20px; font-size: 8pt; text-align: center; border-bottom: 1px solid #000;">PREPARED BY</th>
+                    <th style="border-right: 1px solid #000; width: 33%; height: 20px; font-size: 8pt; text-align: center; border-bottom: 1px solid #000;">CHECKED BY</th>
+                    <th style="width: 33%; height: 20px; font-size: 8pt; text-align: center; border-bottom: 1px solid #000;">APPROVED BY</th>
+                </tr>
+                <tr>
+                    <td style="border-right: 1px solid #000; height: 80px;">&nbsp;</td>
+                    <td style="border-right: 1px solid #000; height: 80px;">&nbsp;</td>
+                    <td style="height: 80px;">&nbsp;</td>
+                </tr>
+                <tr>
+                    <td style="border-right: 1px solid #000; text-align: center; padding-bottom: 5px; font-size: 8pt;">(...........................................)</td>
+                    <td style="border-right: 1px solid #000; text-align: center; padding-bottom: 5px; font-size: 8pt;">(...........................................)</td>
+                    <td style="text-align: center; padding-bottom: 5px; font-size: 8pt;">(...........................................)</td>
+                </tr>
+            </table>
+        @endif
     </div>
 
     </div>
 
-    {{-- Page Break Removed --}}
+    @if(!$loop->last)
+        <div class="page-break"></div>
+    @endif
 
 @endforeach
 
