@@ -1505,8 +1505,12 @@ class CreateWiController extends Controller
         $kodeModel = Kode::where('kode', $plantCode)->first();
         $namaBagian = $kodeModel ? $kodeModel->nama_bagian : '-';
 
-        // Fetch Workcenter Descriptions
-        $wcDescriptions = \App\Models\workcenter::where('werks', $plantCode)->pluck('description', 'kode_wc')->toArray();
+        // Fetch Workcenter Descriptions (Check both werks and werksx)
+        $wcDescriptions = \App\Models\workcenter::where('werks', $plantCode)
+            ->orWhere('werksx', $plantCode)
+            ->pluck('description', 'kode_wc')
+            ->mapWithKeys(fn($item, $key) => [strtoupper($key) => $item])
+            ->toArray();
 
         $allProcessedItems = [];
         $finalReports = [];
@@ -1640,7 +1644,7 @@ class CreateWiController extends Controller
                     'created_at'    => $doc->created_at,
                     'expired_at'    => $expiredAt->format('m-d H:i'),
                     'workcenter'    => $wc,
-                    'wc_description'=> $wcDescriptions[$wc] ?? '-', // Populated via lookup
+                    'wc_description'=> $wcDescriptions[strtoupper($wc)] ?? '-', // Populated via lookup
                     'aufnr'         => $item['aufnr'] ?? '-',
                     'material'      => $matnr,
                     'description'   => $item['material_desc'] ?? '-',
