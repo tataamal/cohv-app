@@ -63,6 +63,26 @@ return [
             ]) : [],
         ],
 
+        'mysql_person' => [ // Koneksi Kedua (wc_person)
+            'driver' => 'mysql',
+            'host' => env('DB_PERSON_HOST', '192.168.90.27'),
+            'database' => env('DB_PERSON_DATABASE', 'wc_person'),
+            'username' => env('DB_PERSON_USERNAME', 'root'),
+            'password' => env('DB_PERSON_PASSWORD', 'singgampang'),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                (defined('Pdo\Mysql::ATTR_SSL_CA') ? \Pdo\Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

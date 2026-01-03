@@ -1567,39 +1567,15 @@ class CreateWiController extends Controller
                         if ($status !== $statusFilter) $keep = false;
                     }
                 }
-                // Override for manual selection print: We generally want ALL items in selected docs unless user expects standard filtering?
-                // The user said "reference from document sent by email.. but make sure only CURRENT data is printed".
-                // 'Current data is printed' likely means whatever is in the doc.
-                // However, the EMAIL LOG logic has `if (in_array($status, ['ACTIVE', 'INACTIVE'])) $keep = false;`
-                // This HIDES active items. 
-                // The user wants "Cetak by NIK". If the doc is ACTIVE, we probably want to see it?
-                // The "Email Log" usually sends history of completed/expired?
-                // The user command: "Cetak by NIK mengambil referensi dari dokumen yang dikirim melalui email".
-                // The "Email Log" logic specifically filters OUT Active/Inactive.
-                // If I am printing ACTIVE documents "By NIK", and I use this logic, I will get EMPTY result.
-                // I should DISABLE the status filter if we are printing manually selected codes (implied by context of 'Cetak Terpilih').
-                // Let distinguish by checking if we are coming from 'printLogByNik'.
-                // Or simplified: If statusFilter is NOT set, do we keep active?
-                // Original logic: if (in_array($status, ['ACTIVE', 'INACTIVE'])) $keep = false;
-                // This seems to enforce that the LOG report is ONLY for finalized items.
-                
-                // CRITICAL decision: If I apply this logic to "Active Documents" tab, it will show nothing.
-                // I must allow ACTIVE status if we are not strictly in "Email Report" mode.
-                // But `_generateReportData` is used for Email Report.
-                // I'll add a flag or check if specific WI codes are requested.
                 
                 if (!$statusFilter && !$request->has('wi_codes')) {
                      // Standard Email Report Behavior: Exclude Active
                      if (in_array($status, ['ACTIVE', 'INACTIVE'])) $keep = false;
                 }
                 
-                // If specific WI Codes are requested (Manual Print), we probably want to see ALL items in those docs regardless of status.
-                // So I skip the 'ACTIVE' check if 'wi_codes' is present.
-                
                 if (!$keep && $request->has('wi_codes')) {
                     // Re-evaluate for Manual Print
                     $keep = true; 
-                    // But still respect explicit status filter if passed (which usually isn't for manual print)
                 }
 
                 if (!$keep) continue;
@@ -1634,10 +1610,6 @@ class CreateWiController extends Controller
                 
                 $priceFormatted = $prefixInfo . number_format($confirmedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
                 $failedPriceFormatted = $prefixInfo . number_format($failedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
-
-                // Fetch WC Description if missing
-                // Optimize: Fetch outside loop ideally, but for now check caching or simple query if needed. 
-                // Better: Load all RefWorkcenter at start.
                 
                 $processedItem = [
                     'doc_no'        => $doc->wi_document_code,
@@ -1720,8 +1692,6 @@ class CreateWiController extends Controller
             }
         } // End Doc Loop
 
-        // === UNIFIED REPORT LOGIC START ===
-        // === UNIFIED REPORT LOGIC START ===
         if (!$groupByDoc && !empty($allProcessedItems)) {
             // 1. Sort
             $sortedItems = collect($allProcessedItems)->sortBy([
