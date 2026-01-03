@@ -472,81 +472,9 @@ class CreateWiController extends Controller
         $wiDocuments = [];
 
         try {
-            // --- STRICT CAPACITY VALIDATION ---
-            // 1. Fetch Capacities
-            $wcCodesToCheck = array_column($payload, 'workcenter');
-            $wcMap = workcenter::whereIn('kode_wc', $wcCodesToCheck)->pluck('kapaz', 'kode_wc')->toArray(); // Kapaz in Hours
-            
-            // Allow checking parent/child relationship if needed (assuming simple check first)
-            // Ideally should fetch current load from DB + new load. 
-            // BUT user requirement implies atomic check for "current transaction" or "current state"
-            // For now, let's checking the NEW payload against MAX. 
-            // Better: Check Current Active Load + New Load > Max.
-            
-            $activeDocs = HistoryWi::where('plant_code', $plantCode)
-                ->where('expired_at', '>', Carbon::now())
-                ->get();
 
-            $currentLoadMap = [];
-            foreach ($activeDocs as $ad) {
-                // Simplified load calc (similar to history but without full overhead)
-                // Just extracting total minutes.
-                // Assuming we stored 'calculated_tak_time' in payload.
-                $pItems = is_string($ad->payload_data) ? json_decode($ad->payload_data, true) : (is_array($ad->payload_data) ? $ad->payload_data : []);
-                if (is_array($pItems)) {
-                    foreach ($pItems as $pi) {
-                        $w = $ad->workcenter_code; // Load is attributed to the WC of the doc?
-                        // Actually, items in a doc belong to the Doc's Workcenter (Parent or Child).
-                        if (!isset($currentLoadMap[$w])) $currentLoadMap[$w] = 0;
-                        $currentLoadMap[$w] += floatval(str_replace(',', '.', $pi['calculated_tak_time'] ?? 0));
-                    }
-                }
-            }
+            // --- STRICT CAPACITY VALIDATION REMOVED (User Request 2026-01-03) ---
 
-            foreach ($payload as $wcAllocation) {
-                 $wcCode = $wcAllocation['workcenter'];
-                 $proItems = $wcAllocation['pro_items'] ?? [];
-                 
-                 // Calculate New Load
-                 $newLoadMins = 0;
-                 foreach ($proItems as $pi) {
-                      $newLoadMins += floatval(str_replace(',', '.', $pi['calculated_tak_time'] ?? 0));
-                 }
-                 
-                 // Get Max Capacity
-                 // Note: If Parent, we need sum of children. If Child, use its own.
-                 // We need to fetch relationships to be precise.
-                 // Fetch this WC and its children.
-                 $thisWcObj = workcenter::where('kode_wc', $wcCode)->first();
-                 $rawKapaz = $thisWcObj ? floatval(str_replace(',', '.', $thisWcObj->kapaz)) : 0;
-                 $limitMins = $rawKapaz * 60;
-                 
-                 // Check if it is a parent
-                 $children = WorkcenterMapping::where('wc_induk', $wcCode)
-                    ->where('workcenter', '!=', $wcCode)
-                    ->get();
-                 
-                 if ($children->count() > 0) {
-                      $limitMins = 0; // Reset to sum children
-                      $childCodes = $children->pluck('workcenter')->toArray();
-                      $childWcs = workcenter::whereIn('kode_wc', $childCodes)->get();
-                      foreach($childWcs as $cw) {
-                          $limitMins += (floatval(str_replace(',', '.', $cw->kapaz)) * 60);
-                      }
-                 }
-                 
-                 $currentUsed = $currentLoadMap[$wcCode] ?? 0;
-                 $totalProjected = $currentUsed + $newLoadMins;
-                 
-                 if ($limitMins > 0 && $totalProjected > $limitMins) {
-                      // ALLOW OVER CAPACITY (User Request 2025-12-23)
-                      // return response()->json([
-                      //     'message' => "Kapasitas Workcenter {$wcCode} terlampaui! (Max: " . number_format($limitMins) . " Min, Used+New: " . number_format($totalProjected) . " Min)"
-                      // ], 400);
-                      Log::warning("Capacity Exceeded for {$wcCode}: limit={$limitMins}, projected={$totalProjected}");
-                 }
-            }
-            // --- END VALIDATION ---
 
             foreach ($payload as $wcAllocation) {
                 $workcenterCode = $wcAllocation['workcenter'];
