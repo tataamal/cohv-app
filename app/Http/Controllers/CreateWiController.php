@@ -1084,22 +1084,12 @@ class CreateWiController extends Controller
                          $isExpired = $now->greaterThan($effStart->addHours(12));
                     }
 
-                    // Only count if Active or Inactive (Not Expired, Not Past)
-                    // Note: History logic counts: !$isExpired && $chkDate >= $today
                     if (!$isExpired && $chkDate->greaterThanOrEqualTo($today)) {
                         $rawPl = $rDoc->payload_data;
                         $plItems = is_string($rawPl) ? json_decode($rawPl, true) : (is_array($rawPl) ? $rawPl : []);
                         
                         if (is_array($plItems)) {
                             foreach ($plItems as $plItem) {
-                                // Match by AUFNR & VORNR (ignoring NIK for strict capacity)
-                                // If user wants per-item split, we match specific item. 
-                                // But usually max qty is per PRO.
-                                // Logic in history matches by "$item['aufnr'] . '_' . $item['vornr']"
-                                
-                                // Important: We need to match the VORNR of the *target* item being updated.
-                                // Since we haven't found the target item in the current payload loop yet, 
-                                // we'll do this calculation inside the loop once we have the target VORNR.
                             }
                         }
                     }
@@ -1144,25 +1134,14 @@ class CreateWiController extends Controller
     
                     if ($unit === 'S' || $unit === 'SEC') {
                         $newMinutes = $totalRaw / 60;
-                    } elseif ($unit === 'H' || $unit === 'HUR') {
-                        $newMinutes = $totalRaw * 60;
                     } else {
                         $newMinutes = $totalRaw; 
-                    }
-                    
-                    // Capacity Check on Server Side (570 Min)
-                    if ($newMinutes > 570) {
-                         Log::warning("Update Qty Failed: Exceeds Capacity. Total: $newMinutes");
-                         return back()->with('error', "Gagal! Kapasitas waktu ($newMinutes min) melebihi batas 570 menit.");
                     }
     
                     $item['assigned_qty'] = $newQty;
                     $item['calculated_tak_time'] = number_format($newMinutes, 2, '.', '');
                     $item['vgw01'] = $vgw01; 
                     $item['vge01'] = $unit;
-                    // Update stored Order Qty to be fresh for next time (optional but good)
-                    // if ($dbMaxQty > 0) $item['qty_order'] = $effectiveMax; // REMOVED (User Request 2026-01-03)
-
                     $updated = true;
                     $materialName = $item['material_desc'] ?? $item['aufnr'];
                     

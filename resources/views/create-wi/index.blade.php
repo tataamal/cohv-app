@@ -868,9 +868,25 @@
                 const empOptions = document.getElementById('employeeTemplateSelect').innerHTML;
                 
                 draggedItemsCache.forEach((row, index) => {
-                    const rAufnr = row.dataset.aufnr;
+                    const rAufnr = String(row.dataset.aufnr || '').trim();
                     const rMaktx = row.dataset.maktx || ''; 
-                    const rSisa = parseFloat(row.dataset.sisaQty) || 0;
+                    const originalSisa = parseFloat(row.dataset.sisaQty) || 0;
+                    
+                    // [NEW] Calculate effective sisa by checking drop boxes
+                    let allocatedInDropBoxes = 0;
+                    document.querySelectorAll('.wc-drop-zone .pro-item-card').forEach(c => {
+                        const cAufnr = String(c.dataset.aufnr || '').trim();
+                        // Exclude the item currently being dragged (if it's already in DOM, though usually it's in list)
+                        if (cAufnr === rAufnr) {
+                             allocatedInDropBoxes += parseFloat(c.dataset.assignedQty) || 0;
+                        }
+                    });
+                    
+                    let rSisa = originalSisa - allocatedInDropBoxes;
+                    if (rSisa < 0) rSisa = 0;
+                    
+                    // Cap at 0? Yes.
+
                     const rVgw01 = parseFloat(row.dataset.vgw01) || 0; 
                     const rVge01 = row.dataset.vge01 || ''; 
 
@@ -1834,12 +1850,83 @@
             }
 
             function calculateAllRows() {
+                // 1. Gather all assigned quantities from drop zones
+                const assignedMap = {}; 
+                // Map key: AUFNR|VORNR (assuming uniqueness per operation, or just AUFNR if PRO is unique enough)
+                // PRO Item Logic uses AUFNR as primary identifier in source list rows.
+                
+                document.querySelectorAll('.wc-drop-zone .pro-item-card').forEach(card => {
+                    const aufnr = String(card.dataset.aufnr || '').trim();
+                    const assigned = parseFloat(card.dataset.assignedQty) || 0;
+                    
+                    if(aufnr) {
+                        if (!assignedMap[aufnr]) assignedMap[aufnr] = 0;
+                        assignedMap[aufnr] += assigned;
+                    }
+                });
+
                document.querySelectorAll('#source-list tr.pro-item').forEach(row => {
-                   const sisaQty = parseFloat(row.dataset.sisaQty) || 0;
-                   const mins = calculateItemMinutes(row, sisaQty);
+                   const aufnr = String(row.dataset.aufnr || '').trim();
+                   // Original Sisa from Server (Total - Confirmed - WI_Saved)
+                   const serverSisa = parseFloat(row.dataset.sisaQty) || 0;
+                   
+                   // Deduct locally assigned quantity
+                   const localAssigned = assignedMap[aufnr] || 0;
+                   let finalSisa = serverSisa - localAssigned;
+                   
+                   // Round to handle float precision issues
+                   finalSisa = Math.round(finalSisa * 1000) / 1000;
+                   if (finalSisa < 0) finalSisa = 0;
+
+                   // Update UI Text for Sisa Qty
+                   const cells = row.querySelectorAll('td.table-col');
+                   // cells[8] is Qty Sisa based on previous count
+                   const sisaCell = cells[8];
+                   const timeCell = cells[9]; // Time Req
+
+                   if (sisaCell) {
+                       // Format number logic (locale ID)
+                       const unit = (row.dataset.meins === 'ST' || row.dataset.meins === 'SET') ? 'PC' : row.dataset.meins;
+                       const decimals = (unit === 'PC' || unit === 'ST' || unit === 'SET') ? 0 : 1;
+                       
+                       sisaCell.innerText = finalSisa.toLocaleString('id-ID', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + ' ' + unit;
+                       
+                       // Visual cue if modified
+                       if(localAssigned > 0) {
+                           sisaCell.classList.add('text-success');
+                           sisaCell.classList.remove('text-primary');
+                       } else {
+                           sisaCell.classList.add('text-primary');
+                           sisaCell.classList.remove('text-success');
+                       }
+                   }
+
+                   // Store current effective sisa for drag logic
+                   row.dataset.currentQty = finalSisa; 
+
+                   // Recalculate Time
+                   const mins = calculateItemMinutes(row, finalSisa);
                    row.dataset.calculatedMins = mins;
-                   row.dataset.currentQty = sisaQty; 
+
+                   if (timeCell) {
+                       timeCell.innerText = mins.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Min';
+                   }
+                   
+                   if (finalSisa <= 0) {
+                       row.classList.add('d-none');
+                       // Uncheck if hidden to avoid phantom selection?
+                       const cb = row.querySelector('.row-checkbox');
+                       if(cb && cb.checked) {
+                            cb.checked = false;
+                            row.classList.remove('selected-row');
+                            // Trigger UI update? We can call updateSelectionUI later or here.
+                       }
+                   } else {
+                       row.classList.remove('d-none');
+                   }
                });
+               
+               updateSelectionUI(); // Ensure counters update if we unchecked hidden items
                document.querySelectorAll('.wc-card-container').forEach(updateCapacity);
             }
 
@@ -2131,12 +2218,8 @@
                                 // Reverse loop to maintain order when prepending
                                 preservedRows.reverse().forEach(row => {
                                     const aufnr = row.dataset.aufnr;
-                                    // Check if this item exists in the newly loaded data (duplicate)
                                     const duplicate = tbody.querySelector(`.pro-item[data-aufnr="${aufnr}"]`);
                                     if(duplicate) {
-                                        // If found in new data, remove the NEW one, keep the OLD one (which is selected)
-                                        // OR replace new one's visuals but keep checked? 
-                                        // Better: Remove double, put preserved at TOP.
                                         duplicate.remove();
                                     }
                                     
@@ -2171,6 +2254,8 @@
                     .finally(() => {
                         isLoading = false;
                         spinner.classList.add('d-none');
+                        // [NEW] Recalculate logic after new data loaded
+                        calculateAllRows();
                     });
                 }
             }
