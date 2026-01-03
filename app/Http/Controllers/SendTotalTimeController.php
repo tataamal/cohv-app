@@ -30,6 +30,8 @@ class SendTotalTimeController extends Controller
                         // Skip jika NIK kosong
                         if (empty($nik)) continue;
 
+                        $nama = $item['name'] ?? null; // Ambil nama dari payload
+
                         // Ambil calculated_tak_time, normalisasi format angka (ganti koma jadi titik)
                         $timeStr = $item['calculated_tak_time'] ?? '0';
                         $timeVal = floatval(str_replace(',', '.', $timeStr));
@@ -40,9 +42,15 @@ class SendTotalTimeController extends Controller
                         if (!isset($aggregatedData[$key])) {
                             $aggregatedData[$key] = [
                                 'nik' => $nik,
+                                'nama' => $nama,
                                 'kode_laravel' => $plantCode,
                                 'total_time' => 0
                             ];
+                        }
+                        
+                        // Jika nama kosong di entry sebelumnya tapi ada di entry ini, update
+                        if (empty($aggregatedData[$key]['nama']) && !empty($nama)) {
+                            $aggregatedData[$key]['nama'] = $nama;
                         }
 
                         $aggregatedData[$key]['total_time'] += $timeVal;
@@ -53,17 +61,17 @@ class SendTotalTimeController extends Controller
             // 4. Simpan ke Table daily_time_wi
             $count = 0;
             foreach ($aggregatedData as $data) {
-                // Gunakan updateOrInsert untuk mencegah duplikasi jika script dijalankan ulang
-                \App\Models\DailyTimeWi::updateOrInsert(
-                    [
-                        'tanggal' => $date,
-                        'nik' => $data['nik'],
-                        'kode_laravel' => $data['kode_laravel']
-                    ],
-                    [
-                        'total_time_wi' => $data['total_time']
-                    ]
-                );
+                // Gunakan firstOrNew kemudian save() agar timestamps (created_at, updated_at) otomatis terisi
+                $record = \App\Models\DailyTimeWi::firstOrNew([
+                    'tanggal' => $date,
+                    'nik' => $data['nik'],
+                    'kode_laravel' => $data['kode_laravel']
+                ]);
+                
+                $record->total_time_wi = $data['total_time'];
+                $record->nama = $data['nama']; // Update nama juga
+                
+                $record->save();
                 $count++;
             }
 

@@ -28,8 +28,9 @@ class DailyTimeWi extends Model
     protected $fillable = [
         'tanggal',
         'nik',
+        'nama',
         'total_time_wi',
-        'kode_laravel'
+        'kode_laravel' // diambil dari plant_code
     ];
 
     /**
@@ -37,5 +38,5 @@ class DailyTimeWi extends Model
      *
      * @var bool
      */
-    public $timestamps = false; // Assuming no created_at/updated_at unless specified
+    public $timestamps = true;
 }
