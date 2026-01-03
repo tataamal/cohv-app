@@ -1120,119 +1120,10 @@ class CreateWiController extends Controller
                     $itemVornr === $targetVornr
                 ) {
                     
-                    // Capacity Check for UPDATE
+
+                    // Capacity Check & Max Qty Check REMOVED (User Request 2026-01-03)
                     $newQty = floatval($request->new_qty);
-                    $unitTime = floatval(str_replace(',', '.', $item['vgw01'] ?? 0));
-                    $unit = strtoupper($item['vge01'] ?? '');
-                    
-                    // Normalize to Minutes
-                    $newTimeMins = ($unit == 'S' || $unit == 'SEC') ? ($newQty * $unitTime / 60) : ($newQty * $unitTime);
-                    
-                    // Fetch Limits
-                    $wcCode = $doc->workcenter_code;
-                    $thisWcObj = workcenter::where('kode_wc', $wcCode)->first();
-                    $rawKapaz = $thisWcObj ? floatval(str_replace(',', '.', $thisWcObj->kapaz)) : 0;
-                    $limitMins = $rawKapaz * 60;
 
-                    // Handle Parent
-                    $children = WorkcenterMapping::where('wc_induk', $wcCode)
-                    ->where('workcenter', '!=', $wcCode)
-                    ->get();
-                    if ($children->count() > 0) {
-                        $limitMins = 0;
-                        $childCodes = $children->pluck('workcenter')->toArray();
-                        $childWcs = workcenter::whereIn('kode_wc', $childCodes)->get();
-                        foreach($childWcs as $cw) {
-                            $k = floatval(str_replace(',', '.', $cw->kapaz));
-                            if ($k == 0) $k = 9.5; // Fallback 570 mins
-                            $limitMins += ($k * 60);
-                        }
-                    }
-                    if ($limitMins == 0) $limitMins = 570; // Fallback Single
-
-                    // Calculate Current Load (excluding this specific item's OLD value)
-                    $plantCode = $doc->plant_code;
-                    $activeDocs = HistoryWi::where('plant_code', $plantCode)
-                        ->where('expired_at', '>', Carbon::now())
-                        ->get();
-                    
-                    $currentUsed = 0;
-                    foreach ($activeDocs as $ad) {
-                        $pItems = is_string($ad->payload_data) ? json_decode($ad->payload_data, true) : (is_array($ad->payload_data) ? $ad->payload_data : []);
-                        if (is_array($pItems)) {
-                            foreach ($pItems as $pi) {
-                                // Exclude the CURRENT ITEM being updated
-                                // Logic: If DocID matches AND Aufnr/Nik/Vornr matches.
-                                $piAufnr = $pi['aufnr'] ?? '';
-                                $piNik = $pi['nik'] ?? '';
-                                $piVornr = $pi['vornr'] ?? '';
-
-                                if ($ad->id == $doc->id && 
-                                    $piAufnr === $request->aufnr && 
-                                    $piNik === $targetNik &&
-                                    $piVornr === $targetVornr
-                                ) {
-                                    continue; 
-                                }
-
-                                if ($ad->workcenter_code === $wcCode) {
-                                    $currentUsed += floatval(str_replace(',', '.', $pi['calculated_tak_time'] ?? 0));
-                                }
-                            }
-                        }
-                    }
-
-                    $totalProjected = $currentUsed + $newTimeMins;
-                    
-                    if ($limitMins > 0 && $totalProjected > $limitMins) {
-                         return response()->json([
-                             'message' => "Kapasitas Workcenter {$wcCode} terlampaui! (Max: " . number_format($limitMins) . " Min, Used+New: " . number_format($totalProjected) . " Min)"
-                         ], 400);
-                    }
-
-                    // Refine "otherUsage" specifically for this Item's VORNR
-                    // We re-iterate relatedDocs logic briefly or just filter if we stored it properly.
-                    // To be efficient: we already fetched relatedDocs. Let's scan them now that we know the specific VORNR.
-                    
-                    $specificUsageByOthers = 0;
-                    if ($dbMaxQty > 0) {
-                        foreach ($relatedDocs as $rDoc) {
-                            try {
-                                $chkDate = Carbon::parse($rDoc->document_date)->startOfDay();
-                                $effDate = $rDoc->expired_at ? Carbon::parse($rDoc->expired_at) : Carbon::parse($rDoc->document_date . ' ' . $rDoc->document_time)->addHours(12);
-                                $isExp = $now->greaterThan($effDate);
-
-                                if (!$isExp && $chkDate->greaterThanOrEqualTo($today)) {
-                                    $rRaw = $rDoc->payload_data;
-                                    $rItems = is_string($rRaw) ? json_decode($rRaw, true) : (is_array($rRaw) ? $rRaw : []);
-                                    if (is_array($rItems)) {
-                                        foreach ($rItems as $rItem) {
-                                            $rAufnr = $rItem['aufnr'] ?? '';
-                                            $rVornr = $rItem['vornr'] ?? '';
-                                            if ($rAufnr === $targetAufnr && $rVornr === $targetVornr) {
-                                                 $q = floatval(str_replace(',', '.', $rItem['assigned_qty'] ?? 0));
-                                                 $specificUsageByOthers += $q;
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (\Exception $e) {}
-                        }
-                    }
-
-                    // Calculate Effective Max
-                    // Note: Current item's OLD quantity is NOT part of "Others", so we don't subtract it.
-                    // Effective Max = Global Max - Usage By OTHER Docs.
-                    // The valid limit for THIS item is Effective Max provided we start from 0.
-                    
-                    $effectiveMax = $dbMaxQty > 0 ? max(0, $dbMaxQty - $specificUsageByOthers) : $parseNumber($item['qty_order'] ?? 0);
-                    
-                    $newQty = floatval($request->new_qty);
-    
-                    if ($effectiveMax > 0 && $newQty > $effectiveMax) {
-                        Log::warning("Update Qty Failed: Exceeds Max. AUFNR: $request->aufnr, New: $newQty, Max: $effectiveMax (DB: $dbMaxQty, Used: $specificUsageByOthers)");
-                        return back()->with('error', "Gagal! Quantity ($newQty) melebihi Sisa Order ($effectiveMax).");
-                    }
                     $vgw01 = $parseNumber($item['vgw01'] ?? 0);
                     $unit = strtoupper($item['vge01'] ?? '');
                     
@@ -1270,7 +1161,7 @@ class CreateWiController extends Controller
                     $item['vgw01'] = $vgw01; 
                     $item['vge01'] = $unit;
                     // Update stored Order Qty to be fresh for next time (optional but good)
-                    if ($dbMaxQty > 0) $item['qty_order'] = $effectiveMax; 
+                    // if ($dbMaxQty > 0) $item['qty_order'] = $effectiveMax; // REMOVED (User Request 2026-01-03)
 
                     $updated = true;
                     $materialName = $item['material_desc'] ?? $item['aufnr'];
