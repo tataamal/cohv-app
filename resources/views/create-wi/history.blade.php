@@ -342,7 +342,7 @@
                                                     </div>
                                                     <div class="text-end">
                                                         <span class="badge bg-white text-dark border small fw-bold" style="font-size: 0.65rem;">
-                                                            {{ number_format($cap['used_mins'], 0, ',', '.') }} / {{ number_format($cap['max_mins'], 0, ',', '.') }} M
+                                                            {{ (fmod($cap['used_mins'], 1) != 0) ? number_format($cap['used_mins'], 2, ',', '.') : number_format($cap['used_mins'], 0, ',', '.') }} / {{ (fmod($cap['max_mins'], 1) != 0) ? number_format($cap['max_mins'], 2, ',', '.') : number_format($cap['max_mins'], 0, ',', '.') }} M
                                                         </span>
                                                     </div>
                                                 </div>
@@ -357,13 +357,13 @@
                                                     $progressWidth = 100; // Full bar if perfect
 
                                                     if ($diff > 0) {
-                                                        $diffText = "Kelebihan " . number_format($absDiff, 0, ',', '.') . " Menit";
+                                                        $diffText = "Kelebihan " . ((fmod($absDiff, 1) != 0) ? number_format($absDiff, 2, ',', '.') : number_format($absDiff, 0, ',', '.')) . " Menit";
                                                         $diffClass = "text-danger"; 
                                                         $progressBarClass = "bg-danger";
                                                         // If over, bar is full red
                                                         $progressWidth = 100; 
                                                     } elseif ($diff < 0) {
-                                                        $diffText = "Kurang " . number_format($absDiff, 0, ',', '.') . " Menit";
+                                                        $diffText = "Kurang " . ((fmod($absDiff, 1) != 0) ? number_format($absDiff, 2, ',', '.') : number_format($absDiff, 0, ',', '.')) . " Menit";
                                                         $diffClass = "text-warning"; 
                                                         $progressBarClass = "bg-warning";
                                                         // Usage percentage for bar visual
@@ -426,6 +426,13 @@
                                 $maxMins = $document->capacity_info['max_mins'] ?? 0;
                                 $usedMins = $document->capacity_info['used_mins'] ?? 0;
                                 $percentage = $document->capacity_info['percentage'] ?? 0;
+
+                                $takTotal = 0;
+                                if ($payload) {
+                                    foreach($payload as $pItem) {
+                                        $takTotal += ($pItem['item_mins'] ?? 0);
+                                    }
+                                }
                             @endphp
 
                             <div class="wi-item-card mb-3 status-active">
@@ -433,7 +440,7 @@
                                     <div class="row align-items-center">
                                         {{-- Checkbox --}}
                                         <div class="col-auto">
-                                            <input class="form-check-input wi-checkbox cb-active" type="checkbox" value="{{ $document->wi_document_code }}">
+                                            <input class="form-check-input wi-checkbox cb-active" type="checkbox" value="{{ $document->wi_document_code }}" data-tak="{{ $takTotal }}">
                                         </div>
                                         <div class="col">
                                             <div class="d-flex justify-content-between align-items-center">
@@ -508,12 +515,12 @@
                                                             @endphp
                                                             <div class="text-muted text-xs text-truncate ps-1">
                                                                 {{ $soItemHist }}
-                                                                <span class="ms-1 text-primary">Time Required: {{ number_format($item['item_mins'] ?? 0, 2) }} min</span>
+                                                                <span class="ms-1 text-primary">Time Required: {{ number_format($item['item_mins'] ?? 0, 2, ',', '.') }} min</span>
                                                             </div>
                                                             <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                         </div>
                                                         <div class="col-lg-4 text-end">
-                                                            <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
+                                                            <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
                                                                 @if(($item['confirmed_qty'] ?? 0) == 0)
                                                                     <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
@@ -530,11 +537,11 @@
                                                     </div>
                                                     <div class="d-flex justify-content-end mb-1">
                                                         <span class="text-xs fw-bold text-muted">
-                                                             Sukses: {{ $item['confirmed_qty'] ?? 0 }}
+                                                             Sukses: {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }}
                                                             @if(($item['remark_qty'] ?? 0) > 0)
-                                                                <span class="text-danger"> Gagal: {{ $item['remark_qty'] }}</span>
+                                                                <span class="text-danger"> Gagal: {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }}</span>
                                                             @endif
-                                                             / {{ $item['assigned_qty'] }} Quantity
+                                                             / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} Quantity
                                                         </span>
                                                     </div>
                                                     @php
@@ -553,7 +560,7 @@
                                                                 @foreach($item['remark_history'] as $h)
                                                                     <li class="mb-1">
                                                                          <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
-                                                                            <strong>Jumlah Item Gagal: {{ floatval($h['qty'] ?? 0) }}</strong> - {{ $h['remark'] ?? '-' }}
+                                                                            <strong>Jumlah Item Gagal: {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}</strong> - {{ $h['remark'] ?? '-' }}
                                                                          </span>
                                                                     </li>
                                                                 @endforeach
@@ -668,7 +675,7 @@
                                     <div class="mb-3">
                                         <div class="d-flex justify-content-between text-xs fw-bold text-muted mb-1">
                                             <span>KAPASITAS WORKCENTER</span>
-                                            <span>{{ number_format($usedMins, 0) }} / {{ number_format($maxMins, 0) }} Min</span>
+                                            <span>{{ (fmod($usedMins, 1) != 0) ? number_format($usedMins, 2, ',', '.') : number_format($usedMins, 0, ',', '.') }} / {{ (fmod($maxMins, 1) != 0) ? number_format($maxMins, 2, ',', '.') : number_format($maxMins, 0, ',', '.') }} Min</span>
                                         </div>
                                         <div class="progress bg-secondary bg-opacity-10" style="height: 6px;">
                                             <div class="progress-bar {{ $percentage > 100 ? 'bg-danger' : 'bg-primary' }}" 
@@ -696,7 +703,7 @@
                                                         <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                     </div>
                                                     <div class="col-lg-4 text-end">
-                                                        <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
+                                                        <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
                                                                 <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
                                                                         onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['description'] ?? $item['material_desc'] }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ $item['uom'] ?? '-' }}', '{{ $item['vgw01'] ?? 0 }}', '{{ $item['vge01'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['vornr'] ?? '' }}', '{{ $maxMins }}')">
@@ -713,7 +720,7 @@
                                                 </div>
                                                 {{-- FULL WIDTH PROGRESS BAR --}}
                                                 <div class="d-flex justify-content-end mb-1">
-                                                    <span class="text-xs fw-bold text-muted">{{ $item['confirmed_qty'] ?? 0 }} / {{ $item['assigned_qty'] }} Quantity</span>
+                                                    <span class="text-xs fw-bold text-muted">{{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }} / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} Quantity</span>
                                                 </div>
                                                 <div class="progress" style="height: 6px;">
                                                     <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ $item['progress_pct'] ?? 0 }}%"></div>
@@ -798,23 +805,23 @@
                                                           @endphp
                                                           <div class="text-muted text-xs text-truncate ps-1">
                                                               {{ $soItemHist }}
-                                                              <span class="ms-1 fw-bold text-primary" style="font-size: 0.65rem;">(Tak: {{ number_format($item['item_mins'] ?? 0, 2) }} min)</span>
+                                                              <span class="ms-1 fw-bold text-primary" style="font-size: 0.65rem;">(Tak: {{ number_format($item['item_mins'] ?? 0, 2, ',', '.') }} min)</span>
                                                           </div>
                                                           <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                       </div>
                                                       <div class="col-lg-4 text-end">
-                                                          <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
+                                                          <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                       </div>
                                                   </div>
                                                   {{-- FULL WIDTH PROGRESS BAR --}}
                                                   {{-- FULL WIDTH PROGRESS BAR --}}
                                                   <div class="d-flex justify-content-end mb-1">
                                                       <span class="text-xs fw-bold text-muted">
-                                                          {{ $item['confirmed_qty'] ?? 0 }}
+                                                          {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }}
                                                           @if(($item['remark_qty'] ?? 0) > 0)
-                                                              <span class="text-danger"> + {{ $item['remark_qty'] }} (Remark)</span>
+                                                              <span class="text-danger"> + {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }} (Remark)</span>
                                                           @endif
-                                                           / {{ $item['assigned_qty'] }} Quantity
+                                                           / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} Quantity
                                                       </span>
                                                   </div>
                                                   @php
@@ -915,12 +922,12 @@
                                                          @endphp
                                                          <div class="text-muted text-xs text-truncate ps-1">
                                                              {{ $soItemHist }}
-                                                             <span class="ms-1 fw-bold text-primary" style="font-size: 0.65rem;">(Tak: {{ number_format($item['item_mins'] ?? 0, 2) }} min)</span>
+                                                             <span class="ms-1 fw-bold text-primary" style="font-size: 0.65rem;">(Tak: {{ number_format($item['item_mins'] ?? 0, 2, ',', '.') }} min)</span>
                                                          </div>
                                                          <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                      </div>
                                                      <div class="col-lg-4 text-end">
-                                                         <div class="fw-bold text-dark fs-6">{{ $item['assigned_qty'] }} <span class="text-xs text-muted">{{ $item['uom'] ?? '-' }}</span></div>
+                                                         <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ $item['uom'] ?? '-' }}</span></div>
                                                          
                                                          {{-- Completed doesn't usually need edit, but keeping for consistency --}}
                                                          <button class="btn btn-sm btn-outline-info py-0 px-2 rounded-pill small fw-bold" disabled>
@@ -933,11 +940,11 @@
                                                  {{-- FULL WIDTH PROGRESS BAR --}}
                                                  <div class="d-flex justify-content-end mb-1">
                                                      <span class="text-xs fw-bold text-muted">
-                                                         {{ $item['confirmed_qty'] ?? 0 }} {{-- Usually full in completed, but good to check --}}
+                                                         {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }} {{-- Usually full in completed, but good to check --}}
                                                           @if(($item['remark_qty'] ?? 0) > 0)
-                                                              <span class="text-danger"> + {{ $item['remark_qty'] }} (Remark)</span>
+                                                              <span class="text-danger"> + {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }} (Remark)</span>
                                                           @endif
-                                                          / {{ $item['assigned_qty'] }}
+                                                          / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }}
                                                      </span>
                                                  </div>
                                                  @php
@@ -1250,7 +1257,7 @@
         }
 
         // --- 3. UI SETUP FOR MODAL ---
-        function setupModalUI(type, count, mode = 'document') {
+        function setupModalUI(type, count, mode = 'document', totalTak = 0) {
             const form = document.getElementById('printForm');
             const alertMsg = document.getElementById('modalAlert');
             const modalTitle = document.getElementById('modalTitle');
@@ -1282,6 +1289,13 @@
             
             // Manual Email Logic Block (Keep existing if needed or rely on existing initialization)
             
+            // Format Total Tak
+            // const formattedTak = totalTak.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            // const takInfoHtml = (mode === 'nik' && totalTak > 0) 
+            //     ? ` <span class="ms-2 badge bg-warning text-dark border border-warning-subtle"><i class="fa-regular fa-clock me-1"></i>Total Time: ${formattedTak} Min</span>` 
+            //     : '';
+            const takInfoHtml = '';
+
             // Handle Print Modes
             if (mode === 'nik') {
                 form.action = "{{ route('wi.print-log-nik', ['kode' => $plantCode]) }}";
@@ -1289,7 +1303,7 @@
                 headerBg.style.background = '#6366f1'; // Indigo/Purple
                 
                 alertMsg.className = 'alert bg-primary-subtle text-primary border-0 fw-bold';
-                alertMsg.innerHTML = `<i class="fa-solid fa-users me-2"></i>Mencetak Log History berdasarkan NIK untuk ${count} dokumen.`;
+                alertMsg.innerHTML = `<i class="fa-solid fa-users me-2"></i>Mencetak Log History berdasarkan NIK untuk ${count} dokumen.${takInfoHtml}`;
                 
                 btnSubmit.className = 'btn btn-primary px-4 rounded-pill fw-bold shadow-sm';
                 btnSubmit.innerHTML = '<i class="fa-solid fa-print me-2"></i>Print by NIK';
@@ -1535,6 +1549,19 @@
                 });
             }
         });
+
+        // Global Helper for this view if not already exists (safe check)
+        if (!window.parseLocaleNum) {
+            window.parseLocaleNum = function(str) {
+                if (!str) return 0;
+                let stringVal = String(str).trim();
+                // Replace dots (thousands) with empty, swap comma (decimal) with dot
+                if (stringVal.includes(',')) {
+                    stringVal = stringVal.replace(/\./g, '').replace(/,/g, '.');
+                }
+                return parseFloat(stringVal) || 0;
+            };
+        }
 
         window.openAddItemModal = function(wiCode, wcCode) {
             currentAddWiCode = wiCode;
@@ -1790,7 +1817,7 @@
                                         <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 px-2">${item.aufnr}</span>
                                         <span class="fw-bold text-dark text-truncate" style="max-width: 400px;" title="${item.description}">${item.description}</span>
                                     </div>
-                                    <span class="text-success fw-bold small"><i class="fa-solid fa-check-circle me-1"></i> Available: <span id="max_qty_${itemKey}">${parseFloat(item.available_qty)}</span> ${displayUom}</span>
+                                    <span class="text-success fw-bold small"><i class="fa-solid fa-check-circle me-1"></i> Available: <span id="max_qty_${itemKey}">${parseFloat(item.available_qty).toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span> ${displayUom}</span>
                                 </div>
                                 <div class="small text-muted mb-0 ms-1">
                                     <span><i class="fa-solid fa-cube me-1"></i> ${item.material}</span>
@@ -1842,7 +1869,8 @@
                 const timeI = r.querySelector('.time-input');
                 if(wcS && timeI && wcS.value) {
                     const w = wcS.value;
-                    const t = parseFloat(timeI.value) || 0;
+                    // time-input is "10,5" -> parse locally
+                    const t = window.parseLocaleNum(timeI.value);
                     if(!usageMap[w]) usageMap[w] = 0;
                     usageMap[w] += t;
                 }
@@ -1881,21 +1909,22 @@
             if(!qtyInput || !wcSelect) return;
             
             const wcCode = wcSelect.value;
-            const qty = parseFloat(qtyInput.value) || 0;
-            const item = availableItemsMap[itemKey]; 
-            
-            if(item) {
-                 let takTime = parseFloat(item.vgw01) || 0;
-                 if(item.vge01 === 'S') {
-                    takTime = takTime / 60; 
-                 }
-                 const totalReqMins = takTime * qty;
-                 
-                 const timeInput = row.querySelector('.time-input');
-                 if(timeInput) timeInput.value = totalReqMins.toFixed(1);
-                 
-                 updateDashboardUsage();
-            }
+             const qty = window.parseLocaleNum(qtyInput.value);
+             const item = availableItemsMap[itemKey]; 
+             
+             if(item) {
+                  let takTime = parseFloat(item.vgw01) || 0;
+                  if(item.vge01 === 'S') {
+                     takTime = takTime / 60; 
+                  }
+                  const totalReqMins = takTime * qty;
+                  
+                  const timeInput = row.querySelector('.time-input');
+                  // Display Time in ID format
+                  if(timeInput) timeInput.value = totalReqMins.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+                  
+                  updateDashboardUsage();
+             }
         };
 
         window.addSplitRow = function(itemKey) {
@@ -1922,6 +1951,7 @@
             
             let empSelectHtml = `<select class="form-select form-select-sm emp-select" id="nik_${uniqueId}">${opOptions}</select>`;
 
+            const isIntegerOnly = (['ST', 'SET'].includes((item.uom || '').toUpperCase()) || ['PC', 'SER'].includes((item.uom || '').toUpperCase()));
             const rowDiv = document.createElement('div');
             rowDiv.className = 'row g-2 align-items-end mb-2 split-row-item border-bottom pb-2'; 
             rowDiv.id = `row_${uniqueId}`;
@@ -1937,8 +1967,10 @@
                 <div class="col-md-3">
                      <label class="form-label text-xs fw-bold text-muted mb-0">Qty</label>
                      <div class="input-group input-group-sm">
-                        <input type="number" class="form-control fw-bold qty-input" id="qty_${uniqueId}" 
-                           placeholder="0" step="1" min="1" disabled>
+                        <input type="text" inputmode="${isIntegerOnly ? 'numeric' : 'decimal'}" 
+                               class="form-control fw-bold qty-input" id="qty_${uniqueId}" 
+                               data-is-int="${isIntegerOnly}"
+                               placeholder="0" disabled>
                      </div>
                 </div>
                 <div class="col-md-3">
@@ -1990,21 +2022,33 @@
         window.enforceBatchLimit = function(itemKey, currentInput) {
              const maxSpan = document.getElementById(`max_qty_${itemKey}`);
              if(!maxSpan) return;
-             const max = parseFloat(maxSpan.innerText.replace(/,/g, '')) || 0;
+             const max = window.parseLocaleNum(maxSpan.innerText);
              
              const container = document.getElementById(`split_container_${itemKey}`);
              let otherTotal = 0;
              container.querySelectorAll('.qty-input').forEach(inp => {
                  if(inp !== currentInput) {
-                     otherTotal += (parseFloat(inp.value) || 0);
+                     otherTotal += window.parseLocaleNum(inp.value);
                  }
              });
              
              const remaining = max - otherTotal;
-             let val = parseFloat(currentInput.value);
+
              
+             let val = window.parseLocaleNum(currentInput.value);
+             const isInt = (currentInput.getAttribute('data-is-int') === 'true');
+
+             if (isInt) {
+                 if (currentInput.value.includes(',')) {
+                     val = Math.floor(val);
+                     currentInput.value = val.toLocaleString('id-ID');
+                 }
+             }
+
              if(val > remaining) {
-                 currentInput.value = Math.max(0, remaining); 
+                 const fixedVal = isInt ? Math.floor(Math.max(0, remaining)) : Math.max(0, remaining);
+                 const decDigits = isInt ? 0 : 2;
+                 currentInput.value = fixedVal.toLocaleString('id-ID', {minimumFractionDigits: isInt ? 0 : decDigits, maximumFractionDigits: isInt ? 0 : 2}); 
                  
                  const Toast = Swal.mixin({
                     toast: true,
@@ -2028,11 +2072,11 @@
 
             let total = 0;
             const inputs = container.querySelectorAll('.qty-input');
-            inputs.forEach(inp => total += (parseFloat(inp.value) || 0));
+            inputs.forEach(inp => total += window.parseLocaleNum(inp.value));
             
-            totalDisplay.innerText = total.toLocaleString(); 
+            totalDisplay.innerText = total.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2}); 
             
-            const max = parseFloat(maxSpan.innerText.replace(/,/g, '')) || 0;
+            const max = window.parseLocaleNum(maxSpan.innerText);
             if(total > max + 0.0001) {
                  totalDisplay.className = 'fw-bold text-danger';
             } else {
@@ -2060,11 +2104,17 @@
                 const wc = wcSel.value;
                 const nik = nikSel.value;
                 const qtyView = qtyInp.value;
-                const qty = parseFloat(qtyView) || 0;
+                const qty = window.parseLocaleNum(qtyView);
+                const isInt = (qtyInp.getAttribute('data-is-int') === 'true');
                 
                 if(!wc) { isValid = false; errorMsg = 'Pilih Workcenter untuk semua baris.'; return; }
                 if(!nik) { isValid = false; errorMsg = 'Pilih Operator untuk semua baris.'; return; }
-                if(qty < 1) { isValid = false; errorMsg = 'Quantity minimal 1.'; return; }
+                
+                if (isInt) {
+                     if (qty < 1 || !Number.isInteger(qty)) { isValid = false; errorMsg = 'Qty harus berupa angka bulat minimal 1 (Unit: ST/SET).'; return; }
+                } else {
+                     if (qty <= 0) { isValid = false; errorMsg = 'Quantity wajib lebih dari 0.'; return; }
+                }
                 
                 const name = nikSel.options[nikSel.selectedIndex].getAttribute('data-name');
                 
@@ -2224,8 +2274,7 @@
 
         window.openPrintModal = function(type, mode = 'document') {
             console.log("Open Print Modal Triggered", type, mode);
-
-            // Handle Legacy Log Type (Export Log Button)
+            
             if (type === 'log') {
                const modalEl = document.getElementById('emailLogModal');
                if(modalEl) {
@@ -2239,7 +2288,6 @@
                return;
             }
 
-            // 1. Collect Checked Items based on Type
             let ids = [];
             let selector = '';
             if (type === 'active') selector = '.cb-active:checked';
@@ -2247,8 +2295,13 @@
             else if (type === 'completed') selector = '.cb-completed:checked';
             else if (type === 'inactive') selector = '.cb-inactive:checked';
             
+            let totalTak = 0;
             if (selector) {
-                document.querySelectorAll(selector).forEach(c => ids.push(c.value));
+                document.querySelectorAll(selector).forEach(c => {
+                    ids.push(c.value);
+                    const t = parseFloat(c.getAttribute('data-tak')) || 0;
+                    totalTak += t;
+                });
             }
 
             if(ids.length === 0) {
@@ -2256,12 +2309,11 @@
                 return;
             }
 
-            // 2. Setup Modal
             const modalEl = document.getElementById('universalPrintModal');
             const inputCodes = document.getElementById('inputWiCodes');
             inputCodes.value = ids.join(',');
 
-            setupModalUI(type, ids.length, mode); // Pass mode
+            setupModalUI(type, ids.length, mode, totalTak);
             
             // 3. Show Modal
             new bootstrap.Modal(modalEl).show();
@@ -2457,11 +2509,23 @@
         // --- 7. OPEN EDIT QTY MODAL ---
         // --- 7. OPEN EDIT QTY MODAL ---
         window.openEditQtyModal = function(wiCode, aufnr, description, assignedQty, orderQty, uom, vgw01, vge01, nik, vornr, maxCapacity, currentTotalUsed, currentItemLoad) {
+            // Helper for ID locale
+            const parseLocaleNum = (str) => {
+                if (!str) return 0;
+                let stringVal = String(str).trim();
+                // Replace dots (thousands) with empty, swap comma (decimal) with dot
+                if (stringVal.includes(',')) {
+                    stringVal = stringVal.replace(/\./g, '').replace(/,/g, '.');
+                }
+                return parseFloat(stringVal) || 0;
+            };
+
             // Populate Modal Fields directly
             const inputWiCode = document.getElementById('modalWiCode');
             const inputAufnr = document.getElementById('modalAufnr');
             const inputDesc = document.getElementById('modalDesc'); 
             const inputNewQty = document.getElementById('modalNewQty');
+            const realNewQty = document.getElementById('realNewQty'); // HIDDEN INPUT FOR BACKEND
             const displayMaxQtyDiv = document.getElementById('displayMaxQty');
             const inputMaxQtyHidden = document.getElementById('modalMaxQtyDisplay');
             const displayAufnrDiv = document.getElementById('displayAufnr');
@@ -2477,10 +2541,20 @@
             if(inputAufnr) inputAufnr.value = aufnr;
             if(inputDesc) inputDesc.innerText = description; 
             if(displayAufnrDiv) displayAufnrDiv.innerText = aufnr;
-            if(inputNewQty) inputNewQty.value = assignedQty;
             
-            // Format Max Qty
-            if(displayMaxQtyDiv) displayMaxQtyDiv.innerText = parseFloat(orderQty);
+            // Format Initial Qty (For Display)
+            const initialQtyVal = parseFloat(assignedQty) || 0;
+            if(inputNewQty) {
+                // If Integer, 0 decimals. If float, 2 decimals (or varying).
+                // Logic: if float part exists, show 2 decimals.
+                const needsDec = (initialQtyVal % 1 !== 0);
+                inputNewQty.value = initialQtyVal.toLocaleString('id-ID', { minimumFractionDigits: needsDec ? 2 : 0, maximumFractionDigits: 2 });
+            }
+            if(realNewQty) realNewQty.value = initialQtyVal; // Set hidden
+            
+            // Format Max Qty (For Display)
+            const maxOrderVal = parseFloat(orderQty) || 0;
+            if(displayMaxQtyDiv) displayMaxQtyDiv.innerText = maxOrderVal.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
             if(inputMaxQtyHidden) inputMaxQtyHidden.value = orderQty;
             
             // Populate NIK & VORNR
@@ -2509,14 +2583,8 @@
             if(displayUnit === 'ST') displayUnit = 'PC';
             if(modalUnitText) modalUnitText.innerText = `UNIT: ${displayUnit}`;
             
-            // 2. Set Input Step (Integer vs Decimal)
-            if(inputNewQty) {
-                if(displayUnit === 'PC' || displayUnit === 'SER' || (uom||'').toUpperCase() === 'ST') {
-                    inputNewQty.step = "1";
-                } else {
-                    inputNewQty.step = "any";
-                }
-            } 
+            // 2. Set Input Step (Integer vs Decimal) - Not strictly needed if input is text, but for mobile keyboard hints if we used number
+            // if(inputNewQty) ...
 
             // Update Max Text
             if(document.getElementById('modalMaxCapText')) document.getElementById('modalMaxCapText').innerText = maxCapValue.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -2587,13 +2655,13 @@
             };
 
             // Initial Calc
-            updateCapacity(parseFloat(assignedQty) || 0);
+            updateCapacity(initialQtyVal);
             
             // Validation Logic
             const btnSave = document.getElementById('btnSaveQty');
             const errorMsg = document.getElementById('qtyErrorMsg');
             const qtyWrapper = document.getElementById('qtyInputWrapper');
-            const maxLimit = parseFloat(orderQty);
+            const maxLimit = maxOrderVal;
 
             if(inputNewQty) {
                 const performValidation = (val) => {
@@ -2662,11 +2730,13 @@
                 
                 // Bind Handler
                 inputNewQty.oninput = function() {
-                    performValidation(parseFloat(this.value) || 0);
+                    const rawVal = parseLocaleNum(this.value);
+                    if(realNewQty) realNewQty.value = rawVal; // Sync hidden
+                    performValidation(rawVal);
                 };
 
                 // Trigger Initial Validation
-                performValidation(parseFloat(inputNewQty.value) || 0);
+                performValidation(initialQtyVal);
             }
 
             const modalEl = document.getElementById('editQtyModal');

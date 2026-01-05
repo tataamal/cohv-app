@@ -325,7 +325,7 @@
                                          Fail : {{ $fmtFail }} 
                                         )
                                     @else
-                                        (Total Qty WI: {{ number_format($gAssigned, 0) }})
+                                        (Total Qty WI: {{ number_format($gAssigned, 0) }} | Total Time Req : {{ number_format($gTotalTimeMin, 2, ',', '.') }})
                                     @endif
                                 </span>
                             </td>

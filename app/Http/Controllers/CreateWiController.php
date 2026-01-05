@@ -1435,6 +1435,7 @@ class CreateWiController extends Controller
                     'status'          => $status,
                     'so_item'         => $soItem,
                     'takt_time'       => $taktFull,
+                    'raw_total_time'  => $finalTime, // Use normalized time (Minutes)
                 ];
 
                 if ($groupByDoc) {
@@ -1747,7 +1748,8 @@ class CreateWiController extends Controller
                     
                     'qty_op'        => $qtyOper,
                     'qty_wi'        => $assigned,
-                    'takt_time'     => $taktFull
+                    'takt_time'     => $taktFull,
+                    'raw_total_time' => $finalTime,
                 ];
             }
         }

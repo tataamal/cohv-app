@@ -62,10 +62,11 @@
                             <div class="col-7">
                                 <div id="qtyInputWrapper" class="border border-primary bg-white p-2 h-100 shadow-sm position-relative d-flex flex-column justify-content-between">
                                     <label class="text-uppercase text-primary font-monospace fw-bold mb-1 d-block" style="font-size: 0.8rem;">NEW QUANTITY</label>
-                                    <input type="number" step="1" name="new_qty" id="modalNewQty" 
+                                    <input type="text" inputmode="decimal" name="new_qty_display" id="modalNewQty" 
                                            class="form-control form-control-lg border-0 fw-bold text-end pe-1 display-4 text-primary p-0 my-auto" 
                                            style="font-size: 3.5rem;"
                                            placeholder="0" required>
+                                    <input type="hidden" name="new_qty" id="realNewQty">
                                     <div class="text-end text-muted font-monospace mt-1" style="font-size: 0.8rem;" id="modalUnitText">UNIT: PC</div>
                                 </div>
                             </div>
