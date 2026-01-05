@@ -1110,41 +1110,7 @@
         </div>
     </div>
     {{-- MODAL EDIT QTY --}}
-    <div class="modal fade" id="editQtyModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <form action="{{ route('history-wi.update-qty') }}" method="POST">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title fw-bold">Edit Quantity</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                         <input type="hidden" name="wi_code" id="modal_wi_code">
-                         <input type="hidden" name="aufnr" id="modal_aufnr">
-                         
-                         <div class="mb-3">
-                             <label class="form-label text-muted small fw-bold">Item Description</label>
-                             <div class="fw-bold text-dark" id="modal_desc"></div>
-                         </div>
-                         <div class="row">
-                             <div class="col-6">
-                                 <label class="form-label text-muted small fw-bold">Order Qty</label>
-                                 <input type="text" class="form-control" id="modal_order_qty" readonly>
-                             </div>
-                             <div class="col-6">
-                                 <label class="form-label text-muted small fw-bold">Assigned Qty (<span id="modal_uom"></span>)</label>
-                                 <input type="number" name="new_qty" class="form-control fw-bold" id="modal_new_qty" step="any" required>
-                             </div>
-                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary w-100 fw-bold">Update Quantity</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+
     
     {{-- MODAL ADD ITEM --}}
     <div class="modal fade" id="addItemModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
@@ -2535,6 +2501,23 @@
             const itemLoadValue = parseFloat(currentItemLoad) || 0;
             const baseLoad = Math.max(0, totalUsedValue - itemLoadValue); 
 
+            // --- UNIT HANDLING ---
+            const modalUnitText = document.getElementById('modalUnitText');
+            let displayUnit = (uom || '').toUpperCase();
+            
+            // 1. Normalize Display
+            if(displayUnit === 'ST') displayUnit = 'PC';
+            if(modalUnitText) modalUnitText.innerText = `UNIT: ${displayUnit}`;
+            
+            // 2. Set Input Step (Integer vs Decimal)
+            if(inputNewQty) {
+                if(displayUnit === 'PC' || displayUnit === 'SER' || (uom||'').toUpperCase() === 'ST') {
+                    inputNewQty.step = "1";
+                } else {
+                    inputNewQty.step = "any";
+                }
+            } 
+
             // Update Max Text
             if(document.getElementById('modalMaxCapText')) document.getElementById('modalMaxCapText').innerText = maxCapValue.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
             
@@ -2613,6 +2596,62 @@
             const maxLimit = parseFloat(orderQty);
 
             if(inputNewQty) {
+                const performValidation = (val) => {
+                    // Update Capacity UI First
+                    updateCapacity(val);
+
+                    // Re-fetch elements to ensure active scope
+                    const btnSaveInside = document.getElementById('btnSaveQty');
+                    const errorContainer = document.getElementById('qtyErrorContainer');
+                    const errorText = document.getElementById('qtyErrorText');
+
+                    let rangeError = false;
+
+                    // 2. Validate Input Range (Cannot be 0 or less)
+                    if(val <= 0) {
+                        rangeError = true;
+                        inputNewQty.classList.add('text-danger');
+                        if(errorContainer && errorText) {
+                             errorText.innerText = 'Qty Harus Lebih dari 0!';
+                             errorContainer.classList.remove('d-none');
+                        }
+                        if(btnSaveInside) btnSaveInside.disabled = true;
+                    }
+                    // 3. Max Qty Hard Limit Check (Order Qty)
+                    else if(val > maxLimit) {
+                         rangeError = true;
+                         inputNewQty.classList.add('text-danger');
+                         if(qtyWrapper) {
+                             qtyWrapper.classList.remove('border-primary', 'bg-white');
+                             qtyWrapper.classList.add('border-danger', 'bg-danger', 'bg-opacity-10');
+                         }
+                         if(errorContainer && errorText) {
+                             errorText.innerText = 'EXCEEDS QUANTITY ORDER!';
+                             errorContainer.classList.remove('d-none');
+                         }
+                         if(btnSaveInside) btnSaveInside.disabled = true;
+                    }
+
+                    if (!rangeError) {
+                         inputNewQty.classList.remove('text-danger');
+                         if(errorContainer) errorContainer.classList.add('d-none'); // Hide Alert
+
+                         // Check if Capacity Error exists (updateCapacity sets it internally)
+                         const capError = (errorMsg && errorMsg.innerText === 'EXCEEDS DAILY CAPACITY!' && !errorMsg.classList.contains('d-none'));
+                         
+                         if(!capError) {
+                             if(qtyWrapper) {
+                                qtyWrapper.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10');
+                                qtyWrapper.classList.add('border-primary', 'bg-white');
+                             }
+                             if(errorMsg) errorMsg.classList.add('d-none');
+                             
+                             // Enable Button Only if No Errors
+                             if(btnSaveInside) btnSaveInside.disabled = false;
+                         }
+                    }
+                };
+
                 // Reset State
                 inputNewQty.classList.remove('is-invalid', 'text-danger'); 
                 if(qtyWrapper) {
@@ -2620,58 +2659,16 @@
                     qtyWrapper.classList.add('border-primary', 'bg-white');
                 }
                 if(errorMsg) errorMsg.classList.add('d-none');
-                if(btnSave) btnSave.disabled = false;
-
+                
+                // Bind Handler
                 inputNewQty.oninput = function() {
-                    let val = parseFloat(this.value) || 0;
-                    
-                    // 1. Capacity Check & Update UI
-                    updateCapacity(val);
-
-                    // 2. Max Qty Hard Limit Check (Order Qty)
-                    if(val > maxLimit) {
-                         this.classList.add('text-danger');
-                         if(qtyWrapper) {
-                             qtyWrapper.classList.remove('border-primary', 'bg-white');
-                             qtyWrapper.classList.add('border-danger', 'bg-danger', 'bg-opacity-10');
-                         }
-                         if(errorMsg) {
-                             errorMsg.innerText = 'EXCEEDS QUANTITY ORDER!';
-                             errorMsg.classList.remove('d-none');
-                         }
-                         if(btnSave) btnSave.disabled = true;
-                    } else {
-                         this.classList.remove('text-danger');
-                         // Only reset wrapper if not capacity error
-                         const maxCap = parseFloat(maxCapacity) || 0;
-                         const proj = (parseFloat(displayTotalTime?.innerText) || 0) + baseLoad; // Rough check
-                         // Actually updateCapacity handles the wrapper style for capacity.
-                         // We should let updateCapacity handle it? 
-                         // But updateCapacity calls run first.
-                         
-                         // If we are VALID on quantity:
-                         if(qtyWrapper && !qtyWrapper.classList.contains('bg-danger')) { // If capacity didn't flag it
-                             // ...
-                         } else {
-                             // If capacity flagged it, we leave it red?
-                             // But wait, if capacity flagged it, it sets border-danger.
-                             // Logic conflict: We have 2 sources of error (Qty Limit vs Capacity Limit).
-                             // If either is bad -> RED.
-                             // If both good -> BLUE.
-                             
-                             // Let's rely on re-running updateCapacity to check capacity state?
-                             updateCapacity(val); // Re-run to ensure capacity red state persists if needed
-                         }
-                         
-                         if(errorMsg && errorMsg.innerText === 'EXCEEDS QUANTITY ORDER!') {
-                             errorMsg.classList.add('d-none');
-                         }
-                         if(btnSave) btnSave.disabled = false;
-                    }
+                    performValidation(parseFloat(this.value) || 0);
                 };
+
+                // Trigger Initial Validation
+                performValidation(parseFloat(inputNewQty.value) || 0);
             }
 
-            // Show Modal
             const modalEl = document.getElementById('editQtyModal');
             if(modalEl) {
                 const modal = new bootstrap.Modal(modalEl);
@@ -2679,7 +2676,6 @@
             }
         };
 
-        // --- 8. REMARK SEARCH LOGIC ---
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('searchRemarkAufnr');
             const searchBtn = document.getElementById('btnSearchRemark');
@@ -2697,12 +2693,9 @@
                         return;
                     }
 
-                    // Show loading
                     resultBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted fw-bold">Mencari Data...</div></div>';
                     searchedAufnrSpan.innerText = aufnr;
                     resultModal.show();
-
-                    // Fetch Data
                     fetch('/api/wi/remarks/get', {
                         method: 'POST',
                         headers: {
@@ -2726,7 +2719,6 @@
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        // If it's a syntax error (HTML response instead of JSON often), display useful message
                         let msg = 'Terjadi kesalahan sistem saat mengambil data.';
                         if (error.message.includes('Unexpected token')) {
                              msg = 'Terjadi kesalahan server (Response Invalid). Cek log backend.';

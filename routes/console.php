@@ -34,9 +34,9 @@ Schedule::command('wi:send-log-email')
     ->dailyAt('07:00')
     ->timezone('Asia/Jakarta');
 
-// --- Scheduler Email WI Weekly (Sabtu 07:00) ---
+// --- Scheduler Email WI Weekly (Senin 07:00) ---
 Schedule::command('wi:send-weekly-email')
-    ->weeklyOn(6, '07:00')
+    ->weeklyOn(1, '07:00')
     ->timezone('Asia/Jakarta');
 
 // --- Scheduler Hitung Total Time WI Harian (23:45) ---

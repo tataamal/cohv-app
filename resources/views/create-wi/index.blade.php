@@ -742,9 +742,7 @@
                          incomingLoad += parseFloat(item.dataset.calculatedMins) || 0;
                     }
 
-                    if ((currentLoad + incomingLoad) > (maxMins + 0.1)) { // Tolerance
-                        // NO REVERT (User Request: 2025-12-23 - Allow Over Capacity)
-                        // Just warn (or do nothing, since progress bar will turn red later)
+                    if ((currentLoad + incomingLoad) > (maxMins + 0.1)) { 
                         console.warn("Capacity exceeded for " + targetWcId + ", but allowing drop.");
                     }
                 }
@@ -903,7 +901,7 @@
                         <div class="card-header bg-dark text-white py-2 px-3 d-flex justify-content-between align-items-center">
                             <span class="fw-bold small"><i class="fa-solid fa-box me-1"></i> ${rAufnr} - ${rMaktx}</span>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-secondary border border-light">Max: ${rSisa}</span>
+                                <span class="badge bg-secondary border border-light">Max: ${rSisa.toLocaleString('id-ID')}</span>
                                 <button type="button" class="btn btn-sm btn-outline-danger border-0 text-white p-0 ms-2" style="width: 20px; height: 20px; line-height: 1;" onclick="removeProFromModal(this)">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
@@ -928,8 +926,8 @@
                                     </div>
                                     <div class="col-md-2">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Qty</label>
-                                        <input type="number" class="form-control form-control-sm qty-input shadow-none border-secondary fw-bold text-center" 
-                                            value="${rSisa}" max="${rSisa}" min="1" step="1" oninput="updateCardSummary('${rAufnr}')" ${hasChildren ? 'disabled title="Pilih Sub-WC terlebih dahulu"' : ''}>
+                                        <input type="text" class="form-control form-control-sm qty-input shadow-none border-secondary fw-bold text-center" 
+                                            value="${rSisa.toLocaleString('id-ID')}" oninput="updateCardSummary('${rAufnr}')" ${hasChildren ? 'disabled title="Pilih Sub-WC terlebih dahulu"' : ''}>
                                     </div>
                                     <!-- NEW: Time Field (Auto Calc) -->
                                     <div class="col-md-2">
@@ -1021,6 +1019,15 @@
                 updateCardSummary(aufnr);
             };
 
+            window.parseLocaleNum = function(str) {
+                if (!str) return 0;
+                let stringVal = String(str).trim();
+                if (stringVal.includes(',')) {
+                    stringVal = stringVal.replace(/\./g, '').replace(/,/g, '.');
+                }
+                return parseFloat(stringVal) || 0;
+            };
+
             window.updateCardSummary = function(TriggerAufnr) {
                 const allCards = document.querySelectorAll('#assignmentCardContainer .pro-card');
                 let globalChildUsage = {}; 
@@ -1031,7 +1038,6 @@
                     targetWcId = allCards[0].dataset.targetWc;
                 }
 
-                // 2. Pre-calculate usage from ALREADY assigned items in the box (Main Page)
                 if (targetWcId) {
                     const mainContainer = document.querySelector(`.wc-card-container[data-wc-id="${targetWcId}"]`);
                     if (mainContainer) {
@@ -1040,11 +1046,7 @@
 
                         existingItems.forEach(item => {
                             const itemAufnr = item.dataset.aufnr;
-                            // Skip items currently being edited in the modal
                             if (modalAufnrs.includes(itemAufnr)) return;
-
-                            // Skip items that are just being dropped (if any mismatch) - logic check
-                            // Just check data-child-wc
                             const assignedChild = item.dataset.childWc;
                             if (assignedChild) {
                                 const mins = parseFloat(item.dataset.calculatedMins) || 0;
@@ -1064,7 +1066,7 @@
                     const rows = card.querySelectorAll('.assignment-row');
                     
                     let currentCardTotal = 0;
-                    rows.forEach(r => currentCardTotal += parseFloat(r.querySelector('.qty-input').value) || 0);
+                    rows.forEach(r => currentCardTotal += window.parseLocaleNum(r.querySelector('.qty-input').value) || 0);
 
                     rows.forEach(row => {
                         const qtyInp = row.querySelector('.qty-input');
@@ -1089,7 +1091,7 @@
                             }
                         }
 
-                        let qty = parseFloat(qtyInp.value) || 0;
+                        let qty = window.parseLocaleNum(qtyInp.value) || 0;
                         const activeElement = document.activeElement;
                         if (activeElement === qtyInp) {
                             if (currentCardTotal > maxQty + 0.0001) {
@@ -1099,14 +1101,14 @@
                                 Swal.fire({
                                     icon: 'warning',
                                     title: 'Limit Exceeded',
-                                    text: `Max Quantity is ${maxQty}. Remaining: ${allowed.toFixed(3)}`,
+                                    text: `Max Quantity is ${maxQty.toLocaleString('id-ID')}. Remaining: ${allowed.toLocaleString('id-ID')}`,
                                     toast: true,
                                     position: 'top-end',
                                     showConfirmButton: false,
                                     timer: 3000
                                 });
                                 
-                                qtyInp.value = allowed; 
+                                qtyInp.value = allowed.toLocaleString('id-ID'); 
                                 qty = allowed; 
                                 currentCardTotal = otherTotal + allowed; 
                             }
@@ -1119,7 +1121,7 @@
                         }
                         timeMins = parseFloat(timeMins.toFixed(3));
                         
-                        timeInp.value = timeMins + ' Min'; 
+                        timeInp.value = timeMins.toLocaleString('id-ID') + ' Min'; 
                         
                         if (subWc) {
                             globalChildUsage[subWc] = (globalChildUsage[subWc] || 0) + timeMins;
@@ -1168,10 +1170,10 @@
                 const inputs = card.querySelectorAll('.qty-input');
                 
                 let totalAssigned = 0;
-                inputs.forEach(inp => totalAssigned += parseFloat(inp.value) || 0);
+                inputs.forEach(inp => totalAssigned += window.parseLocaleNum(inp.value) || 0);
                 const remaining = maxQty - totalAssigned;
                 
-                remainingSpan.innerText = remaining.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+                remainingSpan.innerText = remaining.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
                 
                 if (remaining < -0.0001) {
                     remainingSpan.classList.remove('text-success');
@@ -1200,20 +1202,14 @@
                 if (!confirmBtn) return;
 
                 let hasError = false;
-                
-                 // Check 1: Max Qty on all cards
                 const cards = document.querySelectorAll('#assignmentCardContainer .pro-card');
                 cards.forEach(card => {
                      const maxQty = parseFloat(card.dataset.maxQty) || 0;
                      const inputs = card.querySelectorAll('.qty-input');
                      let totalAssigned = 0;
-                     inputs.forEach(inp => totalAssigned += parseFloat(inp.value) || 0);
+                     inputs.forEach(inp => totalAssigned += window.parseLocaleNum(inp.value) || 0);
                      if (totalAssigned > maxQty + 0.0001) hasError = true;
                 });
-                
-                // const redBars = document.querySelectorAll('#topCapacityContainer .bg-danger');
-                // if (redBars.length > 0) hasError = true; // DISABLED: Allow Over Capacity
-
                 confirmBtn.disabled = hasError;
             };
 
@@ -1222,11 +1218,8 @@
                 if (!card) return;
 
                 const selects = card.querySelectorAll('.child-select');
-                
-                // 1. Gather all currently used NIKs in this CARD
                 const allEmpSelects = card.querySelectorAll('.emp-select');
                 const usedNiks = Array.from(allEmpSelects).map(s => s.value).filter(v => v !== "");
-
                 const empTemplate = document.getElementById('employeeTemplateSelect');
                 const wcPoolMap = {};
                 
@@ -1239,11 +1232,9 @@
                     }
                 });
 
-                // 3. Update each Child WC Select
                 selects.forEach(sel => {
                     const myCurrentWc = sel.value; // Keep selected even if full
                     const options = sel.querySelectorAll('option');
-                    
                     options.forEach(opt => {
                         if (opt.value === "") return; 
                         
@@ -1254,7 +1245,6 @@
                         const totalCap = potentialNiks.length;
                         const remaining = totalCap - usedCount;
 
-                        // REMOVED "FULL" CHECK - ALLOW UNLIMITED ASSIGNMENT
                         opt.disabled = false;
                         opt.innerText = opt.innerText.replace(' (Full)', '');
                     });
@@ -1464,20 +1454,20 @@
                         const rawText = empSelect.options[empSelect.selectedIndex]?.innerText || '';
                         
                         const childWc = childSelect.value;
-                        const qty = parseFloat(qtyInput.value) || 0;
+                        const qty = window.parseLocaleNum(qtyInput.value) || 0;
                         
-                        if (!nik || qty < 1) {
+                        if (!nik || qty < 0) {
                             allValid = false;
                             row.classList.add('border', 'border-danger');
-                            if(qty < 1) {
-                                validationErrors.push(`Quantity minimal 1 untuk item ${aufnr}`);
+                            if(qty < 0) {
+                                validationErrors.push(`Quantity minimal 0 untuk item ${aufnr}`);
                             }
                         } else {
                             row.classList.remove('border', 'border-danger');
                         }
                         
                         // Collect Assignment
-                        if (nik && qty >= 1) {
+                        if (nik && qty >= 0) {
                             const item = draggedItemsCache.find(i => i.dataset.aufnr == aufnr); 
                             
                             if (item) {
@@ -1490,7 +1480,7 @@
                     
                     if (currentSum > maxQty) {
                         allValid = false;
-                        validationErrors.push(`Total Qty for ${aufnr} exceeds limit (${currentSum} > ${maxQty})`);
+                        validationErrors.push(`Total Qty for ${aufnr} exceeds limit (${currentSum.toLocaleString('id-ID')} > ${maxQty.toLocaleString('id-ID')})`);
                         card.classList.remove('border-0');
                         card.classList.add('border-danger');
                     } else {
@@ -1793,7 +1783,7 @@
 
             function updateRowUI(row, name, qty, childWc) {
                 row.querySelector('.employee-name-text').innerText = name;
-                row.querySelector('.assigned-qty-badge').innerText = 'Qty: ' + qty;
+                row.querySelector('.assigned-qty-badge').innerText = 'Qty: ' + parseFloat(qty).toLocaleString('id-ID');
                 
                 const childDisplay = row.querySelector('.child-wc-display');
                 if(childWc) {
@@ -1826,18 +1816,10 @@
             }
 
             function calculateItemMinutes(row, qtyOverride = null) {
-                const parseNum = (str) => {
-                    if (!str) return 0;
-                    let stringVal = String(str).trim();
-                    if (stringVal.includes(',')) {
-                        stringVal = stringVal.replace(/\./g, '').replace(/,/g, '.');
-                    }
-                    return parseFloat(stringVal) || 0;
-                };
-                const vgw01 = parseNum(row.dataset.vgw01);
+                const vgw01 = window.parseLocaleNum(row.dataset.vgw01);
                 const vge01 = (row.dataset.vge01 || '').toUpperCase();
                 let rawQty = (qtyOverride !== null) ? qtyOverride : row.dataset.sisaQty;
-                const qty = parseNum(rawQty);
+                const qty = window.parseLocaleNum(rawQty);
 
                 if (vgw01 > 0 && qty > 0) {
                     let totalRaw = vgw01 * qty;

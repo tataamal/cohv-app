@@ -66,7 +66,7 @@
                                            class="form-control form-control-lg border-0 fw-bold text-end pe-1 display-4 text-primary p-0 my-auto" 
                                            style="font-size: 3.5rem;"
                                            placeholder="0" required>
-                                    <div class="text-end text-muted font-monospace mt-1" style="font-size: 0.8rem;">UNIT: PC</div>
+                                    <div class="text-end text-muted font-monospace mt-1" style="font-size: 0.8rem;" id="modalUnitText">UNIT: PC</div>
                                 </div>
                             </div>
                         </div>
@@ -95,16 +95,24 @@
                                 <span class="text-dark opacity-75" style="font-size: 0.65rem;">Max Capacity (570m) Exceeded. Auto-adjusted.</span>
                             </div>
                         </div>
-                         <div class="alert alert-danger border-0 rounded-0 d-flex align-items-center p-2 mt-3 mb-0 d-none bg-danger bg-opacity-10" id="qtyErrorMsg">
-                            <i class="fa-solid fa-circle-exclamation me-2 text-danger"></i> 
-                            <span class="text-danger fw-bold font-monospace" style="font-size: 0.7rem;">EXCEEDS REAL LIMIT!</span>
+                        {{-- STYLISH ERROR ALERT --}}
+                        <div id="qtyErrorContainer" class="alert alert-danger border-0 shadow-sm mt-3 mb-0 d-none animate__animated animate__fadeIn" role="alert" style="border-left: 5px solid #dc3545 !important; background-color: #fff5f5;">
+                            <div class="d-flex align-items-center">
+                                <div class="fs-2 me-3 text-danger flex-shrink-0 opacity-75">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-danger mb-1 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">PERINGATAN</h6>
+                                    <div class="small fw-bold text-dark lh-sm" id="qtyErrorText" style="font-size: 0.9rem;">Qty tidak boleh kosong atau 0!</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="modal-footer border-top bg-white p-3 justify-content-between">
                     <button type="button" class="btn btn-link text-decoration-none text-muted font-monospace text-uppercase" data-bs-dismiss="modal" style="font-size: 0.9rem;">CANCEL</button>
-                    <button type="submit" class="btn btn-lg btn-dark rounded-0 px-4 font-monospace fw-bold text-uppercase d-flex align-items-center" style="font-size: 1rem; padding-top: 12px; padding-bottom: 12px;">
+                    <button type="submit" id="btnSaveQty" class="btn btn-lg btn-dark rounded-0 px-4 font-monospace fw-bold text-uppercase d-flex align-items-center" style="font-size: 1rem; padding-top: 12px; padding-bottom: 12px;">
                         <i class="fa-solid fa-floppy-disk me-2"></i>SAVE UPDATE
                     </button>
                 </div>
