@@ -1283,7 +1283,7 @@ class CreateWiController extends Controller
         // Use "Selected Documents" as filter info
         $filterString = "Selected " . $documents->count() . " Documents";
         
-        $data = $this->_processDocumentsToReport($documents, $request, $plantCode, $filterString, false);
+        $data = $this->_processDocumentsToReport($documents, $request, $plantCode, $filterString, false, [['nik', 'asc'], ['workcenter', 'asc']]);
 
         if (!$data['success']) {
              return back()->with('error', $data['message']);
@@ -1295,7 +1295,7 @@ class CreateWiController extends Controller
         return $pdf->stream('log_monitor_' . now()->format('Ymd_His') . '.pdf');
     }
 
-    private function _processDocumentsToReport($documents, Request $request, $plantCode, $filterString, $groupByDoc = false) {
+    private function _processDocumentsToReport($documents, Request $request, $plantCode, $filterString, $groupByDoc = false, $sortBy = null) {
         $printedBy = $request->input('printed_by') ?? session('username');
         $department = $request->input('department') ?? '-';
 
@@ -1493,10 +1493,9 @@ class CreateWiController extends Controller
 
         if (!$groupByDoc && !empty($allProcessedItems)) {
             // 1. Sort
-            $sortedItems = collect($allProcessedItems)->sortBy([
-                ['workcenter', 'asc'],
-                ['nik', 'asc']
-            ])->values()->all();
+            // 1. Sort
+            $sortCriteria = $sortBy ?? [['workcenter', 'asc'], ['nik', 'asc']];
+            $sortedItems = collect($allProcessedItems)->sortBy($sortCriteria)->values()->all();
 
             // 2. Summary
             $totalAssigned = collect($sortedItems)->sum('assigned');
