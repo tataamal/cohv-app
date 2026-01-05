@@ -22,7 +22,7 @@ class SendLogWeeklyEmail extends Command
      *
      * @var string
      */
-    protected $description = 'Send Weekly Work Instruction Log History via Email (Mon-Sat, optionally prev Sun)';
+    protected $description = 'Send Weekly Work Instruction Log History via Email (Mon-Sun)';
 
     /**
      * Execute the console command.
@@ -40,25 +40,15 @@ class SendLogWeeklyEmail extends Command
                 return 1;
             }
         } else {
-            $endDateCarbon = Carbon::today();
+            // If running on Monday, "yesterday" is Sunday, which is the end of the target week
+            $endDateCarbon = Carbon::yesterday();
         }
 
-        // Use logic: Get Start of Week (Monday)
+        // Start of Week (Monday) of that endDate
         $startDateCarbon = $endDateCarbon->copy()->startOfWeek(Carbon::MONDAY);
         
-        // Check Previous Sunday
-        $prevSundayCarbon = $startDateCarbon->copy()->subDay();
-        $prevSundayDate = $prevSundayCarbon->toDateString();
-        
-        // Check if data exists for Previous Sunday
-        $hasSundayData = HistoryWi::where('wi_document_code', 'LIKE', 'WIH%')
-                                  ->whereDate('document_date', $prevSundayDate)
-                                  ->exists();
-
-        if ($hasSundayData) {
-            $startDateCarbon = $prevSundayCarbon;
-            $this->info("Found data on previous Sunday ($prevSundayDate). Including it in range.");
-        }
+        // No need for "Previous Sunday" legacy check anymore.
+        // We are capturing the full Mon-Sun range naturally.
 
         $startDate = $startDateCarbon->toDateString();
         $endDate = $endDateCarbon->toDateString();
@@ -228,7 +218,7 @@ class SendLogWeeklyEmail extends Command
                 ],
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),
-                'filterInfo' => "DATE: " . $startDate . " TO " . $endDate, // Range Info
+                'filterInfo' => "DATE: " . Carbon::parse($startDate)->format('d-m-Y') . " TO " . Carbon::parse($endDate)->format('d-m-Y'), // Range Info
                 'report_title' => 'WEEKLY REPORT WI'
             ];
             
