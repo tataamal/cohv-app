@@ -1283,7 +1283,7 @@ class CreateWiController extends Controller
         // Use "Selected Documents" as filter info
         $filterString = "Selected " . $documents->count() . " Documents";
         
-        $data = $this->_processDocumentsToReport($documents, $request, $plantCode, $filterString, false, [['nik', 'asc'], ['workcenter', 'asc']]);
+        $data = $this->_processDocumentsToReport($documents, $request, $plantCode, $filterString, false, 'nik');
 
         if (!$data['success']) {
              return back()->with('error', $data['message']);
@@ -1295,7 +1295,7 @@ class CreateWiController extends Controller
         return $pdf->stream('log_monitor_' . now()->format('Ymd_His') . '.pdf');
     }
 
-    private function _processDocumentsToReport($documents, Request $request, $plantCode, $filterString, $groupByDoc = false, $sortBy = null) {
+    private function _processDocumentsToReport($documents, Request $request, $plantCode, $filterString, $groupByDoc = false, $sortMode = 'default') {
         $printedBy = $request->input('printed_by') ?? session('username');
         $department = $request->input('department') ?? '-';
 
@@ -1493,9 +1493,15 @@ class CreateWiController extends Controller
 
         if (!$groupByDoc && !empty($allProcessedItems)) {
             // 1. Sort
-            // 1. Sort
-            $sortCriteria = $sortBy ?? [['workcenter', 'asc'], ['nik', 'asc']];
-            $sortedItems = collect($allProcessedItems)->sortBy($sortCriteria)->values()->all();
+            $sortedItems = collect($allProcessedItems)->sortBy(function($item) use ($sortMode) {
+                if ($sortMode === 'nik') {
+                    // Sort by NIK first, then Workcenter
+                    return sprintf('%s_%s', $item['nik'] ?? '', $item['workcenter'] ?? '');
+                } else {
+                    // Default: Sort by Workcenter first, then NIK
+                    return sprintf('%s_%s', $item['workcenter'] ?? '', $item['nik'] ?? '');
+                }
+            })->values()->all();
 
             // 2. Summary
             $totalAssigned = collect($sortedItems)->sum('assigned');
