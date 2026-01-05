@@ -1,7 +1,10 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use Carbon\Carbon;
+use App\Models\HistoryWi;
+use App\Models\DailyTimeWi;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 
 class SendTotalTimeController extends Controller
@@ -10,66 +13,63 @@ class SendTotalTimeController extends Controller
     public function calculateAndStoreDailyTime()
     {
         try {
-            // 1. Tentukan Tanggal H-1
-            $date = \Carbon\Carbon::yesterday()->toDateString();
+            $date = Carbon::yesterday()->toDateString();
             
-            // 2. Ambil Semua Dokumen WI pada Tanggal Tersebut
-            $documents = \App\Models\HistoryWi::whereDate('document_date', $date)->get();
+            $documents = HistoryWi::whereDate('document_date', $date)->get();
             
             $aggregatedData = [];
 
-            // 3. Iterasi Dokumen dan Hitung Total Time per NIK
             foreach ($documents as $doc) {
-                $payload = $doc->payload_data; // Sudah dicast ke array oleh Model
+                $payload = $doc->payload_data;
                 $plantCode = $doc->plant_code;
 
                 if (is_array($payload)) {
                     foreach ($payload as $item) {
                         $nik = trim($item['nik'] ?? '');
                         
-                        // Skip jika NIK kosong
                         if (empty($nik)) continue;
 
-                        $nama = $item['name'] ?? null; // Ambil nama dari payload
+                        $nama = $item['name'] ?? null;
 
-                        // Ambil calculated_tak_time, normalisasi format angka (ganti koma jadi titik)
                         $timeStr = $item['calculated_tak_time'] ?? '0';
                         $timeVal = floatval(str_replace(',', '.', $timeStr));
 
-                        // Key unik berdasarkan NIK dan Plant Code (sesuai request: kode_laravel diambil dari plant_code)
-                        $key = $nik . '|' . $plantCode;
+                        $key = $nik;
 
                         if (!isset($aggregatedData[$key])) {
                             $aggregatedData[$key] = [
                                 'nik' => $nik,
                                 'nama' => $nama,
-                                'kode_laravel' => $plantCode,
+                                'plants' => [],
                                 'total_time' => 0
                             ];
                         }
                         
-                        // Jika nama kosong di entry sebelumnya tapi ada di entry ini, update
                         if (empty($aggregatedData[$key]['nama']) && !empty($nama)) {
                             $aggregatedData[$key]['nama'] = $nama;
                         }
 
                         $aggregatedData[$key]['total_time'] += $timeVal;
+                        
+                        if (!in_array($plantCode, $aggregatedData[$key]['plants'])) {
+                            $aggregatedData[$key]['plants'][] = $plantCode;
+                        }
                     }
                 }
             }
 
-            // 4. Simpan ke Table daily_time_wi
             $count = 0;
             foreach ($aggregatedData as $data) {
-                // Gunakan firstOrNew kemudian save() agar timestamps (created_at, updated_at) otomatis terisi
-                $record = \App\Models\DailyTimeWi::firstOrNew([
+                sort($data['plants']);
+                $plantString = implode(',', $data['plants']);
+                $record = DailyTimeWi::firstOrNew([
                     'tanggal' => $date,
-                    'nik' => $data['nik'],
-                    'kode_laravel' => $data['kode_laravel']
+                    'nik' => $data['nik']
                 ]);
                 
+                $record->kode_laravel = $plantString;
                 $record->total_time_wi = $data['total_time'];
-                $record->nama = $data['nama']; // Update nama juga
+                $record->nama = $data['nama']; 
                 
                 $record->save();
                 $count++;
@@ -82,7 +82,7 @@ class SendTotalTimeController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error("Error Calculating Daily Time WI: " . $e->getMessage());
+            Log::error("Error Calculating Daily Time WI: " . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan internal: ' . $e->getMessage()
