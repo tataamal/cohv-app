@@ -351,6 +351,7 @@
                                     <th>Material Description</th>
                                     <th class="text-center">WC</th>
                                     <th class="text-center">Op.Key</th>
+                                    <th class="text-center">Activity</th>
                                     <th class="text-center">Qty Opt</th>
                                     <th class="text-center">Qty Conf</th>
                                     <th class="text-center">Qty Sisa</th> 

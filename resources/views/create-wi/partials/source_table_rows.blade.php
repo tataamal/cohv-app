@@ -58,6 +58,9 @@
                 <div class="ms-3 ps-3 border-start">
                     <span class="badge bg-light text-dark border">{{ $item->STEUS }}</span>
                 </div>
+                <div class="ms-3 ps-3 border-start">
+                    <span class="badge bg-light text-dark border">{{ $item->VORNR }}</span>
+                </div>
             </div>
         </td>
 
@@ -70,11 +73,13 @@
             </div>
         </td>
         <td class="text-center table-col">
-            <span class="badge bg-light text-dark border">
-                {{ $item->ARBPL }} {{ isset($wcDescriptions[$item->ARBPL]) ? '- ' . $wcDescriptions[$item->ARBPL] : '' }}
+            <span class="badge bg-light text-dark border text-wrap" style="max-width: 200px;">
+                <span class="text-danger fw-bold d-block">{{ $item->ARBPL }}</span>
+                {{ isset($wcDescriptions[$item->ARBPL]) ? $wcDescriptions[$item->ARBPL] : '' }}
             </span>
         </td>
         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>
+        <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->VORNR }}</span></td>
         @php
             $showUnit = $item->MEINS;
             if ($showUnit == 'ST') { $showUnit = 'PC'; }
