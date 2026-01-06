@@ -193,6 +193,15 @@ class adminController extends Controller
 
             if ($section === 'total_pro') {
                 $searchTotalPro = $request->input('search_total_pro');
+                
+                // Advanced Filters
+                $advAufnr = $request->input('adv_aufnr');
+                $advMatnr = $request->input('adv_matnr') ?? $request->input('multi_matnr'); // Fallback to legacy
+                $advMaktx = $request->input('adv_maktx');
+                $advArbpl = $request->input('adv_arbpl');
+                $advKdauf = $request->input('adv_kdauf');
+                $advKdpos = $request->input('adv_kdpos');
+
                 $allProData = ProductionTData3::where('WERKSX', $kode)
                     ->when($searchTotalPro, function ($query, $term) {
                         return $query->where(function($q) use ($term) {
@@ -202,6 +211,51 @@ class adminController extends Controller
                               ->orWhere('MAKTX', 'like', "%{$term}%");
                         });
                     })
+                    // --- ADVANCED FILTERS START ---
+                    ->when($advAufnr, function($q, $val) {
+                        $items = array_filter(array_map('trim', explode(',', $val)));
+                        if(!empty($items)) $q->whereIn('AUFNR', $items);
+                    })
+                    ->when($advMatnr, function($q, $val) {
+                        $items = array_filter(array_map('trim', explode(',', $val)));
+                        $paddedItems = [];
+                        foreach ($items as $item) {
+                            // SAP Material numbers are often 18 digits with leading zeros
+                            if (is_numeric($item) && strlen($item) < 18) {
+                                $paddedItems[] = str_pad($item, 18, '0', STR_PAD_LEFT);
+                            }
+                        }
+                        
+                        if(!empty($items)) {
+                            $q->where(function($sub) use ($items, $paddedItems) {
+                                $sub->whereIn('MATNR', $items);
+                                if (!empty($paddedItems)) {
+                                    $sub->orWhereIn('MATNR', $paddedItems);
+                                }
+                            });
+                        }
+                    })
+                    ->when($advMaktx, function($q, $val) {
+                        $items = array_filter(array_map('trim', explode(',', $val)));
+                        if(!empty($items)) {
+                            $q->where(function($sub) use ($items) {
+                                foreach($items as $item) $sub->orWhere('MAKTX', 'like', "%{$item}%");
+                            });
+                        }
+                    })
+                    ->when($advArbpl, function($q, $val) {
+                        $items = array_filter(array_map('trim', explode(',', $val)));
+                        if(!empty($items)) $q->whereIn('ARBPL', $items);
+                    })
+                    ->when($advKdauf, function($q, $val) {
+                        $items = array_filter(array_map('trim', explode(',', $val)));
+                        if(!empty($items)) $q->whereIn('KDAUF', $items);
+                    })
+                    ->when($advKdpos, function($q, $val) {
+                        $items = array_filter(array_map('trim', explode(',', $val)));
+                        if(!empty($items)) $q->whereIn('KDPOS', $items);
+                    })
+                    // --- ADVANCED FILTERS END ---
                     ->latest('AUFNR')
                     ->paginate(50, ['*'], 'page_total_pro')
                     ->withQueryString();
@@ -282,6 +336,15 @@ class adminController extends Controller
 
         // 3. All PRO (Total PRO) - Page Name: page_total_pro
         $searchTotalPro = $request->input('search_total_pro');
+        
+        // Advanced Filters
+        $advAufnr = $request->input('adv_aufnr');
+        $advMatnr = $request->input('adv_matnr') ?? $request->input('multi_matnr');
+        $advMaktx = $request->input('adv_maktx');
+        $advArbpl = $request->input('adv_arbpl');
+        $advKdauf = $request->input('adv_kdauf');
+        $advKdpos = $request->input('adv_kdpos');
+
         $allProData = ProductionTData3::where('WERKSX', $kode)
             ->when($searchTotalPro, function ($query, $term) {
                 return $query->where(function($q) use ($term) {
@@ -291,6 +354,50 @@ class adminController extends Controller
                       ->orWhere('MAKTX', 'like', "%{$term}%");
                 });
             })
+            // --- ADVANCED FILTERS START ---
+            ->when($advAufnr, function($q, $val) {
+                $items = array_filter(array_map('trim', explode(',', $val)));
+                if(!empty($items)) $q->whereIn('AUFNR', $items);
+            })
+            ->when($advMatnr, function($q, $val) {
+                $items = array_filter(array_map('trim', explode(',', $val)));
+                $paddedItems = [];
+                foreach ($items as $item) {
+                    if (is_numeric($item) && strlen($item) < 18) {
+                        $paddedItems[] = str_pad($item, 18, '0', STR_PAD_LEFT);
+                    }
+                }
+                
+                if(!empty($items)) {
+                    $q->where(function($sub) use ($items, $paddedItems) {
+                        $sub->whereIn('MATNR', $items);
+                        if (!empty($paddedItems)) {
+                            $sub->orWhereIn('MATNR', $paddedItems);
+                        }
+                    });
+                }
+            })
+            ->when($advMaktx, function($q, $val) {
+                $items = array_filter(array_map('trim', explode(',', $val)));
+                if(!empty($items)) {
+                    $q->where(function($sub) use ($items) {
+                        foreach($items as $item) $sub->orWhere('MAKTX', 'like', "%{$item}%");
+                    });
+                }
+            })
+            ->when($advArbpl, function($q, $val) {
+                $items = array_filter(array_map('trim', explode(',', $val)));
+                if(!empty($items)) $q->whereIn('ARBPL', $items);
+            })
+            ->when($advKdauf, function($q, $val) {
+                $items = array_filter(array_map('trim', explode(',', $val)));
+                if(!empty($items)) $q->whereIn('KDAUF', $items);
+            })
+            ->when($advKdpos, function($q, $val) {
+                $items = array_filter(array_map('trim', explode(',', $val)));
+                if(!empty($items)) $q->whereIn('KDPOS', $items);
+            })
+            // --- ADVANCED FILTERS END ---
             ->latest('AUFNR')
             ->paginate(10, ['*'], 'page_total_pro')
             ->withQueryString();
@@ -339,7 +446,15 @@ class adminController extends Controller
             'searchReservasi' => $searchReservasi,
             'searchPro' => $searchPro,
             'searchTotalPro' => $searchTotalPro,
-            'searchSo' => $searchSo
+            'searchSo' => $searchSo,
+            
+            // Advanced Params
+            'advAufnr' => $advAufnr,
+            'advMatnr' => $advMatnr,
+            'advMaktx' => $advMaktx,
+            'advArbpl' => $advArbpl,
+            'advKdauf' => $advKdauf,
+            'advKdpos' => $advKdpos,
         ]);  
     }
 

@@ -15,7 +15,7 @@
     @endphp
     <tr class="clickable-row" data-status="{{ $dataStatus }}"
         data-no="{{ $loop->iteration + ($allProData->currentPage() - 1) * $allProData->perPage() }}" data-so="{{ $item->KDAUF ?? '-' }}"
-        data-so-item="{{ $item->KDPOS ?? '-' }}" data-pro="{{ $item->AUFNR ?? '-' }}"
+        data-so-item="{{ $item->KDPOS ? ltrim((string) $item->KDPOS, '0') : '-' }}" data-pro="{{ $item->AUFNR ?? '-' }}"
         data-status-text="{{ $status ?: '-' }}" data-status-class="{{ $badgeClass }}"
         data-material-code="{{ $item->MATNR ? ltrim((string) $item->MATNR, '0') : '-' }}"
         data-description="{{ $item->MAKTX ?? '-' }}"
@@ -34,7 +34,7 @@
         <td class="text-center small d-none d-md-table-cell" data-col="so">
             {{ $item->KDAUF ?? '-' }}</td>
         <td class="text-center small d-none d-md-table-cell" data-col="so_item">
-            {{ $item->KDPOS ?? '-' }}</td>
+            {{ $item->KDPOS ? ltrim((string) $item->KDPOS, '0') : '-' }}</td>
         <td class="text-center small" data-col="pro">{{ $item->AUFNR ?? '-' }}</td>
         <td class="text-center" data-col="status"><span
                 class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span>

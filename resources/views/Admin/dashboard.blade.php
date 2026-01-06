@@ -464,7 +464,7 @@
                                     data-sort-type="text">SO <span class="sort-icon"><i
                                             class="fas fa-sort"></i></span></th>
                                 <th class="text-center d-none d-md-table-cell sortable-header"
-                                    data-sort-column="so_item" data-sort-type="text">SO. Item <span
+                                    data-sort-column="so_item" data-sort-type="text">Item <span
                                         class="sort-icon"><i class="fas fa-sort"></i></span></th>
 
                                 {{-- [TETAP TAMPIL DI MOBILE] --}}
@@ -542,7 +542,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="mb-3" style="max-width: 450px;"> <!-- Sedikit diperlebar -->
+                <div class="mb-3" style="max-width: 450px;"> 
                     <form action="{{ url()->current() }}" method="GET">
                         @foreach(request()->except(['search_total_pro', 'page_total_pro']) as $key => $value)
                             <input type="hidden" name="{{ $key }}" value="{{ $value }}">
@@ -552,15 +552,8 @@
                             <input type="text" name="search_total_pro" value="{{ $searchTotalPro ?? '' }}" placeholder="Search SO, PRO... (Enter)"
                                 class="form-control">
                             
-                            {{-- Input Hidden untuk Multi Material Filter --}}
+                            {{-- Input Hidden untuk Multi Material Filter (Legacy, kept for compat if needed, but overshadowed by Advanced Search) --}}
                             <input type="hidden" name="multi_matnr" id="multiMatnrHiddenInput" value="{{ request('multi_matnr') }}">
-
-                            <!-- Tombol Multi Filter Material -->
-                            <button class="btn btn-outline-secondary" type="button" id="btnMultiMatnr"
-                                data-bs-toggle="modal" data-bs-target="#multiMatnrModal" title="Filter Banyak Material">
-                                <i class="fas fa-layer-group me-1"></i>
-                                <span id="matnrBadge" class="badge bg-primary rounded-pill d-none">0</span>
-                            </button>
 
                             <!-- TOMBOL BARU: CLEAR FILTER -->
                             <button type="button" class="btn btn-outline-danger" id="btnResetFilter"
@@ -570,6 +563,82 @@
                         </div>
                     </form>
                 </div>
+
+                {{-- ADVANCED SEARCH UI --}}
+                <div class="mb-3">
+                    <button class="btn btn-sm btn-light w-100 border text-start text-secondary fw-bold d-flex align-items-center justify-content-between" 
+                            type="button" 
+                            onclick="toggleAdvancedSearch()"
+                            style="font-size: 0.8rem;">
+                        <span><i class="fas fa-sliders me-2"></i> Advanced Search (Specific Fields)</span>
+                        <i class="fas fa-chevron-down text-xs" id="advSearchIcon"></i>
+                    </button>
+                    
+                    <div class="d-none border-start border-end border-bottom rounded-bottom shadow-sm" id="advancedSearchCollapse">
+                        <div class="bg-white p-3">
+                            <div class="row g-2">
+                                <div class="col-md-2">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="advAufnr" class="form-control" placeholder="PRO" value="{{ $advAufnr ?? '' }}">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advAufnr', 'PRO List')" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="advMatnr" class="form-control" placeholder="Material" value="{{ $advMatnr ?? '' }}">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advMatnr', 'Material List')" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="advMaktx" class="form-control" placeholder="Description" value="{{ $advMaktx ?? '' }}">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advMaktx', 'Desc. List')" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-2">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="advKdauf" class="form-control" placeholder="SO (KDAUF)" value="{{ $advKdauf ?? '' }}">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO List', false)" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
+                                    </div>
+                                </div>
+                                <div class="col-md-1">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="advKdpos" class="form-control" placeholder="Item" value="{{ $advKdpos ?? '' }}">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdpos', 'Item List', false)" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
+                                    </div>
+                                </div>
+                                    <div class="col-md-1">
+                                    <button class="btn btn-sm btn-outline-danger w-100 fw-bold" onclick="clearAdvancedSearch()" title="Reset Filters"><i class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                            <div class="text-xs text-muted mt-2 fst-italic">
+                                <i class="fas fa-circle-info me-1"></i> Gunakan ini untuk pencarian spesifik per kolom. Pencarian utama diatas akan diabaikan jika kolom ini terisi.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- MULTI INPUT MODAL (GENERIC) --}}
+                <div class="modal fade" id="multiInputModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow-lg rounded-4">
+                            <div class="modal-header border-0 bg-primary bg-opacity-10">
+                                <h6 class="modal-title fw-bold text-primary" id="multiInputTitle">Input List Parameter</h6>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body p-3">
+                                <p class="text-muted small mb-2">Paste list parameter disini (dipisahkan baris baru atau koma):</p>
+                                <textarea id="multiInputTextarea" class="form-control" rows="10" placeholder="Contoh:&#10;1001&#10;1002&#10;1003"></textarea>
+                            </div>
+                            <div class="modal-footer border-0 p-2 bg-light">
+                                <button type="button" class="btn btn-white text-muted fw-bold btn-sm border" data-bs-dismiss="modal">Batal</button>
+                                <button type="button" class="btn btn-primary fw-bold btn-sm shadow-sm" onclick="applyMultiInput()">Isi Parameter</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
 
                 <div class="modal fade" id="multiMatnrModal" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">
@@ -616,7 +685,7 @@
                                     data-sort-type="text">SO <span class="sort-icon"><i
                                             class="fas fa-sort"></i></span></th>
                                 <th class="text-center d-none d-md-table-cell sortable-header"
-                                    data-sort-column="so_item" data-sort-type="text">SO. Item <span
+                                    data-sort-column="so_item" data-sort-type="text">Item <span
                                         class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                 <th class="text-center sortable-header" data-sort-column="pro" data-sort-type="text">
                                     PRO <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
@@ -624,7 +693,7 @@
                                     data-sort-type="text">Status <span class="sort-icon"><i
                                             class="fas fa-sort"></i></span></th>
                                 <th class="text-center d-none d-md-table-cell sortable-header"
-                                    data-sort-column="material_code" data-sort-type="text">Material Code <span
+                                    data-sort-column="material_code" data-sort-type="text">Material<span
                                         class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                 <th class="text-center d-none d-md-table-cell sortable-header"
                                     data-sort-column="description" data-sort-type="text">Deskripsi <span
@@ -694,17 +763,11 @@
                 let loadingStates = {};
 
                 const observerOptions = {
-                    root: null, // Use viewport or closest scrollable ancestor? unique scroll containers need careful root. 
-                    // Actually, if we use default root (null), it checks viewport. This is FINE if the container is on screen.
-                    // But if the container clips the content, the sentinel might be "visible" to the container but not viewport? No.
-                    // IntersectionObserver works relative to root. If root is null, it's viewport.
-                    // If content is Inside a scrollable div, the sentinel is only visible when scrolled to.
-                    // So we MUST use the container as root to detect when it enters the *container's* view.
-                    rootMargin: '200px', // Load before reaching bottom
+                    root: null,
+                    rootMargin: '200px',
                     threshold: 0.1
                 };
 
-                // We need separate observers if we want different roots (each container is a root).
                 scrollContainers.forEach(container => {
                     const sentinel = container.querySelector('.scroll-sentinel');
                     if (!sentinel) return;
@@ -726,7 +789,6 @@
 
                 function loadMoreData(container) {
                     const section = container.dataset.section;
-                    // Ensure attributes exist
                     if (!section) return;
                     
                     const hasMore = container.dataset.hasMore === 'true';
@@ -739,7 +801,6 @@
                     const spinner = container.querySelector('.loading-spinner');
                     if(spinner) spinner.classList.remove('d-none');
 
-                    // Ambil parameter URL saat ini (search, sort, dll)
                     const urlParams = new URLSearchParams(window.location.search);
                     urlParams.set('load_more', section);
                     urlParams.set('page_' + section, nextPage);
@@ -826,12 +887,25 @@
                     
                     // [NEW] Check for multi_matnr input if section is total_pro
                     if (section === 'total_pro') {
+                        // 1. Multi Material (Legacy/Integrated)
                         const multiMatnrInput = document.getElementById('multiMatnrHiddenInput');
                         if (multiMatnrInput && multiMatnrInput.value) {
                              urlParams.set('multi_matnr', multiMatnrInput.value);
                         } else {
                              urlParams.delete('multi_matnr');
                         }
+
+                        // 2. Advanced Search Params
+                        const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advKdauf', 'advKdpos'];
+                        advIds.forEach(id => {
+                            const el = document.getElementById(id);
+                            const val = el?.value?.trim();
+                            // Convert ID to param name: advAufnr -> adv_aufnr
+                            const param = id.replace(/([A-Z])/g, '_$1').toLowerCase(); 
+                            
+                            if(val) urlParams.set(param, val);
+                            else urlParams.delete(param);
+                        });
                     }
                     
                     // Update URL without reloading (optional, helps if user wants to copy/paste link)
@@ -1579,7 +1653,159 @@
                 }
 
                 // ===================================================================
-                // LOGIKA MULTI MATERIAL FILTER
+                // LOGIKA ADVANCED SEARCH (NEW)
+                // ===================================================================
+                
+                // 1. Toggle Advanced Search
+                window.toggleAdvancedSearch = function() {
+                    const box = document.getElementById('advancedSearchCollapse');
+                    const icon = document.getElementById('advSearchIcon');
+                    if(box) {
+                        if(box.classList.contains('d-none')) {
+                            box.classList.remove('d-none');
+                            if(icon) icon.className = "fas fa-chevron-up text-xs";
+                        } else {
+                            box.classList.add('d-none');
+                            if(icon) icon.className = "fas fa-chevron-down text-xs";
+                        }
+                    }
+                };
+
+                // 2. Clear Advanced Search
+                window.clearAdvancedSearch = function() {
+                    const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advKdauf', 'advKdpos'];
+                    advIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if(el) el.value = '';
+                    });
+                    
+                    // Juga trigger search ulang (kosong)
+                    performSearch();
+                };
+
+                // 3. Multi Input Modal Logic (Generic)
+                let multiInputModalInstance;
+                let currentMultiInputTargetId = null; 
+
+                window.openMultiInput = function(targetId, title, isNumeric = false) {
+                    currentMultiInputTargetId = targetId;
+                    const cleanTitle = title || 'List Parameter';
+                    
+                    document.getElementById('multiInputTitle').innerText = 'Input ' + cleanTitle;
+                    document.getElementById('multiInputTextarea').value = ''; 
+                    
+                    // Load existing value if any
+                    const currentVal = document.getElementById(targetId)?.value || '';
+                    if(currentVal) {
+                        document.getElementById('multiInputTextarea').value = currentVal.split(',').join('\n');
+                    }
+
+                    if (!multiInputModalInstance) {
+                        multiInputModalInstance = new bootstrap.Modal(document.getElementById('multiInputModal'));
+                    }
+                    multiInputModalInstance.show();
+                };
+
+                window.applyMultiInput = function() {
+                    if (!currentMultiInputTargetId) return;
+
+                    const rawText = document.getElementById('multiInputTextarea').value;
+                    // Split by newline or comma, trim, filter empty
+                    const items = rawText.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '');
+                    
+                    const targetInput = document.getElementById(currentMultiInputTargetId);
+                    if (targetInput) {
+                        targetInput.value = items.join(','); // Join with comma
+                        
+                        // Trigger search automatically? Or just let user press search? 
+                        // Let's mimic create-wi: trigger event or just fill
+                        // create-wi triggers search on keyup. Here we have a dedicated search function usually?
+                        // Dashboard usually relies on 'Enter' in main search. 
+                        // Let's trigger search immediately for better UX
+                        performSearch();
+                    }
+                    
+                    multiInputModalInstance.hide();
+                };
+
+                // 4. Integrasi dengan Perform Search
+                // Kita perlu modifikasi/override behavior search bawaan atau tambahkan params saat submit
+                
+                function performSearch() {
+                    // This function is now DEPRECATED/REMOVED in favor of the main AJAX performSearch above.
+                    // We will redirect calls to the main performSearch.
+                    
+                    const mainSearchInput = document.querySelector('input[name="search_total_pro"]');
+                    const searchTerm = mainSearchInput ? mainSearchInput.value : '';
+                    if (typeof window.performSearch === 'function') {
+                         window.performSearch('total_pro', searchTerm);
+                    }
+                }
+
+                // Attach 'Enter' key to Advanced Inputs
+                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advKdauf', 'advKdpos'];
+                advIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) {
+                        el.addEventListener('keyup', function(e) {
+                            if (e.key === 'Enter') {
+                                performSearch();
+                            }
+                        });
+                    }
+                });
+
+                // Attach to Main Search Input to include Advanced Params
+                const mainSearchInput = document.querySelector('input[name="search_total_pro"]');
+                if(mainSearchInput) {
+                    // Prevent default form submit to handle params manually?
+                    // Or inject hidden inputs? Injecting hidden inputs is easier for standard form submit.
+                    // But performSearch with URL manipulation is cleaner given the dynamic nature.
+                    mainSearchInput.closest('form').addEventListener('submit', function(e) {
+                         e.preventDefault();
+                         performSearch();
+                    });
+                }
+                
+                // Reset Button Logic
+                const btnReset = document.getElementById('btnResetFilter');
+                if(btnReset) {
+                    btnReset.addEventListener('click', function() {
+                        // Clear all inputs
+                        if(mainSearchInput) mainSearchInput.value = '';
+                        advIds.forEach(id => {
+                            const el = document.getElementById(id);
+                            if(el) el.value = '';
+                        });
+                        
+                        // Use AJAX Search to Clear
+                        if (typeof window.performSearch === 'function') {
+                           window.performSearch('total_pro', '');
+                        }
+                    });
+                }
+                
+                // Initialize Values from URL (on Load)
+                const urlParams = new URL(window.location.href).searchParams;
+                advIds.forEach(id => {
+                    const param = id.replace(/([A-Z])/g, '_$1').toLowerCase();
+                    const val = urlParams.get(param);
+                    const el = document.getElementById(id);
+                    if(val && el) {
+                        el.value = val;
+                        // Show collapsible if any advanced param is present
+                        const box = document.getElementById('advancedSearchCollapse');
+                        const icon = document.getElementById('advSearchIcon');
+                        if (box) { 
+                            box.classList.remove('d-none');
+                             if(icon) icon.className = "fas fa-chevron-up text-xs";
+                        }
+                    }
+                });
+
+
+                // ===================================================================
+                // LOGIKA MULTI MATERIAL FILTER (OLD) - Kept but integrated
                 // ===================================================================
                 const btnApplyMatnr = document.getElementById('applyMatnrFilter');
                 const btnClearMatnr = document.getElementById('clearMatnrFilter');
@@ -1692,6 +1918,38 @@
                              window.location.href = this.href;
                          }
                     });
+                }
+
+                // ===================================================================
+                // LOGIKA STICKY SECTION VISIBILITY (Show Section if Params Exist)
+                // ===================================================================
+                const urlParamsSticky = new URLSearchParams(window.location.search);
+                const totalProParams = [
+                    'search_total_pro', 'page_total_pro', 
+                    'adv_aufnr', 'adv_matnr', 'adv_maktx', 
+                     'adv_kdauf', 'adv_kdpos',
+                    'multi_matnr'
+                ];
+                
+                // Check if any tracked param has a value
+                const hasTotalProParams = totalProParams.some(param => {
+                    return urlParamsSticky.has(param) && urlParamsSticky.get(param) && urlParamsSticky.get(param).trim() !== '';
+                });
+
+                if (hasTotalProParams) {
+                    const mainContent = document.getElementById('mainDashboardContent');
+                    const totalProSection = document.getElementById('totalProSection');
+                    
+                    if (mainContent && totalProSection) {
+                        mainContent.style.display = 'none';
+                        totalProSection.style.display = 'block';
+                        
+                        // Check other sections to ensure they are hidden (just in case)
+                        ['outstandingSoSection', 'outstandingReservasiSection', 'ongoingProSection'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if(el) el.style.display = 'none';
+                        });
+                    }
                 }
             });
         </script>
