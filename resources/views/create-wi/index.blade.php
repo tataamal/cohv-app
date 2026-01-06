@@ -1863,9 +1863,9 @@
 
                    // Update UI Text for Sisa Qty
                    const cells = row.querySelectorAll('td.table-col');
-                   // cells[8] is Qty Sisa based on previous count
-                   const sisaCell = cells[8];
-                   const timeCell = cells[9]; // Time Req
+                   // cells[9] is Qty Sisa
+                   const sisaCell = cells[9];
+                   const timeCell = cells[10]; // Time Req
 
                    if (sisaCell) {
                        // Format number logic (locale ID)
