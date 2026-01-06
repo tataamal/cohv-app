@@ -579,32 +579,32 @@
                             <div class="row g-2">
                                 <div class="col-md-2">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="advAufnr" class="form-control" placeholder="PRO" value="{{ $advAufnr ?? '' }}">
+                                        <input type="text" id="advAufnr" name="adv_aufnr" class="form-control" placeholder="PRO" value="{{ $advAufnr ?? '' }}">
                                         <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advAufnr', 'PRO List')" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="advMatnr" class="form-control" placeholder="Material" value="{{ $advMatnr ?? '' }}">
+                                        <input type="text" id="advMatnr" name="adv_matnr" class="form-control" placeholder="Material" value="{{ $advMatnr ?? '' }}">
                                         <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advMatnr', 'Material List')" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="advMaktx" class="form-control" placeholder="Description" value="{{ $advMaktx ?? '' }}">
+                                        <input type="text" id="advMaktx" name="adv_maktx" class="form-control" placeholder="Description" value="{{ $advMaktx ?? '' }}">
                                         <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advMaktx', 'Desc. List')" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
                                     </div>
                                 </div>
 
                                 <div class="col-md-2">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="advKdauf" class="form-control" placeholder="SO (KDAUF)" value="{{ $advKdauf ?? '' }}">
+                                        <input type="text" id="advKdauf" name="adv_kdauf" class="form-control" placeholder="SO (KDAUF)" value="{{ $advKdauf ?? '' }}">
                                         <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO List', false)" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
                                     </div>
                                 </div>
                                 <div class="col-md-1">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="advKdpos" class="form-control" placeholder="Item" value="{{ $advKdpos ?? '' }}">
+                                        <input type="text" id="advKdpos" name="adv_kdpos" class="form-control" placeholder="Item" value="{{ $advKdpos ?? '' }}">
                                         <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdpos', 'Item List', false)" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
                                     </div>
                                 </div>
@@ -896,7 +896,7 @@
                         }
 
                         // 2. Advanced Search Params
-                        const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advKdauf', 'advKdpos'];
+                        const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advKdauf', 'advKdpos'];
                         advIds.forEach(id => {
                             const el = document.getElementById(id);
                             const val = el?.value?.trim();
@@ -1715,13 +1715,9 @@
                     
                     const targetInput = document.getElementById(currentMultiInputTargetId);
                     if (targetInput) {
-                        targetInput.value = items.join(','); // Join with comma
+                        targetInput.value = items.join(','); // Join with comma for backend
                         
-                        // Trigger search automatically? Or just let user press search? 
-                        // Let's mimic create-wi: trigger event or just fill
-                        // create-wi triggers search on keyup. Here we have a dedicated search function usually?
-                        // Dashboard usually relies on 'Enter' in main search. 
-                        // Let's trigger search immediately for better UX
+                        // Trigger search automatically
                         performSearch();
                     }
                     
