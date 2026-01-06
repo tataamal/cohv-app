@@ -67,31 +67,24 @@ class SendLogHistoryEmail extends Command
             return;
         }
 
-        // --- REFACTOR: DIRECT GROUPING BY BAGIAN NAME ---
-        // This eliminates issues where plant codes split the groups.
-        $groupedData = []; // [ 'BAGIAN_NAME' => [ 'items' => [], 'plant_codes' => [] ] ]
+        $groupedData = []; 
         
-        // 1. Process All History Docs
         foreach ($historyDocsAll as $doc) {
             $pCode = $doc->plant_code; 
-            // Resolve Bagian Name
-            $kData = $doc->kode; // Relation loaded
+            $kData = $doc->kode; 
             if (!$kData) {
-                // Try fallback lookup if relation failed but code exists?
                 $kData = Kode::find($pCode);
             }
             $rawName = $kData ? $kData->nama_bagian : 'UNKNOWN';
             
-            // Normalize Name (Slug for Grouping)
             $upperName = strtoupper($rawName);
-            // Remove ALL non-alphanumeric characters (spaces, dashes, etc.) to force merge
             $slug = preg_replace('/[^A-Z0-9]/', '', $upperName); 
             
             if (empty($slug)) $slug = 'UNKNOWN';
             
             if (!isset($groupedData[$slug])) {
                 $groupedData[$slug] = [
-                    'display_name' => $rawName, // Keep original for display
+                    'display_name' => $rawName, 
                     'items' => [],
                     'plant_codes' => [],
                     'printed_by' => ($kData && $kData->sapUser) ? $kData->sapUser->sap_id : 'AUTO_SCHEDULER',
@@ -99,20 +92,16 @@ class SendLogHistoryEmail extends Command
             }
             $groupedData[$slug]['plant_codes'][] = $pCode;
             
-            // Process Items
             $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
             if (!is_array($payload)) continue;
 
             foreach ($payload as $item) {
-                 // Add doc info to item
                  $item['_doc_no'] = $doc->wi_document_code;
                  $groupedData[$slug]['items'][] = $item;
             }
         }
-
-        // 2. Generate Reports per Group
         foreach ($groupedData as $slug => $group) {
-            $namaBagian = $group['display_name']; // Use Display Name for Header and Filename
+            $namaBagian = $group['display_name']; 
             $uniqueCodes = array_unique($group['plant_codes']);
             $rawItems = $group['items'];
             if (empty($rawItems)) continue;
@@ -120,7 +109,6 @@ class SendLogHistoryEmail extends Command
             $this->info(">>> Processing Bagian: '{$namaBagian}' [Slug: {$slug}] (Items: " . count($rawItems) . ")");
             $this->info("    Plant Codes: " . implode(', ', $uniqueCodes));
 
-            // Fetch WC Map for these codes
             $wcMap = \App\Models\workcenter::whereIn('werksx', $uniqueCodes)
                 ->orWhereIn('werks', $uniqueCodes)
                 ->pluck('description', 'kode_wc')
@@ -171,7 +159,7 @@ class SendLogHistoryEmail extends Command
                  
                  $soItem = $isMakeStock ? $kdauf : ($kdauf . ($kdpos ? '-' . $kdpos : ''));
 
-                 $nik = $item['nik'] ?? '-';
+                    $nik = $item['nik'] ?? '-';
                  
                  $processedItems[] = [
                     'doc_no'        => $item['_doc_no'],
@@ -179,6 +167,7 @@ class SendLogHistoryEmail extends Command
                     'wc_description'=> $wcDesc,
                     'so_item'       => $soItem,
                     'aufnr'         => $item['aufnr'] ?? '-',
+                    'vornr'         => $item['vornr'] ?? '', // [NEW] Added vornr
                     'material'      => $matnr,
                     'description'   => $item['material_desc'] ?? '-',
                     'assigned'      => $assigned,
@@ -196,13 +185,11 @@ class SendLogHistoryEmail extends Command
                  ];
             }
 
-            // SORT: WC ASC, NIK ASC
             $sortedItems = collect($processedItems)->sortBy([
                 ['nik', 'asc'],
                 ['workcenter', 'asc']
             ])->values()->all();
 
-            // Summary
             $totalAssigned = collect($sortedItems)->sum('assigned');
             $totalConfirmed = collect($sortedItems)->sum('confirmed'); 
             $totalFailed = $totalAssigned - $totalConfirmed; 
@@ -246,10 +233,7 @@ class SendLogHistoryEmail extends Command
             $this->info("   Generated PDF: {$historyPdfName}");
         }
 
-        // --- 2. COLLECT ACTIVE DOCUMENTS ---
-        // Process Global Active Docs (for Email)
         foreach($activeDocsAll as $doc) {
-             // Inject Buyer & Price for Email PDF (Active)
              $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
              if (is_array($payload)) {
                 $updatedPayload = [];
@@ -257,11 +241,9 @@ class SendLogHistoryEmail extends Command
                     // 1. Buyer
                     $item['buyer_sourced'] = $item['name1'] ?? '-';
                     
-                    // 2. Price
                     $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
                     $waerk = isset($item['waerk']) ? $item['waerk'] : '';
                     
-                    // Simple Format Logic from History Loop
                     if (strtoupper($waerk) === 'USD') {
                         $priceFmt = '$ ' . number_format($netpr, 2);
                     } elseif (strtoupper($waerk) === 'IDR') {
@@ -275,9 +257,8 @@ class SendLogHistoryEmail extends Command
                 }
                  $doc->payload_data = $updatedPayload;
                  
-                 // Calculate Total Price for Header (Email only)
                  $totalDocPrice = 0;
-                 $docCurrency = 'IDR'; // Default
+                 $docCurrency = 'IDR'; 
                  
                  foreach ($updatedPayload as $itm) {
                      $assg = floatval(str_replace(',', '.', $itm['assigned_qty'] ?? 0));
@@ -300,25 +281,6 @@ class SendLogHistoryEmail extends Command
  
          }
 
-        // 2. Generate Active PDF
-        /*if ($allActiveDocs->isNotEmpty()) {
-             $activeData = [
-                'documents' => $allActiveDocs,
-                'printedBy' => 'Scheduler',
-                'department' => 'ALL',
-                'printTime' => now(),
-                'isEmail'   => true, // Trigger column display in View
-             ];
-             $activePdfName = 'Dokument_WI_' . $dateActive . '.pdf';
-             $activePdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.wi_single_document', $activeData)
-                         ->setPaper('a4', 'landscape');
-             $activePath = storage_path("app/public/{$activePdfName}");
-             $activePdf->save($activePath);
-             $filesToAttach[] = $activePath;
-             $this->info("   Generated Global Active PDF (" . $allActiveDocs->count() . " docs).");
-        }*/
-
-        // 3. Send Email
         if (empty($filesToAttach)) {
             $this->info("   No reports/files to send.");
         } else {

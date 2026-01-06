@@ -346,7 +346,13 @@
                         <td>{{ $row['wc_description'] ?? '-' }}</td>
                         
                         <td class="text-center">{{ $row['so_item'] }}</td>
-                        <td class="text-center fw-bold">{{ $row['aufnr'] }}</td>
+                        <td class="text-center fw-bold">
+                            {{ $row['aufnr'] }}
+                            @if(!empty($row['vornr']))
+                                <br>
+                                <span style="font-weight: normal; font-style: italic; font-size: 7pt;">({{ ltrim($row['vornr'], '0') }})</span>
+                            @endif
+                        </td>
                         <td class="text-center">{{ $row['material'] }}</td>
                         <td>{{ $row['description'] }}</td>
                         <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>

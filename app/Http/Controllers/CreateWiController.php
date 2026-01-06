@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\workcenter;
 use App\Models\ProductionTData1; 
 use App\Models\WorkcenterMapping;
@@ -1041,7 +1042,6 @@ class CreateWiController extends Controller
                 return floatval($string);
             };
 
-            // --- Dynamic Max Qty Calculation Logic (Ported from History) ---
             $targetAufnr = $request->aufnr;
             
             // 1. Fetch Production Data for Real Limits
@@ -1050,22 +1050,17 @@ class CreateWiController extends Controller
                 $prodData = ProductionTData3::where('AUFNR', $targetAufnr)->first();
             }
             
-            // Calculate Base Remaining from SAP Data (Qty Opt - Confirmed)
-            // MGVRG2 = Total Order Qty
-            // LMNGA = Total Confirmed Qty
             $sapTotal = $prodData ? floatval($prodData->MGVRG2) : 0;
             $sapConfirmed = $prodData ? floatval($prodData->LMNGA) : 0;
             
-            // Fallback to static if DB fetch fails (should not happen for valid items)
             $dbMaxQty = $prodData ? max(0, $sapTotal - $sapConfirmed) : 0;
 
-            // 2. Calculate Concurrent Usage from OTHER active/inactive docs
             $plantCode = $doc->plant_code;
             $today = Carbon::today();
             $now = Carbon::now();
 
             $relatedDocs = HistoryWi::where('plant_code', $plantCode)
-                ->where('id', '!=', $doc->id) // Exclude current doc to avoid double counting static data
+                ->where('id', '!=', $doc->id) 
                 ->get();
             
             $otherUsage = 0;
@@ -1416,6 +1411,7 @@ class CreateWiController extends Controller
                     'workcenter'    => $wc,
                     'wc_description'=> $wcDescriptions[strtoupper($wc)] ?? '-', // Populated via lookup
                     'aufnr'         => $item['aufnr'] ?? '-',
+                    'vornr'         => $item['vornr'] ?? '', // [NEW] Added vornr
                     'material'      => $matnr,
                     'description'   => $item['material_desc'] ?? '-',
                     'assigned'      => $assigned,
@@ -1485,7 +1481,7 @@ class CreateWiController extends Controller
                                         (collect($sortedItems)->sum('balance') <= 0) ? 'COMPLETED' : 'ACTIVE'
                                       ),
                          'date'     => $doc->created_at->format('d-M-Y'),
-                         'expired'  => $doc->expired_at ? \Carbon\Carbon::parse($doc->expired_at)->format('d-M-Y H:i') : '-',
+                         'expired'  => $doc->expired_at ? Carbon::parse($doc->expired_at)->format('d-M-Y H:i') : '-',
                     ]
                 ];
             }
@@ -1558,8 +1554,8 @@ class CreateWiController extends Controller
                                    ) : '-',
                      'expired'  => ($documents->count() > 0 && $documents->first()->expired_at) ? (
                                       ($documents->min('expired_at') === $documents->max('expired_at'))
-                                      ? \Carbon\Carbon::parse($documents->first()->expired_at)->format('d-M-Y H:i')
-                                      : \Carbon\Carbon::parse($documents->min('expired_at'))->format('d-M-Y') . ' - ' . \Carbon\Carbon::parse($documents->max('expired_at'))->format('d-M-Y')
+                                      ? Carbon::parse($documents->first()->expired_at)->format('d-M-Y H:i')
+                                      : Carbon::parse($documents->min('expired_at'))->format('d-M-Y') . ' - ' . Carbon::parse($documents->max('expired_at'))->format('d-M-Y')
                                    ) : '-',
                 ]
             ];
@@ -1934,7 +1930,7 @@ class CreateWiController extends Controller
         $formattedDate = Carbon::parse($date)->format('Ymd');
         $formattedTime = Carbon::parse($time)->format('H:i:s');
         
-        $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function() use ($items, $plantCode, $formattedDate, $formattedTime) {
+        $response = new StreamedResponse(function() use ($items, $plantCode, $formattedDate, $formattedTime) {
             $manufactController = new ManufactController();
             $total = count($items);
             
@@ -2194,17 +2190,13 @@ class CreateWiController extends Controller
                 }
             }
 
-
-
-            // --- CAPACITY VALIDATION START ---
             $currentLoadMins = 0;
             if(!empty($payload)) {
                  foreach($payload as $pItem) {
                       $currentLoadMins += floatval($pItem['calculated_tak_time'] ?? 0);
                  }
             }
-
-            // Calculate Max Mins Logic (Replicated from history/index)
+            
             $fixedSingleMins = 570;
             $workcenterMappings = WorkcenterMapping::where('plant', $plantCode)
                                   ->orWhere('kode_laravel', $plantCode)->get();
@@ -2217,7 +2209,6 @@ class CreateWiController extends Controller
             $childCount = $childrenOfThisWc->count();
             $maxMins = ($childCount > 0) ? ($childCount * $fixedSingleMins) : $fixedSingleMins;
 
-            // Calculate New Item Mins BEFORE Adding
             $baseTime = floatval($targetItem->VGW01);
             $reqQty = floatval($request->qty);
             $unit = strtoupper($targetItem->VGE01);
@@ -2237,7 +2228,6 @@ class CreateWiController extends Controller
                      'message' => "Kapasitas Harian tidak mencukupi! Max: " . number_format($maxMins, 0) . " Min. Tersisa: " . number_format($sisaMins, 2) . " Min. Dibutuhkan: " . number_format($checkNewMins, 2) . " Min." 
                  ], 400);
             }
-            // --- CAPACITY VALIDATION END ---
 
             $newItem = [
                 'aufnr' => $targetItem->AUFNR,
@@ -2311,7 +2301,6 @@ class CreateWiController extends Controller
                 return $item['aufnr'] . '_' . $item['vornr'];
             });
 
-            // Pre-fetch mappings for optimization
             $allMappings = WorkcenterMapping::where('plant', $plantCode)
                                             ->orWhere('kode_laravel', $plantCode)
                                             ->get();
@@ -2342,19 +2331,13 @@ class CreateWiController extends Controller
                     $isMerged = false;
                     foreach ($payload as &$existing) {
                         $exNik = $existing['nik'] ?? '-';
-                        // Check multiple possible keys for workcenter
                         $exWc = $existing['target_workcenter'] ?? ($existing['workcenter'] ?? ($existing['child_workcenter'] ?? '')); 
-                        
-                        // If still empty, it might be the parent WC or implicit?
-                        // But logic requires specific WC match.
                         
                         $exAufnr = $existing['aufnr'] ?? '-';
                         $exVornr = $existing['vornr'] ?? '-';
                         
-                        // Debug Log
                         Log::info("Compare AddItem: Req[N:{$requestedNik}, W:{$requestedWc}, A:{$req['aufnr']}] vs Ex[N:{$exNik}, W:{$exWc}, A:{$exAufnr}]");
 
-                        // Use loose comparison (==) to handle potential type differences (e.g. string vs int from JSON)
                         if (trim($exNik) == trim($requestedNik) && 
                             trim($exWc) == trim($requestedWc) && 
                             trim($exAufnr) == trim($req['aufnr']) && 
@@ -2365,12 +2348,10 @@ class CreateWiController extends Controller
                                  throw new \Exception("Item PRO {$exAufnr} untuk Operator {$req['name']} tidak bisa ditambahkan karena sudah ada item yang dikonfirmasi.");
                              } else {
                                  Log::info("MATCH FOUND! Merging.");
-                                 // MERGE LOGIC
                                  $currentAssigned = floatval($existing['assigned_qty']);
                                  $newAssigned = $currentAssigned + floatval($req['qty']);
                                  $existing['assigned_qty'] = $newAssigned;
 
-                                 // Recalculate Time
                                  $baseTime = floatval($existing['vgw01'] ?? 0);
                                  $unit = strtoupper($existing['vge01'] ?? '');
                                  $totalRaw = $baseTime * $newAssigned;
@@ -2386,9 +2367,9 @@ class CreateWiController extends Controller
                              }
                         }
                     }
-                    unset($existing); // Break reference
+                    unset($existing); 
 
-                    if ($isMerged) continue; // Skip creating new item
+                    if ($isMerged) continue; 
 
                     $duplicatesInBatch = $requests->filter(function($r) use ($requestedNik, $requestedWc, $req) {
                         return $r['nik'] === $requestedNik && 
@@ -2400,7 +2381,6 @@ class CreateWiController extends Controller
                          throw new \Exception("Operator {$req['name']} dipilih lebih dari satu kali untuk PRO/Workcenter yang sama dalam batch ini.");
                     }
 
-                    // Resolve Workcenter Hierarchy
                     $wcTarget = $req['target_workcenter'];
                     $mapping = $allMappings->first(function($m) use ($wcTarget) {
                         return strtoupper($m->workcenter) === strtoupper($wcTarget);
@@ -2436,8 +2416,8 @@ class CreateWiController extends Controller
                         'steus' => $targetItem->STEUS,
                         'sssld' => $targetItem->SSSLD,
                         'ssavd' => $targetItem->SSAVD,
-                        'kapaz' => $targetItem->KAPAZ, // Raw string from DB
-                        'material_number' => $targetItem->MATNR, // Alias for material
+                        'kapaz' => $targetItem->KAPAZ, 
+                        'material_number' => $targetItem->MATNR, 
                     ];
                     
                     $baseTime = floatval($targetItem->VGW01);

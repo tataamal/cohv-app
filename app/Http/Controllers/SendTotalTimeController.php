@@ -68,7 +68,7 @@ class SendTotalTimeController extends Controller
                 ]);
                 
                 $record->kode_laravel = $plantString;
-                $record->total_time_wi = $data['total_time'];
+                $record->total_time_wi = ceil($data['total_time']); 
                 $record->nama = $data['nama']; 
                 
                 $record->save();

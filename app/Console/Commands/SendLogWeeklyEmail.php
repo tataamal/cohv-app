@@ -172,6 +172,7 @@ class SendLogWeeklyEmail extends Command
                     'wc_description'=> $wcDesc,
                     'so_item'       => $soItem,
                     'aufnr'         => $item['aufnr'] ?? '-',
+                    'vornr'         => $item['vornr'] ?? '', // [NEW] Added vornr
                     'material'      => $matnr,
                     'description'   => $item['material_desc'] ?? '-',
                     'assigned'      => $assigned,
