@@ -12,25 +12,33 @@ class CalculateDailyTimeWi extends Command
      *
      * @var string
      */
-    protected $signature = 'wi:calculate-daily-time';
+    protected $signature = 'wi:calculate-daily-time {date? : The date to process (YYYY-MM-DD)} {--end= : Optional end date for range (YYYY-MM-DD)}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Calculate and store daily total WI time per NIK for H-1';
+    protected $description = 'Calculate and store daily total WI time per NIK for H-1 or custom range';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $this->info('Starting Daily Time Calculation...');
+        $date = $this->argument('date');
+        $endDate = $this->option('end');
+
+        $this->info("Starting Daily Time Calculation...");
+        if ($date) {
+            $this->info("Target Date: $date" . ($endDate ? " to $endDate" : ""));
+        } else {
+             $this->info("Target Date: Yesterday (Default)");
+        }
 
         try {
             $controller = app(SendTotalTimeController::class);
-            $response = $controller->calculateAndStoreDailyTime();
+            $response = $controller->calculateAndStoreDailyTime($date, $endDate);
             
             // Controller returns JsonResponse, so we extract data
             $data = $response->getData(true);
@@ -38,6 +46,9 @@ class CalculateDailyTimeWi extends Command
             if ($data['success']) {
                 $this->info($data['message']);
                 $this->info("Records Processed: " . $data['records_processed']);
+                if (!empty($data['dates_processed'])) {
+                    $this->info("Dates Processed: " . implode(', ', $data['dates_processed']));
+                }
             } else {
                 $this->error('Failed: ' . $data['message']);
             }

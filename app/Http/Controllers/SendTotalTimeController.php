@@ -10,75 +10,96 @@ use Illuminate\Http\Request;
 class SendTotalTimeController extends Controller
 {
 
-    public function calculateAndStoreDailyTime()
+    public function calculateAndStoreDailyTime($startDate = null, $endDate = null)
     {
         try {
-            $date = Carbon::yesterday()->toDateString();
-            
-            $documents = HistoryWi::whereDate('document_date', $date)->get();
-            
-            $aggregatedData = [];
+            // Determine date range
+            if ($startDate) {
+                $start = Carbon::parse($startDate);
+                $end = $endDate ? Carbon::parse($endDate) : Carbon::parse($startDate);
+            } else {
+                $start = Carbon::yesterday();
+                $end = Carbon::yesterday();
+            }
 
-            foreach ($documents as $doc) {
-                $payload = $doc->payload_data;
-                $plantCode = $doc->plant_code;
+            $totalProcessed = 0;
+            $processedDates = [];
 
-                if (is_array($payload)) {
-                    foreach ($payload as $item) {
-                        $nik = trim($item['nik'] ?? '');
-                        
-                        if (empty($nik)) continue;
+            // Loop through each day
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $currentDate = $date->toDateString();
+                
+                $documents = HistoryWi::whereDate('document_date', $currentDate)->get();
+                
+                $aggregatedData = [];
 
-                        $nama = $item['name'] ?? null;
+                foreach ($documents as $doc) {
+                    $payload = $doc->payload_data;
+                    $plantCode = $doc->plant_code;
 
-                        $timeStr = $item['calculated_tak_time'] ?? '0';
-                        $timeVal = floatval(str_replace(',', '.', $timeStr));
+                    if (is_array($payload)) {
+                        foreach ($payload as $item) {
+                            $nik = trim($item['nik'] ?? '');
+                            
+                            if (empty($nik)) continue;
 
-                        $key = $nik;
+                            $nama = $item['name'] ?? null;
 
-                        if (!isset($aggregatedData[$key])) {
-                            $aggregatedData[$key] = [
-                                'nik' => $nik,
-                                'nama' => $nama,
-                                'plants' => [],
-                                'total_time' => 0
-                            ];
-                        }
-                        
-                        if (empty($aggregatedData[$key]['nama']) && !empty($nama)) {
-                            $aggregatedData[$key]['nama'] = $nama;
-                        }
+                            $timeStr = $item['calculated_tak_time'] ?? '0';
+                            $timeVal = floatval(str_replace(',', '.', $timeStr));
 
-                        $aggregatedData[$key]['total_time'] += $timeVal;
-                        
-                        if (!in_array($plantCode, $aggregatedData[$key]['plants'])) {
-                            $aggregatedData[$key]['plants'][] = $plantCode;
+                            $key = $nik;
+
+                            if (!isset($aggregatedData[$key])) {
+                                $aggregatedData[$key] = [
+                                    'nik' => $nik,
+                                    'nama' => $nama,
+                                    'plants' => [],
+                                    'total_time' => 0
+                                ];
+                            }
+                            
+                            if (empty($aggregatedData[$key]['nama']) && !empty($nama)) {
+                                $aggregatedData[$key]['nama'] = $nama;
+                            }
+
+                            $aggregatedData[$key]['total_time'] += $timeVal;
+                            
+                            if (!in_array($plantCode, $aggregatedData[$key]['plants'])) {
+                                $aggregatedData[$key]['plants'][] = $plantCode;
+                            }
                         }
                     }
                 }
+
+                $count = 0;
+                foreach ($aggregatedData as $data) {
+                    sort($data['plants']);
+                    $plantString = implode(',', $data['plants']);
+                    $record = DailyTimeWi::firstOrNew([
+                        'tanggal' => $currentDate,
+                        'nik' => $data['nik']
+                    ]);
+                    
+                    $record->kode_laravel = $plantString;
+                    $record->total_time_wi = ceil($data['total_time']); 
+                    $record->nama = $data['nama']; 
+                    
+                    $record->save();
+                    $count++;
+                }
+                
+                $totalProcessed += $count;
+                $processedDates[] = $currentDate;
             }
 
-            $count = 0;
-            foreach ($aggregatedData as $data) {
-                sort($data['plants']);
-                $plantString = implode(',', $data['plants']);
-                $record = DailyTimeWi::firstOrNew([
-                    'tanggal' => $date,
-                    'nik' => $data['nik']
-                ]);
-                
-                $record->kode_laravel = $plantString;
-                $record->total_time_wi = ceil($data['total_time']); 
-                $record->nama = $data['nama']; 
-                
-                $record->save();
-                $count++;
-            }
+            $dateRangeStr = $start->toDateString() . ($start->notEqualTo($end) ? ' to ' . $end->toDateString() : '');
 
             return response()->json([
                 'success' => true,
-                'message' => "Berhasil menghitung dan menyimpan data harian untuk tanggal {$date}.",
-                'records_processed' => $count
+                'message' => "Berhasil menghitung dan menyimpan data harian untuk: {$dateRangeStr}.",
+                'records_processed' => $totalProcessed,
+                'dates_processed' => $processedDates
             ]);
 
         } catch (\Exception $e) {
