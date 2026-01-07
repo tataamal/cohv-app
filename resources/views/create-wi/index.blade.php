@@ -868,6 +868,7 @@
                 
                 draggedItemsCache.forEach((row, index) => {
                     const rAufnr = String(row.dataset.aufnr || '').trim();
+                    const rVornr = String(row.dataset.vornr || '').trim(); // [FIX] Add VORNR check
                     const rMaktx = row.dataset.maktx || ''; 
                     const originalSisa = parseFloat(row.dataset.sisaQty) || 0;
                     
@@ -875,8 +876,9 @@
                     let allocatedInDropBoxes = 0;
                     document.querySelectorAll('.wc-drop-zone .pro-item-card').forEach(c => {
                         const cAufnr = String(c.dataset.aufnr || '').trim();
+                        const cVornr = String(c.dataset.vornr || '').trim();
                         // Exclude the item currently being dragged (if it's already in DOM, though usually it's in list)
-                        if (cAufnr === rAufnr) {
+                        if (cAufnr === rAufnr && cVornr === rVornr) { // [FIX] Match PRO + VORNR
                              allocatedInDropBoxes += parseFloat(c.dataset.assignedQty) || 0;
                         }
                     });
@@ -1840,21 +1842,25 @@
                 
                 document.querySelectorAll('.wc-drop-zone .pro-item-card').forEach(card => {
                     const aufnr = String(card.dataset.aufnr || '').trim();
+                    const vornr = String(card.dataset.vornr || '').trim(); // [FIX]
                     const assigned = parseFloat(card.dataset.assignedQty) || 0;
                     
                     if(aufnr) {
-                        if (!assignedMap[aufnr]) assignedMap[aufnr] = 0;
-                        assignedMap[aufnr] += assigned;
+                        const key = aufnr + '_' + vornr; // [FIX] Composite Key
+                        if (!assignedMap[key]) assignedMap[key] = 0;
+                        assignedMap[key] += assigned;
                     }
                 });
 
                document.querySelectorAll('#source-list tr.pro-item').forEach(row => {
                    const aufnr = String(row.dataset.aufnr || '').trim();
+                   const vornr = String(row.dataset.vornr || '').trim(); // [FIX]
                    // Original Sisa from Server (Total - Confirmed - WI_Saved)
                    const serverSisa = parseFloat(row.dataset.sisaQty) || 0;
                    
                    // Deduct locally assigned quantity
-                   const localAssigned = assignedMap[aufnr] || 0;
+                   const key = aufnr + '_' + vornr;
+                   const localAssigned = assignedMap[key] || 0;
                    let finalSisa = serverSisa - localAssigned;
                    
                    // Round to handle float precision issues
