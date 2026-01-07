@@ -218,103 +218,83 @@ class adminController extends Controller
                               ->orWhere('MAKTX', 'like', "%{$term}%");
                         });
                     })
-                    // --- ADVANCED FILTERS START (OR LOGIC) ---
-                    ->where(function($query) use ($advAufnr, $advMatnr, $advMaktx, $advArbpl, $advKdauf, $advKdpos) {
-                        
-                        // 1. PRO (AUFNR)
-                        if ($advAufnr) {
-                            $items = array_filter(array_map('trim', explode(',', $advAufnr)));
-                            $paddedItems = [];
-                            foreach ($items as $item) {
-                                // Always assume SAP might use padded format 000... (12 digits)
-                                if (is_numeric($item)) {
-                                    $paddedItems[] = str_pad($item, 12, '0', STR_PAD_LEFT);
+                    // --- ADVANCED FILTERS START (AND LOGIC) ---
+                    ->when($advAufnr, function($query, $term) {
+                        $items = array_filter(array_map('trim', explode(',', $term)));
+                        $paddedItems = [];
+                        foreach ($items as $item) {
+                            if (is_numeric($item)) {
+                                $paddedItems[] = str_pad($item, 12, '0', STR_PAD_LEFT);
+                            }
+                        }
+
+                        if (!empty($items)) {
+                            $query->where(function($sub) use ($items, $paddedItems) {
+                                $sub->whereIn('AUFNR', $items);
+                                if (!empty($paddedItems)) {
+                                    $sub->orWhereIn('AUFNR', $paddedItems);
                                 }
-                            }
-
-                            if (!empty($items)) {
-                                $query->orWhere(function($sub) use ($items, $paddedItems) {
-                                    $sub->whereIn('AUFNR', $items);
-                                    if (!empty($paddedItems)) {
-                                        $sub->orWhereIn('AUFNR', $paddedItems);
-                                    }
-                                });
-                            }
-                        }
-
-                        // 2. Material (MATNR)
-                        if ($advMatnr) {
-                            $items = array_filter(array_map('trim', explode(',', $advMatnr)));
-                            $paddedItems = [];
-                            foreach ($items as $item) {
-                                // Default SAP MATNR is 18 chars
-                                if (is_numeric($item)) {
-                                    $paddedItems[] = str_pad($item, 18, '0', STR_PAD_LEFT);
-                                }
-                            }
-                            
-                            if (!empty($items)) {
-                                $query->orWhere(function($sub) use ($items, $paddedItems) {
-                                    $sub->whereIn('MATNR', $items);
-                                    if (!empty($paddedItems)) {
-                                        $sub->orWhereIn('MATNR', $paddedItems);
-                                    }
-                                });
-                            }
-                        }
-
-                        // 3. Description (MAKTX)
-                        if ($advMaktx) {
-                            $items = array_filter(array_map('trim', explode(',', $advMaktx)));
-                            if (!empty($items)) {
-                                $query->orWhere(function($sub) use ($items) {
-                                    foreach ($items as $item) {
-                                        $sub->orWhere('MAKTX', 'like', "%{$item}%");
-                                    }
-                                });
-                            }
-                        }
-
-                        // 4. Workcenter (ARBPL)
-                        if ($advArbpl) {
-                            $items = array_filter(array_map('trim', explode(',', $advArbpl)));
-                            if (!empty($items)) {
-                                $query->orWhereIn('ARBPL', $items);
-                            }
-                        }
-
-                        // 5. SO (KDAUF)
-                        if ($advKdauf) {
-                            $items = array_filter(array_map('trim', explode(',', $advKdauf)));
-                            $paddedItems = [];
-                            foreach ($items as $item) {
-                                // Default SAP SO is 10 chars
-                                if (is_numeric($item)) {
-                                    $paddedItems[] = str_pad($item, 10, '0', STR_PAD_LEFT);
-                                }
-                            }
-
-                            if (!empty($items)) {
-                                $query->orWhere(function($sub) use ($items, $paddedItems) {
-                                    $sub->whereIn('KDAUF', $items);
-                                    if (!empty($paddedItems)) {
-                                        $sub->orWhereIn('KDAUF', $paddedItems);
-                                    }
-                                });
-                            }
-                        }
-
-                        // 6. Item (KDPOS)
-                        if ($advKdpos) {
-                            $items = array_filter(array_map('trim', explode(',', $advKdpos)));
-                            if (!empty($items)) {
-                                $query->orWhereIn('KDPOS', $items);
-                            }
+                            });
                         }
                     })
+                    ->when($advMatnr, function($query, $term) {
+                        $items = array_filter(array_map('trim', explode(',', $term)));
+                        $paddedItems = [];
+                        foreach ($items as $item) {
+                            if (is_numeric($item)) {
+                                $paddedItems[] = str_pad($item, 18, '0', STR_PAD_LEFT);
+                            }
+                        }
+                        
+                        if (!empty($items)) {
+                            $query->where(function($sub) use ($items, $paddedItems) {
+                                $sub->whereIn('MATNR', $items);
+                                if (!empty($paddedItems)) {
+                                    $sub->orWhereIn('MATNR', $paddedItems);
+                                }
+                            });
+                        }
+                    })
+                    ->when($advMaktx, function($query, $term) {
+                        $items = array_filter(array_map('trim', explode(',', $term)));
+                        if (!empty($items)) {
+                            $query->where(function($sub) use ($items) {
+                                foreach ($items as $item) {
+                                    $sub->orWhere('MAKTX', 'like', "%{$item}%");
+                                }
+                            });
+                        }
+                    })
+                    ->when($advArbpl, function($query, $term) {
+                        $items = array_filter(array_map('trim', explode(',', $term)));
+                        if (!empty($items)) {
+                            $query->whereIn('ARBPL', $items);
+                        }
+                    })
+                    ->when($advKdauf, function($query, $term) {
+                        $items = array_filter(array_map('trim', explode(',', $term)));
+                        $paddedItems = [];
+                        foreach ($items as $item) {
+                            if (is_numeric($item)) {
+                                $paddedItems[] = str_pad($item, 10, '0', STR_PAD_LEFT);
+                            }
+                        }
 
-
-
+                        if (!empty($items)) {
+                            $query->where(function($sub) use ($items, $paddedItems) {
+                                $sub->whereIn('KDAUF', $items);
+                                if (!empty($paddedItems)) {
+                                    $sub->orWhereIn('KDAUF', $paddedItems);
+                                }
+                            });
+                        }
+                    })
+                    ->when($advKdpos, function($query, $term) {
+                        $items = array_filter(array_map('trim', explode(',', $term)));
+                        if (!empty($items)) {
+                            $query->whereIn('KDPOS', $items);
+                        }
+                    })
                     // --- ADVANCED FILTERS END ---
                     ->latest('AUFNR')
                     ->paginate(50, ['*'], 'page_total_pro')
@@ -417,18 +397,33 @@ class adminController extends Controller
             // --- ADVANCED FILTERS START ---
             ->when($advAufnr, function($q, $val) {
                 $items = array_filter(array_map('trim', explode(',', $val)));
-                if(!empty($items)) $q->whereIn('AUFNR', $items);
+                $paddedItems = [];
+                foreach ($items as $item) {
+                    if (is_numeric($item)) {
+                        $paddedItems[] = str_pad($item, 12, '0', STR_PAD_LEFT);
+                    }
+                }
+
+                if (!empty($items)) {
+                    $q->where(function($sub) use ($items, $paddedItems) {
+                        $sub->whereIn('AUFNR', $items);
+                        if (!empty($paddedItems)) {
+                            $sub->orWhereIn('AUFNR', $paddedItems);
+                        }
+                    });
+                }
             })
             ->when($advMatnr, function($q, $val) {
                 $items = array_filter(array_map('trim', explode(',', $val)));
                 $paddedItems = [];
                 foreach ($items as $item) {
-                    if (is_numeric($item) && strlen($item) < 18) {
+                    // Default SAP MATNR is 18 chars, kept consistent with AJAX
+                    if (is_numeric($item)) {
                         $paddedItems[] = str_pad($item, 18, '0', STR_PAD_LEFT);
                     }
                 }
                 
-                if(!empty($items)) {
+                if (!empty($items)) {
                     $q->where(function($sub) use ($items, $paddedItems) {
                         $sub->whereIn('MATNR', $items);
                         if (!empty($paddedItems)) {
@@ -439,23 +434,39 @@ class adminController extends Controller
             })
             ->when($advMaktx, function($q, $val) {
                 $items = array_filter(array_map('trim', explode(',', $val)));
-                if(!empty($items)) {
+                if (!empty($items)) {
                     $q->where(function($sub) use ($items) {
-                        foreach($items as $item) $sub->orWhere('MAKTX', 'like', "%{$item}%");
+                        foreach ($items as $item) {
+                            $sub->orWhere('MAKTX', 'like', "%{$item}%");
+                        }
                     });
                 }
             })
             ->when($advArbpl, function($q, $val) {
                 $items = array_filter(array_map('trim', explode(',', $val)));
-                if(!empty($items)) $q->whereIn('ARBPL', $items);
+                if (!empty($items)) $q->whereIn('ARBPL', $items);
             })
             ->when($advKdauf, function($q, $val) {
                 $items = array_filter(array_map('trim', explode(',', $val)));
-                if(!empty($items)) $q->whereIn('KDAUF', $items);
+                $paddedItems = [];
+                foreach ($items as $item) {
+                    if (is_numeric($item)) {
+                        $paddedItems[] = str_pad($item, 10, '0', STR_PAD_LEFT);
+                    }
+                }
+
+                if (!empty($items)) {
+                    $q->where(function($sub) use ($items, $paddedItems) {
+                        $sub->whereIn('KDAUF', $items);
+                        if (!empty($paddedItems)) {
+                            $sub->orWhereIn('KDAUF', $paddedItems);
+                        }
+                    });
+                }
             })
             ->when($advKdpos, function($q, $val) {
                 $items = array_filter(array_map('trim', explode(',', $val)));
-                if(!empty($items)) $q->whereIn('KDPOS', $items);
+                if (!empty($items)) $q->whereIn('KDPOS', $items);
             })
             // --- ADVANCED FILTERS END ---
             ->latest('AUFNR')
