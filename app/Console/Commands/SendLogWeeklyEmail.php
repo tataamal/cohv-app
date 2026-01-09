@@ -75,7 +75,7 @@ class SendLogWeeklyEmail extends Command
             $pCode = $doc->plant_code; 
             $kData = $doc->kode; 
             if (!$kData) {
-                $kData = Kode::find($pCode);
+                $kData = Kode::where('kode', $pCode)->first();
             }
             $rawName = $kData ? $kData->nama_bagian : 'UNKNOWN';
             
