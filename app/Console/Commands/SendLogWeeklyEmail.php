@@ -74,6 +74,9 @@ class SendLogWeeklyEmail extends Command
         foreach ($historyDocsAll as $doc) {
             $pCode = $doc->plant_code; 
             $kData = $doc->kode; 
+            if ($kData && $kData->kode != $pCode) {
+                 $kData = null; // Invalidate if mismatch
+            }
             if (!$kData) {
                 $kData = Kode::where('kode', $pCode)->first();
             }
