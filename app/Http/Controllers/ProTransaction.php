@@ -105,9 +105,19 @@ class ProTransaction extends Controller
                         $item['SSSLDPV1'], $item['SSSLDPV2'], $item['SSSLDPV3']
                     );
                     
+                    if (isset($item['MENG2'])) {
+                        $item['MENGE2'] = $item['MENG2'];
+                        unset($item['MENG2']);
+                    }
+                    
                     return $item; 
                 });
 
+                // Fix MENG2 -> MENGE2 for T_DATA3
+                if (isset($tdata3Array['MENG2'])) {
+                   $tdata3Array['MENGE2'] = $tdata3Array['MENG2'];
+                   unset($tdata3Array['MENG2']);
+                }
 
                 DB::transaction(function () use ($tdata3Array, $mappedT1Collection, $T4, $proNumber) {
                     

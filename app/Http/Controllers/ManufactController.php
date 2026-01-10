@@ -392,17 +392,9 @@ class ManufactController extends Controller
                 $qty   = $item->MENGE ?? 0; // Pakai WEMNG
                 return $harga * $qty;
             });
-
-            // HITUNG SET & DETAIL (LOGIKA REVISI - USER REQUEST)
-            // 1. Group by AUFNR2
-            // 2. Ambil Unique MATNR Count -> Bandingkan dengan CSMG
-            // 3. Jika Unique Count >= CSMG -> Valid Set
-            // 4. Qty Set = Min(Sum Qty per Material)
             
             $totalSets = 0;
             $setsDetails = [];
-
-            // Group by AUFNR2 directly
             $groupByAufnr2 = $dailyRecords->groupBy(function($item) {
                  return $item->AUFNR2 ?? 'EMPTY'; 
             });
@@ -414,8 +406,6 @@ class ManufactController extends Controller
                 $csmg = (float) ($items->first()->CSMG ?? 0);
                 
                 if ($csmg <= 0) continue;
-
-                // Konsolidasi Material (Sum MENGE jika MATNR sama)
                 $consolidatedItems = $items->groupBy('MATNR')->map(function($matItems) {
                     return [
                         'MATNR' => $matItems->first()->MATNR,
@@ -426,18 +416,11 @@ class ManufactController extends Controller
                     ];
                 });
                 
-                // 1. Hitung Jumlah Item Unik
                 $uniqueItemCount = $consolidatedItems->count();
                 
-                // 2. Cek Kondisi Set: Bandingkan Jumlah Unik dengan CSMG
                 if ($uniqueItemCount >= $csmg) {
-                    
-                    // 3. Tentukan Qty Set (Ambil terkecil dari consolidated quantities)
                     $qtySet = $consolidatedItems->min('MENGE');
-
-                    // Update Total Sets (Jika ingin menghitung Volume Set yang jadi, gunakan += qtySet. 
-                    // Jika hanya menghitung 'Line Item/Group' Set, gunakan ++. 
-                    // Berdasarkan konteks "Total Qty Set", kita gunakan Qty.)
+                    $totalSets += $qtySet;
                     $totalSets += $qtySet;
                     
                     $firstItem = $items->first();
@@ -455,8 +438,6 @@ class ManufactController extends Controller
                 }
             }
 
-
-            // A. Breakdown per DISPO
             $dispoBreakdown = $dailyRecords->groupBy('DISPO')->map(function ($items, $dispo) {
                 return [
                     'dispo' => $dispo,
@@ -464,7 +445,6 @@ class ManufactController extends Controller
                 ];
             })->values()->all();
 
-            // B. Breakdown per Workcenter & DISPO
             $workcenterBreakdown = $dailyRecords->groupBy('ARBPL')->map(function ($itemsByWc, $arbpl) {
                 return $itemsByWc->groupBy('DISPO')->map(function($itemsByDispo, $dispo) use ($arbpl) {
                     return [
@@ -476,7 +456,6 @@ class ManufactController extends Controller
                 });
             })->flatten(1)->values()->all();
 
-            // 5. Masukkan ke Array Calendar (STRUKTUR DIPERBAIKI)
             $calendarEvents[] = [
                 'title' => '', 
                 'start' => $date,
@@ -545,9 +524,6 @@ class ManufactController extends Controller
                 return ($item->NETPR ?? 0) * ($item->MENGE ?? 0);
             });
         });
-
-        // [BARU] 5b. Hitung Total Values per Workcenter (Subtotal)
-        // Struktur: ['WC1' => ['IDR' => 1000, 'USD' => 10], 'WC2' => [...]]
         $totalValuesByWorkcenter = $data->groupBy(function($item) {
             return $item->ARBPL ?? 'UNASSIGNED';
         })->map(function ($wcGroup) {
