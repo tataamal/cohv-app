@@ -210,12 +210,15 @@ class adminController extends Controller
                 $hasAdvancedFilters = $advAufnr || $advMatnr || $advMaktx || $advArbpl || $advKdauf || $advKdpos;
 
                 $allProData = ProductionTData3::where('WERKSX', $kode)
-                    ->when($searchTotalPro && !$hasAdvancedFilters, function ($query, $term) {
+                    ->when($searchTotalPro, function ($query, $term) {
                         return $query->where(function($q) use ($term) {
                             $q->where('AUFNR', 'like', "%{$term}%")
                               ->orWhere('KDAUF', 'like', "%{$term}%")
                               ->orWhere('MATNR', 'like', "%{$term}%")
-                              ->orWhere('MAKTX', 'like', "%{$term}%");
+                              ->orWhere('MAKTX', 'like', "%{$term}%")
+                              ->orWhere('STATS', 'like', "%{$term}%")
+                              ->orWhere('KDPOS', 'like', "%{$term}%")
+                              ->orWhere('DISPO', 'like', "%{$term}%");
                         });
                     })
                     // --- ADVANCED FILTERS START (AND LOGIC) ---
@@ -391,7 +394,10 @@ class adminController extends Controller
                     $q->where('AUFNR', 'like', "%{$term}%")
                       ->orWhere('KDAUF', 'like', "%{$term}%")
                       ->orWhere('MATNR', 'like', "%{$term}%")
-                      ->orWhere('MAKTX', 'like', "%{$term}%");
+                      ->orWhere('MAKTX', 'like', "%{$term}%")
+                      ->orWhere('STATS', 'like', "%{$term}%")
+                      ->orWhere('KDPOS', 'like', "%{$term}%")
+                      ->orWhere('DISPO', 'like', "%{$term}%");
                 });
             })
             // --- ADVANCED FILTERS START ---

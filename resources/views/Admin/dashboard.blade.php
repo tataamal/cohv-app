@@ -549,15 +549,17 @@
                         @endforeach
                         <div class="input-group">
                             <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                            <input type="text" name="search_total_pro" value="{{ $searchTotalPro ?? '' }}" placeholder="Search SO, PRO... (Enter)"
-                                class="form-control">
+                            <input type="text" id="searchTotalProInput" name="search_total_pro" value="{{ $searchTotalPro ?? '' }}" 
+                                placeholder="Search PRO, SO, Material, Status, MRP... (Realtime)"
+                                class="form-control" list="searchHistoryList">
+                            <datalist id="searchHistoryList"></datalist>
                             
                             {{-- Input Hidden untuk Multi Material Filter (Legacy, kept for compat if needed, but overshadowed by Advanced Search) --}}
                             <input type="hidden" name="multi_matnr" id="multiMatnrHiddenInput" value="{{ request('multi_matnr') }}">
 
                             <!-- TOMBOL BARU: CLEAR FILTER -->
-                            <button type="button" class="btn btn-outline-danger" id="btnResetFilter"
-                                title="Reset Semua Filter & Pencarian">
+                            <button type="button" class="btn btn-outline-danger" id="btnClearTotalProSearch"
+                                title="Clear Search">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -836,7 +838,7 @@
                     'so': document.querySelector('input[name="search_so"]'),
                     'reservasi': document.querySelector('input[name="search_reservasi"]'),
                     'pro': document.querySelector('input[name="search_pro"]'),
-                    'total_pro': document.querySelector('input[name="search_total_pro"]')
+                    'total_pro': document.getElementById('searchTotalProInput')
                 };
 
                 const debounce = (func, wait) => {
@@ -871,6 +873,11 @@
                 function performSearch(section, searchTerm) {
                     const container = document.querySelector(`.table-container-scroll[data-section="${section}"]`);
                     if (!container) return;
+
+                    // [NEW] Save to History (Debounced or on significant length)
+                    if (section === 'total_pro' && searchTerm.length > 2) {
+                        saveSearchHistory(searchTerm);
+                    }
 
                     const spinner = container.querySelector('.loading-spinner');
                     if (spinner) spinner.classList.remove('d-none');
@@ -934,6 +941,36 @@
                         loadingStates[section] = false; // Reset loading state
                     });
                 }
+
+                // [NEW] Search History Functions
+                function saveSearchHistory(term) {
+                    if (!term) return;
+                    let history = JSON.parse(localStorage.getItem('proSearchHistory') || '[]');
+                    // Remove if exists to move to top
+                    history = history.filter(item => item !== term);
+                    // Add to beginning
+                    history.unshift(term);
+                    // Limit to 10
+                    history = history.slice(0, 10);
+                    localStorage.setItem('proSearchHistory', JSON.stringify(history));
+                    loadSearchHistory(); // Refresh list
+                }
+
+                function loadSearchHistory() {
+                    const history = JSON.parse(localStorage.getItem('proSearchHistory') || '[]');
+                    const dataList = document.getElementById('searchHistoryList');
+                    if (dataList) {
+                        dataList.innerHTML = '';
+                        history.forEach(term => {
+                            const option = document.createElement('option');
+                            option.value = term;
+                            dataList.appendChild(option);
+                        });
+                    }
+                }
+                
+                // Initialize History on Load
+                loadSearchHistory();
             });
         </script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1764,17 +1801,34 @@
                 }
                 
                 // Reset Button Logic
-                const btnReset = document.getElementById('btnResetFilter');
+                // Reset Button Logic (Updated for Realtime & Consolidated)
+                const btnReset = document.getElementById('btnClearTotalProSearch');
                 if(btnReset) {
-                    btnReset.addEventListener('click', function() {
-                        // Clear all inputs
-                        if(mainSearchInput) mainSearchInput.value = '';
+                    btnReset.addEventListener('click', function(e) {
+                        e.preventDefault();
+
+                        // 1. Clear Global Search
+                        const proInput = document.getElementById('searchTotalProInput');
+                        if(proInput) proInput.value = '';
+                        else if(mainSearchInput) mainSearchInput.value = ''; // Fallback
+                        
+                        // 2. Clear Advanced Inputs
                         advIds.forEach(id => {
                             const el = document.getElementById(id);
                             if(el) el.value = '';
                         });
+
+                        // 3. Clear Multi Matnr (Legacy) - Select dynamically to avoid TDZ issues
+                        const txtMatnr = document.getElementById('multiMatnrInput');
+                        const hidMatnr = document.getElementById('multiMatnrHiddenInput');
+                        const infoMatnr = document.getElementById('matnrCountInfo');
                         
-                        // Use AJAX Search to Clear
+                        if(txtMatnr) txtMatnr.value = '';
+                        if(hidMatnr) hidMatnr.value = '';
+                        if(infoMatnr) infoMatnr.innerText = '0 kode terdeteksi';
+                        if(typeof updateBadge === 'function') updateBadge(0);
+                        
+                        // 4. Trigger Search Reset
                         if (typeof window.performSearch === 'function') {
                            window.performSearch('total_pro', '');
                         }
@@ -1889,32 +1943,7 @@
                     });
                 }
                 
-                // [NEW] Tambahkan Logika untuk Tombol RESET Filter di main input group (icon X merah)
-                // Tombol ini: <a href="..." class="btn btn-outline-danger">...</a>
-                // Kita akan override behavior-nya agar tidak reload page jika memungkinkan
-                const btnResetAll = document.getElementById('btnResetFilter');
-                if(btnResetAll) {
-                    btnResetAll.addEventListener('click', function(e) {
-                         e.preventDefault();
-                         
-                         // Clear Search Input
-                         const searchInput = document.querySelector('input[name="search_total_pro"]');
-                         if(searchInput) searchInput.value = '';
-                         
-                         // Clear Multi Matnr Input
-                         if(textareaMatnr) textareaMatnr.value = '';
-                         if(hiddenInputMatnr) hiddenInputMatnr.value = '';
-                         updateBadge(0);
-                         if(matnrCountInfo) matnrCountInfo.innerText = '0 kode terdeteksi';
-                         
-                         // Trigger Search Reset
-                         if (typeof window.performSearch === 'function') {
-                            window.performSearch('total_pro', '');
-                         } else {
-                             window.location.href = this.href;
-                         }
-                    });
-                }
+                // (Logic btnResetFilter removed/consolidated above)
 
                 // ===================================================================
                 // LOGIKA STICKY SECTION VISIBILITY (Show Section if Params Exist)
