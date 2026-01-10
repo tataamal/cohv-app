@@ -34,12 +34,12 @@
             'route_name' => 'search.stock', 
             'active_on' => ['search.stock*'] 
         ],
-        /* [
+        [
             'name' => 'Create WI',
             'route_name' => 'create-wi.index', 
             'active_on' => ['create-wi.*'],
             'needs_kode' => true
-        ] */
+        ],
     ],
 ])
 

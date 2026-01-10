@@ -103,11 +103,11 @@ Route::middleware('auth')->group(function (){
 
     // Create WI
     Route::get('/create-wi/get-remark-history', [CreateWiController::class, 'getRemarkHistory'])->name('create-wi.get-remark-history');
-    // Route::post('/create-wi/refresh/{kode}', [CreateWiController::class, 'refreshData'])->name('create-wi.refresh');
-    // Route::post('/create-wi/stream-schedule', [CreateWiController::class, 'streamSchedule'])->name('create-wi.stream-schedule');
-    // Route::get('/create-wi/{kode}', [CreateWiController::class, 'index'])->name('create-wi.index');
-    // Route::get('work-instruction/create/{kode}', [CreateWiController::class, 'index'])->name('wi.create');
-    // Route::post('work-instruction/save', [CreateWiController::class, 'saveWorkInstruction'])->name('wi.save');
+    Route::post('/create-wi/refresh/{kode}', [CreateWiController::class, 'refreshData'])->name('create-wi.refresh');
+    Route::post('/create-wi/stream-schedule', [CreateWiController::class, 'streamSchedule'])->name('create-wi.stream-schedule');
+    Route::get('/create-wi/{kode}', [CreateWiController::class, 'index'])->name('create-wi.index');
+    Route::get('work-instruction/create/{kode}', [CreateWiController::class, 'index'])->name('wi.create');
+    Route::post('work-instruction/save', [CreateWiController::class, 'saveWorkInstruction'])->name('wi.save');
     Route::get('/wi/history/{kode}', [CreateWiController::class, 'history'])->name('wi.history');
     Route::post('/history-wi/update-qty', [CreateWiController::class, 'updateQty'])->name('history-wi.update-qty');
     Route::post('/work-instruction/history/print/{kode}', [CreateWiController::class, 'printPdf'])->name('wi.print-pdf');
