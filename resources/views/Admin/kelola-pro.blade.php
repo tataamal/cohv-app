@@ -90,53 +90,73 @@
                             <input type="search" id="proSearchInput" class="form-control" placeholder="🔍 Cari berdasarkan Kode PRO (AUFNR)...">
                         </div>
             
-                        <div class="table-container-scroll">
-                            <table class="table table-hover table-striped mb-0 table-sticky align-middle">
-                                <thead>
-                                    {{-- ... Konten thead tidak berubah ... --}}
-                                    <tr class="small text-uppercase align-middle">
-                                        <th class="text-center" style="width: 50px;"><input class="form-check-input" type="checkbox" id="select-all-pro" title="Pilih semua yang terlihat"></th>
-                                        <th class="text-center" scope="col">No</th>
-                                        <th class="text-center" scope="col">PRO</th>
-                                        <th class="text-center d-none-mobile" scope="col">SO</th>
-                                        <th class="text-center d-none-mobile" scope="col">SO Item</th>
-                                        <th class="text-center d-none-mobile" scope="col">Workcenter</th>
-                                        <th class="text-left" scope="col">Material Description</th>
-                                        <th class="text-center d-none-mobile" scope="col">Operation Key</th>
-                                        <th class="text-center d-none-mobile" scope="col">Qty Order</th>
-                                        <th class="text-center d-none-mobile" scope="col">Qty GR</th>
-                                        <th class="text-center d-none-mobile" scope="col">PV1</th>
-                                        <th class="text-center d-none-mobile" scope="col">PV2</th>
-                                        <th class="text-center d-none-mobile" scope="col">PV3</th>
+                        <div class="table-container-scroll border rounded-0">
+                            <table class="table table-sm table-bordered table-hover mb-0 table-sticky align-middle" style="font-size: 0.85rem;">
+                                <thead class="table-light">
+                                    <tr class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.75rem;">
+                                        <th class="text-center bg-light" style="width: 40px;"><input class="form-check-input " type="checkbox" id="select-all-pro" title="Pilih semua"></th>
+                                        <th class="text-center bg-light" scope="col">No</th>
+                                        <th class="text-center bg-light" scope="col">PRO</th>
+                                        <th class="text-center bg-light d-none-mobile" scope="col">SO - Item</th>
+                                        <th class="text-center bg-light d-none-mobile" scope="col">WC</th>
+                                        <th class="text-start bg-light" scope="col">Material Description</th>
+                                        <th class="text-center bg-light d-none-mobile" scope="col">Op Key</th>
+                                        <th class="text-center bg-light d-none-mobile" scope="col">Qty Order</th>
+                                        <th class="text-center bg-light d-none-mobile" scope="col">Qty GR</th>
+                                        <th class="text-center bg-light" scope="col">Qty Sisa</th>
+                                        <th class="text-center bg-light" scope="col">Time Req (Min)</th>
+                                        <th class="text-center bg-light d-none-mobile" scope="col">PV1</th>
+                                        <th class="text-center bg-light d-none-mobile" scope="col">PV2</th>
+                                        <th class="text-center bg-light d-none-mobile" scope="col">PV3</th>
                                     </tr>
                                 </thead>
                                 <tbody id="proTableBody">
-                                    {{-- ... Konten tbody tidak berubah ... --}}
                                     @forelse ($pros as $pro)
+                                        @php
+                                            $stdValue = $pro->VGW01 ?? 0;
+                                            $unit = $pro->VGE01 ?? 'MIN';
+                                            $qtySisa = $pro->MENGE2 ?? 0;
+                                            
+                                            $timeReq = $qtySisa * $stdValue;
+                                            if (strtoupper($unit) === 'S') {
+                                                $timeReq = $timeReq / 60;
+                                            }
+                                        @endphp
                                         <tr class="pro-row" 
                                             data-pro-code="{{ $pro->AUFNR }}" 
                                             data-wc-asal="{{ $pro->ARBPL }}"
                                             data-oper="{{ $pro->VORNR }}"
                                             data-pwwrk="{{ $pro->PWWRK }}"
-                                            data-psmng="{{ $pro->PSMNG }}"
-                                            data-wemng="{{ $pro->WEMNG }}">
+                                            data-psmng="{{ $pro->MGVRG2 }}"
+                                            data-wemng="{{ $pro->LMNGA }}">
                                             <td class="text-center"><input class="form-check-input pro-select-checkbox" type="checkbox"></td>
-                                            <td class="text-center">{{ $loop->iteration }}</td>
-                                            <td class="text-center">{{ $pro->AUFNR }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->KDAUF }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->KDPOS }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->ARBPL }}</td>
-                                            <td class="text-center">{{ $pro->MAKTX }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->STEUS }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->PSMNG }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->WEMNG }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->PV1 }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->PV2 }}</td>
-                                            <td class="text-center d-none-mobile">{{ $pro->PV3 }}</td>
+                                            <td class="text-center text-muted">{{ $loop->iteration }}</td>
+                                            <td class="text-center font-monospace fw-semibold text-dark">{{ $pro->AUFNR }}</td>
+                                            <td class="text-center d-none-mobile font-monospace text-secondary">{{ $pro->KDAUF }}{{ ($pro->KDAUF && stripos($pro->KDAUF, 'make stock') === false) ? ' - ' . (int)$pro->KDPOS : '' }}</td>
+                                            <td class="text-center d-none-mobile">
+                                                <span class="badge bg-secondary rounded-0 fw-normal font-monospace">{{ $pro->ARBPL }}</span>
+                                            </td>
+                                            <td class="text-start text-dark fw-medium">{{ $pro->MAKTX }}</td>
+                                            <td class="text-center d-none-mobile">
+                                                <span class="badge bg-dark rounded-0 fw-normal font-monospace">{{ $pro->STEUS }}</span>
+                                            </td>
+                                            <td class="text-center d-none-mobile font-monospace">{{ number_format($pro->MGVRG2, 0, ',', '.') }}</td>
+                                            <td class="text-center d-none-mobile font-monospace text-muted">{{ number_format($pro->LMNGA, 0, ',', '.') }}</td>
+                                            <td class="text-center">
+                                                <span class="badge bg-success-subtle text-success border border-success rounded-0 fw-bold font-monospace px-2">
+                                                    {{ number_format($qtySisa, 0, ',', '.') }}
+                                                </span>
+                                            </td>
+                                            <td class="text-center font-monospace fw-bold text-primary">
+                                                {{ number_format($timeReq, 1, ',', '.') }}
+                                            </td>
+                                            <td class="text-center d-none-mobile small text-muted">{{ $pro->PV1 ?? '-'}}</td>
+                                            <td class="text-center d-none-mobile small text-muted">{{ $pro->PV2 ?? '-'}}</td>
+                                            <td class="text-center d-none-mobile small text-muted">{{ $pro->PV3 ?? '-'}}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="9" class="text-center py-5 text-muted">Nothing PRO On This Workcenter</td>
+                                            <td colspan="14" class="text-center py-5 text-muted fst-italic">Nothing PRO On This Workcenter</td>
                                         </tr>
                                     @endforelse
                                 </tbody>

@@ -27,9 +27,6 @@ class WcCompatibilityController extends Controller
 
     public function showDetails($kode, $wc)
     {
-        // =================================================================
-        // LANGKAH 1: AMBIL DATA KOMPATIBILITAS DAN DATA MENTAH
-        // =================================================================
         $compatibilities = DB::table('wc_relations as rel')
             ->join('workcenters as asal', 'rel.wc_asal_id', '=', 'asal.id')
             ->join('workcenters as tujuan', 'rel.wc_tujuan_id', '=', 'tujuan.id')
@@ -52,9 +49,6 @@ class WcCompatibilityController extends Controller
 
         $targetWcCodes = collect([$wc])->merge($compatibleWcCodes)->unique()->values()->all();
         
-        // =================================================================
-        // LANGKAH 2: FILTER DATA UTAMA BERDASARKAN KOMPATIBILITAS
-        // =================================================================
         $filteredWcs = DB::table('workcenters')
             ->select('kode_wc as ARBPL', 'description')
             ->whereIn('kode_wc', $targetWcCodes)
@@ -67,19 +61,14 @@ class WcCompatibilityController extends Controller
             ->orderBy('AUFNR', 'asc')
             ->get();
 
-        // =================================================================
-        // LANGKAH 3: SIAPKAN DATA CHART (sudah otomatis terfilter)
-        // =================================================================
         $proDensity = DB::table('production_t_data1')
             ->select('ARBPL', DB::raw('COUNT(*) as pro_count'))
-            // ->where('WERKSX', $kode)
             ->groupBy('ARBPL')
             ->get()
             ->keyBy('ARBPL');
 
         $capacityDensity = DB::table('production_t_data3')
             ->select('ARBPL', DB::raw('SUM(CPCTYX) as capacity_sum'))
-            // ->where('WERKSX', $kode)
             ->groupBy('ARBPL')
             ->get()
             ->keyBy('ARBPL');
@@ -96,12 +85,7 @@ class WcCompatibilityController extends Controller
             return $item->description;
         });
 
-        // [DITAMBAHKAN] Ambil detail plant untuk dikirim ke layout, ini akan memperbaiki error
         $plant = Kode::where('kode', $kode)->firstOrFail();
-        
-        // =================================================================
-        // LANGKAH 4: KIRIM DATA KE VIEW
-        // =================================================================
         
         return view('Admin.kelola-pro', [
             'workCenter'        => $wc,
@@ -113,16 +97,12 @@ class WcCompatibilityController extends Controller
             'compatibilities'   => $compatibilities,
             'wcDescriptionMap'  => $wcDescriptionMap,
             'kode'              => $kode,
-            'plant'             => $plant, // [DITAMBAHKAN] Kirim variabel plant ke view
+            'plant'             => $plant,
         ]);
     }
 
-     /**
-     * Memproses pemindahan workcenter.
-     */
     public function changeWorkcenter(Request $request, $plant, $wc_tujuan)
     {
-        // 1. Validasi input dari form
         $validated = $request->validate([
             'pro_code' => 'required|string',
             'oper_code' => 'required|string',
@@ -134,9 +114,6 @@ class WcCompatibilityController extends Controller
         $pwwrk = $validated['pwwrk'];
 
         try {
-            // =================================================================
-            // LANGKAH 1: Panggil API Z_FM_GET_WC_DESC terlebih dahulu
-            // =================================================================
             Log::info("Memulai proses pindah WC untuk PRO {$proCode}. Langkah 1: Get WC Description.");
             $descApiUrl = env('FLASK_API_URL') . '/api/get_wc_desc';
             $descApiResponse = Http::timeout(120)
@@ -154,17 +131,12 @@ class WcCompatibilityController extends Controller
                 throw new Exception("API Get WC Description Gagal: " . ($errorData['error'] ?? 'Terjadi kesalahan tidak diketahui'));
             }
             
-            // Mengambil deskripsi dari hasil panggilan API pertama
             $wcDescriptionData = $descApiResponse->json();
             
-            // [PERBAIKAN] Menggunakan kunci 'E_DESC' sesuai dengan respons RFC yang Anda berikan
             $shortText = $wcDescriptionData['E_DESC'] ?? '';
             
             Log::info(" -> Deskripsi untuk WC {$wc_tujuan} didapatkan: '{$shortText}'");
 
-            // =================================================================
-            // LANGKAH 2: Siapkan dan Panggil API untuk mengubah WC
-            // =================================================================
             $payload = [
                 "IV_AUFNR" => $proCode,
                 "IV_COMMIT" => "X",
@@ -174,8 +146,8 @@ class WcCompatibilityController extends Controller
                         "OPER" => $operCode,
                         "WORK_CEN" => $wc_tujuan,
                         "W" => "X",
-                        "SHORT_T" => $shortText, // Data baru dari RFC pertama
-                        "S" => "X"               // Flag update untuk SHORT_TEXT
+                        "SHORT_T" => $shortText,
+                        "S" => "X"
                     ]
                 ]
             ];
@@ -195,9 +167,6 @@ class WcCompatibilityController extends Controller
             }
             Log::info(" -> Perubahan WC di SAP berhasil.");
 
-            // =================================================================
-            // LANGKAH 3: Panggil API untuk me-refresh dan simpan data
-            // =================================================================
             Log::info("Langkah 3: Me-refresh data PRO dari SAP...");
             $refreshApiUrl = env('FLASK_API_URL') . '/api/refresh-pro';
             $refreshApiResponse = Http::timeout(120)
@@ -227,9 +196,7 @@ class WcCompatibilityController extends Controller
                 throw new Exception("Data inti (T_DATA, T_DATA2, T_DATA3) tidak lengkap setelah refresh.");
             }
 
-            // Memulai transaksi database untuk memastikan integritas data
             DB::transaction(function () use ($t_data, $t_data1, $t_data2, $t_data3, $t_data4, $plant, $proCode) {
-                // ... (Logika transaksi database tetap sama) ...
                 Log::info("Memulai transaksi DB untuk sinkronisasi PRO {$proCode}.");
 
                 ProductionTData::updateOrCreate(
@@ -295,11 +262,9 @@ class WcCompatibilityController extends Controller
                 Log::info("Transaksi DB untuk PRO {$proCode} berhasil.");
             });
 
-            // Redirect kembali dengan pesan sukses
             return redirect()->back()->with('success', "PRO {$proCode} berhasil dipindahkan ke WC {$wc_tujuan} dan data telah disinkronkan.");
 
         } catch (Exception $e) {
-            // Jika terjadi error, catat dan tampilkan pesan
             Log::error("Gagal memindahkan PRO {$proCode}: " . $e->getMessage());
             return redirect()->back()->with('error', "Gagal! Terjadi kesalahan: " . $e->getMessage());
         }

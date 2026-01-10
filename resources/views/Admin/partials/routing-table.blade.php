@@ -7,114 +7,78 @@
 
         <div class="table-responsive @if($routings->count() > 2) table-responsive-custom-scroll @endif">
             
-            <table class="table table-hover table-v-bordered table-sm mb-0 small">
-                <thead class="table-light sticky-header-custom">
-                    <tr>
-                        <th class="text-center p-2 d-none d-md-table-cell" style="width: 5%;">No.</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">Activity</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">Ctrl Key</th>
-                        <th class="p-2 d-none d-md-table-cell">Description</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">Work Ctr</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">Time (H)</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">Item/Day</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">Total Time (m)</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">PV 1</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">PV 2</th>
-                        <th class="text-center p-2 d-none d-md-table-cell">PV 3</th>
-                        <th class="p-2 d-md-none" colspan="10">Routing Details</th>
+            <table class="table table-sm table-bordered table-hover mb-0 align-middle" style="font-size: 0.85rem;">
+                <thead class="table-light">
+                    <tr class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.75rem;">
+                        <th class="text-center bg-light" style="width: 40px;"><input class="form-check-input " type="checkbox" id="select-all-pro" title="Pilih semua"></th>
+                        <th class="text-center bg-light" scope="col">No</th>
+                        <th class="text-center bg-light" scope="col">PRO</th>
+                        <th class="text-center bg-light d-none-mobile" scope="col">SO - Item</th>
+                        <th class="text-center bg-light d-none-mobile" scope="col">WC</th>
+                        <th class="text-start bg-light" scope="col">Material Description</th>
+                        <th class="text-center bg-light d-none-mobile" scope="col">Op Key</th>
+                        <th class="text-center bg-light d-none-mobile" scope="col">Qty Order</th>
+                        <th class="text-center bg-light d-none-mobile" scope="col">Qty GR</th>
+                        <th class="text-center bg-light" scope="col">Qty Sisa</th>
+                        <th class="text-center bg-light" scope="col">Time Req (Min)</th>
+                        <th class="text-center bg-light d-none-mobile" scope="col">PV1</th>
+                        <th class="text-center bg-light d-none-mobile" scope="col">PV2</th>
+                        <th class="text-center bg-light d-none-mobile" scope="col">PV3</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($routings as $route)
                         @php
-                            $hasilPerHari = '-';
-                            $totalTime = '-';
-                            $kapazRaw = $route['KAPAZ'] ?? '0';
-                            $kapazStr = str_replace(',', '.', $kapazRaw);
-                            $kapazNum = floatval($kapazStr) ?: 0;
-                            $vgw01Raw = $route['VGW01'] ?? '0';
-                            $vgw01Clean = preg_replace('/[^0-9,\.]/', '', $vgw01Raw);
-                            $vgw01Str = str_replace(',', '.', $vgw01Clean);
-                            $vgw01Num = floatval($vgw01Str) ?: 0;
-                            $psmngRaw = $route['PSMNG'] ?? '0';
-                            $psmngClean = preg_replace('/[^0-9,\.]/', '', $psmngRaw);
-                            $psmngStr = str_replace(',', '.', $psmngClean);
-                            $psmngNum = floatval($psmngStr) ?: 0;
-                            $vge01 = trim($route['VGE01'] ?? '');
-
-                            if ($kapazNum > 0 && $vgw01Num > 0) {
-                                $result = ($vge01 === 'S') 
-                                            ? ($kapazNum * 3600) / $vgw01Num 
-                                            : ($kapazNum * 60) / $vgw01Num;
-                                $hasilPerHari = floor($result);
-                            }
-                            if ($vgw01Num > 0 && $psmngNum > 0) {
-                                $totalTimeVal = $vgw01Num * $psmngNum;
-                                if ($vge01 === 'S') {
-                                    $totalTimeVal = $totalTimeVal / 60; // ubah ke menit
-                                }
-                                $totalTime = round($totalTimeVal, 2);
-                            }
-
-                            $routeKtext = $route['KTEXT'] ?? '-';
+                            // Mapping Data
                             $routeVornr = $route['VORNR'] ?? '-';
                             $routeArbpl = $route['ARBPL'] ?? '-';
                             $routeSteus = $route['STEUS'] ?? '-';
-                            $routeCpctyx = $route['CPCTYX'] ?? '-';
                             $routePv1 = $route['PV1'] ?? '-';
                             $routePv2 = $route['PV2'] ?? '-';
                             $routePv3 = $route['PV3'] ?? '-';
+
+                            // Numeric Values from Array
+                            $qtyOrder = isset($route['MGVRG2']) ? floatval($route['MGVRG2']) : 0;
+                            $qtyGr    = isset($route['LMNGA']) ? floatval($route['LMNGA']) : 0;
+                            $qtySisa  = isset($route['MENGE2']) ? floatval($route['MENGE2']) : 0;
+
+                            // Time Calculation
+                            $stdValue = isset($route['VGW01']) ? floatval($route['VGW01']) : 0;
+                            $unit     = $route['VGE01'] ?? 'MIN'; // Default MIN
+                            
+                            $timeReq = $qtySisa * $stdValue;
+                            if (strtoupper($unit) === 'S') {
+                                $timeReq = $timeReq / 60;
+                            }
                         @endphp
 
                         <tr>
-                            <td class="text-center d-none d-md-table-cell">{{ $loop->iteration }}</td>
-                            <td class="text-center d-none d-md-table-cell">{{ $routeVornr }}</td>
-                            <td class="text-center d-none d-md-table-cell">{{ $routeSteus }}</td>
-                            <td class="d-none d-md-table-cell">{{ $routeKtext }}</td>
-                            <td class="text-center d-none d-md-table-cell">{{ $routeArbpl }}</td>
-                            <td class="text-center d-none d-md-table-cell">{{ $routeCpctyx }}</td>
-                            <td class="text-center d-none d-md-table-cell">{{ $hasilPerHari }}</td>
-                            <td class="text-center d-none d-md-table-cell">{{ $totalTime }}</td> <!-- 🔹 Field baru -->
-                            <td class="text-center d-none d-md-table-cell">{{ $routePv1 }}</td>
-                            <td class="text-center d-none d-md-table-cell">{{ $routePv2 }}</td>
-                            <td class="text-center d-none d-md-table-cell">{{ $routePv3 }}</td>
-
-                            <td class="d-md-none" colspan="11" style="padding: 4px; background-color: #f8f9fa;">
-                                <div class="bg-white border rounded-3 shadow-sm p-3">
-                                    <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
-                                        <div>
-                                            <div class="fw-bold text-dark">{{ $routeKtext }}</div>
-                                            <div class="text-muted small">Activity: {{ $routeVornr }} | Work Ctr: {{ $routeArbpl }}</div>
-                                        </div>
-                                    </div>
-                                    <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
-                                        <div>
-                                            <div class="small text-muted">Time (H)</div>
-                                            <div class="fw-semibold">{{ $routeCpctyx }}</div>
-                                        </div>
-                                        <div>
-                                            <div class="small text-muted">Item/Day</div>
-                                            <div class="fw-semibold">{{ $hasilPerHari }}</div>
-                                        </div>
-                                        <div>
-                                            <div class="small text-muted">Total Time (min)</div>
-                                            <div class="fw-semibold">{{ $totalTime }}</div> <!-- 🔹 Field baru -->
-                                        </div>
-                                        <div>
-                                            <div class="small text-muted">Ctrl Key</div>
-                                            <div class="fw-semibold">{{ $routeSteus }}</div>
-                                        </div>
-                                    </div>
-                                    <div class="mt-2 pt-2 border-top">
-                                        <div class="small text-muted mb-1">Production Version:</div>
-                                        <div class="d-grid gap-1" style="grid-template-columns: 1fr 1fr 1fr;">
-                                            <div class="bg-light p-2 rounded-2 text-center"><div class="text-muted small">PV 1</div><div class="fw-medium">{{ $routePv1 }}</div></div>
-                                            <div class="bg-light p-2 rounded-2 text-center"><div class="text-muted small">PV 2</div><div class="fw-medium">{{ $routePv2 }}</div></div>
-                                            <div class="bg-light p-2 rounded-2 text-center"><div class="text-muted small">PV 3</div><div class="fw-medium">{{ $routePv3 }}</div></div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <td class="text-center"><input class="form-check-input pro-select-checkbox" type="checkbox" value="{{ $parentPro->AUFNR }}"></td>
+                            <td class="text-center text-muted">{{ $loop->iteration }}</td>
+                            <td class="text-center font-monospace fw-semibold text-dark">{{ $parentPro->AUFNR }}</td>
+                            <td class="text-center d-none-mobile font-monospace text-secondary">
+                                {{ $parentPro->KDAUF }}{{ ($parentPro->KDAUF && stripos($parentPro->KDAUF, 'make stock') === false) ? ' - ' . (int)$parentPro->KDPOS : '' }}
                             </td>
+                            <td class="text-center d-none-mobile">
+                                <span class="badge bg-secondary rounded-0 fw-normal font-monospace">{{ $routeArbpl }}</span>
+                            </td>
+                            <td class="text-start text-dark fw-medium">{{ $parentPro->MAKTX }}</td>
+                            <td class="text-center d-none-mobile">
+                                <span class="badge bg-dark rounded-0 fw-normal font-monospace">{{ $routeSteus }}</span>
+                            </td>
+                            <td class="text-center d-none-mobile font-monospace">{{ number_format($qtyOrder, 0, ',', '.') }}</td>
+                            <td class="text-center d-none-mobile font-monospace text-muted">{{ number_format($qtyGr, 0, ',', '.') }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-success-subtle text-success border border-success rounded-0 fw-bold font-monospace px-2">
+                                    {{ number_format($qtySisa, 0, ',', '.') }}
+                                </span>
+                            </td>
+                            <td class="text-center font-monospace fw-bold text-primary">
+                                {{ number_format($timeReq, 1, ',', '.') }}
+                            </td>
+                            <td class="text-center d-none-mobile small text-muted">{{ $routePv1 }}</td>
+                            <td class="text-center d-none-mobile small text-muted">{{ $routePv2 }}</td>
+                            <td class="text-center d-none-mobile small text-muted">{{ $routePv3 }}</td>
                         </tr>
                     @endforeach
                 </tbody>

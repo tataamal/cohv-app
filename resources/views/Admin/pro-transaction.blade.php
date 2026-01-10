@@ -244,7 +244,7 @@
                                                             @if($routings->isEmpty())
                                                                 <p class="text-muted p-4 text-center">No routings found.</p>
                                                             @else
-                                                                @include('Admin.partials.routing-table', ['routings' => $routings])
+                                                                @include('Admin.partials.routing-table', ['routings' => $routings, 'parentPro' => $pro])
                                                             @endif
                                                         </div>
                                                     </div>

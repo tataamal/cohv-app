@@ -17,25 +17,25 @@
     </div>
 </div>
 <div class="table-responsive" style="max-height: 500px; overflow-y: auto; overflow-x: auto;">
-    <table class="table table-sm table-striped table-bordered align-middle">
+    <table class="table table-sm table-bordered table-hover mb-0 align-middle" style="font-size: 0.85rem;">
         <thead class="table-light sticky-top">
-            <tr>
-                <th class="text-center" style="width: 3%;">
+            <tr class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.75rem;">
+                <th class="text-center bg-light" style="width: 40px;">
                     <input class="form-check-input" type="checkbox" id="select-all-checkbox">
                 </th>
-                <th class="text-center" style="width: 5%;">No.</th>
-                <th class="text-center">No. Reservasi</th>
-                <th class="text-center">Item</th>
-                <th class="text-center">Material</th>
-                <th class="text-center">Description</th>
-                <th class="text-center">Action</th>
-                <th class="text-center">Req. Qty</th>
-                <th class="text-center">Stock</th>
-                <th class="text-center">Outs. Req</th>
-                <th class="text-center">Commited</th>
-                <th class="text-center">S.Loc</th>
-                <th class="text-center">UOM</th>
-                <th class="text-center">Spec. Proc</th>
+                <th class="text-center bg-light" scope="col">No.</th>
+                <th class="text-center bg-light" scope="col">No. Reservasi</th>
+                <th class="text-center bg-light" scope="col">Item</th>
+                <th class="text-center bg-light" scope="col">Material</th>
+                <th class="text-start bg-light" scope="col">Description</th>
+                <th class="text-center bg-light" scope="col">Action</th>
+                <th class="text-center bg-light" scope="col">Req. Qty</th>
+                <th class="text-center bg-light" scope="col">Stock</th>
+                <th class="text-center bg-light" scope="col">Outs. Req</th>
+                <th class="text-center bg-light" scope="col">Commited</th>
+                <th class="text-center bg-light" scope="col">S.Loc</th>
+                <th class="text-center bg-light" scope="col">UOM</th>
+                <th class="text-center bg-light" scope="col">Spec. Proc</th>
             </tr>
         </thead>
         <tbody>
@@ -75,57 +75,35 @@
                             value="{{ $comp['RSNUM'] }}-{{ $comp['RSPOS'] }}"
                             aria-label="Select row {{ $i + 1 }}">
                     </td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $i + 1 }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $comp['RSNUM'] }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $comp['RSPOS'] ?? '-' }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $matnrClean ?? '-' }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $comp['MAKTX'] ?? '-' }}</td>
+                    <td class="text-center text-muted">{{ $i + 1 }}</td>
+                    <td class="text-center font-monospace">{{ $comp['RSNUM'] }}</td>
+                    <td class="text-center font-monospace">{{ $comp['RSPOS'] ?? '-' }}</td>
+                    <td class="text-center font-monospace fw-semibold text-dark">{{ $matnrClean ?? '-' }}</td>
+                    <td class="text-start text-dark fw-medium">{{ $comp['MAKTX'] ?? '-' }}</td>
 
-                    <td class="text-center d-none d-md-table-cell">
-                        <div class="btn-group btn-group-sm gap-2" role="group">
-                            <button type="button" class="btn btn-warning text-white edit-component-btn"
-                                data-matnr="{{ $comp['MATNR'] }}">
-                                <i class="fas fa-edit"></i> Edit
+                    <td class="text-center">
+                        <div class="btn-group btn-group-sm gap-1" role="group">
+                            <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2 edit-component-btn"
+                                data-matnr="{{ $comp['MATNR'] }}" title="Edit">
+                                <i class="fas fa-edit small"></i>
                             </button>
-                            <button type="button" class="btn btn-info text-white show-stock-btn"
-                                data-matnr="{{ $comp['MATNR'] }}">
-                                <i class="fas fa-box"></i> Stock
+                            <button type="button" class="btn btn-outline-info btn-sm py-0 px-2 show-stock-btn"
+                                data-matnr="{{ $comp['MATNR'] }}" title="Check Stock">
+                                <i class="fas fa-box small"></i>
                             </button>
                         </div>
                     </td>
 
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $formattedBdmng ?? '-' }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $formattedKalab ?? '-' }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $formattedOutsreq ?? '-' }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $formattedComm ?? '-' }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $comp['LGORT'] ?? '-' }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $meinsDisplay ?? '-' }}</td>
-                    <td class="text-center d-none d-md-table-cell" data-bs-toggle="modal"
-                        data-bs-target="#componentModal">{{ $comp['LTEXT'] ?? '-' }}</td>
-
-                    <td class="d-md-none" colspan="13" style="padding: 4px; background-color: #f8f9fa;"
-                        data-bs-toggle="modal" data-bs-target="#componentModal">
-                        <div
-                            class="bg-white border rounded-3 shadow-sm p-3 d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="fw-bold text-dark">{{ $comp['MAKTX'] ?? 'No Description' }}</div>
-                                <div class="text-muted small">Material: {{ $matnrClean ?? '-' }}</div>
-                                <div class="text-muted small">Item: {{ $comp['RSPOS'] ?? '-' }}</div>
-                            </div>
-                            <i class="fas fa-chevron-right text-primary"></i>
-                        </div>
+                    <td class="text-center font-monospace">{{ $formattedBdmng ?? '-' }}</td>
+                    <td class="text-center font-monospace">{{ $formattedKalab ?? '-' }}</td>
+                    <td class="text-center font-monospace">{{ $formattedOutsreq ?? '-' }}</td>
+                    <td class="text-center font-monospace">{{ $formattedComm ?? '-' }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary-subtle text-secondary rounded-0 font-monospace border border-secondary">{{ $comp['LGORT'] ?? '-' }}</span>
                     </td>
+                    <td class="text-center small text-muted">{{ $meinsDisplay ?? '-' }}</td>
+                    <td class="text-center">{{ $comp['LTEXT'] ?? '-' }}</td>
+
                 </tr>
             @endforeach
         </tbody>
