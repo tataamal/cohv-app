@@ -42,7 +42,7 @@ return new class extends Migration
             $table->double('MGVRG2', 15, 3)->nullable();
             $table->double('LMNGA', 15, 3)->nullable();
             $table->double('P1', 15, 3)->nullable();
-            $table->double('MENG2', 15, 3)->nullable();
+            $table->double('MENGE2', 15, 3)->nullable();
             $table->double('VGW01', 15, 3)->nullable();
             $table->string('VGE01')->nullable();
             $table->double('CPCTYX', 15, 3)->nullable();
@@ -53,7 +53,6 @@ return new class extends Migration
             $table->string('MATFG')->nullable();
             $table->string('MAKFG')->nullable();
             $table->string('CATEGORY')->nullable();
-            $table->double('MENGE2', 15, 3)->nullable();
             $table->string('STATS2')->nullable();
             $table->text('PV1')->nullable();
             $table->text('PV2')->nullable();

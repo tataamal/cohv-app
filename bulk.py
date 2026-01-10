@@ -298,10 +298,10 @@ def save_data_to_mysql():
         T_DATA2_COLS = ['MANDT', 'KDAUF', 'KDPOS', 'MATFG', 'MAKFG', 'EDATU', 'WERKSX', 'KUNNR', 'NAME1'] 
         
         # 44 Kolom
-        T_DATA3_COLS = ['MANDT', 'ARBPL', 'ORDERX', 'PWWRK', 'KTEXT', 'ARBID', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'NAME1', 'KUNNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENG2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'GLTRP', 'GSTRP', 'MATFG', 'MAKFG', 'CATEGORY', 'WERKSX', 'MENGE2', 'STATS2']
+        T_DATA3_COLS = ['MANDT', 'ARBPL', 'ORDERX', 'PWWRK', 'KTEXT', 'ARBID', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'NAME1', 'KUNNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENGE2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'GLTRP', 'GSTRP', 'MATFG', 'MAKFG', 'CATEGORY', 'WERKSX', 'STATS2']
         
         # 44 Kolom
-        T_DATA1_COLS = ['MANDT', 'ARBPL', 'PWWRK', 'KTEXT', 'WERKSX', 'ARBID', 'KAPID', 'KAPAZ', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENG2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'MATFG', 'MAKFG', 'CATEGORY', 'ORDERX', 'STATS2', 'PV1', 'PV2', 'PV3']
+        T_DATA1_COLS = ['MANDT', 'ARBPL', 'PWWRK', 'KTEXT', 'WERKSX', 'ARBID', 'KAPID', 'KAPAZ', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENGE2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'MATFG', 'MAKFG', 'CATEGORY', 'ORDERX', 'STATS2', 'PV1', 'PV2', 'PV3']
         
         # 23 Kolom
         T_DATA4_COLS = ['MANDT', 'RSNUM', 'RSPOS', 'VORNR', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MAKTX', 'MEINS', 'BAUGR', 'WERKSX', 'BDMNG', 'KALAB', 'VMENG', 'SOBSL', 'BESKZ', 'LTEXT', 'LGORT', 'OUTSREQ']
@@ -367,7 +367,7 @@ def save_data_to_mysql():
                         'MEINS': safe_get_value(t3_row, 'MEINS'), 'MATKL': safe_get_value(t3_row, 'MATKL'),
                         'PSMNG': t3_row.get('PSMNG'), 'WEMNG': t3_row.get('WEMNG'),
                         'MGVRG2': t3_row.get('MGVRG2'), 'LMNGA': t3_row.get('LMNGA'),
-                        'P1': t3_row.get('P1'), 'MENG2': t3_row.get('MENG2'), 'VGW01': t3_row.get('VGW01'),
+                        'P1': t3_row.get('P1'), 'MENGE2': t3_row.get('MENGE2'), 'VGW01': t3_row.get('VGW01'),
                         'VGE01': t3_row.get('VGE01'), 'CPCTYX': safe_get_value(t3_row, 'CPCTYX'),
                         'DTIME': t3_row.get('DTIME'), 'DDAY': t3_row.get('DDAY'),
                         'SSSLD': format_sap_date_for_db(t3_row.get('SSSLD')),
@@ -376,7 +376,7 @@ def save_data_to_mysql():
                         'GSTRP': format_sap_date_for_db(t3_row.get('GSTRP')),
                         'MATFG': safe_get_value(t3_row, 'MATFG'), 'MAKFG': safe_get_value(t3_row, 'MAKFG'),
                         'CATEGORY': safe_get_value(t3_row, 'CATEGORY'), 'WERKSX': plant_kode,
-                        'MENGE2': t3_row.get('MENGE2'), 'STATS2': safe_get_value(t3_row, 'STATS2')
+                        'STATS2': safe_get_value(t3_row, 'STATS2')
                     }
                     tdata3_to_insert.append(tuple(mapped_row.get(col) for col in T_DATA3_COLS))
 
@@ -413,7 +413,7 @@ def save_data_to_mysql():
                             'AUART': safe_get_value(t1_row, 'AUART'), 'MEINS': safe_get_value(t1_row, 'MEINS'),
                             'MATKL': safe_get_value(t1_row, 'MATKL'), 'PSMNG': t1_row.get('PSMNG'),
                             'WEMNG': t1_row.get('WEMNG'), 'MGVRG2': t1_row.get('MGVRG2'),
-                            'LMNGA': t1_row.get('LMNGA'), 'P1': t1_row.get('P1'), 'MENG2': t1_row.get('MENG2'),
+                            'LMNGA': t1_row.get('LMNGA'), 'P1': t1_row.get('P1'), 'MENGE2': t1_row.get('MENGE2'),
                             'VGW01': t1_row.get('VGW01'), 'VGE01': t1_row.get('VGE01'),
                             'CPCTYX': safe_get_value(t1_row, 'CPCTYX'), 'DTIME': t1_row.get('DTIME'),
                             'DDAY': t1_row.get('DDAY'), 'SSSLD': format_sap_date_for_db(t1_row.get('SSSLD')),
