@@ -570,7 +570,7 @@
     @endpush
 
     @push('scripts')
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+        <script src="{{ asset('js/libs/Sortable.min.js') }}"></script>
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -2305,9 +2305,8 @@
                     // 2. Client-side match check
                     let matches = true;
 
-                    // Basic Search Match (heuristic: simple text includes)
+                    // Basic Search Match
                     if (basicSearch) {
-                        // Check specific visible columns logic usually used in basic search
                          const text = (
                             (row.dataset.aufnr || '') + " " +
                             (row.dataset.matnr || '') + " " +
@@ -2323,13 +2322,7 @@
                         const checkField = (id, dataAttr) => {
                             const val = document.getElementById(id).value.toLowerCase().trim();
                             if (!val) return true;
-                            // Search allows comma separated
                             const terms = val.split(',').map(s => s.trim()).filter(s => s);
-                             // If any term matches EXACTLY (or partial? standard logic is usually partial or exact depending on field)
-                             // User requirement for Adv Search says "Specific Fields", previously we made it strict or partial?
-                             // Let's assume partial for safety, or strict if numbers.
-                             // Actually, let's use partial includes for flexibility unless it's numeric ID which might be strict.
-                             
                              const rowVal = (row.dataset[dataAttr] || '').toLowerCase();
                              return terms.some(term => rowVal.includes(term));
                         };
@@ -2383,6 +2376,7 @@
                                 name1: item.dataset.name1 || '-',
                                 netpr: item.dataset.netpr || '-',
                                 waerk: item.dataset.waerk || '-',
+                                stats: item.dataset.stats || '-', 
                                 calculated_tak_time: takTimeMins.toFixed(2),
                                 status_pro_wi: 'Created',
                                 workcenter_induk: item.dataset.arbpl || wcId,
@@ -2448,12 +2442,9 @@
             // --- STREAMING FUNCTION ---
             window.startWiCreationStream = async function() {
                 console.log('startWiCreationStream STARTING...');
-                const previewContent = document.getElementById('previewContent');
-                if (!previewContent) return;
-
-                const payload = [];
-                const plantCode = '{{ $kode }}';
+                // const previewContent = document.getElementById('previewContent'); // Unused
                 
+                const plantCode = '{{ $kode }}';
                 const dateInput = document.getElementById('wiDocumentDate').value; 
                 const timeInput = document.getElementById('wiDocumentTime').value;
 
@@ -2479,91 +2470,111 @@
                 
                 progressBar.style.width = '0%';
                 progressBar.innerText = '0%';
-                statusText.innerText = 'Initializing stream...';
+                statusText.innerText = 'Checking items status...';
                 logArea.innerHTML = '';
                 logArea.classList.remove('d-none');
 
-                // Prepare Items for Stream (List of AUFNRs)
-                const proItems = [];
+                // 1. Identify Items needing Release (CRTD / Not REL / Not DSP)
+                // We collect unique AUFNRs that need release
+                const releaseQueue = [];
+                const allProItems = []; 
+                const processedAufnrs = new Set();
+                
+                // Collect all involved PROs first
                 window.latestAllocations.forEach(alloc => {
                     alloc.pro_items.forEach(item => {
-                        if (!proItems.some(p => p.aufnr === item.aufnr)) {
-                            proItems.push({ aufnr: item.aufnr });
+                        const aufnr = item.aufnr;
+                        if (!processedAufnrs.has(aufnr)) {
+                            processedAufnrs.add(aufnr);
+                            
+                            // Check Status via payload or DOM
+                            // If we added 'stats' to payload in saveAssignment (which we should for robustness), use it.
+                            // If item comes from latestAllocations, it should have it if we added it.
+                            
+                            const stats = item.stats || '';
+                            const needsRelease = stats.includes('CRTD') || !(stats.includes('REL') || stats.includes('DSP'));
+                            
+                            if (needsRelease) {
+                                releaseQueue.push({ aufnr: aufnr });
+                            }
+                            allProItems.push({ aufnr: aufnr });
                         }
                     });
                 });
 
                 try {
-                    // 2. Start Fetch Stream
-                    const response = await fetch('{{ route("create-wi.stream-schedule") }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        body: JSON.stringify({
-                            plant_code: plantCode,
-                            date: dateInput,
-                            time: timeInput,
-                            items: proItems
-                        })
-                    });
+                    // 2. Stream Release (Only if needed)
+                    if (releaseQueue.length > 0) {
+                        statusText.innerText = `Releasing ${releaseQueue.length} items...`;
+                        
+                        const response = await fetch('{{ route("create-wi.stream-release") }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                plant_code: plantCode,
+                                items: releaseQueue
+                            })
+                        });
 
-                    console.log('Stream Response Status:', response.status);
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Server Error (${response.status}): ${errorText}`);
-                    }
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`Release Server Error (${response.status}): ${errorText}`);
+                        }
 
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = '';
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = '';
 
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
 
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n\n');
-                        buffer = lines.pop(); // Keep incomplete chunk
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n\n');
+                            buffer = lines.pop(); 
 
-                        for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                const jsonStr = line.substring(6);
-                                try {
-                                    const data = JSON.parse(jsonStr);
-                                    
-                                    // Update UI
-                                    if (data.progress !== undefined) {
-                                        progressBar.style.width = data.progress + '%';
-                                        progressBar.innerText = data.progress + '%';
-                                    }
-                                    if (data.message) {
-                                        statusText.innerText = data.message;
-                                        const logEntry = document.createElement('div');
-                                        logEntry.innerText = `> ${data.message}`;
-                                        if (data.status === 'error') logEntry.classList.add('text-danger');
-                                        else if (data.status === 'success') logEntry.classList.add('text-success');
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    const jsonStr = line.substring(6);
+                                    try {
+                                        const data = JSON.parse(jsonStr);
                                         
-                                        logArea.appendChild(logEntry);
-                                        logArea.scrollTop = logArea.scrollHeight;
+                                        if (data.progress !== undefined) {
+                                            progressBar.style.width = data.progress + '%';
+                                            progressBar.innerText = data.progress + '%';
+                                        }
+                                        if (data.message) {
+                                            statusText.innerText = data.message;
+                                            const logEntry = document.createElement('div');
+                                            logEntry.innerText = `> ${data.message}`;
+                                            if (data.status === 'error') {
+                                                logEntry.classList.add('text-danger');
+                                                throw new Error(data.message); // Abort on single failure
+                                            }
+                                            else if (data.status === 'success') logEntry.classList.add('text-success');
+                                            
+                                            logArea.appendChild(logEntry);
+                                            logArea.scrollTop = logArea.scrollHeight;
+                                        }
+                                    } catch (e) {
+                                        if (e.message.includes('Release Failed')) throw e; // Re-throw critical errors
+                                        console.error("Stream parse error", e);
                                     }
-                                    
-                                    if (data.completed) {
-                                        statusText.innerText = "All items processed. Saving final document...";
-                                    }
-
-                                } catch (e) {
-                                    console.error("Stream parse error", e);
                                 }
                             }
                         }
+                    } else {
+                         // No release needed
+                         statusText.innerText = "All items have valid status (REL/DSP). Proceeding...";
+                         progressBar.style.width = '100%';
                     }
 
                     // 3. Final Save (Create WI Document)
-                    statusText.innerText = "Finalizing...";
+                    statusText.innerText = "Finalizing Document...";
                     
-                    // We call the original save endpoint
                     const saveResponse = await fetch('{{ route("wi.save") }}', {
                          method: 'POST',
                          headers: {
@@ -2586,7 +2597,6 @@
                          statusText.innerText = "Pembuatan Penugasan Berhasil!";
                          
                          setTimeout(() => {
-                            // Redirect
                             window.location.href = "{{ route('wi.history', $kode) }}";
                          }, 1500);
                     } else {
@@ -2598,6 +2608,11 @@
                     statusText.innerText = "Error: " + error.message;
                     statusText.classList.add('text-danger');
                     progressBar.classList.add('bg-danger');
+                    
+                    const logEntry = document.createElement('div');
+                    logEntry.innerText = `> PROCESS ABORTED: ${error.message}`;
+                    logEntry.classList.add('text-danger', 'fw-bold');
+                    logArea.appendChild(logEntry);
                 }
             };
 

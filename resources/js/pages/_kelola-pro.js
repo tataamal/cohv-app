@@ -265,8 +265,8 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Pastikan elemen modal ditemukan sebelum melanjutkan
     if (!proDetailModalElement) {
-        console.error('Elemen modal dengan ID "proDetailModal" tidak ditemukan.');
-        return; // Hentikan eksekusi jika modal tidak ada
+        // console.warn('Elemen modal dengan ID "proDetailModal" tidak ditemukan. Script _kelola-pro.js mungkin berjalan di halaman yang tidak relevan.');
+        return; // Hentikan eksekusi secara diam-diam (safe exit)
     }
 
     const proDetailModal = new bootstrap.Modal(proDetailModalElement);

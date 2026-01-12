@@ -18,6 +18,8 @@ use App\Models\ProductionTData;
 use App\Models\ProductionTData2;
 use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
+use App\Services\Release;
+use App\Services\YPPR074Z;
 
 class CreateWiController extends Controller
 {
@@ -479,31 +481,23 @@ class CreateWiController extends Controller
 
             foreach ($payload as $wcAllocation) {
                 $workcenterCode = $wcAllocation['workcenter'];
-
-                // --- MERGE LOGIC (User Request 2025-12-24) ---
-                // Automatically merge split rows for the same person/PRO into one entry
                 $rawItems = $wcAllocation['pro_items'] ?? [];
                 Log::info("Raw Items Received: " . count($rawItems), ['items' => $rawItems]);
                 $mergedMap = [];
                 
                 foreach ($rawItems as $item) {
-                     // Create a unique key for grouping
-                     // Use trim for robust matching
                      $uAufnr = trim($item['aufnr'] ?? '');
                      $uVornr = trim($item['vornr'] ?? '');
                      $uNik = trim($item['nik'] ?? '');
-                     $uWc = trim($item['child_workcenter'] ?? ''); // Use child_workcenter as per frontend payload
+                     $uWc = trim($item['child_workcenter'] ?? '');
                      
                      $key = "{$uAufnr}_{$uVornr}_{$uNik}_{$uWc}";
                      
-                     // Debug Logging
                      Log::info("Merge Check: Key = $key. Existing? " . (isset($mergedMap[$key]) ? "YES" : "NO"));
                      
                      if (isset($mergedMap[$key])) {
-                         // Merge
                          $mergedMap[$key]['assigned_qty'] = floatval($mergedMap[$key]['assigned_qty']) + floatval($item['assigned_qty']);
                          
-                         // Recalculate Time
                          $baseTime = floatval($mergedMap[$key]['vgw01'] ?? 0);
                          $newQty = $mergedMap[$key]['assigned_qty'];
                          $unit = strtoupper($mergedMap[$key]['vge01'] ?? '');
@@ -518,15 +512,12 @@ class CreateWiController extends Controller
                          Log::info("Merged Item. New Qty: {$newQty}");
                          
                      } else {
-                         // First occurrence
                          $mergedMap[$key] = $item;
                      }
                 }
                 
-                // Replace original items with merged list
                 $wcAllocation['pro_items'] = array_values($mergedMap); // Reset keys
                 Log::info("Final Items Count: " . count($wcAllocation['pro_items']));
-                // --- END MERGE LOGIC ---
 
                 DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, &$wiDocuments) {
                     $latestHistory = HistoryWi::withTrashed()
@@ -2014,6 +2005,88 @@ class CreateWiController extends Controller
             if (ob_get_level() > 0) {
                 ob_flush();
             }
+            flush();
+        });
+
+        $response->headers->set('Content-Type', 'text/event-stream');
+        $response->headers->set('X-Accel-Buffering', 'no');
+        $response->headers->set('Cache-Control', 'no-cache');
+        return $response;
+    }
+
+    public function streamRelease(Request $request)
+    {
+        $plantCode = $request->input('plant_code');
+        $items = $request->input('items', []); // Array of objects with 'aufnr'
+
+        $response = new StreamedResponse(function () use ($items, $plantCode) {
+            $total = count($items);
+            if ($total === 0) {
+                echo "data: " . json_encode(['progress' => 100, 'message' => 'No items to release.', 'completed' => true]) . "\n\n";
+                ob_flush();
+                flush();
+                return;
+            }
+
+            $releaseService = new Release();
+            $ypprService = new YPPR074Z();
+
+            foreach ($items as $index => $item) {
+                $aufnr = $item['aufnr'];
+                $msgPrefix = "[$aufnr]";
+
+                try {
+                    // 1. Release
+                    // Call Flask Service Release
+                    $releaseService->release($aufnr);
+
+                    // 2. Refresh YPPR074Z (Specific PRO)
+                    // Note: User requested to refresh only the specific PRO using refreshPro
+                    $ypprService->refreshPro($plantCode, $aufnr);
+
+                    // 3. Verify Status
+                    // Check if PRO is now valid (REL or DSP)
+                    // We check if it is valid by re-fetching TData1
+                    $pro = ProductionTData1::where('WERKSX', $plantCode)->where('AUFNR', $aufnr)->first();
+                    $isValid = false;
+                    $currentStats = $pro ? $pro->STATS : 'UNKNOWN';
+
+                    if ($pro && (str_contains($currentStats, 'REL') || str_contains($currentStats, 'DSP'))) {
+                        $isValid = true;
+                    }
+
+                    // Check if it is strictly NOT 'CRTD' (as per "jika ada yang belum rel atau dsp")
+                    // If it contains CRTD even if it has REL? Usually CRTD goes away.
+                    // Let's assume Valid = Has REL OR Has DSP.
+                    
+                    if ($isValid) {
+                        $percent = round((($index + 1) / $total) * 100);
+                        echo "data: " . json_encode([
+                            'progress' => $percent,
+                            'message' => "$msgPrefix Released & Refreshed. Status: $currentStats",
+                            'aufnr' => $aufnr,
+                            'status' => 'success'
+                        ]) . "\n\n";
+                    } else {
+                        throw new \Exception("Release succeeded but status is still invalid: $currentStats");
+                    }
+
+                } catch (\Exception $e) {
+                    $percent = round((($index + 1) / $total) * 100);
+                    echo "data: " . json_encode([
+                        'progress' => $percent,
+                        'message' => "$msgPrefix Release Failed: " . $e->getMessage(),
+                        'aufnr' => $aufnr,
+                        'status' => 'error'
+                    ]) . "\n\n";
+                }
+
+                if (ob_get_level() > 0) ob_flush();
+                flush();
+            }
+
+            echo "data: " . json_encode(['progress' => 100, 'message' => 'Release process completed.', 'completed' => true]) . "\n\n";
+            if (ob_get_level() > 0) ob_flush();
             flush();
         });
 

@@ -259,6 +259,36 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal for PRO Details (Used by _kelola-pro.js) -->
+    <div class="modal fade" id="proDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="proModalTitle">Detail PRO</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>PRO:</strong> <span id="modalPro"></span></p>
+                    <p><strong>SO:</strong> <span id="modalSo"></span></p>
+                    <p><strong>Item:</strong> <span id="modalSoItem"></span></p>
+                    <p><strong>Work Center:</strong> <span id="modalWc"></span></p>
+                    <p><strong>Material:</strong> <span id="modalMaterial"></span></p>
+                    <p><strong>Oper Key:</strong> <span id="modalOperKey"></span></p>
+                    <p><strong>PSMNG:</strong> <span id="modalPsmng"></span></p>
+                    <p><strong>WEMNG:</strong> <span id="modalWemng"></span></p>
+                    <div class="mt-3">
+                        <h6>Production Versions:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>PV1:</strong> <span id="modalPv1"></span></li>
+                            <li><strong>PV2:</strong> <span id="modalPv2"></span></li>
+                            <li><strong>PV3:</strong> <span id="modalPv3"></span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="tdata1DetailModal" tabindex="-1" aria-labelledby="tdata1DetailModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-sm">

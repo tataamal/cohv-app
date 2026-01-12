@@ -260,30 +260,70 @@ def changewc():
 @app.route('/api/sap_combined', methods=['GET'])
 def sap_combined():
     plant = request.args.get('plant')
+    aufnr = request.args.get('aufnr')  # ✅ tambah
 
     if not plant:
         return jsonify({'error': 'Missing plant parameter'}), 400
 
     SAP_TIMEOUT_SEC = 3600
-
     conn = None
+
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
 
-        logger.info(f"Calling RFC Z_FM_YPPR074Z for plant: {plant} (timeout={SAP_TIMEOUT_SEC}s)")
+        logger.info(
+            f"Calling RFC Z_FM_YPPR074Z for plant={plant}, aufnr={aufnr} (timeout={SAP_TIMEOUT_SEC}s)"
+        )
         result = conn.call(
             'Z_FM_YPPR074Z',
             options={'timeout': SAP_TIMEOUT_SEC},
-            P_WERKS=plant
+            P_WERKS=plant,
+            P_AUFNR=aufnr if aufnr else ''
         )
+        t_data  = result.get('T_DATA',  []) or []
+        t1      = result.get('T_DATA1', []) or []
+        t2      = result.get('T_DATA2', []) or []
+        t3      = result.get('T_DATA3', []) or []
+        t4      = result.get('T_DATA4', []) or []
+
+        # ✅ Kalau aufnr dikirim, filter ke order tsb saja
+        if aufnr:
+            aufnr = aufnr.strip()
+
+            t1 = [r for r in t1 if str(r.get('AUFNR', '')).strip() == aufnr]
+            t3 = [r for r in t3 if str(r.get('AUFNR', '')).strip() == aufnr]
+            t4 = [r for r in t4 if str(r.get('AUFNR', '')).strip() == aufnr]
+
+            # T_DATA2 biasanya link ke T_DATA3 via (KDAUF,KDPOS)
+            # Jadi filter T2 berdasarkan pasangan KDAUF/KDPOS yang ada di T3 untuk AUFNR ini
+            kd_pairs = set(
+                (str(r.get('KDAUF', '')).strip(), str(r.get('KDPOS', '')).strip())
+                for r in t3
+            )
+            t2 = [
+                r for r in t2
+                if (str(r.get('KDAUF', '')).strip(), str(r.get('KDPOS', '')).strip()) in kd_pairs
+            ]
+
+            # T_DATA (parent) link ke T2 via KUNNR+NAME1 (dari logic Laravel kamu)
+            parent_pairs = set(
+                (str(r.get('KUNNR', '')).strip(), str(r.get('NAME1', '')).strip())
+                for r in t2
+            )
+            t_data = [
+                r for r in t_data
+                if (str(r.get('KUNNR', '')).strip(), str(r.get('NAME1', '')).strip()) in parent_pairs
+            ]
 
         return jsonify({
-            "T_DATA": result.get('T_DATA', []),
-            "T_DATA1": result.get('T_DATA1', []),
-            "T_DATA2": result.get('T_DATA2', []),
-            "T_DATA3": result.get('T_DATA3', []),
-            "T_DATA4": result.get('T_DATA4', []),
+            "plant": plant,
+            "aufnr": aufnr,
+            "T_DATA": t_data,
+            "T_DATA1": t1,
+            "T_DATA2": t2,
+            "T_DATA3": t3,
+            "T_DATA4": t4,
         }), 200
 
     except RFCError as re:
@@ -294,7 +334,6 @@ def sap_combined():
                 'error': 'SAP call timed out',
                 'detail': f'Connection canceled by timeout after {SAP_TIMEOUT_SEC} seconds'
             }), 504
-        # Error RFC lainnya
         return jsonify({'error': 'SAP RFC error', 'detail': msg}), 502
 
     except ValueError as ve:
@@ -1878,21 +1917,24 @@ def delete_data_to_mysql():
                 # Jika gagal tutup (misal sudah tertutup duluan), abaikan saja
                 logger.warning(f"Warning saat menutup koneksi: {e}")
 
-# RELEASE PRO
 @app.route('/api/release_order', methods=['POST'])
 def release_order():
+    conn = None
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
 
-        data = request.get_json()
+        data = request.get_json() or {}
         print("Data diterima untuk release:", data)
 
         aufnr = data.get('AUFNR')
         if not aufnr:
-            return jsonify({'error': 'AUFNR is required'}), 400
+            return jsonify({
+                'success': False,
+                'message': 'AUFNR is required'
+            }), 400
 
-        print("Calling RFC BAPI_PRODORD_RELEASE...")
+        print(f"Calling RFC BAPI_PRODORD_RELEASE for AUFNR={aufnr}...")
 
         result = conn.call(
             'BAPI_PRODORD_RELEASE',
@@ -1902,13 +1944,79 @@ def release_order():
             ORDERS=[{'ORDER_NUMBER': aufnr}]
         )
 
-        return jsonify(result)
+        # --- Ambil pesan return ---
+        return_main   = result.get('RETURN')           # BAPIRET2 (dict)
+        return_detail = result.get('DETAIL_RETURN', [])  # table
+        app_log       = result.get('APPLICATION_LOG', [])
+
+        # --- Kumpulkan semua pesan ---
+        messages = []
+
+        if return_main:
+            messages.append({
+                'type': return_main.get('TYPE'),
+                'message': return_main.get('MESSAGE'),
+                'id': return_main.get('ID'),
+                'number': return_main.get('NUMBER'),
+            })
+
+        for row in return_detail:
+            messages.append({
+                'type': row.get('TYPE'),
+                'message': row.get('MESSAGE'),
+                'order': row.get('ORDER_NUMBER'),
+                'field': row.get('FIELD'),
+            })
+
+        # --- Deteksi error SAP ---
+        error_types = {'E', 'A', 'X'}
+        has_error = any(m.get('type') in error_types for m in messages)
+
+        if has_error:
+            # ❌ JANGAN commit kalau error
+            return jsonify({
+                'success': False,
+                'aufnr': aufnr,
+                'messages': messages,
+                'raw': {
+                    'RETURN': return_main,
+                    'DETAIL_RETURN': return_detail,
+                }
+            }), 422
+
+        # --- Commit jika sukses ---
+        conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
+
+        return jsonify({
+            'success': True,
+            'aufnr': aufnr,
+            'messages': messages,
+            'raw': {
+                'RETURN': return_main,
+                'DETAIL_RETURN': return_detail,
+                'APPLICATION_LOG': app_log,
+            }
+        }), 200
 
     except ValueError as ve:
-        return jsonify({'error': str(ve)}), 401
+        return jsonify({
+            'success': False,
+            'message': str(ve)
+        }), 401
+
     except Exception as e:
         print("Exception saat release order:", str(e))
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 if __name__ == '__main__':
     # os.environ['PYTHONHASHSEED'] = '0'

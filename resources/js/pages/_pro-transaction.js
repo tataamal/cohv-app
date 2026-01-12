@@ -254,8 +254,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 fetch('/api/bulk/bulk-refresh', { 
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
-                    body: JSON.stringify({ kode: kodeHalaman, pros: prosToRefresh })
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-SAP-Username': sapUser, 
+                        'X-SAP-Password': sapPass,
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ plant: kodeHalaman, pros: prosToRefresh })
                 })
                 .then(response => {
                     if (!response.ok) return response.json().then(err => { throw new Error(err.message || `Error ${response.status}`); });
@@ -263,18 +270,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .then(sapData => {
                     Swal.update({ title: '2/2: Menyimpan ke Database...' });
-                    if (!sapData.aggregated_data) throw new Error('Data "aggregated_data" tidak ada (null) dari SAP.');
-                    if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) throw new Error('Gagal mengambil data SAP untuk beberapa PRO.');
-
-                    const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToRefresh, aggregated_data: sapData.aggregated_data };
+                    const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToRefresh, aggregated_data: [] };
                     return fetch('/api/bulk/save-data', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
                         body: JSON.stringify(saveDataPayload)
                     });
                 })
                 .then(saveResponse => {
-                    if (!saveResponse.ok) return saveResponse.json().then(err => { throw new Error(err.message || 'Gagal menyimpan ke DB.'); });
+                    if (!saveResponse.ok) {
+                        return saveResponse.text().then(text => {
+                            throw new Error(`Save failed (${saveResponse.status}): ${text.substring(0, 100)}`);
+                        });
+                    }
                     return saveResponse.json();
                 })
                 .then(finalData => {
@@ -312,39 +325,70 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 fetch('/api/bulk/bulk-schedule-pro', { 
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-SAP-Username': sapUser, 
+                        'X-SAP-Password': sapPass,
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
                     body: JSON.stringify({ pro_list: prosToRefresh, schedule_date: scheduleDate, schedule_time: scheduleTime + ":00" })
                 })
                 .then(response => {
-                    if (!response.ok) return response.json().then(err => { throw new Error(err.message || 'Gagal melakukan reschedule.'); });
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(`Request failed (${response.status}): ${text.substring(0, 100)}`);
+                        });
+                    }
                     return response.json();
                 })
                 .then(scheduleData => {
                     Swal.update({ title: '2/3: Mengambil Data Baru...' });
                     return fetch('/api/bulk/bulk-refresh', { 
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
-                        body: JSON.stringify({ kode: kodeHalaman, pros: prosToRefresh })
+                        headers: { 
+                        'Content-Type': 'application/json', 
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-SAP-Username': sapUser, 
+                        'X-SAP-Password': sapPass,
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') 
+                    },
+                        body: JSON.stringify({ plant: kodeHalaman, pros: prosToRefresh })
                     });
                 })
                 .then(refreshResponse => {
-                    if (!refreshResponse.ok) return refreshResponse.json().then(err => { throw new Error(err.message || 'Gagal mengambil data SAP.'); });
+                    if (!refreshResponse.ok) {
+                        return refreshResponse.text().then(text => {
+                            throw new Error(`Refresh failed (${refreshResponse.status}): ${text.substring(0, 100)}`);
+                        });
+                    }
                     return refreshResponse.json();
                 })
                 .then(sapData => {
                     Swal.update({ title: '3/3: Menyimpan Data...' });
                     if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) throw new Error('Gagal mengambil data SAP.');
-                    if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
+                    // if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
-                    const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToRefresh, aggregated_data: sapData.aggregated_data };
+                    const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToRefresh, aggregated_data: [] };
                     return fetch('/api/bulk/save-data', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
                         body: JSON.stringify(saveDataPayload)
                     });
                 })
                 .then(saveResponse => {
-                    if (!saveResponse.ok) return saveResponse.json().then(err => { throw new Error(err.message || 'Gagal menyimpan ke DB.'); });
+                    if (!saveResponse.ok) {
+                        return saveResponse.text().then(text => {
+                            throw new Error(`Save failed (${saveResponse.status}): ${text.substring(0, 100)}`);
+                        });
+                    }
                     return saveResponse.json();
                 })
                 .then(finalData => {
@@ -383,11 +427,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 fetch('/api/bulk/bulk-readpp-pro', { 
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-SAP-Username': sapUser, 
+                        'X-SAP-Password': sapPass,
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
                     body: JSON.stringify({ pro_list: prosToProcess })
                 })
                 .then(response => {
-                    if (!response.ok) return response.json().then(err => { throw new Error(err.error || 'Gagal Read PP'); });
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(`Read PP failed (${response.status}): ${text.substring(0, 100)}`);
+                        });
+                    }
                     return response.json();
                 })
                 .then(readPpData => {
@@ -396,30 +451,46 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     return fetch('/api/bulk/bulk-refresh', { 
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
-                        body: JSON.stringify({ kode: kodeHalaman, pros: prosToProcess })
+                        headers: { 
+                        'Content-Type': 'application/json', 
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-SAP-Username': sapUser, 
+                        'X-SAP-Password': sapPass,
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                        body: JSON.stringify({ plant: kodeHalaman, pros: prosToProcess })
                     });
                 })
                 .then(refreshResponse => {
-                    if (!refreshResponse.ok) return refreshResponse.json().then(err => { throw new Error(err.message || 'Gagal mengambil data SAP.'); });
+                    if (!refreshResponse.ok) {
+                        return refreshResponse.text().then(text => {
+                            throw new Error(`Refresh failed (${refreshResponse.status}): ${text.substring(0, 100)}`);
+                        });
+                    }
                     return refreshResponse.json();
                 })
                 .then(sapData => {
                     Swal.update({ title: '3/3: Menyimpan Data...' });
                     if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) throw new Error('Gagal mengambil data SAP.');
-                    if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
+                    // if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
-                    const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToProcess, aggregated_data: sapData.aggregated_data };
+                    const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToProcess, aggregated_data: [] };
                     return fetch('/api/bulk/save-data', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
                         body: JSON.stringify(saveDataPayload)
                     });
                 })
                 .then(saveResponse => {
                     if (!saveResponse.ok) {
-                        return saveResponse.json().then(err => { 
-                            throw new Error(err.message || 'Gagal menyimpan ke DB.'); 
+                        return saveResponse.text().then(text => { 
+                            throw new Error(`Save failed (${saveResponse.status}): ${text.substring(0, 100)}`); 
                         });
                     }
                     return saveResponse.json();
@@ -465,11 +536,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 fetch('/api/bulk/bulk-change-pv', { 
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-SAP-Username': sapUser, 
+                        'X-SAP-Password': sapPass,
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
                     body: JSON.stringify({ pro_list: prosToProcess, PROD_VERSION: selectedPv })
                 })
                 .then(response => {
-                    if (!response.ok) return response.json().then(err => { throw new Error(err.error || 'Gagal Ubah PV'); });
+                    if (!response.ok) {
+                        return response.text().then(text => { 
+                            throw new Error(`Change PV failed (${response.status}): ${text.substring(0, 100)}`); 
+                        });
+                    }
                     return response.json();
                 })
                 .then(data => {
@@ -481,31 +563,51 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     return fetch('/api/bulk/bulk-refresh', { 
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-SAP-Username': sapUser, 'X-SAP-Password': sapPass },
-                        body: JSON.stringify({ kode: kodeHalaman, pros: prosToProcess })
+                        headers: { 
+                        'Content-Type': 'application/json', 
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-SAP-Username': sapUser, 
+                        'X-SAP-Password': sapPass,
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                        body: JSON.stringify({ plant: kodeHalaman, pros: prosToProcess })
                     });
                 })
                 .then(refreshResponse => {
                     if (!refreshResponse) return;
-                    if (!refreshResponse.ok) return refreshResponse.json().then(err => { throw new Error(err.message || 'Gagal mengambil data SAP.'); });
+                    if (!refreshResponse.ok) {
+                        return refreshResponse.text().then(text => {
+                            throw new Error(`Refresh failed (${refreshResponse.status}): ${text.substring(0, 100)}`);
+                        });
+                    }
                     return refreshResponse.json();
                 })
                 .then(sapData => {
                     if (!sapData) return;
                     Swal.update({ title: '3/3: Menyimpan Data...' });
                     if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) throw new Error('Gagal mengambil data SAP.');
-                    if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
+                    // if (!sapData.aggregated_data) throw new Error('Tidak ada data (null) dari SAP.');
 
-                    const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToProcess, aggregated_data: sapData.aggregated_data };
+                    const saveDataPayload = { kode: kodeHalaman, pros_to_refresh: prosToProcess, aggregated_data: [] };
                     return fetch('/api/bulk/save-data', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
                         body: JSON.stringify(saveDataPayload)
                     });
                 })
                 .then(saveResponse => {
                     if (!saveResponse) return;
-                    if (!saveResponse.ok) return saveResponse.json().then(err => { throw new Error(err.message || 'Gagal menyimpan ke DB.'); });
+                    if (!saveResponse.ok) {
+                        return saveResponse.text().then(text => {
+                            throw new Error(`Save failed (${saveResponse.status}): ${text.substring(0, 100)}`);
+                        });
+                    }
                     return saveResponse.json();
                 })
                 .then(finalData => {
@@ -591,41 +693,54 @@ document.addEventListener('DOMContentLoaded', function() {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-SAP-Username': sapUser,
-                            'X-SAP-Password': sapPass
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-SAP-Username': sapUser, 
+                            'X-SAP-Password': sapPass,
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                         },
                         body: JSON.stringify({
-                            kode: kodeHalaman,
+                            plant: kodeHalaman,
                             pros: prosToRefresh 
                         })
                     })
 
                     .then(response => {
-                        if (!response.ok) return response.json().then(err => { throw new Error(err.message || 'Gagal refresh data SAP post-change.'); });
+                        if (!response.ok) {
+                             return response.text().then(text => {
+                                throw new Error(`Refresh post-change failed (${response.status}): ${text.substring(0, 100)}`);
+                            });
+                        }
                         return response.json();
                     })
                     
                     .then(sapData => {
                         Swal.update({ title: '3/3: Menyimpan ke Database...' });
 
-                        if (!sapData.aggregated_data) throw new Error('Data "aggregated_data" tidak ada (null) dari SAP.');
-                        if (sapData.sap_failed_details && sapData.sap_failed_details.length > 0) throw new Error('Gagal refresh data SAP.');
-                        
-                       const saveDataPayload = { 
+                        const saveDataPayload = { 
                             kode: kodeHalaman, 
                             pros_to_refresh: prosToRefresh,
-                            aggregated_data: sapData.aggregated_data 
+                            aggregated_data: [] 
                         };
                         
                         return fetch('/api/bulk/save-data', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            },
                             body: JSON.stringify(saveDataPayload)
                         });
                     })
                     
                     .then(saveResponse => {
-                        if (!saveResponse.ok) return saveResponse.json().then(err => { throw new Error(err.message || 'Gagal menyimpan ke DB.'); });
+                        if (!saveResponse.ok) {
+                             return saveResponse.text().then(text => {
+                                throw new Error(`Save failed (${saveResponse.status})`);
+                            });
+                        }
                         return saveResponse.json();
                     })
 
@@ -732,14 +847,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     fetch('/api/bulk/delete-data', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                         },
                         body: JSON.stringify({
                             pro_list: successfulTecos
                         })
                     })
                     .then(response => {
-                        if (!response.ok) return response.json().then(err => { throw new Error(err.message || 'Gagal menghapus data DB.'); });
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(`Delete failed (${response.status})`);
+                            });
+                        }
                         return response.json();
                     })
                     .then(deleteResult => {

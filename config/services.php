@@ -37,4 +37,9 @@ return [
     'flask' => [
         'base_url' => env('FLASK_API_URL')
     ],
+
+    'credential_sap' => [
+        'base_url' => env('FLASK_API_URL'),
+        'timeout'  => 3600,
+    ],
 ];

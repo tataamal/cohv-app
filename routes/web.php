@@ -79,6 +79,14 @@ Route::middleware('auth')->group(function (){
     Route::post('/bulk-teco-process', [bulkController::class, 'processBulkTeco'])->name('bulk.teco.process');
     Route::post('/bulk-read-pp-process', [bulkController::class, 'processBulkReadPp'])->name('bulk.readpp.process');
     Route::post('/bulk-schedule-process', [bulkController::class, 'processBulkSchedule'])->name('bulk.schedule.process');
+    Route::post('/api/bulk/bulk-schedule-pro', [bulkController::class, 'processBulkSchedule'])->name('bulk.schedule.pro');
+    Route::post('/api/bulk/bulk-refresh', [bulkController::class, 'handleBulkRefresh'])->name('bulk.refresh');
+    Route::post('/api/bulk/save-data', [bulkController::class, 'saveData'])->name('bulk.save-data');
+    Route::post('/api/bulk/bulk-change-pv', [bulkController::class, 'handleBulkChangeAndRefresh'])->name('bulk.change-pv');
+    Route::post('/api/bulk/bulk-change-quantity', [bulkController::class, 'bulkChangeQuantity'])->name('bulk.change-quantity');
+    Route::post('/api/bulk/bulk-teco', [bulkController::class, 'processBulkTeco'])->name('bulk.teco');
+    Route::post('/api/bulk/delete-data', [bulkController::class, 'deleteData'])->name('bulk.delete-data');
+    Route::post('/api/bulk/bulk-readpp-pro', [bulkController::class, 'processBulkReadPp'])->name('bulk.readpp-pro');
     Route::post('/bulk-change-and-refresh', [bulkController::class, 'handleBulkChangeAndRefresh']);
     Route::post('/changeWCBulk/{kode}/{wc_tujuan}', [Data1Controller::class, 'changeWcBulk'])->name('wc.change.bulk');
     Route::post('/changeWCBulkStream/{kode}/{wc_tujuan}', [Data1Controller::class, 'changeWcBulkStream'])->name('wc.change.bulk.stream');
@@ -105,6 +113,7 @@ Route::middleware('auth')->group(function (){
     Route::get('/create-wi/get-remark-history', [CreateWiController::class, 'getRemarkHistory'])->name('create-wi.get-remark-history');
     Route::post('/create-wi/refresh/{kode}', [CreateWiController::class, 'refreshData'])->name('create-wi.refresh');
     Route::post('/create-wi/stream-schedule', [CreateWiController::class, 'streamSchedule'])->name('create-wi.stream-schedule');
+    Route::post('/create-wi/stream-release', [CreateWiController::class, 'streamRelease'])->name('create-wi.stream-release');
     Route::get('/create-wi/{kode}', [CreateWiController::class, 'index'])->name('create-wi.index');
     Route::get('work-instruction/create/{kode}', [CreateWiController::class, 'index'])->name('wi.create');
     Route::post('work-instruction/save', [CreateWiController::class, 'saveWorkInstruction'])->name('wi.save');
