@@ -201,7 +201,7 @@
         {{-- PAGE HEADER --}}
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h1 class="h4 fw-bolder text-dark mb-1">Riwayat Pembuatan Document WI</h1>
+                <h1 class="h4 fw-bolder text-dark mb-1">Riwayat Pembuatan Penugasan</h1>
                 <p class="text-muted small mb-0">Kode Bagian: <b>{{ $plantCode }}</b></p>
             </div>
             <div class="d-flex gap-2">
@@ -290,7 +290,7 @@
                     @if(!$reqStatus || $reqStatus == 'ACTIVE')
                     <li class="nav-item" role="presentation">
                         <button class="nav-link {{ $activeTab == 'active' ? 'active' : '' }} fw-bold small text-uppercase" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-content" type="button" role="tab">
-                            <i class="fa-solid fa-circle-check text-white me-2"></i> Active<span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $activeWIDocuments->count() }}</span>
+                            <i class="fa-solid fa-circle-check text-white me-2"></i> Aktif<span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $activeWIDocuments->count() }}</span>
                         </button>
                     </li>
                     @endif
@@ -298,7 +298,7 @@
                     @if(!$reqStatus || $reqStatus == 'INACTIVE')
                     <li class="nav-item" role="presentation">
                         <button class="nav-link {{ $activeTab == 'inactive' ? 'active' : '' }} fw-bold small text-uppercase" id="inactive-tab" data-bs-toggle="tab" data-bs-target="#inactive-content" type="button" role="tab">
-                            <i class="fa-solid fa-clock text-white me-2"></i> Inactive <span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $inactiveWIDocuments->count() }}</span>
+                            <i class="fa-solid fa-clock text-white me-2"></i> Belum Aktif <span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $inactiveWIDocuments->count() }}</span>
                         </button>
                     </li>
                     @endif
@@ -306,7 +306,7 @@
                     @if(!$reqStatus || $reqStatus == 'NOT COMPLETED')
                     <li class="nav-item" role="presentation">
                         <button class="nav-link {{ $activeTab == 'expired' ? 'active' : '' }} fw-bold small text-uppercase" id="expired-tab" data-bs-toggle="tab" data-bs-target="#expired-content" type="button" role="tab">
-                            <i class="fa-solid fa-triangle-exclamation me-2"></i> Expired <span class="badge bg-danger bg-opacity-10 text-danger ms-1">{{ $expiredWIDocuments->count() }}</span>
+                            <i class="fa-solid fa-triangle-exclamation me-2"></i> TIdak Aktif <span class="badge bg-danger bg-opacity-10 text-danger ms-1">{{ $expiredWIDocuments->count() }}</span>
                         </button>
                     </li>
                     @endif
@@ -314,7 +314,7 @@
                     @if(!$reqStatus || $reqStatus == 'COMPLETED')
                     <li class="nav-item" role="presentation">
                         <button class="nav-link {{ $activeTab == 'completed' ? 'active' : '' }} fw-bold small text-uppercase" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed-content" type="button" role="tab">
-                            <i class="fa-solid fa-check-double me-2"></i> Completed <span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $completedWIDocuments->count() }}</span>
+                            <i class="fa-solid fa-check-double me-2"></i> Selesai <span class="badge bg-success bg-opacity-10 text-white ms-1">{{ $completedWIDocuments->count() }}</span>
                         </button>
                     </li>
                     @endif
@@ -391,7 +391,7 @@
                         @endif
                         @if($activeWIDocuments->count() > 0 || (!request()->has('search')))
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold text-dark mb-0">Active Documents</h5>
+                            <h5 class="fw-bold text-dark mb-0">Dokument Aktif</h5>
                             <div class="d-flex align-items-center gap-3">
                                 <div class="form-check">
                                     <input class="form-check-input wi-checkbox mt-0" type="checkbox" id="selectAllActive">
@@ -615,7 +615,7 @@
                     {{-- TAB 2: INACTIVE (FUTURE) --}}
                     <div class="tab-pane fade {{ $activeTab == 'inactive' ? 'show active' : '' }}" id="inactive-content" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold text-dark mb-0">Inactive Documents</h5>
+                            <h5 class="fw-bold text-dark mb-0">Dokument Belum Aktif</h5>
                              <div class="d-flex align-items-center gap-3">
                                 <div class="form-check">
                                     <input class="form-check-input wi-checkbox mt-0" type="checkbox" id="selectAllInactive">
@@ -741,7 +741,7 @@
                     {{-- TAB 3: EXPIRED --}}
                     <div class="tab-pane fade {{ $activeTab == 'expired' ? 'show active' : '' }}" id="expired-content" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold text-dark mb-0">Expired Documents</h5>
+                            <h5 class="fw-bold text-dark mb-0">Dokument Tidak Aktif</h5>
                              <div class="d-flex align-items-center gap-3">
                                 <div class="form-check">
                                     <input class="form-check-input wi-checkbox mt-0" type="checkbox" id="selectAllExpired">
@@ -858,7 +858,7 @@
                     {{-- TAB 4: COMPLETED --}}
                     <div class="tab-pane fade {{ $activeTab == 'completed' ? 'show active' : '' }}" id="completed-content" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold text-dark mb-0">Completed Documents</h5>
+                            <h5 class="fw-bold text-dark mb-0">Dokumen Selesai</h5>
                              <div class="d-flex align-items-center gap-3">
                                 <div class="form-check">
                                     <input class="form-check-input wi-checkbox mt-0" type="checkbox" id="selectAllCompleted">
@@ -891,9 +891,9 @@
                                          <input class="form-check-input wi-checkbox cb-completed" type="checkbox" value="{{ $document->wi_document_code }}">
                                          <div>
                                             <h6 class="fw-bold mb-0">{{ $document->wi_document_code }}</h6>
-                                            <div class="small text-muted">Completed</div>
+                                            <div class="small text-muted">Selesai</div>
                                          </div>
-                                         <span class="badge badge-soft bg-info text-white ms-auto">Completed</span>
+                                         <span class="badge badge-soft bg-info text-white ms-auto">Selesai</span>
                                      </div>
                                  </div>
                                  <div class="card-body-area">

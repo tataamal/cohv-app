@@ -35,7 +35,7 @@
             'active_on' => ['search.stock*'] 
         ],
         [
-            'name' => 'Create WI',
+            'name' => 'Task',
             'route_name' => 'create-wi.index', 
             'active_on' => ['create-wi.*'],
             'needs_kode' => true

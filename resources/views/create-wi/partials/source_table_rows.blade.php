@@ -24,6 +24,7 @@
         data-arbpl="{{ $item->ARBPL }}"
         data-matnr="{{ $item->MATNR }}" 
         data-maktx="{{ $item->MAKTX }}"
+        data-stats="{{ $item->STATS }}"
         data-meins="{{ $item->MEINS }}" 
         data-vornr="{{ $item->VORNR }}"
         data-kdauf="{{ $item->KDAUF }}" 
@@ -78,6 +79,20 @@
                 {{ isset($wcDescriptions[$item->ARBPL]) ? $wcDescriptions[$item->ARBPL] : '' }}
             </span>
         </td>
+
+        @php
+            $statsClass = 'bg-light text-secondary border';
+            if ($item->STATS == 'REL') {
+                $statsClass = 'bg-warning text-dark';
+            } elseif (str_contains($item->STATS, 'DSP')) {
+                $statsClass = 'bg-success text-light';
+            } elseif (str_contains($item->STATS, 'CRTD')) {
+                $statsClass = 'bg-primary text-white';
+            } elseif (str_contains($item->STATS, 'TECO')) {
+                $statsClass = 'bg-danger text-white';
+            }
+        @endphp
+        <td class="text-center table-col"><span class="badge {{ $statsClass }}">{{ $item->STATS }}</span></td>
         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>
         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->VORNR }}</span></td>
         @php
@@ -103,6 +118,13 @@
             $taktTimeDisplay = str_replace('.', ',', (string) $taktTimeDisplay);
         @endphp
         <td class="text-center table-col">{{ $taktTimeDisplay }} Min</td>
+        <td class="text-center table-col">
+            <div class="d-flex flex-column align-items-center justify-content-center" style="line-height: 1.2;">
+                <span class="small fw-bold text-nowrap">{{ ($item->SSAVD ? \Carbon\Carbon::parse($item->SSAVD)->format('d/m/Y') : '-') }}</span>
+                <span class="text-muted text-xs mx-1">-</span>
+                <span class="small fw-bold text-nowrap">{{ ($item->SSSLD ? \Carbon\Carbon::parse($item->SSSLD)->format('d/m/Y') : '-') }}</span>
+            </div>
+        </td>
         <td class="card-view-content" colspan="9">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <span class="fw-bold text-primary small">{{ $item->AUFNR }}</span>

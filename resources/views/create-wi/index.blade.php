@@ -1,4 +1,4 @@
-<x-layouts.app title="Create Work Instruction">
+<x-layouts.app title="Buat Penugasan">
 
     @push('styles')
         <style>
@@ -223,23 +223,23 @@
     <div class="container-fluid p-3 p-lg-4" style="max-width: 1600px;">
         <div class="d-flex justify-content-between align-items-end mb-4">
             <div>
-                <h1 class="h4 fw-bolder text-dark mb-1">Work Instruction</h1>
-                <p class="text-muted small mb-0">Drag PRO untuk membuat Work Instruction.</p>
+                <h1 class="h4 fw-bolder text-dark mb-1">Buat Penugasan</h1>
+                <p class="text-muted small mb-0">Geser PRO untuk membuat Penugasan.</p>
             </div>
             
             <div class="d-flex gap-2 bg-white p-1 rounded-pill shadow-sm border">
                 <a href="{{ route('wi.history', ['kode' => $kode]) }}" class="btn btn-white text-secondary fw-bold rounded-pill px-3 btn-sm">
-                    <i class="fa-solid fa-clock-rotate-left me-2"></i>History
+                    <i class="fa-solid fa-clock-rotate-left me-2"></i>Riwayat
                 </a>
                 <button onclick="refreshData()" class="btn btn-white text-primary fw-bold rounded-pill px-3 btn-sm" title="Refresh data dari SAP">
-                    <i class="fa-solid fa-rotate me-2"></i>Refresh Data
+                    <i class="fa-solid fa-rotate me-2"></i>Perbaharui
                 </button>
                 <div class="vr my-1"></div>
                 <button onclick="resetAllAllocations()" class="btn btn-white text-danger fw-bold rounded-pill px-3 btn-sm">
-                    <i class="fa-solid fa-arrow-rotate-left me-2"></i>Reset
+                    <i class="fa-solid fa-arrow-rotate-left me-2"></i>Bersihkan
                 </button>
                 <button onclick="saveAllocation(true)" class="btn btn-primary fw-bold text-white rounded-pill px-4 btn-sm shadow-sm">
-                    <i class="fa-solid fa-floppy-disk me-2"></i>Review & Save
+                    <i class="fa-solid fa-floppy-disk me-2"></i>Cek Ulang & Simpan
                 </button>
             </div>
         </div>
@@ -253,19 +253,19 @@
                                 <i class="fa-solid fa-list-ul"></i>
                             </div>
                             <div>
-                                <h6 class="mb-0 fw-bold text-dark">List PRO Siap WI</h6>
+                                <h6 class="mb-0 fw-bold text-dark">List PRO siap ditugaskan</h6>
                             </div>
                         </div>
 
                         <div class="search-input-group px-3 py-1 d-flex align-items-center" style="width: 350px;">
                             <i class="fa-solid fa-magnifying-glass text-muted me-2"></i>
-                            <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Cari apapun pisahkan dengan titik koma (;)">
+                            <input type="text" id="searchInput" class="form-control form-control-sm p-0" placeholder="Cari">
                         </div>
 
                         {{-- SELECTION CONTROLS (NEW) --}}
                         <div id="selectionControls" class="d-flex align-items-center gap-2 ms-3">
                             <span class="badge bg-primary text-white shadow-sm" style="font-size: 0.75rem;">
-                                <span id="selectionCount">0</span> selected
+                                <span id="selectionCount">0</span> terpilih
                             </span>
                             <button type="button" id="btnClearSelection" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold shadow-sm rounded-pill d-none" onclick="clearSourceSelection()" style="font-size: 0.7rem; height: 24px;">
                                 <i class="fa-solid fa-xmark me-1"></i> Clear All
@@ -273,10 +273,9 @@
                         </div>
 
                         <div class="ms-auto me-3">
-                             <div class="btn-group btn-group-sm" role="group">
-                                <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'today']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'today' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">Today</a>
-                                <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'week']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'week' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">Week</a>
-                                <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'all']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'all' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">All</a>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'dspt_rel']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'dspt_rel' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">DSPT REL</a>
+                                <a href="{{ route('create-wi.index', ['kode' => $kode, 'filter' => 'all']) }}" class="btn btn-outline-secondary {{ $currentFilter == 'all' ? 'active' : '' }}" style="font-size: 0.7rem; padding: 2px 8px;">Semua</a>
                             </div>
                         </div> 
                     </div>
@@ -286,7 +285,7 @@
                                 type="button" 
                                 onclick="toggleAdvancedSearch()"
                                 style="font-size: 0.8rem;">
-                            <span><i class="fa-solid fa-sliders me-2"></i> Advanced Search (Specific Fields)</span>
+                            <span><i class="fa-solid fa-sliders me-2"></i> Pencarian Item Spesifik</span>
                             <i class="fa-solid fa-chevron-down text-xs" id="advSearchIcon"></i>
                         </button>
                         
@@ -350,12 +349,15 @@
                                     <th>SO-Item</th>
                                     <th>Material Description</th>
                                     <th class="text-center">WC</th>
+
+                                    <th>Status</th>
                                     <th class="text-center">Op.Key</th>
                                     <th class="text-center">Activity</th>
                                     <th class="text-center">Qty Opt</th>
                                     <th class="text-center">Qty Conf</th>
                                     <th class="text-center">Qty Sisa</th> 
                                     <th class="text-center">Time Req</th>
+                                    <th class="text-center" style="width: 100px;">Date</th>
                                 </tr>
                             </thead>
                             <tbody id="source-list" class="sortable-list" data-group="shared-pro">
@@ -417,12 +419,6 @@
                                 if ($k == 0) $k = 9.5; // Fallback 570 mins
                                 $kapazMins = $k * 60;
                             }
-                            
-                            // If DB is 0, fallback to 570?? No, strict means strict. But maybe 0 means unlimited or config error?
-                            // User said: "konfersi dulu menjadi menit". Implies DB has value.
-                            // If 0, it means 0 capacity (Strict). 
-                            // But usually safe to assume 0 might be an error. 
-                            // Let's stick to DB value. If 0, it blocks. User can update DB.
                         @endphp
 
                         {{-- @if (!$isUnknown) --}}
@@ -1869,9 +1865,9 @@
 
                    // Update UI Text for Sisa Qty
                    const cells = row.querySelectorAll('td.table-col');
-                   // cells[9] is Qty Sisa
-                   const sisaCell = cells[9];
-                   const timeCell = cells[10]; // Time Req
+                   // cells[10] is Qty Sisa (Shifted by -1 due to Moved Date Column)
+                   const sisaCell = cells[10];
+                   const timeCell = cells[11]; // Time Req
 
                    if (sisaCell) {
                        // Format number logic (locale ID)
@@ -2587,7 +2583,7 @@
                     if (saveResponse.ok) {
                          progressBar.classList.remove('bg-primary');
                          progressBar.classList.add('bg-success');
-                         statusText.innerText = "Work Instructions Created Successfully!";
+                         statusText.innerText = "Pembuatan Penugasan Berhasil!";
                          
                          setTimeout(() => {
                             // Redirect
@@ -2978,7 +2974,7 @@
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-dark text-white">
                     <h5 class="modal-title fw-bold">
-                        <i class="fa-solid fa-file-contract me-2"></i>Review & Confirm WI
+                        <i class="fa-solid fa-file-contract me-2"></i>Cek & Simpan Penugasan
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>

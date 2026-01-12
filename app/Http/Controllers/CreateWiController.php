@@ -42,7 +42,7 @@ class CreateWiController extends Controller
     public function index(Request $request, $kode)
     {
         try {
-            $filter = $request->query('filter', 'all');
+            $filter = $request->query('filter', 'dspt_rel');
             $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
             $apiToken = env('API_TOKEN_NIK'); 
             $employees = []; 
@@ -2546,14 +2546,10 @@ class CreateWiController extends Controller
     private function _buildSourceQuery(Request $request, $kode)
     {
         $search = $request->query('search');
-        $filter = $request->query('filter', 'all');
+        $filter = $request->query('filter', 'dspt_rel');
         
         $query = ProductionTData1::where('WERKSX', $kode)
-            ->whereRaw('CAST(MGVRG2 AS DECIMAL(20,3)) > CAST(COALESCE(LMNGA, 0) AS DECIMAL(20,3))')
-            ->where(function ($q) {
-                $q->where('STATS', 'LIKE', '%REL%')
-                  ->orWhere('STATS', 'LIKE', '%PCNF%');
-            });
+            ->whereRaw('CAST(MGVRG2 AS DECIMAL(20,3)) > CAST(COALESCE(LMNGA, 0) AS DECIMAL(20,3))');
 
         if ($search) {
             if (preg_match('/^"(.*)"$/', trim($search), $matches)) {
@@ -2653,10 +2649,8 @@ class CreateWiController extends Controller
             $query->where('VORNR', 'like', '%' . $request->adv_vornr . '%');
         }
 
-        if ($filter === 'today') {
-            $query->whereDate('SSAVD', now());
-        } elseif ($filter === 'week') {
-            $query->whereBetween('SSAVD', [now()->startOfWeek(), now()->endOfWeek()]);
+        if ($filter === 'dspt_rel') {
+            $query->where('STATS', 'LIKE', '%DSP%');
         }
         
         return $query;
