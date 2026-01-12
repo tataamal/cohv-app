@@ -29,7 +29,7 @@ class bulkController extends Controller
         $plant = $validated['plant'];
 
         try {
-            $flaskResponse = $this->_callBulkFlaskService('/api/bulk-refresh-pro', $proList, $plant);
+            $flaskResponse = $this->_callBulkFlaskService('/bulk-refresh', $proList, $plant);
             $results = $flaskResponse['results'] ?? [];
 
             $successfulPros = [];
@@ -209,7 +209,7 @@ class bulkController extends Controller
         }
 
         try {
-            $flaskApiUrl = env('FLASK_API_URL') . "/api/bulk-teco-pro";
+            $flaskApiUrl = env('FLASK_API_URL') . "/stream_teco_orders";
 
             $response = Http::withHeaders([
                 'X-SAP-Username' => $username,
@@ -274,7 +274,7 @@ class bulkController extends Controller
 
         try {
             // Ambil URL dari file config
-            $flaskApiUrl = env('FLASK_API_URL') . "/api/bulk-readpp-pro";
+            $flaskApiUrl = env('FLASK_API_URL') . "/bulk-readpp-pro";
 
             $response = Http::withHeaders([
                 'X-SAP-Username' => $username,
@@ -334,7 +334,7 @@ class bulkController extends Controller
         $listOfPro = $validatedData['pro_list'];
         
         try {
-            $scheduleApiUrl = env('FLASK_API_URL') . "/api/bulk-schedule-pro";
+            $scheduleApiUrl = env('FLASK_API_URL') . "/bulk-schedule-pro";
             $credentials = [
                 'X-SAP-Username' => $request->session()->get('username'),
                 'X-SAP-Password' => $request->session()->get('password'),

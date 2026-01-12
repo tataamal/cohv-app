@@ -137,17 +137,17 @@ def build_upsert_sql(table_name, columns):
 def bulk_refresh_pro():
     """
     Endpoint untuk me-refresh banyak PRO sekaligus.
-    Menerima JSON body: { "kode": "PLANT_CODE", "pros": ["PRO1", "PRO2", ...] }
+    Menerima JSON body: { "plant": "PLANT_CODE", "pros": ["PRO1", "PRO2", ...] }
     """
     if not request.is_json:
         return jsonify({"message": "Request harus dalam format JSON"}), 400
 
     data = request.get_json()
-    plant_kode = data.get('kode')
+    plant_kode = data.get('plant')
     pro_list = data.get('pros')
 
     if not plant_kode or not pro_list:
-        return jsonify({"message": "Data 'kode' (plant) dan 'pros' (list) dibutuhkan"}), 400
+        return jsonify({"message": "Data 'plant' (plant code) dan 'pros' (list) dibutuhkan"}), 400
 
     if not isinstance(pro_list, list) or len(pro_list) == 0:
         return jsonify({"message": "'pros' harus berupa array/list yang tidak kosong"}), 400
