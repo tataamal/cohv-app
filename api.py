@@ -1878,6 +1878,38 @@ def delete_data_to_mysql():
                 # Jika gagal tutup (misal sudah tertutup duluan), abaikan saja
                 logger.warning(f"Warning saat menutup koneksi: {e}")
 
+# RELEASE PRO
+@app.route('/api/release_order', methods=['POST'])
+def release_order():
+    try:
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
+
+        data = request.get_json()
+        print("Data diterima untuk release:", data)
+
+        aufnr = data.get('AUFNR')
+        if not aufnr:
+            return jsonify({'error': 'AUFNR is required'}), 400
+
+        print("Calling RFC BAPI_PRODORD_RELEASE...")
+
+        result = conn.call(
+            'BAPI_PRODORD_RELEASE',
+            RELEASE_CONTROL='1',
+            WORK_PROCESS_GROUP='COWORK_BAPI',
+            WORK_PROCESS_MAX=99,
+            ORDERS=[{'ORDER_NUMBER': aufnr}]
+        )
+
+        return jsonify(result)
+
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 401
+    except Exception as e:
+        print("Exception saat release order:", str(e))
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     # os.environ['PYTHONHASHSEED'] = '0'
     app.run(host='0.0.0.0', port=5001, debug=True)

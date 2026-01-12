@@ -15,7 +15,7 @@ class SendLogWeeklyEmail extends Command
      *
      * @var string
      */
-    protected $signature = 'wi:send-weekly-email {date? : Specific end date dd-mm-yyyy (default: today)}';
+    protected $signature = 'wi:send-weekly-email {start_date? : Start date (dd-mm-yyyy)} {end_date? : End date (dd-mm-yyyy)}';
 
     /**
      * The console command description.
@@ -30,28 +30,40 @@ class SendLogWeeklyEmail extends Command
     public function handle()
     {
         // 1. Determine Date Range
-        $dateArg = $this->argument('date');
-        
-        if ($dateArg) {
-            try {
-                $endDateCarbon = Carbon::createFromFormat('d-m-Y', $dateArg);
-            } catch (\Exception $e) {
-                $this->error("Invalid date format. Please use dd-mm-yyyy.");
-                return 1;
+        $startArg = $this->argument('start_date');
+        $endArg = $this->argument('end_date');
+
+        try {
+            if ($startArg && $endArg) {
+                // Custom Range: Start to End
+                $startDateCarbon = Carbon::createFromFormat('d-m-Y', $startArg);
+                $endDateCarbon = Carbon::createFromFormat('d-m-Y', $endArg);
+                
+                $startDate = $startDateCarbon->toDateString();
+                $endDate = $endDateCarbon->toDateString();
             }
-        } else {
-            // If running on Monday, "yesterday" is Sunday, which is the end of the target week
-            $endDateCarbon = Carbon::yesterday();
+            elseif ($startArg && !$endArg) {
+                // Backward Compatibility: Arg is "Target Date" (EndDate)
+                // Calculate week range ending at this date (Monday Start)
+                $targetDate = Carbon::createFromFormat('d-m-Y', $startArg);
+                $startDateCarbon = $targetDate->copy()->startOfWeek(Carbon::MONDAY);
+                
+                $startDate = $startDateCarbon->toDateString();
+                $endDate = $targetDate->toDateString();
+            }
+            else {
+                // Default: Last full week (Start Mon, End Yesterday/Sunday)
+                // If running on Monday, "yesterday" is Sunday, which is the end of the target week
+                $endDateCarbon = Carbon::yesterday();
+                $startDateCarbon = $endDateCarbon->copy()->startOfWeek(Carbon::MONDAY);
+
+                $startDate = $startDateCarbon->toDateString();
+                $endDate = $endDateCarbon->toDateString();
+            }
+        } catch (\Exception $e) {
+            $this->error("Invalid date format. Please use dd-mm-yyyy.");
+            return 1;
         }
-
-        // Start of Week (Monday) of that endDate
-        $startDateCarbon = $endDateCarbon->copy()->startOfWeek(Carbon::MONDAY);
-        
-        // No need for "Previous Sunday" legacy check anymore.
-        // We are capturing the full Mon-Sun range naturally.
-
-        $startDate = $startDateCarbon->toDateString();
-        $endDate = $endDateCarbon->toDateString();
 
         $this->info("Processing Weekly Reports");
         $this->info("Range: $startDate to $endDate");
@@ -245,19 +257,19 @@ class SendLogWeeklyEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No files to send.");
         } else {
-            $recipients = [
-                'tataamal1128@gmail.com',
-                'finc.smg@pawindo.com',
-                'kmi356smg@gmail.com',
-                'adm.mkt5.smg@gmail.com',
-                'lily.smg@pawindo.com',
-                'kmi3.60.smg@gmail.com',
-                'kmi3.31.smg@gmail.com',
-                'kmi3.16.smg@gmail.com',
-                'kmi3.29.smg@gmail.com'
-            ];
+            // $recipients = [
+            //     'tataamal1128@gmail.com',
+            //     'finc.smg@pawindo.com',
+            //     'kmi356smg@gmail.com',
+            //     'adm.mkt5.smg@gmail.com',
+            //     'lily.smg@pawindo.com',
+            //     'kmi3.60.smg@gmail.com',
+            //     'kmi3.31.smg@gmail.com',
+            //     'kmi3.16.smg@gmail.com',
+            //     'kmi3.29.smg@gmail.com'
+            // ];
 
-            // $recipients = ['tataamal1128@gmail.com'];
+            $recipients = ['tataamal1128@gmail.com'];
             
             $dateInfoFormatted = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
             $subject = "Weekly Report WI_" . $dateInfoFormatted;
