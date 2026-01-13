@@ -521,6 +521,10 @@ class Data1Controller extends Controller
                 unset($row['ARBPL1'], $row['ARBPL2'], $row['ARBPL3']);
                 unset($row['SSSLDPV1'], $row['SSSLDPV2'], $row['SSSLDPV3'], $row['WERKS']);
                 
+                // Pastikan key SSAVZ dan SSSLZ ada untuk insert bulk
+                $row['SSAVZ'] = $row['SSAVZ'] ?? null;
+                $row['SSSLZ'] = $row['SSSLZ'] ?? null;
+
                 $row['WERKSX'] = $plant;
                 $mapped_t1[] = $row;
             }

@@ -227,7 +227,7 @@ def save_data_to_mysql():
     aggregated_data = data.get('aggregated_data')
     pro_list_to_refresh = data.get('pros_to_refresh') # Dari JS Langkah 1
 
-    if not plant_kode or not aggregated_data or not pro_list_to_refresh:
+    if not plant_kode or aggregated_data is None or not pro_list_to_refresh:
         return jsonify({"message": "Data 'kode', 'pros_to_refresh', dan 'aggregated_data' dibutuhkan"}), 400
     
     if not isinstance(pro_list_to_refresh, list) or len(pro_list_to_refresh) == 0:
@@ -300,8 +300,8 @@ def save_data_to_mysql():
         # 44 Kolom
         T_DATA3_COLS = ['MANDT', 'ARBPL', 'ORDERX', 'PWWRK', 'KTEXT', 'ARBID', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'NAME1', 'KUNNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENGE2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'GLTRP', 'GSTRP', 'MATFG', 'MAKFG', 'CATEGORY', 'WERKSX', 'STATS2']
         
-        # 44 Kolom
-        T_DATA1_COLS = ['MANDT', 'ARBPL', 'PWWRK', 'KTEXT', 'WERKSX', 'ARBID', 'KAPID', 'KAPAZ', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENGE2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'MATFG', 'MAKFG', 'CATEGORY', 'ORDERX', 'STATS2', 'PV1', 'PV2', 'PV3']
+        # 46 Kolom
+        T_DATA1_COLS = ['MANDT', 'ARBPL', 'PWWRK', 'KTEXT', 'WERKSX', 'ARBID', 'KAPID', 'KAPAZ', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENGE2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'MATFG', 'MAKFG', 'CATEGORY', 'ORDERX', 'STATS2', 'PV1', 'PV2', 'PV3', 'SSAVZ', 'SSSLZ']
         
         # 23 Kolom
         T_DATA4_COLS = ['MANDT', 'RSNUM', 'RSPOS', 'VORNR', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MAKTX', 'MEINS', 'BAUGR', 'WERKSX', 'BDMNG', 'KALAB', 'VMENG', 'SOBSL', 'BESKZ', 'LTEXT', 'LGORT', 'OUTSREQ']
@@ -420,7 +420,8 @@ def save_data_to_mysql():
                             'SSAVD': format_sap_date_for_db(t1_row.get('SSAVD')), 'MATFG': safe_get_value(t1_row, 'MATFG'),
                             'MAKFG': safe_get_value(t1_row, 'MAKFG'), 'CATEGORY': safe_get_value(t1_row, 'CATEGORY'),
                             'ORDERX': safe_get_value(t1_row, 'ORDERX'), 'STATS2': safe_get_value(t1_row, 'STATS2'),
-                            'PV1': pv1, 'PV2': pv2, 'PV3': pv3
+                            'PV1': pv1, 'PV2': pv2, 'PV3': pv3,
+                            'SSAVZ': t1_row.get('SSAVZ'), 'SSSLZ': t1_row.get('SSSLZ')
                         }
                         tdata1_to_insert.append(tuple(mapped_row.get(col) for col in T_DATA1_COLS))
 

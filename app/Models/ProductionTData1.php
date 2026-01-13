@@ -55,7 +55,9 @@ class ProductionTData1 extends Model
             'PV1',
             'PV2',
             'PV3',
-            'QTY_BALANCE2'
+            'QTY_BALANCE2',
+            'SSAVZ',
+            'SSSLZ',
     ];
 
     public function tData3()
