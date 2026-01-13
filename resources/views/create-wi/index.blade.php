@@ -253,7 +253,7 @@
                                 <i class="fa-solid fa-list-ul"></i>
                             </div>
                             <div>
-                                <h6 class="mb-0 fw-bold text-dark">List PRO siap ditugaskan</h6>
+                                <h6 class="mb-0 fw-bold text-dark">List PRO</h6>
                             </div>
                         </div>
 
@@ -265,9 +265,15 @@
                         {{-- SELECTION CONTROLS (NEW) --}}
                         <div id="selectionControls" class="d-flex align-items-center gap-2 ms-3">
                             <span class="badge bg-primary text-white shadow-sm" style="font-size: 0.75rem;">
-                                <span id="selectionCount">0</span> terpilih
+                                <span id="selectionCount">0</span> Terpilih
                             </span>
-                            <button type="button" id="btnClearSelection" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold shadow-sm rounded-pill d-none" onclick="clearSourceSelection()" style="font-size: 0.7rem; height: 24px;">
+                            <button type="button" id="btnBulkRelease" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold shadow-sm rounded-pill d-none" onclick="handleBulkRelease()" style="font-size: 0.7rem; height: 24px;">
+                                <i class="fa-solid fa-play me-1"></i> Release
+                            </button>
+                            <button type="button" id="btnBulkRefresh" class="btn btn-outline-success btn-sm py-0 px-2 fw-bold shadow-sm rounded-pill d-none" onclick="handleBulkRefresh()" style="font-size: 0.7rem; height: 24px;">
+                                <i class="fa-solid fa-rotate me-1"></i> Refresh
+                            </button>
+                            <button type="button" id="btnClearSelection" class="btn btn-outline-secondary btn-sm py-0 px-2 fw-bold shadow-sm rounded-pill d-none" onclick="clearSourceSelection()" style="font-size: 0.7rem; height: 24px;">
                                 <i class="fa-solid fa-xmark me-1"></i> Clear All
                             </button>
                         </div>
@@ -641,8 +647,16 @@
 
                 if (count > 0) {
                     if(clearBtn) clearBtn.classList.remove('d-none');
+                    const btnRel = document.getElementById('btnBulkRelease');
+                    const btnRef = document.getElementById('btnBulkRefresh');
+                    if(btnRel) btnRel.classList.remove('d-none');
+                    if(btnRef) btnRef.classList.remove('d-none');
                 } else {
                     if(clearBtn) clearBtn.classList.add('d-none');
+                    const btnRel = document.getElementById('btnBulkRelease');
+                    const btnRef = document.getElementById('btnBulkRefresh');
+                    if(btnRel) btnRel.classList.add('d-none');
+                    if(btnRef) btnRef.classList.add('d-none');
                 }
             }
 
@@ -752,6 +766,20 @@
                     
                     if (!draggedItemsCache || draggedItemsCache.length === 0) {
                         draggedItemsCache = [item]; 
+                    }
+                    const controls = document.getElementById('bulkActionControls');
+                    const count = draggedItemsCache.length;
+                    if (count > 0) {
+                        controls.classList.remove('d-none');
+                        document.getElementById('selectionCount').innerText = count;
+                        document.getElementById('btnClearSelection').classList.remove('d-none');
+                        document.getElementById('btnBulkRelease').classList.remove('d-none');
+                        document.getElementById('btnBulkRefresh').classList.remove('d-none');
+                    } else {
+                        document.getElementById('selectionCount').innerText = '0';
+                        document.getElementById('btnClearSelection').classList.add('d-none');
+                        document.getElementById('btnBulkRelease').classList.add('d-none');
+                        document.getElementById('btnBulkRefresh').classList.add('d-none');
                     }
                     
                     document.getElementById('mismatchCurrentWC').value = originWc;
@@ -3068,6 +3096,7 @@
             <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header border-bottom-0 pb-0">
                     <h6 class="modal-title fw-bold text-dark">Memproses Perubahan...</h6>
+                    <button type="button" class="btn-close d-none" id="btnHeaderCloseStreamModal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
                     {{-- Progress Bar --}}
@@ -3096,6 +3125,230 @@
     </div>
     @push('scripts')
     <script>
+        function handleReleaseAndRefresh(aufnr, plant) {
+            Swal.fire({
+                title: 'Konfirmasi Release',
+                text: "Yakin akan merelease PRO ini?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ya, Release!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Processing...',
+                        text: 'Sedang merelease dan merefresh data...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    fetch("{{ route('create-wi.release-refresh') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ aufnr: aufnr, plant: plant })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil',
+                                text: data.message,
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                // Reload table
+                                if (typeof setupSearch === 'function') {
+                                    setupSearch();
+                                } else {
+                                    location.reload();
+                                }
+                            });
+                        } else {
+                            throw new Error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire('Error', error.message, 'error');
+                    });
+                }
+            });
+        }
+
+        // BULK ACTION LOGIC
+        window.handleBulkRelease = function() {
+            const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
+            if (checkboxes.length === 0) return;
+
+            const items = [];
+            checkboxes.forEach(cb => {
+                const row = cb.closest('tr');
+                if (row) items.push({ aufnr: row.dataset.aufnr });
+            });
+
+            Swal.fire({
+                title: 'Konfirmasi Bulk Release',
+                text: `Anda akan merelease ${items.length} PRO terpilih. Lanjutkan?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Release Semua',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if(result.isConfirmed) {
+                    executeBulkStream('{{ route("create-wi.stream-release") }}', items, 'Release Process');
+                }
+            });
+        };
+
+        window.handleBulkRefresh = function() {
+            const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
+            if (checkboxes.length === 0) return;
+
+            const items = [];
+            checkboxes.forEach(cb => {
+                const row = cb.closest('tr');
+                if (row) items.push({ aufnr: row.dataset.aufnr });
+            });
+
+            Swal.fire({
+                title: 'Konfirmasi Bulk Refresh',
+                text: `Anda akan merefresh data ${items.length} PRO terpilih. Lanjutkan?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Refresh Semua',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if(result.isConfirmed) {
+                    executeBulkStream('{{ route("create-wi.stream-refresh") }}', items, 'Refresh Process');
+                }
+            });
+        };
+
+        async function executeBulkStream(url, items, title) {
+            // Setup Modal Reuse (bulkProgressModal)
+            const modalEl = document.getElementById('bulkProgressModal');
+            const modalTitle = modalEl.querySelector('.modal-title');
+            const progressBar = document.getElementById('streamProgressBar');
+            const statusText = document.getElementById('streamStatusText');
+            const logContainer = document.getElementById('streamLogContainer');
+            const btnClose = document.getElementById('btnCloseStreamModal');
+            const btnHeaderClose = document.getElementById('btnHeaderCloseStreamModal');
+            const percentText = document.getElementById('streamPercent');
+
+            // Reset UI
+            modalTitle.innerText = title;
+            progressBar.style.width = '0%';
+            progressBar.classList.add('progress-bar-animated', 'bg-primary');
+            progressBar.classList.remove('bg-success', 'bg-danger');
+            statusText.innerText = 'Initializing...';
+            percentText.innerText = '0%';
+            logContainer.innerHTML = '';
+            btnClose.innerText = 'Selesai & Refresh'; // Reset Text
+            btnClose.classList.add('d-none');
+            if(btnHeaderClose) btnHeaderClose.classList.add('d-none');
+            
+            // Define Refresh Action
+            const refreshAction = function() {
+                if (typeof setupSearch === 'function') {
+                    setupSearch();
+                    clearSourceSelection();
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if(modal) modal.hide();
+                } else {
+                    location.reload();
+                }
+            };
+
+            // Override Close Button Action to Reload
+            btnClose.onclick = refreshAction;
+            if(btnHeaderClose) {
+                btnHeaderClose.onclick = refreshAction;
+            }
+            
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        plant_code: '{{ $kode }}',
+                        items: items
+                    })
+                });
+
+                if (!response.ok) throw new Error("Network response was not ok");
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop(); 
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.substring(6));
+                                handleStreamData(data, logContainer, progressBar, statusText, percentText, btnClose);
+                            } catch (e) {
+                                console.error('Parse Error', e);
+                            }
+                        }
+                    }
+                }
+
+                // Stream Complete Logic
+                if(btnHeaderClose) btnHeaderClose.classList.remove('d-none');
+                
+                // Force Complete UI State if not already
+                progressBar.style.width = '100%';
+                progressBar.classList.remove('progress-bar-animated', 'bg-primary');
+                progressBar.classList.add('bg-success');
+                statusText.innerText = 'Selesai!';
+                percentText.innerText = '100%';
+                btnClose.classList.remove('d-none');
+
+                // Auto Close Countdown
+                let timer = 5; // 5 Seconds
+                btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Auto close ${timer}s)`;
+                
+                const interval = setInterval(() => {
+                    timer--;
+                    if(timer <= 0) {
+                        clearInterval(interval);
+                        refreshAction();
+                    } else {
+                        btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Auto close ${timer}s)`;
+                    }
+                }, 1000);
+
+            } catch (error) {
+                statusText.innerText = "Error Occurred";
+                statusText.classList.add('text-danger');
+                progressBar.classList.remove('bg-primary');
+                progressBar.classList.add('bg-danger');
+                logContainer.innerHTML += `<div class="text-danger">Stream Error: ${error.message}</div>`;
+                btnClose.classList.remove('d-none');
+                if(btnHeaderClose) btnHeaderClose.classList.remove('d-none');
+            }
+        }
+
         function refreshData() {
             Swal.fire({
                 title: 'Refreshing Data...',

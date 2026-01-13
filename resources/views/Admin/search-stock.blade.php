@@ -21,7 +21,8 @@
                            class="form-control"
                            id="search_value"
                            name="search_value"
-                           placeholder="Material (Optional)" >
+                           placeholder="Material (Optional)" 
+                           oninput="this.value = this.value.toUpperCase()">
                 </div>
             </div>
 
@@ -32,7 +33,8 @@
                            class="form-control"
                            id="search_sloc"
                            name="search_sloc"
-                           placeholder="S.Loc (Optional)">
+                           placeholder="S.Loc (Optional)"
+                           oninput="this.value = this.value.toUpperCase()">
                 </div>
             </div>
 

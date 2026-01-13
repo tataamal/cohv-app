@@ -401,6 +401,44 @@ class CreateWiController extends Controller
         }
     }
 
+    public function releaseAndRefreshPro(Request $request)
+    {
+        $request->validate([
+            'aufnr' => 'required|string',
+            'plant' => 'required|string',
+        ]);
+
+        $aufnr = $request->input('aufnr');
+        $plant = $request->input('plant');
+
+        try {
+            // 1. Release Order
+            $releaseService = new Release();
+            $releaseResult = $releaseService->release($aufnr);
+            
+            // Note: We might want to check $releaseResult for specific success flags if needed, 
+            // but the service throws exception on failure.
+
+            // 2. Refresh PRO
+            $ypprService = new YPPR074Z();
+            $refreshResult = $ypprService->refreshPro($plant, $aufnr);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Order $aufnr successfully released and refreshed.",
+                'data' => $refreshResult
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Release and Refresh Error for AUFNR $aufnr: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
     /**
      * Memproses mapping Workcenter Induk dan Anak.
      */
@@ -2086,6 +2124,63 @@ class CreateWiController extends Controller
             }
 
             echo "data: " . json_encode(['progress' => 100, 'message' => 'Release process completed.', 'completed' => true]) . "\n\n";
+            if (ob_get_level() > 0) ob_flush();
+            flush();
+        });
+
+        $response->headers->set('Content-Type', 'text/event-stream');
+        $response->headers->set('X-Accel-Buffering', 'no');
+        $response->headers->set('Cache-Control', 'no-cache');
+        return $response;
+    }
+
+    public function streamRefresh(Request $request)
+    {
+        $plantCode = $request->input('plant_code');
+        $items = $request->input('items', []); // Array of objects with 'aufnr'
+
+        $response = new StreamedResponse(function () use ($items, $plantCode) {
+            $total = count($items);
+            if ($total === 0) {
+                echo "data: " . json_encode(['progress' => 100, 'message' => 'No items to refresh.', 'completed' => true]) . "\n\n";
+                ob_flush();
+                flush();
+                return;
+            }
+
+            $ypprService = new YPPR074Z();
+
+            foreach ($items as $index => $item) {
+                $aufnr = $item['aufnr'];
+                $msgPrefix = "[$aufnr]";
+
+                try {
+                    // Refresh YPPR074Z (Specific PRO)
+                    $ypprService->refreshPro($plantCode, $aufnr);
+
+                    $percent = round((($index + 1) / $total) * 100);
+                    echo "data: " . json_encode([
+                        'progress' => $percent,
+                        'message' => "$msgPrefix Refreshed successfully.",
+                        'aufnr' => $aufnr,
+                        'status' => 'success'
+                    ]) . "\n\n";
+
+                } catch (\Exception $e) {
+                    $percent = round((($index + 1) / $total) * 100);
+                    echo "data: " . json_encode([
+                        'progress' => $percent,
+                        'message' => "$msgPrefix Refresh Failed: " . $e->getMessage(),
+                        'aufnr' => $aufnr,
+                        'status' => 'error'
+                    ]) . "\n\n";
+                }
+
+                if (ob_get_level() > 0) ob_flush();
+                flush();
+            }
+
+            echo "data: " . json_encode(['progress' => 100, 'message' => 'Refresh process completed.', 'completed' => true]) . "\n\n";
             if (ob_get_level() > 0) ob_flush();
             flush();
         });

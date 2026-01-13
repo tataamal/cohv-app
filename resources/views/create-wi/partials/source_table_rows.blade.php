@@ -82,17 +82,29 @@
 
         @php
             $statsClass = 'bg-light text-secondary border';
-            if ($item->STATS == 'REL') {
+            if ($item->STATS == 'REL' || $item->STATS == 'PCNF REL') {
                 $statsClass = 'bg-warning text-dark';
             } elseif (str_contains($item->STATS, 'DSP')) {
                 $statsClass = 'bg-success text-light';
             } elseif (str_contains($item->STATS, 'CRTD')) {
-                $statsClass = 'bg-primary text-white';
+                $statsClass = 'bg-info text-white pointer';
+                // CRTD is special: clickable to release
             } elseif (str_contains($item->STATS, 'TECO')) {
                 $statsClass = 'bg-danger text-white';
             }
         @endphp
-        <td class="text-center table-col"><span class="badge {{ $statsClass }}">{{ $item->STATS }}</span></td>
+        
+        <td class="text-center table-col">
+            @if (str_contains($item->STATS, 'CRTD'))
+                <button class="btn badge bg-info text-white border-0" 
+                        onclick="handleReleaseAndRefresh('{{ $item->AUFNR }}', '{{ $item->WERKSX }}')"
+                        title="Release & Refresh PRO">
+                    {{ $item->STATS }}
+                </button>
+            @else
+                <span class="badge {{ $statsClass }}">{{ $item->STATS }}</span>
+            @endif
+        </td>
         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->STEUS }}</span></td>
         <td class="text-center table-col"><span class="badge bg-light text-secondary border">{{ $item->VORNR }}</span></td>
         @php

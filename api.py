@@ -1565,46 +1565,34 @@ def search_material_by_desc():
     """
     conn = None
     try:
-        # 1. Otentikasi dan Koneksi SAP (sama seperti contoh)
         username, password = get_credentials()
         conn = connect_sap(username, password)
-
-        # 2. Ambil parameter 'maktx' dari URL
-        # Sesuai dengan yang dikirim oleh Controller Laravel Anda
         description = request.args.get('maktx')
 
-        # Validasi parameter
         if not description:
             return jsonify({'error': 'Missing required parameter: maktx'}), 400
             
-        logger.info(f"Calling RFC Z_RFC_GET_MATERIAL_BY_DESC with IV_MAKTX={description}")
+        logger.info(f"Calling RFC Z_RFC_GET_MATERIAL_BY_DESC2 with IV_MAKTX={description}")
         result = conn.call(
-            'Z_RFC_GET_MATERIAL_BY_DESC',
+            'Z_RFC_GET_MATERIAL_BY_DESC2',
             IV_MAKTX=description
         )
 
         material_data = result.get('ET_MATERIAL', [])
         
-        # (Opsional) Anda juga bisa log pesan sukses dari SAP
         ev_msg = result.get('EV_RETURN_MSG', '')
-        # logger.info(f"Pesan balasan SAP: {ev_msg}")
 
-        # 5. Kembalikan data sebagai JSON
         return jsonify(material_data), 200
 
     except ValueError as ve:
-        # Error otentikasi dari get_credentials()
         return jsonify({'error': str(ve)}), 401
     except (CommunicationError, ABAPApplicationError) as e:
-        # Error spesifik dari SAP/RFC
         logger.error(f"SAP Error: {e}")
         return jsonify({'error': f"SAP Error: {str(e)}"}), 500
     except Exception as e:
-        # Error umum lainnya
         logger.error(f"An unexpected error occurred: {e}")
         return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
     finally:
-        # 6. Tutup koneksi (sama seperti contoh)
         if conn:
             logger.info("Closing SAP connection for search_material_by_desc...")
             conn.close()
@@ -1615,7 +1603,6 @@ def search_material_by_desc():
 def change_quantity():
     import time
     
-    # 1. Inisialisasi koneksi sebagai None di luar blok try
     conn = None
     try:
         username, password = get_credentials()
