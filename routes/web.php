@@ -116,6 +116,7 @@ Route::middleware('auth')->group(function (){
     Route::post('/create-wi/stream-schedule', [CreateWiController::class, 'streamSchedule'])->name('create-wi.stream-schedule');
     Route::post('/create-wi/stream-release', [CreateWiController::class, 'streamRelease'])->name('create-wi.stream-release');
     Route::post('/create-wi/stream-refresh', [CreateWiController::class, 'streamRefresh'])->name('create-wi.stream-refresh');
+    Route::post('/create-wi/stream-change-wc', [CreateWiController::class, 'streamChangeWc'])->name('create-wi.stream-change-wc');
     Route::get('/create-wi/{kode}', [CreateWiController::class, 'index'])->name('create-wi.index');
     Route::get('work-instruction/create/{kode}', [CreateWiController::class, 'index'])->name('wi.create');
     Route::post('work-instruction/save', [CreateWiController::class, 'saveWorkInstruction'])->name('wi.save');

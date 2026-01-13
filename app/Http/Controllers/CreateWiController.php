@@ -20,6 +20,7 @@ use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
 use App\Services\Release;
 use App\Services\YPPR074Z;
+use App\Services\ChangeWc;
 
 class CreateWiController extends Controller
 {
@@ -2181,6 +2182,127 @@ class CreateWiController extends Controller
             }
 
             echo "data: " . json_encode(['progress' => 100, 'message' => 'Refresh process completed.', 'completed' => true]) . "\n\n";
+            if (ob_get_level() > 0) ob_flush();
+            flush();
+        });
+
+        $response->headers->set('Content-Type', 'text/event-stream');
+        $response->headers->set('X-Accel-Buffering', 'no');
+        $response->headers->set('Cache-Control', 'no-cache');
+        return $response;
+    }
+
+    public function streamChangeWc(Request $request) 
+    {
+        $items = $request->input('items', []); // Expecting [{aufnr, plant, oper, ...}]
+        $targetWc = $request->input('target_wc');
+
+        if (empty($items) || !$targetWc) {
+             return response()->json(['error' => 'Invalid parameters'], 400);
+        }
+
+        $reqPlant = $request->input('plant');
+
+        $response = new StreamedResponse(function () use ($items, $targetWc, $reqPlant) {
+            $total = count($items);
+            $changeWcService = new ChangeWc();
+            $flaskBase = rtrim(env('FLASK_API_URL'), '/');
+
+            // Pre-fetch WC Description (Optimization: Do it once)
+            $shortText = '';
+            try {
+                 // We need a plant to fetch WC desc. Use the first item's plant.
+                 $firstPlant = is_array($items[0]) ? ($items[0]['plant'] ?? $items[0]['pwwrk'] ?? '') : ($items[0]->plant ?? $items[0]->pwwrk ?? '');
+                 if ($firstPlant) {
+                     $sapUser = session('username');
+                     $sapPass = session('password');
+                     $descRes = Http::timeout(10)->withHeaders([
+                        'X-SAP-Username' => $sapUser,
+                        'X-SAP-Password' => $sapPass,
+                     ])->get($flaskBase . '/api/get_wc_desc', [
+                        'wc' => $targetWc,
+                        'pwwrk' => $firstPlant,
+                     ]);
+                     if ($descRes->successful()) {
+                         $shortText = $descRes->json()['E_DESC'] ?? '';
+                     }
+                 }
+            } catch (\Exception $e) {
+                // Ignore desc fetch error, continue with empty desc
+            }
+
+            foreach ($items as $index => $item) {
+                // Determine item structure (array or object) and get AUFNR field
+                $aufnr = is_array($item) ? ($item['aufnr'] ?? $item['proCode'] ?? '') : ($item->aufnr ?? $item->proCode ?? '');
+                $plant = is_array($item) ? ($item['plant'] ?? $item['pwwrk'] ?? '') : ($item->plant ?? $item->pwwrk ?? '');
+                $oper  = is_array($item) ? ($item['oper'] ?? '0010') : ($item->oper ?? '0010');
+                
+                if (!$aufnr) continue;
+
+                $msgPrefix = "[$aufnr]";
+
+                try {
+                    // 1. Call Change WC Service (Correct Payload for /api/save_edit)
+                    $payload = [
+                        "IV_AUFNR" => $aufnr, 
+                        "IV_COMMIT" => "X",
+                        "IT_OPERATION" => [[
+                            "SEQUEN" => "0", 
+                            "OPER" => $oper, 
+                            "WORK_CEN" => $targetWc,
+                            "W" => "X", 
+                            "SHORT_T" => $shortText, 
+                            "S" => "X"
+                        ]]
+                    ];
+                    
+                    $res = $changeWcService->handle($payload);
+
+                    if (!$res['success']) {
+                         // Extract error message
+                         $errDetails = collect($res['messages'] ?? [])->pluck('message')->join(', ');
+                         if (empty($errDetails)) {
+                             $errDetails = "Unknown Error. Raw: " . json_encode($res['raw'] ?? $res);
+                         }
+                         throw new \Exception("Change WC Failed: $errDetails");
+                    }
+
+                    // 2. Refresh PRO using YPPR074Z (User Request)
+                    // USE PAGE PLANT CODE (e.g. 3015) as requested by User to ensure data is found.
+                    // "yang dipakai adalah $kode (3015) bukan PWWRK (3000)"
+                    $refreshPlant = $reqPlant; 
+                    if (!$refreshPlant) {
+                         // Fallback strategies just in case
+                         $existingPro = ProductionTData3::where('AUFNR', $aufnr)->first();
+                         $refreshPlant = $existingPro->WERKSX ?? $plant;
+                    }
+
+                    $ypprService = new YPPR074Z();
+                    $ypprService->refreshPro($refreshPlant, $aufnr);
+                    
+                    $percent = round((($index + 1) / $total) * 100);
+                    echo "data: " . json_encode([
+                        'progress' => $percent,
+                        'message' => "$msgPrefix Changed to $targetWc & Refreshed.",
+                        'aufnr' => $aufnr,
+                        'status' => 'success'
+                    ]) . "\n\n";
+
+                } catch (\Exception $e) {
+                    $percent = round((($index + 1) / $total) * 100);
+                    echo "data: " . json_encode([
+                        'progress' => $percent, 
+                        'message' => "$msgPrefix Error: " . $e->getMessage(),
+                        'aufnr' => $aufnr,
+                        'status' => 'error'
+                    ]) . "\n\n";
+                }
+                
+                if (ob_get_level() > 0) ob_flush();
+                flush();
+            }
+            
+            echo "data: " . json_encode(['progress' => 100, 'message' => 'Process Completed.', 'completed' => true]) . "\n\n";
             if (ob_get_level() > 0) ob_flush();
             flush();
         });

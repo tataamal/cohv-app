@@ -767,7 +767,7 @@
                     if (!draggedItemsCache || draggedItemsCache.length === 0) {
                         draggedItemsCache = [item]; 
                     }
-                    const controls = document.getElementById('bulkActionControls');
+                    const controls = document.getElementById('selectionControls');
                     const count = draggedItemsCache.length;
                     if (count > 0) {
                         controls.classList.remove('d-none');
@@ -2883,7 +2883,10 @@
                 percentText.innerText = '0%';
 
                 const kode = "{{ $kode }}"; // Blade Variable
-                const url = `/changeWCBulkStream/${kode}/${targetWc}`;
+                // Blade Variable already defined above if needed, but actually we just need url
+                // const kode = "{{ $kode }}"; 
+                // Use the new route pointing to CreateWiController logic
+                const url = "{{ route('create-wi.stream-change-wc') }}"; 
                 const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
                 try {
@@ -2894,7 +2897,9 @@
                             'X-CSRF-TOKEN': csrfToken
                         },
                         body: JSON.stringify({
-                            bulk_pros: JSON.stringify(prosList)
+                            target_wc: targetWc,
+                            plant: kode, // Use Dashboard Plant Code (e.g. 3015) for Refresh
+                            items: prosList
                         })
                     });
 
@@ -2925,6 +2930,23 @@
                             }
                         }
                     }
+
+                    // Auto Close Countdown & RELOAD
+                    let timer = 3; 
+                    btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Reload ${timer}s)`;
+                    
+                    const interval = setInterval(() => {
+                        timer--;
+                        if(timer <= 0) {
+                            clearInterval(interval);
+                            location.reload(); // RELOAD PAGE
+                        } else {
+                            btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Reload ${timer}s)`;
+                        }
+                    }, 1000);
+
+                    // Also reload if user clicks close manually
+                    btnClose.onclick = function() { location.reload(); };
 
                 } catch (error) {
                     logContainer.innerHTML += `<div class="text-danger mb-1"><i class="fa-solid fa-circle-xmark me-2"></i>Network Error: ${error.message}</div>`;
@@ -3324,19 +3346,22 @@
                 percentText.innerText = '100%';
                 btnClose.classList.remove('d-none');
 
-                // Auto Close Countdown
-                let timer = 5; // 5 Seconds
-                btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Auto close ${timer}s)`;
+                // Auto Close Countdown & RELOAD
+                let timer = 3; 
+                btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Reload ${timer}s)`;
                 
                 const interval = setInterval(() => {
                     timer--;
                     if(timer <= 0) {
                         clearInterval(interval);
-                        refreshAction();
+                        location.reload(); // RELOAD PAGE
                     } else {
-                        btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Auto close ${timer}s)`;
+                        btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Reload ${timer}s)`;
                     }
                 }, 1000);
+
+                // Also reload if user clicks close manually
+                btnClose.onclick = function() { location.reload(); };
 
             } catch (error) {
                 statusText.innerText = "Error Occurred";
