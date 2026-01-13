@@ -2856,105 +2856,128 @@
             }
 
             // CORE STREAMING LOGIC (Reusable)
-            async function executeBulkChangeStream(targetWc, prosList) {
-                // Validasi data
-                if (!prosList || prosList.length === 0) {
-                    Swal.fire('Error', 'Data PRO tidak valid.', 'error');
-                    return;
-                }
+            function executeBulkChangeStream(targetWc, prosList) {
+                return new Promise(async (resolve, reject) => {
+                    // Validasi data
+                    if (!prosList || prosList.length === 0) {
+                        Swal.fire('Error', 'Data PRO tidak valid.', 'error');
+                        resolve(); return;
+                    }
 
-                // Buka Modal Progress
-                const progressModal = new bootstrap.Modal(document.getElementById('bulkProgressModal'));
-                progressModal.show();
+                    // Buka Modal Progress
+                    const progressModalEl = document.getElementById('bulkProgressModal');
+                    const progressModal = new bootstrap.Modal(progressModalEl);
+                    progressModal.show();
 
-                // Reset UI Progress
-                const logContainer = document.getElementById('streamLogContainer');
-                const progressBar = document.getElementById('streamProgressBar');
-                const statusText = document.getElementById('streamStatusText');
-                const btnClose = document.getElementById('btnCloseStreamModal');
-                const percentText = document.getElementById('streamPercent');
+                    // Reset UI Progress
+                    const logContainer = document.getElementById('streamLogContainer');
+                    const progressBar = document.getElementById('streamProgressBar');
+                    const statusText = document.getElementById('streamStatusText');
+                    const btnClose = document.getElementById('btnCloseStreamModal');
+                    const percentText = document.getElementById('streamPercent');
 
-                logContainer.innerHTML = '';
-                progressBar.style.width = '0%';
-                progressBar.classList.add('progress-bar-animated', 'bg-primary');
-                progressBar.classList.remove('bg-success', 'bg-danger');
-                statusText.innerText = 'Memulai koneksi...';
-                btnClose.classList.add('d-none');
-                percentText.innerText = '0%';
+                    logContainer.innerHTML = '';
+                    progressBar.style.width = '0%';
+                    progressBar.classList.add('progress-bar-animated', 'bg-primary');
+                    progressBar.classList.remove('bg-success', 'bg-danger');
+                    statusText.innerText = 'Memulai koneksi...';
+                    btnClose.classList.add('d-none');
+                    percentText.innerText = '0%';
 
-                const kode = "{{ $kode }}"; // Blade Variable
-                // Blade Variable already defined above if needed, but actually we just need url
-                // const kode = "{{ $kode }}"; 
-                // Use the new route pointing to CreateWiController logic
-                const url = "{{ route('create-wi.stream-change-wc') }}"; 
-                const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+                    const kode = "{{ $kode }}"; 
+                    const url = "{{ route('create-wi.stream-change-wc') }}"; 
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken
-                        },
-                        body: JSON.stringify({
-                            target_wc: targetWc,
-                            plant: kode, // Use Dashboard Plant Code (e.g. 3015) for Refresh
-                            items: prosList
-                        })
-                    });
+                    try {
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify({
+                                target_wc: targetWc,
+                                plant: kode,
+                                items: prosList
+                            })
+                        });
 
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder("utf-8");
-                    
-                    let buffer = '';
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder("utf-8");
                         
-                        const chunk = decoder.decode(value, { stream: true });
-                        buffer += chunk;
-                        
-                        const lines = buffer.split('\n\n');
-                        buffer = lines.pop(); // Keep the remaining part
+                        let buffer = '';
 
-                        for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                try {
-                                    const jsonStr = line.substring(6);
-                                    const data = JSON.parse(jsonStr);
-                                    handleStreamData(data, logContainer, progressBar, statusText, percentText, btnClose);
-                                } catch (e) {
-                                    console.error('Error parsing JSON stream', e);
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            
+                            const chunk = decoder.decode(value, { stream: true });
+                            buffer += chunk;
+                            
+                            const lines = buffer.split('\n\n');
+                            buffer = lines.pop(); 
+
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    try {
+                                        const jsonStr = line.substring(6);
+                                        const data = JSON.parse(jsonStr);
+                                        handleStreamData(data, logContainer, progressBar, statusText, percentText, btnClose);
+                                    } catch (e) {
+                                        console.error('Error parsing JSON stream', e);
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Auto Close Countdown & RELOAD
-                    let timer = 3; 
-                    btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Reload ${timer}s)`;
-                    
-                    const interval = setInterval(() => {
-                        timer--;
-                        if(timer <= 0) {
+                        // Stream Finished - Sequence:
+                        // 1. Show "Selesai (Auto close)"
+                        // 2. Wait timer
+                        // 3. Hide Modal
+                        // 4. Resolve Promise (so next modal can open)
+                        // 5. Trigger Data Refresh (setupSearch) WITHOUT reload if possible, otherwise reload IS conflict.
+                        // Ideally: processDrop opens modal. But table data is stale? 
+                        // Actually, processDrop uses dragged data. refreshData/setupSearch refreshes table.
+                        
+                        if (typeof setupSearch === 'function') setupSearch(); // Refresh Table in background
+
+                        let timer = 3; 
+                        btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Auto close ${timer}s)`;
+                        
+                        const finish = () => {
+                            if(progressModalEl.classList.contains('show')) {
+                                // Hide using instance if available or just hide
+                                const modalInstance = bootstrap.Modal.getInstance(progressModalEl);
+                                if(modalInstance) modalInstance.hide();
+                            }
+                            resolve(); // Proceed to Assignment Modal
+                        };
+
+                        const interval = setInterval(() => {
+                            timer--;
+                            if(timer <= 0) {
+                                clearInterval(interval);
+                                finish();
+                            } else {
+                                btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Auto close ${timer}s)`;
+                            }
+                        }, 1000);
+
+                        btnClose.onclick = function() { 
                             clearInterval(interval);
-                            location.reload(); // RELOAD PAGE
-                        } else {
-                            btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Reload ${timer}s)`;
-                        }
-                    }, 1000);
+                            finish();
+                        };
 
-                    // Also reload if user clicks close manually
-                    btnClose.onclick = function() { location.reload(); };
-
-                } catch (error) {
-                    logContainer.innerHTML += `<div class="text-danger mb-1"><i class="fa-solid fa-circle-xmark me-2"></i>Network Error: ${error.message}</div>`;
-                    progressBar.classList.remove('bg-primary');
-                    progressBar.classList.add('bg-danger');
-                    progressBar.classList.remove('progress-bar-animated');
-                    btnClose.classList.remove('d-none');
-                }
+                    } catch (error) {
+                        logContainer.innerHTML += `<div class="text-danger mb-1"><i class="fa-solid fa-circle-xmark me-2"></i>Network Error: ${error.message}</div>`;
+                        progressBar.classList.remove('bg-primary');
+                        progressBar.classList.add('bg-danger');
+                        progressBar.classList.remove('progress-bar-animated');
+                        btnClose.classList.remove('d-none');
+                        // On error, don't resolve automatically? Or allow user to close.
+                        btnClose.onclick = function() { resolve(); }; // Still allow proceed? Or reject?
+                    }
+                });
             }
 
             // 3. Handle Data Stream
