@@ -97,7 +97,7 @@
         <td class="text-center table-col">
             @if (str_contains($item->STATS, 'CRTD'))
                 <button class="btn badge bg-info text-white border-0" 
-                        onclick="handleReleaseAndRefresh('{{ $item->AUFNR }}', '{{ $item->WERKSX }}')"
+                        onclick="handleReleaseAndRefresh('{{ $item->AUFNR }}', '{{ addslashes($item->WERKSX) }}')"
                         title="Release & Refresh PRO">
                     {{ $item->STATS }}
                 </button>
@@ -145,9 +145,7 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-                     <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
+
             <div class="d-flex align-items-center justify-content-between gap-1">
                  <span class="badge bg-light text-dark border p-1 assigned-qty-badge" style="font-size: 0.7rem;">Qty: -</span>
                  <span class="badge bg-success bg-opacity-10 text-success p-1 border border-success border-opacity-25 child-wc-display" style="font-size: 0.7rem;"></span>
