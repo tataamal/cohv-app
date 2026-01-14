@@ -439,6 +439,30 @@ class CreateWiController extends Controller
         }
     }
 
+    public function fetchProStatus(Request $request)
+    {
+        $kode = $request->input('plant_code'); // Ensure plant code if needed for scope
+        $aufnrs = $request->input('aufnrs', []);
+
+        if (empty($aufnrs)) {
+            return response()->json([]);
+        }
+
+        try {
+            $query = ProductionTData1::whereIn('AUFNR', $aufnrs);
+            if($kode) {
+                $query->where('WERKSX', $kode);
+            }
+            
+            $results = $query->select('AUFNR', 'VORNR', 'STATS')->get();
+            
+            return response()->json($results);
+        } catch (\Exception $e) {
+            Log::error("Fetch PRO Status Error: " . $e->getMessage());
+             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
 
     /**
      * Memproses mapping Workcenter Induk dan Anak.
@@ -2104,7 +2128,7 @@ class CreateWiController extends Controller
                             'progress' => $percent,
                             'message' => "$msgPrefix Released & Refreshed. Status: $currentStats",
                             'aufnr' => $aufnr,
-                            'status' => 'success'
+                            'type' => 'success'
                         ]) . "\n\n";
                     } else {
                         throw new \Exception("Release succeeded but status is still invalid: $currentStats");
@@ -2116,7 +2140,7 @@ class CreateWiController extends Controller
                         'progress' => $percent,
                         'message' => "$msgPrefix Release Failed: " . $e->getMessage(),
                         'aufnr' => $aufnr,
-                        'status' => 'error'
+                        'type' => 'error'
                     ]) . "\n\n";
                 }
 
@@ -2124,7 +2148,7 @@ class CreateWiController extends Controller
                 flush();
             }
 
-            echo "data: " . json_encode(['progress' => 100, 'message' => 'Release process completed.', 'completed' => true]) . "\n\n";
+            echo "data: " . json_encode(['progress' => 100, 'message' => 'Release process completed.', 'completed' => true, 'type' => 'success']) . "\n\n";
             if (ob_get_level() > 0) ob_flush();
             flush();
         });
@@ -2164,24 +2188,41 @@ class CreateWiController extends Controller
                         'progress' => $percent,
                         'message' => "$msgPrefix Refreshed successfully.",
                         'aufnr' => $aufnr,
-                        'status' => 'success'
+                        'type' => 'success'
                     ]) . "\n\n";
 
                 } catch (\Exception $e) {
-                    $percent = round((($index + 1) / $total) * 100);
-                    echo "data: " . json_encode([
-                        'progress' => $percent,
-                        'message' => "$msgPrefix Refresh Failed: " . $e->getMessage(),
-                        'aufnr' => $aufnr,
-                        'status' => 'error'
-                    ]) . "\n\n";
+                    // Fallback: If SAP fails (e.g. TECO/No Data), clear local data conforming to user request
+                    try {
+                        ProductionTData1::where('WERKSX', $plantCode)->where('AUFNR', $aufnr)->delete();
+                        ProductionTData3::where('WERKSX', $plantCode)->where('AUFNR', $aufnr)->delete();
+                        ProductionTData4::where('WERKSX', $plantCode)->where('AUFNR', $aufnr)->delete();
+
+                        $percent = round((($index + 1) / $total) * 100);
+                        echo "data: " . json_encode([
+                            'progress' => $percent,
+                            'message' => "$msgPrefix Data cleaned (SAP Empty/Error).",
+                            'aufnr' => $aufnr,
+                            'type' => 'success' 
+                        ]) . "\n\n";
+
+                    } catch (\Exception $delErr) {
+                         // Double Fail
+                        $percent = round((($index + 1) / $total) * 100);
+                        echo "data: " . json_encode([
+                            'progress' => $percent,
+                            'message' => "$msgPrefix Refresh Failed & Cleanup Failed: " . $e->getMessage(),
+                            'aufnr' => $aufnr,
+                            'type' => 'error'
+                        ]) . "\n\n";
+                    }
                 }
 
                 if (ob_get_level() > 0) ob_flush();
                 flush();
             }
 
-            echo "data: " . json_encode(['progress' => 100, 'message' => 'Refresh process completed.', 'completed' => true]) . "\n\n";
+            echo "data: " . json_encode(['progress' => 100, 'message' => 'Refresh process completed.', 'type' => 'complete']) . "\n\n";
             if (ob_get_level() > 0) ob_flush();
             flush();
         });

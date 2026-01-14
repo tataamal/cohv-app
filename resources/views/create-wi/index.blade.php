@@ -2653,6 +2653,8 @@
                 const emptyWarning = document.getElementById('emptyPreviewWarning');
                 const dateInput = document.getElementById('wiDocumentDate');
                 const timeInput = document.getElementById('wiDocumentTime');
+                const btnSave = document.getElementById('confirmSaveBtn');
+                const btnRelease = document.getElementById('btnModalRelease');
                 
                 // Set default time logic (sama)
                 const now = new Date();
@@ -2663,12 +2665,12 @@
 
                 content.innerHTML = '';
 
-                if (totalWcCount === 0) {
+                // --- 1. Empty Check ---
+                if (totalWcCount === 0 || data.length === 0) {
                     emptyWarning.classList.remove('d-none');
-                    const confirmBtn = document.getElementById('confirmSaveBtn');
-                    if(confirmBtn) confirmBtn.disabled = true;
+                    if(btnSave) btnSave.disabled = true;
+                    if(btnRelease) btnRelease.classList.add('d-none');
                     
-                    // Force Re-init to be safe
                     const previewEl = document.getElementById('previewModal');
                     const modal = bootstrap.Modal.getOrCreateInstance(previewEl);
                     modal.show();
@@ -2676,25 +2678,52 @@
                 }
 
                 emptyWarning.classList.add('d-none');
-                const confirmBtn = document.getElementById('confirmSaveBtn');
-                if(confirmBtn) confirmBtn.disabled = false;
 
+                // --- 2. Validation Loop (CRTD Check) ---
                 let hasCapacityError = false;
+                let crtdCount = 0;
+                let crtdItems = []; 
+
+                data.forEach(wc => {
+                    const wcCard = document.querySelector(`[data-wc-id="${wc.workcenter}"]`);
+                    const maxLoad = wcCard ? Math.ceil(parseFloat(wcCard.dataset.kapazWc) * 60) : 0;
+                    if (wc.load_mins > (maxLoad + 0.1)) hasCapacityError = true;
+                    
+                    wc.pro_items.forEach(item => {
+                         if(item.stats && item.stats.includes('CRTD')) {
+                             crtdCount++;
+                             crtdItems.push(item);
+                         }
+                    });
+                });
+
+                // Update Buttons State
+                if(btnSave) btnSave.disabled = (crtdCount > 0);
+                
+                if(btnRelease) {
+                    if(crtdCount > 0) {
+                        btnRelease.classList.remove('d-none');
+                        btnRelease.innerHTML = `<i class="fa-solid fa-unlock me-2"></i>Release Orders (${crtdCount})`;
+                        // Store CRTD items for release action
+                        window.crtdItemsForRelease = crtdItems;
+                    } else {
+                        btnRelease.classList.add('d-none');
+                    }
+                }
+
                 let html = '';
                 
+                // --- 3. Render Items ---
                 data.forEach(wc => {
                     const wcCard = document.querySelector(`[data-wc-id="${wc.workcenter}"]`);
                     const maxLoad = wcCard ? Math.ceil(parseFloat(wcCard.dataset.kapazWc) * 60) : 0;
                     
-                    // Capacity Check
                     const isOverCapacity = wc.load_mins > (maxLoad + 0.1); 
-                    if (isOverCapacity) hasCapacityError = true;
-
                     const badgeClass = isOverCapacity ? 'bg-danger text-white border-danger' : 'bg-light text-primary border-primary border-opacity-25';
                     const loadText = `Load: ${wc.load_mins} / ${maxLoad} Min`;
 
                     html += `
-                        <div class="col-lg-4 col-md-6"> 
+                        <div class="col-lg-4 col-md-6 mb-3"> 
                             <div class="card border-0 shadow-sm h-100 ${isOverCapacity ? 'border border-danger' : ''}">
                                 <div class="card-header bg-white border-bottom pt-3 pb-2">
                                     <div class="d-flex justify-content-between align-items-center">
@@ -2711,13 +2740,29 @@
                     wc.pro_items.forEach(item => {
                         const targetWcName = item.child_workcenter ? 
                             `<i class="fa-solid fa-arrow-right-long mx-1 text-muted"></i> <span class="text-primary fw-bold">${item.child_workcenter}</span>` : '';
+                        
+                        const isCrtd = item.stats && item.stats.includes('CRTD');
+                        const statusBadge = isCrtd 
+                            ? `<span class="badge bg-danger text-white ms-1">CRTD</span>` 
+                            : `<span class="badge bg-light text-muted border ms-1">${item.stats}</span>`;
 
                         html += `
-                            <li class="list-group-item px-3 py-2 border-bottom-0 border-top">
+                            <li class="list-group-item px-3 py-2 border-bottom-0 border-top position-relative group-hover-parent">
                                 <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <div class="fw-bold text-dark">${item.aufnr}</div>
-                                        <div class="text-xs text-muted">${targetWcName}</div>
+                                    <div class="d-flex align-items-center">
+                                         <!-- Remove Button -->
+                                         <button class="btn btn-link text-danger p-0 me-2 remove-item-btn" 
+                                            onclick="removeAllocatedItem('${item.aufnr}', '${item.vornr}', '${wc.workcenter}')" 
+                                            title="Hapus Item" style="text-decoration: none;">
+                                            <i class="fa-solid fa-xmark"></i>
+                                         </button>
+                                        
+                                        <div>
+                                            <div class="fw-bold text-dark">
+                                                ${item.aufnr} ${statusBadge}
+                                            </div>
+                                            <div class="text-xs text-muted">${targetWcName}</div>
+                                        </div>
                                     </div>
                                     <div class="text-end">
                                         <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10 mb-1">
@@ -2740,32 +2785,188 @@
 
                 content.innerHTML = html;
 
-                if (typeof hasCapacityError !== 'undefined' && hasCapacityError) {
-                    const confirmBtn = document.getElementById('confirmSaveBtn');
-                    // ALLOW SAVE even if capacity error (User Request 2025-12-23)
-                    if(confirmBtn) confirmBtn.disabled = false; 
-                    
-                    // Inject warning alert
+                // Capacity Warning
+                if (hasCapacityError) {
+                    if(btnSave) btnSave.disabled = false; // User Override
                     content.insertAdjacentHTML('afterbegin', `
                         <div class="col-12 mb-3">
                             <div class="alert alert-warning fw-bold shadow-sm border-warning text-dark">
                                 <i class="fa-solid fa-triangle-exclamation me-2 text-warning"></i> 
-                                PERINGATAN: Terdapat Workcenter yang melebihi kapasitas! Mohon perhatikan beban kerja. 
-                                (Transaksi tetap dapat dilanjutkan).
+                                PERINGATAN: Terdapat Workcenter yang melebihi kapasitas!
                             </div>
                         </div>
                     `);
-                } else {
-                    const confirmBtn = document.getElementById('confirmSaveBtn');
-                    if(confirmBtn) confirmBtn.disabled = false;
                 }
                 
-                // Force Re-init to be safe
+                // CRTD Warning
+                if (crtdCount > 0) {
+                     content.insertAdjacentHTML('afterbegin', `
+                        <div class="col-12 mb-3">
+                            <div class="alert alert-danger fw-bold shadow-sm border-danger text-dark">
+                                <i class="fa-solid fa-ban me-2 text-danger"></i> 
+                                PERHATIAN: Terdapat ${crtdCount} Order dengan status CRTD. Harap Release terlebih dahulu!
+                            </div>
+                        </div>
+                    `);
+                }
+                
                 const previewEl = document.getElementById('previewModal');
                 const modal = bootstrap.Modal.getOrCreateInstance(previewEl);
-                console.log('Showing modal via getOrCreateInstance');
                 modal.show();
             }
+
+            // --- NEW: Handle Remove Item from Modal ---
+            window.removeAllocatedItem = function(aufnr, vornr, wcId) {
+                if (!window.latestAllocations) return;
+                
+                // Remove item from data structure
+                window.latestAllocations.forEach(wc => {
+                    if(wc.workcenter === wcId) {
+                        const originalCount = wc.pro_items.length;
+                        wc.pro_items = wc.pro_items.filter(item => !(item.aufnr === aufnr && item.vornr === vornr));
+                        
+                        // Recalculate Load (Approximate subtration)
+                        // Note: It's better to fetch Load from ITEM if stored, or just rely on backend/source table re-calc. 
+                        // Simplified: Recalc total PRO count
+                    }
+                });
+                
+                // Remove empty WCs
+                window.latestAllocations = window.latestAllocations.filter(wc => wc.pro_items.length > 0);
+                
+                // Re-render Modal
+                const totalWc = window.latestAllocations.length; 
+                showPreviewModal(window.latestAllocations, totalWc);
+            };
+
+            // --- NEW: Helper to refresh modal state via API ---
+            async function refreshModalState() {
+                try {
+                    console.log("refreshModalState: START");
+                    
+                    // 1. Collect Items to Refresh
+                    const itemsToFetch = [];
+                    window.latestAllocations.forEach(wc => {
+                        wc.pro_items.forEach(item => {
+                            if(item.aufnr) itemsToFetch.push(item.aufnr);
+                        });
+                    });
+                    
+                    console.log("refreshModalState: Items collected", itemsToFetch);
+                    
+                    if(itemsToFetch.length === 0) return;
+
+                    // 2. Fetch specific status updates
+                    const response = await fetch("{{ route('create-wi.fetch-status') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ 
+                            plant_code: '{{ $kode }}',
+                            aufnrs: itemsToFetch 
+                        })
+                    });
+
+                    if(!response.ok) throw new Error('Failed to fetch updates');
+                    const updatedData = await response.json();
+                    
+                    console.log("refreshModalState: API Response", updatedData);
+
+                    // 3. Update Modal Data (stats)
+                    let updatedCount = 0;
+                    window.latestAllocations.forEach(wc => {
+                        wc.pro_items.forEach(item => {
+                            // DEBUG MATCHING
+                            const itemAufnr = String(item.aufnr).trim();
+                            const itemVornr = item.vornr ? String(item.vornr).trim() : '';
+
+                            // Match strictly by AUFNR and VORNR first
+                            const specificMatch = updatedData.find(u => {
+                                const uAufnr = String(u.AUFNR).trim();
+                                const uVornr = u.VORNR ? String(u.VORNR).trim() : '';
+                                return uAufnr === itemAufnr && uVornr === itemVornr;
+                            });
+                             
+                             if (specificMatch) {
+                                  console.log(`Match Found (Exact): ${itemAufnr} ${itemVornr} | Old: ${item.stats} -> New: ${specificMatch.STATS}`);
+                                  item.stats = specificMatch.STATS;
+                                  updatedCount++;
+                             } else {
+                                 // Fallback: if VORNR missing or not matching, use first match for AUFNR
+                                 const anyMatch = updatedData.find(u => String(u.AUFNR).trim() === itemAufnr);
+                                 if (anyMatch) {
+                                     console.log(`Match Found (Fallback): ${itemAufnr} | Old: ${item.stats} -> New: ${anyMatch.STATS}`);
+                                     item.stats = anyMatch.STATS;
+                                     updatedCount++;
+                                 } else {
+                                     console.warn(`No match found for: ${itemAufnr} ${itemVornr}`);
+                                 }
+                             }
+                        });
+                    });
+
+                    console.log(`Updated stats via API for ${updatedCount} items.`);
+
+                    // 4. Update Background Table (Best Effort)
+                    if (typeof setupSearch === 'function') setupSearch();
+
+                    // 5. Re-Open Modal
+                    const totalWc = window.latestAllocations.length; 
+                    showPreviewModal(window.latestAllocations, totalWc);
+
+                } catch (e) {
+                    console.error('Failed to refresh modal state', e);
+                    Swal.fire('Error', 'Gagal memuat ulang data modal.', 'error');
+                }
+            }
+
+            // --- NEW: Handle Refresh in Modal ---
+            window.handleModalRefresh = async function() {
+                const items = [];
+                // Collect unique AUFNRs from modal
+                const uniqueAufnrs = new Set();
+                window.latestAllocations.forEach(wc => {
+                    wc.pro_items.forEach(i => uniqueAufnrs.add(i.aufnr));
+                });
+                
+                uniqueAufnrs.forEach(aufnr => items.push({ aufnr: aufnr }));
+                
+                if(items.length === 0) return;
+
+                // Close Preview temporarily
+                const previewEl = document.getElementById('previewModal');
+                const previewModal = bootstrap.Modal.getInstance(previewEl);
+                previewModal.hide();
+
+                // Run Stream Refresh with Callback
+                await executeBulkStream(
+                    '{{ route("create-wi.stream-refresh") }}', 
+                    items, 
+                    'Refreshing Modal Data...',
+                    refreshModalState // Callback
+                );
+            };
+
+            // --- NEW: Handle Release in Modal ---
+            window.handleModalRelease = async function() {
+                if (!window.crtdItemsForRelease || window.crtdItemsForRelease.length === 0) return;
+                 // Close Preview
+                const previewEl = document.getElementById('previewModal');
+                const previewModal = bootstrap.Modal.getInstance(previewEl);
+                previewModal.hide();
+
+                const items = window.crtdItemsForRelease.map(i => ({ aufnr: i.aufnr }));
+                
+                // Run Stream Release with Callback
+                await executeBulkStream(
+                    '{{ route("create-wi.stream-release") }}', 
+                    items, 
+                    'Releasing Orders...',
+                    refreshModalState // Callback
+                );
+            };
             // 1. Tombol "Change WC" diklik
             function requestChangeWc() {
                 // [UPDATED] Logic for Global Select All
@@ -2929,15 +3130,6 @@
                                 }
                             }
                         }
-
-                        // Stream Finished - Sequence:
-                        // 1. Show "Selesai (Auto close)"
-                        // 2. Wait timer
-                        // 3. Hide Modal
-                        // 4. Resolve Promise (so next modal can open)
-                        // 5. Trigger Data Refresh (setupSearch) WITHOUT reload if possible, otherwise reload IS conflict.
-                        // Ideally: processDrop opens modal. But table data is stale? 
-                        // Actually, processDrop uses dragged data. refreshData/setupSearch refreshes table.
                         
                         if (typeof setupSearch === 'function') setupSearch(); // Refresh Table in background
 
@@ -3102,6 +3294,12 @@
                         <small class="text-muted fst-italic"><i class="fa-solid fa-circle-info me-1"></i> PASTIKAN DATA SUDAH BENAR SEBELUM MENYIMPAN.</small>
                      </div>
                     <div>
+                        <button type="button" class="btn btn-primary px-3 me-2 shadow-sm rounded-pill" id="btnModalRefresh" onclick="handleModalRefresh()">
+                             <i class="fa-solid fa-sync me-2"></i>Refresh Data
+                        </button>
+                        <button type="button" class="btn btn-warning px-3 me-2 shadow-sm rounded-pill d-none text-dark fw-bold" id="btnModalRelease" onclick="handleModalRelease()">
+                             <i class="fa-solid fa-unlock me-2"></i>Release Orders
+                        </button>
                         <button type="button" class="btn btn-outline-secondary px-4 me-2 shadow-sm rounded-pill" data-bs-dismiss="modal">
                              <i class="fa-solid fa-xmark me-2"></i>Cancel
                         </button>
@@ -3220,7 +3418,11 @@
                         }
                     })
                     .catch(error => {
-                        Swal.fire('Error', error.message, 'error');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            html: error.message
+                        });
                     });
                 }
             });
@@ -3275,7 +3477,7 @@
             });
         };
 
-        async function executeBulkStream(url, items, title) {
+        async function executeBulkStream(url, items, title, onComplete = null) {
             // Setup Modal Reuse (bulkProgressModal)
             const modalEl = document.getElementById('bulkProgressModal');
             const modalTitle = modalEl.querySelector('.modal-title');
@@ -3300,9 +3502,16 @@
             
             // Define Refresh Action
             const refreshAction = function() {
+                if (onComplete && typeof onComplete === 'function') {
+                    onComplete();
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if(modal) modal.hide();
+                    return;
+                }
+
                 if (typeof setupSearch === 'function') {
                     setupSearch();
-                    clearSourceSelection();
+                    if(typeof clearSourceSelection === 'function') clearSourceSelection();
                     const modal = bootstrap.Modal.getInstance(modalEl);
                     if(modal) modal.hide();
                 } else {
@@ -3369,22 +3578,23 @@
                 percentText.innerText = '100%';
                 btnClose.classList.remove('d-none');
 
-                // Auto Close Countdown & RELOAD
+                // Auto Close Countdown
                 let timer = 3; 
-                btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Reload ${timer}s)`;
+                let actionText = onComplete ? 'Updating...' : 'Reload';
+                btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (${actionText} ${timer}s)`;
                 
                 const interval = setInterval(() => {
                     timer--;
                     if(timer <= 0) {
                         clearInterval(interval);
-                        location.reload(); // RELOAD PAGE
+                        refreshAction(); // Run Action
                     } else {
-                        btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Reload ${timer}s)`;
+                        btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (${actionText} ${timer}s)`;
                     }
                 }, 1000);
 
-                // Also reload if user clicks close manually
-                btnClose.onclick = function() { location.reload(); };
+                // Also run action if user clicks close manually
+                btnClose.onclick = function() { refreshAction(); };
 
             } catch (error) {
                 statusText.innerText = "Error Occurred";

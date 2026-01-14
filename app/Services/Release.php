@@ -38,22 +38,32 @@ class Release
             
             // Format error message from 'messages' array if exists
             if (!empty($data['messages']) && is_array($data['messages'])) {
-                $errorStr = "SAP Error: ";
+                $errorLines = [];
+                $errorLines[] = "SAP Error:";
                 foreach ($data['messages'] as $msg) {
                     $mType = $msg['type'] ?? '';
                     $mText = $msg['message'] ?? '';
                     if ($mType && $mText) {
-                         $errorStr .= "[$mType] $mText; ";
+                         // Simplify message: Remove type if redundant or format it nicely
+                         $errorLines[] = "[$mType] $mText";
                     }
                 }
-                // Trim trailing semicolon
-                $errorStr = rtrim($errorStr, "; ");
+                // Join with HTML break for frontend display
+                $errorStr = implode('<br>', $errorLines);
+                
+                // Also clean up semicolons if they exist within individual messages
+                $errorStr = str_replace(';', '<br>', $errorStr);
+                
                 throw new RuntimeException($errorStr);
             }
             
             // Fallback to generic error or detail
             $detail = $data['detail'] ?? $data['message'] ?? $data['error'] ?? 'Unknown error';
-            throw new RuntimeException("Release Failed ({$response->status()}): $detail");
+            // Determine if detail contains semicolons that need formatting
+            if (str_contains($detail, ';')) {
+                 $detail = str_replace(';', '<br>', $detail);
+            }
+            throw new RuntimeException("Release Failed ({$response->status()}):<br>$detail");
         }
 
         return $response->json() ?? [];

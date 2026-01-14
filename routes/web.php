@@ -112,6 +112,7 @@ Route::middleware('auth')->group(function (){
     // Create WI
     Route::get('/create-wi/get-remark-history', [CreateWiController::class, 'getRemarkHistory'])->name('create-wi.get-remark-history');
     Route::post('/create-wi/release-refresh', [CreateWiController::class, 'releaseAndRefreshPro'])->name('create-wi.release-refresh');
+    Route::post('/create-wi/fetch-status', [CreateWiController::class, 'fetchProStatus'])->name('create-wi.fetch-status');
     Route::post('/create-wi/refresh/{kode}', [CreateWiController::class, 'refreshData'])->name('create-wi.refresh');
     Route::post('/create-wi/stream-schedule', [CreateWiController::class, 'streamSchedule'])->name('create-wi.stream-schedule');
     Route::post('/create-wi/stream-release', [CreateWiController::class, 'streamRelease'])->name('create-wi.stream-release');
