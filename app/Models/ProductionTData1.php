@@ -58,6 +58,7 @@ class ProductionTData1 extends Model
             'QTY_BALANCE2',
             'SSAVZ',
             'SSSLZ',
+            'SPLIM',
     ];
 
     public function tData3()

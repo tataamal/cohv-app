@@ -524,6 +524,7 @@ class Data1Controller extends Controller
                 // Pastikan key SSAVZ dan SSSLZ ada untuk insert bulk
                 $row['SSAVZ'] = $row['SSAVZ'] ?? null;
                 $row['SSSLZ'] = $row['SSSLZ'] ?? null;
+                $row['SPLIM'] = $row['SPLIM'] ?? null;
 
                 $row['WERKSX'] = $plant;
                 $mapped_t1[] = $row;

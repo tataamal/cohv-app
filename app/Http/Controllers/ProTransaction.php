@@ -115,6 +115,7 @@ class ProTransaction extends Controller
                     // Pastikan key SSAVZ dan SSSLZ ada untuk insert bulk
                     $item['SSAVZ'] = $item['SSAVZ'] ?? null;
                     $item['SSSLZ'] = $item['SSSLZ'] ?? null;
+                    $item['SPLIM'] = $item['SPLIM'] ?? null;
                     
                     
                     return $item; 
