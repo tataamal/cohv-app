@@ -5,30 +5,6 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-// // --- Jadwal untuk YPPR079 (Sudah Ada & Synchronous) ---
-// Schedule::command('syncronize:cohv-data')
-//     ->dailyAt('02.00')
-//     ->timezone('Asia/Jakarta')
-//     ->before(function () {
-//         echo now()->format('Y-m-d H:i:s') . ' Running ["artisan" yppr:sync]' . PHP_EOL;
-//     });
-
-// Schedule::command('syncronize:gr-data')
-//     ->dailyAt('02.00')
-//     ->timezone('Asia/Jakarta')
-//     ->before(function () {
-//         echo now()->format('Y-m-d H:i:s') . ' Running ["artisan" stock:sync]' . PHP_EOL;
-//     })
-//     ->withoutOverlapping();
-
-// Schedule::command('syncronize:cogi-data')
-//     ->cron('0 */2 * * *')
-//     ->timezone('Asia/Jakarta')
-//     ->before(function () {
-//         echo now()->format('Y-m-d H:i:s') . ' Running ["artisan" stock:sync]' . PHP_EOL;
-//     })
-//     ->withoutOverlapping();
-
 // --- Scheduler Email WI Harian (07:00 Pagi) ---
 Schedule::command('wi:send-log-email')
     ->dailyAt('07:00')
@@ -37,7 +13,10 @@ Schedule::command('wi:send-log-email')
 // --- Scheduler Email WI Weekly (Senin 07:00) ---
 Schedule::command('wi:send-weekly-email')
     ->weeklyOn(1, '07:00')
-    ->timezone('Asia/Jakarta');
+    ->timezone('Asia/Jakarta')
+    ->withoutOverlapping(60) // cegah dobel jalan (misal schedule:work restart / overlap)
+    ->runInBackground()      // biar scheduler tidak “ketahan” kalau PDF/email lama
+    ->appendOutputTo(storage_path('logs/wi-weekly.log'));
 
 // --- Scheduler Hitung Total Time WI Harian (23:45) ---
 Schedule::command('wi:calculate-daily-time')
