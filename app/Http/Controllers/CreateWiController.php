@@ -46,7 +46,7 @@ class CreateWiController extends Controller
     {
         try {
             $filter = $request->query('filter', 'dspt_rel');
-            $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
+            $apiUrl = 'https://monitoring-kpi.kayumebelsmg.net/api/get-nik-confirmasi';
             $apiToken = env('API_TOKEN_NIK'); 
             $employees = []; 
 
@@ -2455,7 +2455,7 @@ class CreateWiController extends Controller
 
     public function getEmployees(Request $request, $kode)
     {
-        $apiUrl = 'https://monitoring-kpi.kmifilebox.com/api/get-nik-confirmasi';
+        $apiUrl = 'https://monitoring-kpi.kayumebelsmg.net/api/get-nik-confirmasi';
         $apiToken = env('API_TOKEN_NIK'); 
         $employees = []; 
 
