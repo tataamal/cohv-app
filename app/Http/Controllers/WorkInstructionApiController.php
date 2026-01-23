@@ -297,7 +297,7 @@ class WorkInstructionApiController extends Controller
             'vornr'       => 'required|string',
             'remark'      => 'nullable|string',
             'remark_qty'  => 'nullable|numeric',
-            'tag'         => 'nullable|string',
+            'tag'         => 'nullable|string',   // ✅ tambahan
         ]);
 
         $wiCode    = $request->input('wi_code');
@@ -305,127 +305,148 @@ class WorkInstructionApiController extends Controller
         $nik       = $request->input('nik');
         $vornr     = $request->input('vornr');
         $remark    = $request->input('remark') ?? '';
+        $wiCode    = $request->input('wi_code');
+        $aufnr     = $request->input('aufnr');
+        $nik       = $request->input('nik');
+        $vornr     = $request->input('vornr');
+        $remark    = $request->input('remark') ?? '';
         $remarkQty = $request->input('remark_qty') ?? 0;
-        $tag       = $request->input('tag') ?? ''; 
+        $tag       = $request->input('tag') ?? ''; // ✅ tambahan
 
         try {
             DB::beginTransaction();
 
-            $document = HistoryWi::where('wi_document_code', $wiCode)->first();
+            $document = HistoryWi::where('wi_document_code', $wiCode)
+                ->lockForUpdate()
+                ->first();
 
             if (!$document) {
                 DB::rollBack();
                 return response()->json(['message' => 'Document not found.'], 404);
             }
 
-            $item = $document->items()
-                        ->where('aufnr', $aufnr)
-                        ->where('vornr', $vornr)
-                        ->where('nik', $nik)
-                        ->lockForUpdate()
-                        ->first();
-
-            if (!$item) {
-                DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'Item not found in payload.'], 404);
+            $payload = $document->payload_data;
+            if (!is_array($payload)) {
+                $payload = json_decode($payload, true) ?? [];
             }
 
-            $existingRemarkQty = (float) $item->remark_qty;
-            $assignedQty       = (float) $item->assigned_qty;
-            $confirmedQty      = (float) $item->confirmed_qty;
+            $updated = false;
+            $key = null;
 
-            $inputRemarkQty = (float) $remarkQty;
-            $inputRemark    = $remark;
-            $inputTag       = $tag;
+            foreach ($payload as $k => &$item) {
+                if (
+                    ($item['aufnr'] ?? '') === $aufnr &&
+                    ($item['vornr'] ?? '') === $vornr &&
+                    ($item['nik'] ?? '') === $nik
+                ) {
+                    $key = $k;
+
+                    $existingRemarkQty = (float) ($item['remark_qty'] ?? 0);
+                    $existingRemark    = $item['remark'] ?? '';
+                    $assignedQty       = (float) ($item['assigned_qty'] ?? 0);
+                    $confirmedQty      = (float) ($item['confirmed_qty'] ?? 0);
+
+                    $inputRemarkQty = (float) $remarkQty;
+                    $inputRemark    = $remark;
+                    $inputTag       = $tag; // ✅ tambahan
 
             $newRemarkQty = $existingRemarkQty + $inputRemarkQty;
             $totalProcessed = $confirmedQty + $newRemarkQty;
             $totalProcessed = round($totalProcessed, 4);
 
-            if ($totalProcessed > $assignedQty) {
-                DB::rollBack();
-                $remaining = $assignedQty - $confirmedQty - $existingRemarkQty;
+                    if ($totalProcessed > $assignedQty) {
+                        DB::rollBack();
+                        $remaining = $assignedQty - $confirmedQty - $existingRemarkQty;
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => "Remark quantity exceeds remaining quantity. Existing Remark: {$existingRemarkQty}, Remaining allow: {$remaining}."
+                        ], 400);
+                    }
+
+                    $remarkHistory = $item['remark_history'] ?? [];
+                    if (!is_array($remarkHistory)) $remarkHistory = [];
+
+                    // ✅ simpan tag di item (latest tag)
+                    if (!empty($inputTag)) {
+                        $item['tag'] = $inputTag;
+                    } else {
+                        // optional: pastikan field ada walau kosong
+                        $item['tag'] = $item['tag'] ?? '';
+                    }
+
+                    // ✅ masuk history jika ada qty/remark/tag
+                    if ($inputRemarkQty > 0 || !empty($inputRemark) || !empty($inputTag)) {
+                        $remarkHistory[] = [
+                            'qty'        => $inputRemarkQty,
+                            'remark'     => $inputRemark,
+                            'tag'        => $inputTag, // ✅ tambahan
+                            'created_at' => Carbon::now()->toDateTimeString(),
+                            'created_by' => $request->input('nik') ?? 'System',
+                        ];
+                    }
+
+                    $item['remark_history'] = $remarkHistory;
+
+                    // Build display string (tambahkan tag)
+                    $displayRemarks = [];
+                    foreach ($remarkHistory as $h) {
+                        $q = floatval($h['qty'] ?? 0);
+                        $m = $h['remark'] ?? '-';
+                        $t = $h['tag'] ?? '';
+
+                        // tampilkan kalau ada salah satu
+                        if ($q > 0 || !empty($m) || !empty($t)) {
+                            $tagText = !empty($t) ? " [{$t}]" : "";
+                            $displayRemarks[] = "Qty {$q}{$tagText}: {$m}";
+                        }
+                    }
+
+                    $newRemarkText = implode('; ', $displayRemarks);
+
+                    $item['remark_qty'] = $newRemarkQty;
+                    $item['remark'] = $newRemarkText;
+
+                    if ($totalProcessed >= $assignedQty) {
+                        if ($newRemarkQty > 0 || !empty($remarkHistory)) {
+                            $item['status_pro_wi'] = 'Completed With Remark';
+                        } else {
+                            $item['status_pro_wi'] = 'Completed';
+                        }
+                    } else {
+                        if ($newRemarkQty > 0 || !empty($remarkHistory)) {
+                            $item['status_pro_wi'] = 'Progress With Remark';
+                        } elseif ($confirmedQty > 0) {
+                            $item['status_pro_wi'] = 'Progress';
+                        } else {
+                            $item['status_pro_wi'] = 'Created';
+                        }
+                    }
+
+                    $updated = true;
+                    break;
+                }
+            }
+
+            if ($updated) {
+                $document->payload_data = $payload;
+                $document->save();
+                DB::commit();
+
                 return response()->json([
-                    'status' => 'error',
-                    'message' => "Remark quantity exceeds remaining quantity. Existing Remark: {$existingRemarkQty}, Remaining allow: {$remaining}."
-                ], 400);
+                    'status'              => 'success',
+                    'message'             => 'Remark Added Successfully.',
+                    'new_status'          => $payload[$key]['status_pro_wi'] ?? 'Unknown',
+                    'confirmed_qty_total' => $confirmedQty,
+                    'remark_qty'          => $newRemarkQty,
+                    'tag'                 => $payload[$key]['tag'] ?? '', // ✅ tambahan
+                    'remark'              => $newRemarkText,
+                    'remark_history'      => $item['remark_history'] ?? [],
+                    'assigned_qty'        => $assignedQty,
+                ]);
             }
 
-            // Handle Remark History via item_json
-            $extraData = $item->item_json ? json_decode($item->item_json, true) : [];
-            $remarkHistory = $extraData['remark_history'] ?? [];
-            if (!is_array($remarkHistory)) $remarkHistory = [];
-
-            if (!empty($inputTag)) {
-                $item->tag = $inputTag;
-            }
-
-            if ($inputRemarkQty > 0 || !empty($inputRemark) || !empty($inputTag)) {
-                $remarkHistory[] = [
-                    'qty'        => $inputRemarkQty,
-                    'remark'     => $inputRemark,
-                    'tag'        => $inputTag,
-                    'created_at' => Carbon::now()->toDateTimeString(),
-                    'created_by' => $request->input('nik') ?? 'System',
-                ];
-            }
-
-            $extraData['remark_history'] = $remarkHistory;
-            $item->item_json = json_encode($extraData);
-
-            // Build display string
-            $displayRemarks = [];
-            foreach ($remarkHistory as $h) {
-                $q = floatval($h['qty'] ?? 0);
-                $m = $h['remark'] ?? '-';
-                $t = $h['tag'] ?? '';
-
-                if ($q > 0 || !empty($m) || !empty($t)) {
-                    $tagText = !empty($t) ? " [{$t}]" : "";
-                    $displayRemarks[] = "Qty {$q}{$tagText}: {$m}";
-                }
-            }
-
-            $newRemarkText = implode('; ', $displayRemarks);
-            // Truncate if too long for DB column (30 chars in migration seems small for multiple remarks?)
-            // Migration: remark_text string(30). CAREFUL.
-            // If it's just 30 chars, we can't store full history string there.
-            // We should trust item_json for full history and maybe put summary or "see detail" in remark_text if it's strictly display.
-            // Or maybe migration was typo and it should be text?
-            // Assuming strict 30 char limit:
-            $item->remark_text = substr($newRemarkText, 0, 30); 
-            $item->remark_qty = $newRemarkQty;
-
-            if ($totalProcessed >= $assignedQty) {
-                if ($newRemarkQty > 0 || !empty($remarkHistory)) {
-                    $item->status_item = 'Completed With Remark';
-                } else {
-                    $item->status_item = 'Completed';
-                }
-            } else {
-                if ($newRemarkQty > 0 || !empty($remarkHistory)) {
-                    $item->status_item = 'Progress With Remark';
-                } elseif ($confirmedQty > 0) {
-                    $item->status_item = 'Progress';
-                } else {
-                    $item->status_item = 'Created';
-                }
-            }
-
-            $item->save();
-            DB::commit();
-
-            return response()->json([
-                'status'              => 'success',
-                'message'             => 'Remark Added Successfully.',
-                'new_status'          => $item->status_item ?? 'Unknown',
-                'confirmed_qty_total' => $confirmedQty,
-                'remark_qty'          => $newRemarkQty,
-                'tag'                 => $item->tag ?? '',
-                'remark'              => $newRemarkText,
-                'remark_history'      => $remarkHistory,
-                'assigned_qty'        => $assignedQty,
-            ]);
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => 'Item not found in payload.'], 404);
 
         } catch (\Exception $e) {
             DB::rollBack();
