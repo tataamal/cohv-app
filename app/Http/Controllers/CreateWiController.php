@@ -13,7 +13,7 @@ use App\Models\WorkcenterMapping;
 use App\Models\HistoryWi; // Model History WI
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\Kode;
+use App\Models\KodeLaravel;
 use App\Models\ProductionTData;
 use App\Models\ProductionTData2;
 use App\Models\ProductionTData3;
@@ -98,8 +98,8 @@ class CreateWiController extends Controller
             }
 
             // [NEW] Fetch Descriptions from WORKCENTERS table
-            $wcDescriptions = workcenter::where('werksx', $kode)
-                ->orWhere('werks', $kode)
+            // [NEW] Fetch Descriptions from WORKCENTERS table
+            $wcDescriptions = workcenter::where('plant', $kode)
                 ->get()
                 ->mapWithKeys(function ($item) {
                      return [strtoupper($item->kode_wc) => $item->description];
@@ -118,7 +118,7 @@ class CreateWiController extends Controller
                 ]);
             }
             
-            $allWorkcenters = workcenter::where('werksx', $kode)->get();
+            $allWorkcenters = workcenter::where('plant', $kode)->get();
             $parentWorkcenters = $this->buildWorkcenterHierarchy($allWorkcenters, $workcenterMappings);
             $childCodes = $workcenterMappings->pluck('workcenter')
                 ->filter()
@@ -640,7 +640,7 @@ class CreateWiController extends Controller
     public function history(Request $request, $kode) 
     {
         $plantCode = $kode;
-        $nama_bagian  = Kode::where('kode', $plantCode)->first();
+        $nama_bagian  = KodeLaravel::where('laravel_code', $plantCode)->first();
         
         // $employees removed from here to reduce load time. 
         // Fetched via AJAX in getEmployees() when needed (Add Item Modal).
@@ -703,8 +703,7 @@ class CreateWiController extends Controller
             if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
         }
 
-        $childWorkcenters = workcenter::where('WERKSX', $plantCode)
-                            ->orWhere('WERKS', $plantCode)
+        $childWorkcenters = workcenter::where('plant', $plantCode)
                             ->get()
                             ->mapWithKeys(function ($item) {
                                 return [strtoupper($item->kode_wc) => $item];
@@ -715,8 +714,7 @@ class CreateWiController extends Controller
         })->filter()->unique()->map(function($code) { return strtoupper($code); });
         
         // --- CAPACITY SOURCING FROM WORKCENTERS TABLE ---
-        $rawWcData = workcenter::where('WERKSX', $plantCode)
-            ->orWhere('WERKS', $plantCode)
+        $rawWcData = workcenter::where('plant', $plantCode)
             ->get();
             
         // 1. Build Base Capacity Map (Single WCs)

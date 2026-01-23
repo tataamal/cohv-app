@@ -46,9 +46,12 @@ class HistoryWi extends Model
     /**
      * Relationship to Kode model (Plant Code).
      */
+    /**
+     * Relationship to KodeLaravel model (Plant Code).
+     */
     public function kode()
     {
-        return $this->belongsTo(\App\Models\Kode::class, 'plant_code', 'kode');
+        return $this->belongsTo(\App\Models\KodeLaravel::class, 'plant_code', 'laravel_code');
     }
 
     /**
@@ -56,6 +59,6 @@ class HistoryWi extends Model
      */
     public function getDepartmentAttribute()
     {
-        return $this->kode ? $this->kode->nama_bagian : 'UNKNOWN DEPT';
+        return $this->kode ? $this->kode->description : 'UNKNOWN DEPT';
     }
 }

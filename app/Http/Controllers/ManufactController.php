@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Kode;
+use App\Models\KodeLaravel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -252,7 +252,8 @@ class ManufactController extends Controller
 
     public function showDetail(Request $request, $kode)
     {
-        $kodeInfo = Kode::where('kode', $kode)->firstOrFail();
+        $kodeInfo = KodeLaravel::where('laravel_code', $kode)->firstOrFail();
+
         
         $query = ProductionTData::where('WERKSX', $kode);
 
@@ -310,7 +311,7 @@ class ManufactController extends Controller
         $allTData4ByAufnr = ProductionTData4::whereIn('AUFNR', $aufnrValues->values())->get()->groupBy('AUFNR');
         $allTData4ByPlnum = ProductionTData4::whereIn('PLNUM', $plnumValues->values())->get()->groupBy('PLNUM');
 
-        $workCenters = workcenter::where('WERKSX', $kode)
+        $workCenters = workcenter::where('plant', $kode)
                          ->orderBy('kode_wc')
                          ->get();
         
@@ -318,8 +319,8 @@ class ManufactController extends Controller
 
         return view('Admin.detail-data2', [
             'plant'            => $kode,
-            'categories'       => $kodeInfo->kategori,
-            'bagian'           => $kodeInfo->nama_bagian,
+            'categories'       => $kodeInfo->plant, // Was kategori
+            'bagian'           => $kodeInfo->description, // Was nama_bagian
             'tdata'            => $tdata,
             'allTData2'        => $allTData2,
             'allTData3'        => $allTData3Grouped,
@@ -334,10 +335,10 @@ class ManufactController extends Controller
 
     public function list_gr($kode)
     {
-        $kodeModel = Kode::where('kode', $kode)->first();
-        $kategori = Kode::where('kode', $kode)->value('kategori');
-        $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
-        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
+        $kodeModel = KodeLaravel::where('laravel_code', $kode)->first();
+        $kategori = KodeLaravel::where('laravel_code', $kode)->value('plant');
+        $sub_kategori = null; // KodeLaravel does not have sub_kategori
+        $nama_bagian = KodeLaravel::where('laravel_code', $kode)->value('description');
 
         if (!$kodeModel) {
             return view('Admin.list-gr', [

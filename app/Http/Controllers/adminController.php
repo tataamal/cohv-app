@@ -9,7 +9,7 @@ use App\Models\ProductionTData1;
 use App\Models\ProductionTData2;
 use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
-use App\Models\Kode;
+use App\Models\KodeLaravel;
 use Illuminate\Support\Facades\Log;
 use App\Models\UserSap;
 use App\Models\workcenter;
@@ -31,9 +31,9 @@ class adminController extends Controller
 
         $allWcQuery = DB::table('workcenters')
             ->select('kode_wc', 'description')
-            ->where('werksx', $kode);
+            ->where('plant', $kode);
 
-        $realPlant = DB::table('workcenters')->where('werksx', $kode)->value('werks');
+        $realPlant = DB::table('workcenters')->where('plant', $kode)->value('plant');
 
         if (!in_array($realPlant, ['1000', '1001', '2000'])) {
             $allWcQuery->whereNotIn(DB::raw('UPPER(kode_wc)'), $childCodes);
@@ -141,9 +141,9 @@ class adminController extends Controller
             ]
         ];
         
-        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
-        $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
-        $kategori = Kode::where('kode', $kode)->value('kategori');
+        $nama_bagian = KodeLaravel::where('laravel_code', $kode)->value('description');
+        $sub_kategori = null; // KodeLaravel does not have sub_kategori
+        $kategori = KodeLaravel::where('laravel_code', $kode)->value('plant');
         
         // A. PENANGANAN AJAX LOAD MORE (Untuk Infinite Scroll)
         if ($request->ajax() && $request->has('load_more')) {
