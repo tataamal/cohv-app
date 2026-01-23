@@ -6,19 +6,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class workcenter extends Model
+class KodeLaravel extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'workcenters';
+    protected $table = 'kode_laravel';
 
     protected $fillable = [
-        'plant',
-        'kode_wc',
+        'laravel_code',
         'description',
-        'start_time',
-        'end_time',
-        'operating_time',
-        'capacity',
+        'plant',
     ];
 }

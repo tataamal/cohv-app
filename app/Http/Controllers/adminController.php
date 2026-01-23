@@ -11,9 +11,10 @@ use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
 use App\Models\Kode;
 use Illuminate\Support\Facades\Log;
-use App\Models\SapUser;
+use App\Models\UserSap;
 use App\Models\workcenter;
 use App\Models\WorkcenterMapping;
+use App\Models\MappingTable;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Redirect;
 
@@ -545,17 +546,28 @@ class adminController extends Controller
             $user = Auth::user();
             $sapUser = null;
 
-            if ($user->role === 'admin') {
-                $sapId = str_replace('@kmi.local', '', $user->email);
-                $sapUser = SapUser::where('sap_id', $sapId)->first();
-            } 
+            // Removing role check as requested ("semua user sama")
+            $sapId = str_replace('@kmi.local', '', $user->email);
+            $sapUser = UserSap::where('user_sap', $sapId)->first();
 
             if ($sapUser) {
-                $allRelatedKodes = $sapUser->kodes()->get();
-                $plants = $allRelatedKodes->unique('kode');
+                $mappings = MappingTable::where('user_sap_id', $sapUser->id)
+                    ->with('kodeLaravel')
+                    ->get();
+
+                $plants = $mappings->map(function($mapping) {
+                    if ($mapping->kodeLaravel) {
+                        return (object) [
+                            'kode' => $mapping->kodeLaravel->laravel_code,
+                            'nama_bagian' => $mapping->kodeLaravel->description,
+                            'kategori' => $mapping->kodeLaravel->plant,
+                        ];
+                    }
+                    return null;
+                })->filter()->unique('kode');
             }
             
-            $allUsers = SapUser::orderBy('nama')->get();
+            $allUsers = UserSap::orderBy('name')->get();
         }
         
         return view('dashboard', [

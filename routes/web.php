@@ -27,6 +27,12 @@ Route::middleware('guest')->group(function (){
     Route::post('/login/admin', [LoginController::class, 'loginAdmin'])->name('login.admin');
 });
 
+// Mapping Sementera (Public/Loose Access)
+Route::get('/mapping-sementara', [App\Http\Controllers\MappingController::class, 'index'])->name('mapping.index');
+Route::post('/mapping-sementara', [App\Http\Controllers\MappingController::class, 'store'])->name('mapping.store');
+Route::delete('/mapping-sementara/bulk-delete', [App\Http\Controllers\MappingController::class, 'bulkDestroy'])->name('mapping.bulk_destroy');
+Route::delete('/mapping-sementara/{id}', [App\Http\Controllers\MappingController::class, 'destroy'])->name('mapping.destroy');
+
 Route::middleware('auth')->group(function (){
     Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
         Route::get('/dashboard/{kode}', [adminController::class, 'index'])->name('dashboard.show');

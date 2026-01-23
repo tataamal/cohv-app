@@ -11,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('db_history_wi', function (Blueprint $table) {
-            //
+        Schema::create('user_sap', function (Blueprint $table) {
+            $table->id();
+            $table->string('user_sap');
+            $table->string('name');
+            $table->softDeletes(); 
+            $table->timestamps();  
         });
     }
 
@@ -21,8 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('db_history_wi', function (Blueprint $table) {
-            //
-        });
+        Schema::dropIfExists('user_sap');
     }
 };

@@ -11,18 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('production_t_data2', function (Blueprint $table) {
+        Schema::create('production_t_data', function (Blueprint $table) {
             $table->id();
             $table->string('MANDT', 3)->nullable();
-            $table->string('KDAUF', 20)->nullable();
-            $table->string('KDPOS', 10)->nullable();
-            $table->string('MATFG', 30)->nullable();
-            $table->string('MAKFG')->nullable();
-            $table->date('EDATU')->nullable();
-            $table->string('WERKSX')->nullable();
+            $table->string('KDAUF', 10)->nullable();
+            $table->string('KDPOS', 6)->nullable();
+            $table->string('MATNR', 40)->nullable();
+            $table->string('MAKTX', 40)->nullable();
+            $table->string('EDATU', 16)->nullable();
+            $table->string('WERKSX', 4)->nullable();
             $table->string('KUNNR', 10)->nullable();
             $table->string('NAME1', 35)->nullable();
+            $table->string('BSTNK', 35)->nullable();
             $table->timestamps();
+            $table->index(['WERKSX', 'KDAUF', 'KDPOS']);
         });
     }
 
@@ -31,6 +33,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('production_t_data2');
+        Schema::dropIfExists('production_t_data');
     }
 };

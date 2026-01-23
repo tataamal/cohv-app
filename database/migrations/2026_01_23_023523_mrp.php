@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('db_history_wi', function (Blueprint $table) {
-            $table->time('document_time')->after('document_date'); 
-            $table->dateTime('expired_at')->nullable()->after('document_time');
+        Schema::create('mrp', function (Blueprint $table) {
+            $table->id();
+            $table->string('mrp');
+            $table->string('plant');
+            $table->softDeletes(); 
+            $table->timestamps();  
         });
     }
 
@@ -22,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('mrp');
     }
 };

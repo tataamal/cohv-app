@@ -13,20 +13,15 @@ return new class extends Migration
     {
         Schema::create('wc_relations', function (Blueprint $table) {
             $table->id();
-            
-            // Foreign key untuk WC Asal
             $table->foreignId('wc_asal_id')
                   ->constrained('workcenters')
                   ->onUpdate('cascade')
                   ->onDelete('cascade');
-
-            // Foreign key untuk WC Tujuan
             $table->foreignId('wc_tujuan_id')
                   ->constrained('workcenters')
                   ->onUpdate('cascade')
                   ->onDelete('cascade');
-            
-            $table->string('status', 255)->default('Aktif');
+            $table->string('status', 255)->default('compatible');
             $table->timestamps();
         });
     }

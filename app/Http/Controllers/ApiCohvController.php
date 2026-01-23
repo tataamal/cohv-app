@@ -17,10 +17,10 @@ class ApiCohvController extends Controller
             ], 400);
         }
 
-        $user = \App\Models\SapUser::select('id', 'sap_id', 'nama')
-            ->where('sap_id', $sap_id)
+        $user = \App\Models\UserSap::select('id', 'user_sap', 'name')
+            ->where('user_sap', $sap_id)
             ->with(['kodes' => function ($query) {
-                $query->select('id', 'sap_user_id', 'kode', 'kategori', 'nama_bagian');
+                $query->select('id', 'user_sap_id', 'kode', 'kategori', 'nama_bagian');
             }, 'kodes.mrps' => function ($query) {
                 // Select 'kode' (FK) so Laravel can match it to the parent Kode
                 $query->select('id', 'kode', 'mrp');
@@ -58,8 +58,8 @@ class ApiCohvController extends Controller
         })->values();
 
         return [
-            'sap_id' => $user->sap_id,
-            'nama' => $user->nama,
+            'sap_id' => $user->user_sap,
+            'nama' => $user->name,
             'details' => $groupedByCategory
         ];
     }

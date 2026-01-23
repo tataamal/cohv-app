@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('sap_users', function (Blueprint $table) {
+        Schema::create('kode_laravel', function (Blueprint $table) {
             $table->id();
-            $table->string('sap_id')->unique();
-            $table->string('nama');
-            $table->timestamps();
+            $table->string('laravel_code');
+            $table->string('description');
+            $table->string('plant');
+            $table->softDeletes(); 
+            $table->timestamps();  
         });
     }
 
@@ -24,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-       Schema::dropIfExists('sap_users');
+        Schema::dropIfExists('kode_laravel');
     }
 };

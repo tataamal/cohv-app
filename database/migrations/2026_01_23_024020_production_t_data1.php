@@ -11,21 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('production_t_data3', function (Blueprint $table) {
+        Schema::create('production_t_data1', function (Blueprint $table) {
             $table->id();
-            $table->string('MANDT')->nullable();
-            $table->string('ARBPL')->nullable();
-            $table->string('ORDERX')->nullable();
-            $table->string('WERKSX')->nullable();
-            $table->string('PWWRK')->nullable();
-            $table->string('KTEXT')->nullable();
-            $table->string('ARBID')->nullable();
-            $table->string('VERID')->nullable();
-            $table->string('KDAUF')->nullable();
-            $table->string('KDPOS')->nullable();
+            $table->string('MANDT',100)->nullable();
+            $table->string('ARBPL',100)->nullable();
+            $table->string('ORDERX',100)->nullable();
+            $table->string('WERKSX',100)->nullable();
+            $table->string('PWWRK',100)->nullable();
+            $table->string('KTEXT',100)->nullable();
+            $table->string('ARBID',100)->nullable();
+            $table->string('KAPID',100)->nullable();
+            $table->float('KAPAZ')->nullable();
+            $table->string('VERID',100)->nullable();
+            $table->string('KDAUF',100)->nullable();
+            $table->string('KDPOS',100)->nullable();
             $table->string('AUFNR')->nullable();
-            $table->string('NAME1')->nullable();
-            $table->string('KUNNR')->nullable();
             $table->string('PLNUM')->nullable();
             $table->string('STATS')->nullable();
             $table->string('DISPO')->nullable();
@@ -50,17 +50,22 @@ return new class extends Migration
             $table->string('DDAY')->nullable();
             $table->date('SSSLD')->nullable();
             $table->date('SSAVD')->nullable();
-            $table->date('GLTRP')->nullable();
-            $table->date('GSTRP')->nullable();
             $table->string('MATFG')->nullable();
             $table->string('MAKFG')->nullable();
             $table->string('CATEGORY')->nullable();
             $table->string('STATS2')->nullable();
-            $table->string('GROES')->nullable();
-            $table->string('FERTH')->nullable();
-            $table->string('ZEINR')->nullable();
+            $table->string('NAME1')->nullable();
+            $table->string('NETPR')->nullable();
+            $table->string('WAERK')->nullable();
+            $table->text('PV1')->nullable();
+            $table->text('PV2')->nullable();
+            $table->text('PV3')->nullable();
+            $table->string('QTY_BALANCE2')->nullable();
+            $table->string('SSAVZ')->nullable();
+            $table->string('SSSLZ')->nullable();
+            $table->string('SPLIM')->nullable();
             $table->timestamps();
-        });
+        });       //
     }
 
     /**
@@ -68,6 +73,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('production_t_data3');
+        Schema::dropIfExists('production_t_data1');
     }
 };
