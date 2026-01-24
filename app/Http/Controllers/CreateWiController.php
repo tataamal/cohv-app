@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\workcenter;
 use App\Models\ProductionTData1; 
 use App\Models\WorkcenterMapping;
-use App\Models\HistoryWi; // Model History WI
+use App\Models\HistoryWi;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\KodeLaravel;
@@ -32,7 +32,6 @@ class CreateWiController extends Controller
 
         try {
             DB::beginTransaction();
-            // Delete based on wi_document_code
             HistoryWi::whereIn('wi_document_code', $ids)->delete();
             DB::commit();
             return response()->json(['message' => 'Documents deleted successfully.', 'count' => count($ids)]);
@@ -45,6 +44,8 @@ class CreateWiController extends Controller
     public function index(Request $request, $kode)
     {
         try {
+            $kodeModel = KodeLaravel::where('laravel_code', $kode)->first();
+            $sapPlant = $kodeModel ? $kodeModel->plant : $kode;
             $filter = $request->query('filter', 'dspt_rel');
             $apiUrl = 'https://monitoring-kpi.kayumebelsmg.net/api/get-nik-confirmasi';
             $apiToken = env('API_TOKEN_NIK'); 
@@ -59,13 +60,10 @@ class CreateWiController extends Controller
                 Log::error('Koneksi API NIK Error: ' . $e->getMessage());
             }
 
-            // --- REFACTORED QUERY USAGE ---
             $tData1 = $this->_buildSourceQuery($request, $kode);
             $perPage = 30;
             $page = $request->input('page', 1);
             $tDataQuery = $tData1;
-            
-            // Check if tData1 is valid
             if (!$tData1) {
                 Log::error("tData1 query builder is null in index");
                  return abort(500, "Query builder failed");
@@ -77,10 +75,8 @@ class CreateWiController extends Controller
             $processedCollection = $pagination->getCollection()->transform(function ($item) use ($assignedProQuantities) {
                 $aufnr = $item->AUFNR;
                 $key = $aufnr . '-' . ($item->VORNR ?? '');
-                
                 $qtySisaAwal = $item->MGVRG2 - $item->LMNGA;
                 $qtyAllocatedInWi = $assignedProQuantities[$key] ?? 0;
-                
                 $qtySisaAkhir = $qtySisaAwal - $qtyAllocatedInWi;
                 $item->real_sisa_qty = $qtySisaAkhir; 
                 $item->qty_wi = $qtyAllocatedInWi; 
@@ -89,17 +85,17 @@ class CreateWiController extends Controller
                  return $item->real_sisa_qty > 0.001; 
             });
 
-            $workcenterMappings = WorkcenterMapping::where('kode_laravel', $kode)->get();
+            $workcenterMappings = WorkcenterMapping::with(['parentWorkcenter', 'childWorkcenter'])
+                ->where('kode_laravel_id', $kodeModel->id)
+                ->get();
 
             $wcNames = [];
             foreach ($workcenterMappings as $m) {
-                if ($m->wc_induk) $wcNames[strtoupper($m->wc_induk)] = $m->nama_wc_induk;
-                if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
+                if ($m->parentWorkcenter) $wcNames[strtoupper($m->parentWorkcenter->kode_wc)] = $m->parentWorkcenter->description;
+                if ($m->childWorkcenter) $wcNames[strtoupper($m->childWorkcenter->kode_wc)] = $m->childWorkcenter->description;
             }
 
-            // [NEW] Fetch Descriptions from WORKCENTERS table
-            // [NEW] Fetch Descriptions from WORKCENTERS table
-            $wcDescriptions = workcenter::where('plant', $kode)
+            $wcDescriptions = workcenter::where('plant', $sapPlant)
                 ->get()
                 ->mapWithKeys(function ($item) {
                      return [strtoupper($item->kode_wc) => $item->description];
@@ -110,7 +106,7 @@ class CreateWiController extends Controller
                 $html = view('create-wi.partials.source_table_rows', [
                     'tData1' => $processedCollection,
                     'wcNames' => $wcNames, 
-                    'wcDescriptions' => $wcDescriptions, // Pass to partial
+                    'wcDescriptions' => $wcDescriptions,
                 ])->render();
                 return response()->json([
                     'html' => $html,
@@ -118,19 +114,28 @@ class CreateWiController extends Controller
                 ]);
             }
             
-            $allWorkcenters = workcenter::where('plant', $kode)->get();
+            $sectionWcIds = \App\Models\MappingTable::where('kode_laravel_id', $kodeModel->id)
+                ->pluck('workcenter_id')
+                ->toArray();
+            
+            $sectionWcs = workcenter::whereIn('id', $sectionWcIds)->get();
+
+            $neededParentIds = $workcenterMappings->filter(function($m) use ($sectionWcIds) {
+                return in_array($m->wc_anak_id, $sectionWcIds);
+            })->pluck('wc_induk_id')->unique();
+
+            $parentWcs = workcenter::whereIn('id', $neededParentIds)->get();
+            $allWorkcenters = $sectionWcs->merge($parentWcs)->unique('id');
             $parentWorkcenters = $this->buildWorkcenterHierarchy($allWorkcenters, $workcenterMappings);
-            $childCodes = $workcenterMappings->pluck('workcenter')
-                ->filter()
-                ->map(fn($code) => strtoupper($code))
-                ->unique()
-                ->all();
+            $childCodes = $workcenterMappings->flatMap(function($m) {
+                return $m->childWorkcenter ? [strtoupper($m->childWorkcenter->kode_wc)] : [];
+            })->unique()->all();
 
             $workcenters = $allWorkcenters->reject(function ($wc) use ($childCodes) {
                 return in_array(strtoupper($wc->kode_wc), $childCodes);
             });
             $capacityData = ProductionTData1::where('WERKSX', $kode)
-                ->whereRaw('MGVRG2 > LMNGA') // Only active items
+                ->whereRaw('MGVRG2 > LMNGA')
                 ->select('ARBPL', 'KAPAZ')
                 ->distinct()
                 ->get();
@@ -145,7 +150,7 @@ class CreateWiController extends Controller
                 'parentWorkcenters'    => $parentWorkcenters,
                 'capacityMap'          => $capacityMap,
                 'wcNames'              => $wcNames, 
-                'wcDescriptions'       => $wcDescriptions, // Pass Map
+                'wcDescriptions'       => $wcDescriptions,
                 'currentFilter'        => $filter,
                 'nextPage'             => $pagination->hasMorePages() ? 2 : null
             ]);
@@ -157,8 +162,6 @@ class CreateWiController extends Controller
 
     protected function getAssignedProQuantities(string $kodePlant)
     {
-        // [MODIFIKASI] Menggunakan filter document_date karena expired_at tidak ada
-        // Menggunakan relasi items
         $histories = HistoryWi::with('items')
                               ->where('plant_code', $kodePlant)
                               ->where('document_date', '>=', Carbon::today()) 
@@ -167,7 +170,7 @@ class CreateWiController extends Controller
         $assignedProQuantities = [];
 
         foreach ($histories as $history) {
-            $proItems = $history->items; // Menggunakan relasi HasMany
+            $proItems = $history->items;
             
             $isFullyCompleted = true;
             if ($proItems->isNotEmpty()) {
@@ -192,7 +195,6 @@ class CreateWiController extends Controller
                 }
             } else {
                 $isFullyCompleted = false;
-                // If header exists but no items, effectively 0 assignment logic, but loop below won't run anyway.
             }
             
             if ($isFullyCompleted) {
@@ -204,8 +206,6 @@ class CreateWiController extends Controller
                 $vornr = $item->vornr ?? ''; 
                 $assignedQty = (float) $item->assigned_qty;
                 $remarkQty = (float) $item->remark_qty; 
-                
-                // Subtract remark qty (failed items) so they become available again
                 $effectiveAssigned = max(0, $assignedQty - $remarkQty);
 
                 if ($aufnr) {
@@ -223,11 +223,10 @@ class CreateWiController extends Controller
     {
         set_time_limit(0);
         Log::info("==================================================");
-        Log::info("Memulai REFERESH DATA (WI) untuk Plant: {$kode}");
+        Log::info("Memulai REFERESH DATA (WI) untuk Plant: {$kode} via Service YPPR074Z");
         Log::info("==================================================");
 
         try {
-            // 1. Validasi Auth SAP
             if (!session('username') || !session('password')) {
                 return response()->json([
                     'success' => false, 
@@ -235,176 +234,29 @@ class CreateWiController extends Controller
                 ], 401);
             }
 
-            // 2. Ambil data dari API SAP
-            Log::info("[Refresh WI] Fetching from API SAP...");
-            $response = Http::timeout(3600)->withHeaders([
-                'X-SAP-Username' => session('username'),
-                'X-SAP-Password' => session('password'),
-            ])->get(env('FLASK_API_URL') . '/api/sap_combined', ['plant' => $kode]);
+            // Gunakan Service YPPR074Z
+            $service = new YPPR074Z();
+            $summary = $service->refreshAndStore($kode);
 
-            if (!$response->successful()) {
-                Log::error("[Refresh WI] Gagal ambil data SAP. Status: " . $response->status());
-                return response()->json([
-                    'success' => false, 
-                    'message' => 'Gagal mengambil data dari SAP (Status: ' . $response->status() . ')'
-                ], 500);
-            }
-            $payload = $response->json();
-            
-            // Helper format tanggal
-            $formatTanggal = function ($tgl) {
-                if (empty($tgl) || trim($tgl) === '00000000') return null;
-                try { return Carbon::createFromFormat('Ymd', $tgl)->format('d-m-Y'); }
-                catch (\Exception $e) { return null; }
-            };
-
-            // 3. Update Database
-            DB::transaction(function () use ($payload, $kode, $formatTanggal) {
-                $T_DATA = $T1 = $T2 = $T3 = $T4 = [];
-                $dataBlocks = $payload['results'] ?? [$payload];
-
-                foreach ($dataBlocks as $res) {
-                    if (!empty($res['T_DATA']))  $T_DATA = array_merge($T_DATA, $res['T_DATA']);
-                    if (!empty($res['T_DATA1'])) $T1 = array_merge($T1, $res['T_DATA1']);
-                    if (!empty($res['T_DATA2'])) $T2 = array_merge($T2, $res['T_DATA2']);
-                    if (!empty($res['T_DATA3'])) $T3 = array_merge($T3, $res['T_DATA3']);
-                    if (!empty($res['T_DATA4'])) $T4 = array_merge($T4, $res['T_DATA4']);
-                }
-
-                // Hapus Data Lama
-                ProductionTData4::where('WERKSX', $kode)->delete();
-                ProductionTData1::where('WERKSX', $kode)->delete();
-                ProductionTData3::where('WERKSX', $kode)->delete();
-                ProductionTData2::where('WERKSX', $kode)->delete();
-                ProductionTData::where('WERKSX', $kode)->delete();
-
-                // Grouping untuk Relasi
-                $t2_grouped = collect($T2)->groupBy(fn($item) => trim($item['KUNNR'] ?? '') . '-' . trim($item['NAME1'] ?? ''));
-                $t3_grouped = collect($T3)->groupBy(fn($item) => trim($item['KDAUF'] ?? '') . '-' . trim($item['KDPOS'] ?? ''));
-                $t1_grouped = collect($T1)->groupBy(fn($item) => trim($item['AUFNR'] ?? ''));
-                $t4_grouped = collect($T4)->groupBy(fn($item) => trim($item['AUFNR'] ?? ''));
-
-                // Array untuk tracking uniqueness
-                $seenTData  = []; 
-                $seenTData2 = [];
-                $seenTData3 = [];
-                $seenTData4 = []; 
-                $seenTData1 = []; 
-
-                // Insert Berjenjang
-                foreach ($T_DATA as $t_data_row) {
-                    $kunnr = trim((string)($t_data_row['KUNNR'] ?? ''));
-                    $name1 = trim((string)($t_data_row['NAME1'] ?? ''));
-                    if ($kunnr === '' && $name1 === '') continue;
-
-                    // 1. TData Unique Check
-                    $key_tdata = $name1 . '-' . $kunnr;
-                    if (isset($seenTData[$key_tdata])) continue;
-                    $seenTData[$key_tdata] = true;
-
-                    $t_data_row['KUNNR'] = $kunnr;
-                    $t_data_row['NAME1'] = $name1;
-                    $t_data_row['WERKSX'] = $kode;
-                    $t_data_row['EDATU'] = (empty($t_data_row['EDATU']) || trim($t_data_row['EDATU']) === '00000000') ? null : $t_data_row['EDATU'];
-
-                    $parentRecord = ProductionTData::create($t_data_row);
-                    
-                    $key_t2 = $kunnr . '-' . $name1;
-                    $children_t2 = $t2_grouped->get($key_t2, []);
-
-                    foreach ($children_t2 as $t2_row) {
-                        // 2. TData2 Unique Check
-                        $kdauf = trim($t2_row['KDAUF'] ?? '');
-                        $kdpos = trim($t2_row['KDPOS'] ?? '');
-                        if ($kdauf === '' && $kdpos === '') continue;
-
-                        $key_t2_unique = $kdauf . '-' . $kdpos;
-                        if (isset($seenTData2[$key_t2_unique])) continue;
-                        $seenTData2[$key_t2_unique] = true;
-
-                        $t2_row['WERKSX'] = $kode;
-                        $t2_row['EDATU'] = (empty($t2_row['EDATU']) || trim($t2_row['EDATU']) === '00000000') ? null : $t2_row['EDATU'];
-                        $t2_row['KUNNR'] = $parentRecord->KUNNR;
-                        $t2_row['NAME1'] = $parentRecord->NAME1;
-                        
-                        $t2Record = ProductionTData2::create($t2_row);
-                        
-                        $key_t3 = $kdauf . '-' . $kdpos;
-                        $children_t3 = $t3_grouped->get($key_t3, []);
-
-                        foreach ($children_t3 as $t3_row) {
-                            // 3. TData3 Unique Check
-                            $aufnr = trim($t3_row['AUFNR'] ?? '');
-                            if ($aufnr === '') continue;
-
-                            if (isset($seenTData3[$aufnr])) continue;
-                            $seenTData3[$aufnr] = true;
-
-                            $t3_row['WERKSX'] = $kode;
-                            $t3Record = ProductionTData3::create($t3_row);
-                            
-                            $key_t1_t4 = $aufnr;
-                            if (empty($key_t1_t4)) continue;
-
-                            $children_t1 = $t1_grouped->get($key_t1_t4, []);
-                            $children_t4 = $t4_grouped->get($key_t1_t4, []);
-                            
-                            foreach ($children_t1 as $t1_row) {
-                                // 5. TData1 Unique Check (AUFNR + VORNR)
-                                $vornr = trim($t1_row['VORNR'] ?? '');
-                                $key_t1_unique = $aufnr . '-' . $vornr;
-                                if (isset($seenTData1[$key_t1_unique])) continue;
-                                $seenTData1[$key_t1_unique] = true;
-
-                                $sssl1 = $formatTanggal($t1_row['SSSLDPV1'] ?? '');
-                                $sssl2 = $formatTanggal($t1_row['SSSLDPV2'] ?? '');
-                                $sssl3 = $formatTanggal($t1_row['SSSLDPV3'] ?? '');
-                                
-                                $partsPv1 = [];
-                                if (!empty($t1_row['ARBPL1'])) $partsPv1[] = strtoupper($t1_row['ARBPL1']);
-                                if (!empty($sssl1)) $partsPv1[] = $sssl1;
-                                $t1_row['PV1'] = !empty($partsPv1) ? implode(' - ', $partsPv1) : null;
-
-                                $partsPv2 = [];
-                                if (!empty($t1_row['ARBPL2'])) $partsPv2[] = strtoupper($t1_row['ARBPL2']);
-                                if (!empty($sssl2)) $partsPv2[] = $sssl2;
-                                $t1_row['PV2'] = !empty($partsPv2) ? implode(' - ', $partsPv2) : null;
-
-                                $partsPv3 = [];
-                                if (!empty($t1_row['ARBPL3'])) $partsPv3[] = strtoupper($t1_row['ARBPL3']);
-                                if (!empty($sssl3)) $partsPv3[] = $sssl3;
-                                $t1_row['PV3'] = !empty($partsPv3) ? implode(' - ', $partsPv3) : null;
-                                
-                                $t1_row['WERKSX'] = $kode; 
-                                ProductionTData1::create($t1_row);
-                            }
-                            
-                            foreach ($children_t4 as $t4_row) {
-                                // 4. TData4 Unique Check (AUFNR + RSNUM + RSPOS)
-                                $rsnum = trim($t4_row['RSNUM'] ?? '');
-                                $rspos = trim($t4_row['RSPOS'] ?? '');
-                                $key_t4_unique = $aufnr . '-' . $rsnum . '-' . $rspos;
-                                if (isset($seenTData4[$key_t4_unique])) continue;
-                                $seenTData4[$key_t4_unique] = true;
-
-                                $t4_row['WERKSX'] = $kode;
-                                ProductionTData4::create($t4_row);
-                            }
-                        }
-                    }
-                }
-            });
-
-            return response()->json(['success' => true, 'message' => 'Data berhasil di-refresh dari SAP.'], 200);
+            return response()->json([
+                'success' => true,
+                'message' => 'Data berhasil diperbaharui dari SAP.',
+                'details' => $summary
+            ]);
 
         } catch (\Exception $e) {
-            Log::error("[Refresh WI] Error: " . $e->getMessage());
+            Log::error('Error saat refresh data SAP:', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
             return response()->json([
                 'success' => false, 
-                'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+                'message' => 'Gagal memperbaharui data: ' . $e->getMessage()
             ], 500);
         }
     }
+
 
     public function releaseAndRefreshPro(Request $request)
     {
@@ -477,9 +329,11 @@ class CreateWiController extends Controller
         $parentHierarchy = [];
 
         foreach ($mappings as $mapping) {
-            $parentCode = strtoupper($mapping->wc_induk);
-            $childCode = $mapping->workcenter;
-            $childName = $mapping->nama_workcenter;
+            if (!$mapping->parentWorkcenter || !$mapping->childWorkcenter) continue;
+
+            $parentCode = strtoupper($mapping->parentWorkcenter->kode_wc);
+            $childCode = $mapping->childWorkcenter->kode_wc;
+            $childName = $mapping->childWorkcenter->description;
 
             if (!in_array($parentCode, $primaryWcCodes)) {
                 continue;
@@ -496,9 +350,10 @@ class CreateWiController extends Controller
             $isDuplicate = collect($parentHierarchy[$parentCode])->contains('code', $childCode);
 
             if (!$isDuplicate) {
+                // Determine capacity from primaryWCs or from child relation
                 $childWcObj = $primaryWCs->firstWhere('kode_wc', $childCode);
                 
-                $childKapaz = $childWcObj ? $childWcObj->KAPAZ : 0;
+                $childKapaz = $childWcObj ? $childWcObj->KAPAZ : ($mapping->childWorkcenter->capacity ?? 0);
 
                 $parentHierarchy[$parentCode][] = [
                     'code' => $childCode,
@@ -542,10 +397,6 @@ class CreateWiController extends Controller
         $wiDocuments = [];
 
         try {
-
-            // --- STRICT CAPACITY VALIDATION REMOVED (User Request 2026-01-03) ---
-
-
             foreach ($payload as $wcAllocation) {
                 $workcenterCode = $wcAllocation['workcenter'];
                 $rawItems = $wcAllocation['pro_items'] ?? [];
@@ -583,7 +434,7 @@ class CreateWiController extends Controller
                      }
                 }
                 
-                $wcAllocation['pro_items'] = array_values($mergedMap); // Reset keys
+                $wcAllocation['pro_items'] = array_values($mergedMap); 
                 Log::info("Final Items Count: " . count($wcAllocation['pro_items']));
 
                 DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, &$wiDocuments) {
@@ -732,16 +583,15 @@ class CreateWiController extends Controller
         $expiredWIDocuments = collect();  
         $completedWIDocuments = collect(); 
         
-        $workcenterMappings = WorkcenterMapping::where('plant', $plantCode)->get();
-        if ($workcenterMappings->isEmpty()) {
-             $workcenterMappings = WorkcenterMapping::where('kode_laravel', $plantCode)->get();
-        }
+        $workcenterMappings = WorkcenterMapping::with(['parentWorkcenter', 'childWorkcenter'])
+            ->where('kode_laravel_id', $nama_bagian ? $nama_bagian->id : null)
+            ->get();
 
         $wcNames = [];
 
         foreach ($workcenterMappings as $m) {
-            if ($m->wc_induk) $wcNames[strtoupper($m->wc_induk)] = $m->nama_wc_induk;
-            if ($m->workcenter) $wcNames[strtoupper($m->workcenter)] = $m->nama_workcenter;
+            if ($m->parentWorkcenter) $wcNames[strtoupper($m->parentWorkcenter->kode_wc)] = $m->parentWorkcenter->description;
+            if ($m->childWorkcenter) $wcNames[strtoupper($m->childWorkcenter->kode_wc)] = $m->childWorkcenter->description;
         }
 
         $childWorkcenters = workcenter::where('plant', $plantCode)
@@ -751,7 +601,10 @@ class CreateWiController extends Controller
                             });
         
         $allWcCodes = $workcenterMappings->flatMap(function($m) {
-            return [$m->wc_induk, $m->workcenter];
+            $codes = [];
+            if ($m->parentWorkcenter) $codes[] = $m->parentWorkcenter->kode_wc;
+            if ($m->childWorkcenter) $codes[] = $m->childWorkcenter->kode_wc;
+            return $codes;
         })->filter()->unique()->map(function($code) { return strtoupper($code); });
         
         // --- CAPACITY SOURCING FROM WORKCENTERS TABLE ---
@@ -772,15 +625,15 @@ class CreateWiController extends Controller
             $isParent = false;
             // Check if this WC code appears as 'wc_induk' for OTHERS
             $children = $workcenterMappings->filter(function($m) use ($wcCode) {
-                 return strtoupper($m->wc_induk) === $wcCode && 
-                        strtoupper($m->workcenter) !== $wcCode;
+                 return $m->parentWorkcenter && strtoupper($m->parentWorkcenter->kode_wc) === $wcCode && 
+                        $m->childWorkcenter && strtoupper($m->childWorkcenter->kode_wc) !== $wcCode;
             });
 
             if ($children->isNotEmpty()) {
                 // It is a Parent
                 $totalCap = 0;
                 foreach ($children as $child) {
-                    $cCode = strtoupper($child->workcenter);
+                    $cCode = strtoupper($child->childWorkcenter->kode_wc);
                     $totalCap += ($wcCapacityMap[$cCode] ?? 0);
                 }
                 $finalCap = $totalCap;

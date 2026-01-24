@@ -39,6 +39,12 @@ Route::post('/wc-relation', [App\Http\Controllers\WcRelationController::class, '
 Route::delete('/wc-relation/bulk-delete', [App\Http\Controllers\WcRelationController::class, 'bulkDestroy'])->name('wc-relation.bulk_destroy');
 Route::delete('/wc-relation/{id}', [App\Http\Controllers\WcRelationController::class, 'destroy'])->name('wc-relation.destroy');
 
+// Workcenter Mappings Parent-Child (CRUD)
+Route::get('/workcenter-mappings', [App\Http\Controllers\WorkcenterMappingController::class, 'index'])->name('workcenter-mapping.index');
+Route::post('/workcenter-mappings', [App\Http\Controllers\WorkcenterMappingController::class, 'store'])->name('workcenter-mapping.store');
+Route::delete('/workcenter-mappings/bulk-delete', [App\Http\Controllers\WorkcenterMappingController::class, 'bulkDestroy'])->name('workcenter-mapping.bulk_destroy');
+Route::delete('/workcenter-mappings/{id}', [App\Http\Controllers\WorkcenterMappingController::class, 'destroy'])->name('workcenter-mapping.destroy');
+
 Route::middleware('auth')->group(function (){
     Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
         Route::get('/dashboard/{kode}', [adminController::class, 'index'])->name('dashboard.show');
