@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use App\Models\wc_relations;
 use App\Models\workcenter;
+use App\Models\MappingTable;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ManufactController extends Controller
@@ -349,7 +350,14 @@ class ManufactController extends Controller
             ]);
         }
 
-        $mrpList = Mrp::where('kode', $kode)->pluck('mrp');
+        // [MODIFIKASI] Ambil MRP Via MappingTable
+        $mrpIds = MappingTable::where('kode_laravel_id', $kodeModel->id)
+                    ->whereNotNull('mrp_id')
+                    ->pluck('mrp_id');
+        
+        $mrpList = MRP::whereIn('id', $mrpIds)
+                        ->pluck('mrp')
+                        ->unique();
 
         if ($mrpList->isEmpty()) {
             return view('Admin.list-gr', [
@@ -717,10 +725,16 @@ class ManufactController extends Controller
              return redirect()->back()->with('error', 'Tanggal wajib ada.');
         }
 
-        // 1. Get MRP List for Plant (Scope Filtering)
-        $mrpList = [];
+        // 1. Get MRP List for Plant (Scope Filtering) via MappingTable
+        $mrpList = collect();
         if ($kode) {
-            $mrpList = \App\Models\MRP::where('kode', $kode)->pluck('mrp'); // Case sensitive filename
+            $kodeObj = KodeLaravel::where('laravel_code', $kode)->first();
+            if ($kodeObj) {
+                 $mrpIds = MappingTable::where('kode_laravel_id', $kodeObj->id)
+                            ->whereNotNull('mrp_id')
+                            ->pluck('mrp_id');
+                 $mrpList = MRP::whereIn('id', $mrpIds)->pluck('mrp'); // Case sensitive filename
+            }
         }
 
         // 2. Fetch Raw Data (Use Default Connection)

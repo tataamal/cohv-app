@@ -834,7 +834,7 @@ class adminController extends Controller
                 $sapPass
             );
 
-            $workCenters = WorkCenter::where('WERKSX', $werksCode)->orderBy('kode_wc')->get();
+            $workCenters = WorkCenter::where('plant', $werksCode)->orderBy('kode_wc')->get();
 
             return view('Admin.pro-transaction', [
                 'WERKS'          => $werksCode,

@@ -11,32 +11,37 @@ class WorkInstructionApiController extends Controller
 {
     public function getUniqueUnexpiredAufnrs()
     {
-        $unexpiredHistories = HistoryWi::where('expired_at', '>', Carbon::now())->where('document_date','<', Carbon::now())->get();
+        // [MODIFIKASI] Menggunakan relasi items dan menonaktifkan filter expired_at sementara (karena tidak ada di migration baru)
+        // Jika ada logika expiry baru, hubungkan di sini.
+        // Asumsi: Filter document_date masih valid.
+        $histories = HistoryWi::with('items')
+                        ->where('document_date', '<', Carbon::now())
+                        ->get();
+
         $groupedAufnrs = [];
         $allUniqueAufnrs = [];
 
-        foreach ($unexpiredHistories as $history) {
+        foreach ($histories as $history) {
             $wiCode = $history->wi_document_code;
-            $proItems = $history->payload_data;
+            
+            foreach ($history->items as $item) {
+                // Item adalah model HistoryWiItem
+                $aufnr = $item->aufnr ?? null;
+                $vornr = $item->vornr ?? null;
+                $status = $item->status_item ?? 'Created'; // Mapping: status_pro_wi -> status_item
 
-            if (is_array($proItems)) {
-                foreach ($proItems as $item) {
-                    $aufnr = $item['aufnr'] ?? null;
-                    $vornr = $item['vornr'] ?? null;
-                    $status = $item['status_pro_wi'] ?? 'Created';
-                    if ($aufnr && $status !== 'Completed') {
-                        if (!isset($groupedAufnrs[$wiCode])) {
-                            $groupedAufnrs[$wiCode] = [];
-                        }
-                        $uniqueKey = $aufnr . '_' . $vornr;
+                if ($aufnr && $status !== 'Completed') {
+                    if (!isset($groupedAufnrs[$wiCode])) {
+                        $groupedAufnrs[$wiCode] = [];
+                    }
+                    $uniqueKey = $aufnr . '_' . $vornr;
 
-                        if (!isset($allUniqueAufnrs[$uniqueKey])) {
-                            $groupedAufnrs[$wiCode][] = [
-                                'aufnr' => $aufnr,
-                                'vornr' => $vornr
-                            ];
-                            $allUniqueAufnrs[$uniqueKey] = true;
-                        }
+                    if (!isset($allUniqueAufnrs[$uniqueKey])) {
+                        $groupedAufnrs[$wiCode][] = [
+                            'aufnr' => $aufnr,
+                            'vornr' => $vornr
+                        ];
+                        $allUniqueAufnrs[$uniqueKey] = true;
                     }
                 }
             }
@@ -67,15 +72,22 @@ class WorkInstructionApiController extends Controller
             ], 400);
         }
 
-        $query = HistoryWi::where('expired_at', '>', Carbon::now())
-                          ->where('document_date','<', Carbon::now());
+        // [MODIFIKASI] Query structure update
+        $query = HistoryWi::with('items')
+                          ->where('document_date', '<', Carbon::now());
+        
+        // Note: Filter expired_at dihilangkan karena tidak ada kolom di tabel baru.
+        // Jika perlu, tambahkan logika status.
 
         if ($code) {
             $query->where('wi_document_code', $code);
         }
 
+        // Jika filter by NIK, kita filter di level query parent (whereHas) agar efisien
         if ($nik) {
-            $query->whereJsonContains('payload_data', [['nik' => $nik]]);
+            $query->whereHas('items', function($q) use ($nik) {
+                $q->where('nik', $nik);
+            });
         }
 
         $documents = $query->get();
@@ -83,48 +95,54 @@ class WorkInstructionApiController extends Controller
         if ($documents->isEmpty()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Dokumen WI tidak ditemukan, WI Inactive, expired, atau NIK tidak sesuai.'
+                'message' => 'Dokumen WI tidak ditemukan, WI Inactive, atau NIK tidak sesuai.'
             ], 404);
         }
-
 
         $hasAssignableItems = false;
         $allCompleted = false;
 
         $mappedDocuments = $documents->map(function ($doc) use ($nik, &$hasAssignableItems, &$allCompleted) {
-            $payload = $doc->payload_data;
+            // Filter items sesuai NIK (jika ada) dan Status
+            $rawItems = $doc->items;
 
             if ($nik) {
-                if (is_array($payload)) {
-                    $payload = array_values(array_filter($payload, function ($item) use ($nik) {
-                        return isset($item['nik']) && $item['nik'] === $nik;
-                    }));
-                }
+                $rawItems = $rawItems->where('nik', $nik);
             }
             
-            if (!empty($payload)) {
+            // Konversi collection model ke array untuk memproses logika selanjutnya
+            $proItems = [];
+            foreach ($rawItems as $item) {
+                // Map model fields to array structure expected by frontend (if needed)
+                // Atau biarkan apa adanya jika frontend adaptif
+                $itemArr = $item->toArray();
+                $itemArr['status_pro_wi'] = $item->status_item; // Forward compatibility mapping
+                $proItems[] = $itemArr;
+            }
+
+            if (!empty($proItems)) {
                 $hasAssignableItems = true;
 
-                $pendingItems = array_values(array_filter($payload, function ($item) {
-                     $status = $item['status_pro_wi'] ?? '';
+                $pendingItems = array_values(array_filter($proItems, function ($item) {
+                     $status = $item['status_item'] ?? '';
                      return !in_array($status, ['Completed', 'Completed With Remark']);
                 }));
 
-                if (empty($pendingItems) && !empty($payload)) {
+                if (empty($pendingItems) && !empty($proItems)) {
                     $allCompleted = true; 
                 }
                 
-                $payload = $pendingItems;
+                $proItems = $pendingItems;
             }
 
             return [
                 'wi_code' => $doc->wi_document_code,
                 'plant_code' => $doc->plant_code,
-                'workcenter_code' => $doc->workcenter_code,
+                'workcenter_code' => $doc->workcenter_induk, // Renamed
                 'document_date' => $doc->document_date,
                 'document_time' => $doc->document_time,
-                'expired_at' => $doc->expired_at,
-                'pro_items' => $payload,
+                'expired_at' => null, // Column removed
+                'pro_items' => $proItems,
             ];
         });
         
@@ -154,7 +172,7 @@ class WorkInstructionApiController extends Controller
     public function completeProStatus(Request $request)
     {
         $request->validate([
-            'wi_code' => 'required|string|exists:db_history_wi,wi_document_code',
+            'wi_code' => 'required|string|exists:history_wi,wi_document_code',
             'aufnr' => 'required|string',
             'confirmed_qty' => 'required|numeric', 
             'nik' => 'required|string',
@@ -174,78 +192,81 @@ class WorkInstructionApiController extends Controller
         try {
             DB::beginTransaction();
 
-            $document = HistoryWi::where('wi_document_code', $wiCode)->lockForUpdate()->first();
+            $document = HistoryWi::where('wi_document_code', $wiCode)->first();
 
             if (!$document) {
                 DB::rollBack();
                 return response()->json(['status' => 'error', 'message' => 'Dokumen WI tidak ditemukan.'], 404);
             }
 
-            $payload = $document->payload_data;
-            $updated = false;
-            $documentCompleted = false;
-            
-            foreach ($payload as $key => $item) {
-                if (($item['aufnr'] ?? null) === $aufnrToComplete && ($item['nik'] ?? null) === $nik && ($item['vornr'] ?? null) === $vornr) {
-                    
-                    $assignedQty = (float) ($item['assigned_qty'] ?? 0);
-                    $currentConfirmedQty = (float) ($item['confirmed_qty'] ?? 0);
+            // Cari Item spesifik
+            $item = $document->items()
+                        ->where('aufnr', $aufnrToComplete)
+                        ->where('vornr', $vornr)
+                        ->where('nik', $nik)
+                        ->lockForUpdate()
+                        ->first();
 
-                    if (($currentConfirmedQty + $confQty) > $assignedQty) {
-                        DB::rollBack();
-                        return response()->json([
-                            'status' => 'error', 
-                            'message' => "Total Qty konfirmasi ({$currentConfirmedQty} + {$confQty}) melebihi Qty dialokasikan ({$assignedQty})."
-                        ], 400);
-                    }
-
-                    $newConfirmedQty = $currentConfirmedQty + $confQty;
-                    $newConfirmedQty = round($newConfirmedQty, 4); 
-                    $assignedQty = round($assignedQty, 4);
-                    
-                    $payload[$key]['confirmed_qty'] = $newConfirmedQty;
-                    $payload[$key]['confirmed_qty'] = $newConfirmedQty;
-                    $payload[$key]['last_confirmed_at'] = Carbon::now()->toDateTimeString();
-                    $payload[$key]['last_confirmed_by_nik'] = $nik;
-
-                    $remarkQty = (float) ($item['remark_qty'] ?? 0);
-                    $totalProcessed = $newConfirmedQty + $remarkQty;
-                    $totalProcessed = round($totalProcessed, 4);
-
-                    if ($totalProcessed >= $assignedQty) {
-                         if ($remarkQty > 0 || !empty($item['remark'])) {
-                            $payload[$key]['status_pro_wi'] = 'Completed With Remark';
-                         } else {
-                            $payload[$key]['status_pro_wi'] = 'Completed';
-                         }
-                        $payload[$key]['completed_at'] = Carbon::now()->toDateTimeString();
-                        $payload[$key]['completed_by_nik'] = $nik;
-                        $documentCompleted = true;
-
-                    } elseif ($newConfirmedQty > 0 || $remarkQty > 0) {
-                        if ($remarkQty > 0 || !empty($item['remark'])) {
-                            $payload[$key]['status_pro_wi'] = 'Progress With Remark';
-                        } else {
-                            $payload[$key]['status_pro_wi'] = 'Progress';
-                        }
-                        $documentCompleted = false; 
-
-                    } else {
-                        $payload[$key]['status_pro_wi'] = 'Created';
-                    }
-                    
-                    $updated = true;
-                    break; 
-                }
-            }
-
-            if (!$updated) {
+            if (!$item) {
                 DB::rollBack();
                 return response()->json(['status' => 'error', 'message' => 'Kombinasi AUFNR, VORNR dan NIK tidak ditemukan di dalam dokumen ini.'], 404);
             }
+
+            $assignedQty = (float) $item->assigned_qty;
+            $currentConfirmedQty = (float) $item->confirmed_qty;
+
+            if (($currentConfirmedQty + $confQty) > $assignedQty) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error', 
+                    'message' => "Total Qty konfirmasi ({$currentConfirmedQty} + {$confQty}) melebihi Qty dialokasikan ({$assignedQty})."
+                ], 400);
+            }
+
+            $newConfirmedQty = $currentConfirmedQty + $confQty;
+            $newConfirmedQty = round($newConfirmedQty, 4); 
             
-            $document->payload_data = $payload;
-            $document->save();
+            $item->confirmed_qty = $newConfirmedQty;
+            
+            // Simpan info last confirmed di item_json atau kolom lain jika ada?
+            // Migration tidak punya kolom last_confirmed_at. Gunakan item_json.
+            $extraData = $item->item_json ? json_decode($item->item_json, true) : [];
+            $extraData['last_confirmed_at'] = Carbon::now()->toDateTimeString();
+            $extraData['last_confirmed_by_nik'] = $nik;
+            $item->item_json = json_encode($extraData);
+
+            $remarkQty = (float) $item->remark_qty;
+            $totalProcessed = $newConfirmedQty + $remarkQty;
+            $totalProcessed = round($totalProcessed, 4);
+
+            $documentCompleted = false;
+
+            if ($totalProcessed >= $assignedQty) {
+                 if ($remarkQty > 0 || !empty($item->remark_text)) {
+                    $item->status_item = 'Completed With Remark';
+                 } else {
+                    $item->status_item = 'Completed';
+                 }
+                // Simpan info completed di item_json
+                $extraData['completed_at'] = Carbon::now()->toDateTimeString();
+                $extraData['completed_by_nik'] = $nik;
+                $item->item_json = json_encode($extraData);
+                
+                $documentCompleted = true;
+
+            } elseif ($newConfirmedQty > 0 || $remarkQty > 0) {
+                if ($remarkQty > 0 || !empty($item->remark_text)) {
+                    $item->status_item = 'Progress With Remark';
+                } else {
+                    $item->status_item = 'Progress';
+                }
+                $documentCompleted = false; 
+
+            } else {
+                $item->status_item = 'Created';
+            }
+            
+            $item->save();
 
             DB::commit();
 
@@ -254,7 +275,7 @@ class WorkInstructionApiController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => "Status PRO {$aufnrToComplete} di dokumen {$wiCode} {$finalStatusMessage}",
-                'new_status' => $payload[$key]['status_pro_wi'] ?? 'Unknown',
+                'new_status' => $item->status_item ?? 'Unknown',
                 'confirmed_qty_total' => $newConfirmedQty,
                 'remark_qty' => $remarkQty,
                 'assigned_qty' => $assignedQty,
@@ -276,7 +297,7 @@ class WorkInstructionApiController extends Controller
             'vornr'       => 'required|string',
             'remark'      => 'nullable|string',
             'remark_qty'  => 'nullable|numeric',
-            'tag'         => 'nullable|string',   // ✅ tambahan
+            'tag'         => 'nullable|string',
         ]);
 
         $wiCode    = $request->input('wi_code');
@@ -285,142 +306,126 @@ class WorkInstructionApiController extends Controller
         $vornr     = $request->input('vornr');
         $remark    = $request->input('remark') ?? '';
         $remarkQty = $request->input('remark_qty') ?? 0;
-        $tag       = $request->input('tag') ?? ''; // ✅ tambahan
+        $tag       = $request->input('tag') ?? ''; 
 
         try {
             DB::beginTransaction();
 
-            $document = HistoryWi::where('wi_document_code', $wiCode)
-                ->lockForUpdate()
-                ->first();
+            $document = HistoryWi::where('wi_document_code', $wiCode)->first();
 
             if (!$document) {
                 DB::rollBack();
                 return response()->json(['message' => 'Document not found.'], 404);
             }
 
-            $payload = $document->payload_data;
-            if (!is_array($payload)) {
-                $payload = json_decode($payload, true) ?? [];
+            $item = $document->items()
+                        ->where('aufnr', $aufnr)
+                        ->where('vornr', $vornr)
+                        ->where('nik', $nik)
+                        ->lockForUpdate()
+                        ->first();
+
+            if (!$item) {
+                DB::rollBack();
+                return response()->json(['status' => 'error', 'message' => 'Item not found in payload.'], 404);
             }
 
-            $updated = false;
-            $key = null;
+            $existingRemarkQty = (float) $item->remark_qty;
+            $assignedQty       = (float) $item->assigned_qty;
+            $confirmedQty      = (float) $item->confirmed_qty;
 
-            foreach ($payload as $k => &$item) {
-                if (
-                    ($item['aufnr'] ?? '') === $aufnr &&
-                    ($item['vornr'] ?? '') === $vornr &&
-                    ($item['nik'] ?? '') === $nik
-                ) {
-                    $key = $k;
+            $inputRemarkQty = (float) $remarkQty;
+            $inputRemark    = $remark;
+            $inputTag       = $tag;
 
-                    $existingRemarkQty = (float) ($item['remark_qty'] ?? 0);
-                    $existingRemark    = $item['remark'] ?? '';
-                    $assignedQty       = (float) ($item['assigned_qty'] ?? 0);
-                    $confirmedQty      = (float) ($item['confirmed_qty'] ?? 0);
+            $newRemarkQty = $existingRemarkQty + $inputRemarkQty;
+            $totalProcessed = $confirmedQty + $newRemarkQty;
+            $totalProcessed = round($totalProcessed, 4);
 
-                    $inputRemarkQty = (float) $remarkQty;
-                    $inputRemark    = $remark;
-                    $inputTag       = $tag; // ✅ tambahan
+            if ($totalProcessed > $assignedQty) {
+                DB::rollBack();
+                $remaining = $assignedQty - $confirmedQty - $existingRemarkQty;
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Remark quantity exceeds remaining quantity. Existing Remark: {$existingRemarkQty}, Remaining allow: {$remaining}."
+                ], 400);
+            }
 
-                    $newRemarkQty = $existingRemarkQty + $inputRemarkQty;
-                    $totalProcessed = $confirmedQty + $newRemarkQty;
-                    $totalProcessed = round($totalProcessed, 4);
+            // Handle Remark History via item_json
+            $extraData = $item->item_json ? json_decode($item->item_json, true) : [];
+            $remarkHistory = $extraData['remark_history'] ?? [];
+            if (!is_array($remarkHistory)) $remarkHistory = [];
 
-                    if ($totalProcessed > $assignedQty) {
-                        DB::rollBack();
-                        $remaining = $assignedQty - $confirmedQty - $existingRemarkQty;
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => "Remark quantity exceeds remaining quantity. Existing Remark: {$existingRemarkQty}, Remaining allow: {$remaining}."
-                        ], 400);
-                    }
+            if (!empty($inputTag)) {
+                $item->tag = $inputTag;
+            }
 
-                    $remarkHistory = $item['remark_history'] ?? [];
-                    if (!is_array($remarkHistory)) $remarkHistory = [];
+            if ($inputRemarkQty > 0 || !empty($inputRemark) || !empty($inputTag)) {
+                $remarkHistory[] = [
+                    'qty'        => $inputRemarkQty,
+                    'remark'     => $inputRemark,
+                    'tag'        => $inputTag,
+                    'created_at' => Carbon::now()->toDateTimeString(),
+                    'created_by' => $request->input('nik') ?? 'System',
+                ];
+            }
 
-                    // ✅ simpan tag di item (latest tag)
-                    if (!empty($inputTag)) {
-                        $item['tag'] = $inputTag;
-                    } else {
-                        // optional: pastikan field ada walau kosong
-                        $item['tag'] = $item['tag'] ?? '';
-                    }
+            $extraData['remark_history'] = $remarkHistory;
+            $item->item_json = json_encode($extraData);
 
-                    // ✅ masuk history jika ada qty/remark/tag
-                    if ($inputRemarkQty > 0 || !empty($inputRemark) || !empty($inputTag)) {
-                        $remarkHistory[] = [
-                            'qty'        => $inputRemarkQty,
-                            'remark'     => $inputRemark,
-                            'tag'        => $inputTag, // ✅ tambahan
-                            'created_at' => Carbon::now()->toDateTimeString(),
-                            'created_by' => $request->input('nik') ?? 'System',
-                        ];
-                    }
+            // Build display string
+            $displayRemarks = [];
+            foreach ($remarkHistory as $h) {
+                $q = floatval($h['qty'] ?? 0);
+                $m = $h['remark'] ?? '-';
+                $t = $h['tag'] ?? '';
 
-                    $item['remark_history'] = $remarkHistory;
-
-                    // Build display string (tambahkan tag)
-                    $displayRemarks = [];
-                    foreach ($remarkHistory as $h) {
-                        $q = floatval($h['qty'] ?? 0);
-                        $m = $h['remark'] ?? '-';
-                        $t = $h['tag'] ?? '';
-
-                        // tampilkan kalau ada salah satu
-                        if ($q > 0 || !empty($m) || !empty($t)) {
-                            $tagText = !empty($t) ? " [{$t}]" : "";
-                            $displayRemarks[] = "Qty {$q}{$tagText}: {$m}";
-                        }
-                    }
-
-                    $newRemarkText = implode('; ', $displayRemarks);
-
-                    $item['remark_qty'] = $newRemarkQty;
-                    $item['remark'] = $newRemarkText;
-
-                    if ($totalProcessed >= $assignedQty) {
-                        if ($newRemarkQty > 0 || !empty($remarkHistory)) {
-                            $item['status_pro_wi'] = 'Completed With Remark';
-                        } else {
-                            $item['status_pro_wi'] = 'Completed';
-                        }
-                    } else {
-                        if ($newRemarkQty > 0 || !empty($remarkHistory)) {
-                            $item['status_pro_wi'] = 'Progress With Remark';
-                        } elseif ($confirmedQty > 0) {
-                            $item['status_pro_wi'] = 'Progress';
-                        } else {
-                            $item['status_pro_wi'] = 'Created';
-                        }
-                    }
-
-                    $updated = true;
-                    break;
+                if ($q > 0 || !empty($m) || !empty($t)) {
+                    $tagText = !empty($t) ? " [{$t}]" : "";
+                    $displayRemarks[] = "Qty {$q}{$tagText}: {$m}";
                 }
             }
 
-            if ($updated) {
-                $document->payload_data = $payload;
-                $document->save();
-                DB::commit();
+            $newRemarkText = implode('; ', $displayRemarks);
+            // Truncate if too long for DB column (30 chars in migration seems small for multiple remarks?)
+            // Migration: remark_text string(30). CAREFUL.
+            // If it's just 30 chars, we can't store full history string there.
+            // We should trust item_json for full history and maybe put summary or "see detail" in remark_text if it's strictly display.
+            // Or maybe migration was typo and it should be text?
+            // Assuming strict 30 char limit:
+            $item->remark_text = substr($newRemarkText, 0, 30); 
+            $item->remark_qty = $newRemarkQty;
 
-                return response()->json([
-                    'status'              => 'success',
-                    'message'             => 'Remark Added Successfully.',
-                    'new_status'          => $payload[$key]['status_pro_wi'] ?? 'Unknown',
-                    'confirmed_qty_total' => $confirmedQty,
-                    'remark_qty'          => $newRemarkQty,
-                    'tag'                 => $payload[$key]['tag'] ?? '', // ✅ tambahan
-                    'remark'              => $newRemarkText,
-                    'remark_history'      => $item['remark_history'] ?? [],
-                    'assigned_qty'        => $assignedQty,
-                ]);
+            if ($totalProcessed >= $assignedQty) {
+                if ($newRemarkQty > 0 || !empty($remarkHistory)) {
+                    $item->status_item = 'Completed With Remark';
+                } else {
+                    $item->status_item = 'Completed';
+                }
+            } else {
+                if ($newRemarkQty > 0 || !empty($remarkHistory)) {
+                    $item->status_item = 'Progress With Remark';
+                } elseif ($confirmedQty > 0) {
+                    $item->status_item = 'Progress';
+                } else {
+                    $item->status_item = 'Created';
+                }
             }
 
-            DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => 'Item not found in payload.'], 404);
+            $item->save();
+            DB::commit();
+
+            return response()->json([
+                'status'              => 'success',
+                'message'             => 'Remark Added Successfully.',
+                'new_status'          => $item->status_item ?? 'Unknown',
+                'confirmed_qty_total' => $confirmedQty,
+                'remark_qty'          => $newRemarkQty,
+                'tag'                 => $item->tag ?? '',
+                'remark'              => $newRemarkText,
+                'remark_history'      => $remarkHistory,
+                'assigned_qty'        => $assignedQty,
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -439,60 +444,54 @@ class WorkInstructionApiController extends Controller
             ], 400);
         }
 
-        // Find documents that contain this AUFNR in their payload
-        $documents = HistoryWi::whereJsonContains('payload_data', [['aufnr' => $aufnr]])
-                              ->orderBy('document_date', 'desc')
-                              ->orderBy('document_time', 'desc')
-                              ->get();
+        // Cari di tabel item
+        $items = \App\Models\HistoryWiItem::where('aufnr', $aufnr)
+                    ->with('wi') // Eager load parent
+                    ->get();
 
         $remarksData = [];
 
-        foreach ($documents as $doc) {
-            $payload = $doc->payload_data;
-            if (is_array($payload)) {
-                foreach ($payload as $item) {
-                     if (($item['aufnr'] ?? '') === $aufnr) {
-                         // Found the item
-                         $history = $item['remark_history'] ?? [];
-                         $legacyRemark = $item['remark'] ?? '';
-                         $legacyQty = $item['remark_qty'] ?? 0;
-                         
-                         // Extract Operator Info
-                         $operatorNik = $item['nik'] ?? '-';
-                         $operatorName = $item['name'] ?? '-';
-                         $operatorInfo = "{$operatorNik} - {$operatorName}";
+        foreach ($items as $item) {
+             $extraData = $item->item_json ? json_decode($item->item_json, true) : [];
+             $history = $extraData['remark_history'] ?? [];
+             $legacyRemark = $item->remark_text ?? '';
+             $legacyQty = (float) $item->remark_qty;
+             
+             // Extract Operator Info
+             $operatorNik = $item->nik ?? '-';
+             $operatorName = $item->name1 ?? '-'; // name1 field in table
+             $operatorInfo = "{$operatorNik} - {$operatorName}";
 
-                         // Update history items with operator info if missing or just override for display consistency
-                         foreach ($history as &$hItem) {
-                             $hItem['created_by'] = $operatorInfo;
-                         }
-                         unset($hItem); // break reference
+             // Update history items with operator info if missing
+             foreach ($history as &$hItem) {
+                 if (empty($hItem['created_by']) || $hItem['created_by'] === 'System') {
+                    $hItem['created_by'] = $operatorInfo;
+                 }
+             }
+             unset($hItem); 
 
-                         // Fallback for legacy data
-                         if (empty($history) && ($legacyQty > 0 || !empty($legacyRemark))) {
-                             $history[] = [
-                                 'qty' => $legacyQty,
-                                 'remark' => $legacyRemark,
-                                 'created_at' => $doc->created_at->toDateTimeString(),
-                                 'created_by' => $operatorInfo,
-                                 'is_legacy' => true
-                             ];
-                         }
+             // Fallback
+             if (empty($history) && ($legacyQty > 0 || !empty($legacyRemark))) {
+                 $history[] = [
+                     'qty' => $legacyQty,
+                     'remark' => $legacyRemark,
+                     'created_at' => $item->updated_at->toDateTimeString(), // Use updated_at as proxy
+                     'created_by' => $operatorInfo,
+                     'is_legacy' => true
+                 ];
+             }
 
-                         if (!empty($history)) {
-                             $remarksData[] = [
-                                 'wi_code' => $doc->wi_document_code,
-                                 'document_date' => \Carbon\Carbon::parse($doc->document_date)->format('Y-m-d'),
-                                 'vornr' => $item['vornr'] ?? '-', 
-                                 'material' => $item['material'] ?? '-', // Keep for legacy/fallback
-                                 'material_desc' => $item['material_desc'] ?? ($item['material'] ?? '-'),
-                                 'operator' => $operatorInfo,
-                                 'history' => $history
-                             ];
-                         }
-                     }
-                }
-            }
+             if (!empty($history)) {
+                 $remarksData[] = [
+                     'wi_code' => $item->wi ? $item->wi->wi_document_code : '-',
+                     'document_date' => $item->wi ? ($item->wi->document_date ? $item->wi->document_date->format('Y-m-d') : '-') : '-',
+                     'vornr' => $item->vornr ?? '-', 
+                     'material' => $item->material_number ?? '-', 
+                     'material_desc' => $item->material_desc ?? '-',
+                     'operator' => $operatorInfo,
+                     'history' => $history
+                 ];
+             }
         }
         
         return response()->json([

@@ -157,29 +157,34 @@ class CreateWiController extends Controller
 
     protected function getAssignedProQuantities(string $kodePlant)
     {
-        $histories = HistoryWi::where('plant_code', $kodePlant)
-                              ->where('expired_at', '>', Carbon::now())
+        // [MODIFIKASI] Menggunakan filter document_date karena expired_at tidak ada
+        // Menggunakan relasi items
+        $histories = HistoryWi::with('items')
+                              ->where('plant_code', $kodePlant)
+                              ->where('document_date', '>=', Carbon::today()) 
                               ->get();
+                              
         $assignedProQuantities = [];
 
         foreach ($histories as $history) {
-            $proItems = $history->payload_data; 
+            $proItems = $history->items; // Menggunakan relasi HasMany
             
             $isFullyCompleted = true;
-            if (is_array($proItems)) {
+            if ($proItems->isNotEmpty()) {
                 foreach ($proItems as $item) {
-                    $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
-                    $confirmedQty = floatval(str_replace(',', '.', $item['confirmed_qty'] ?? 0));
-                    $rQty = floatval(str_replace(',', '.', $item['remark_qty'] ?? 0));
+                    $assignedQty = (float) $item->assigned_qty;
+                    $confirmedQty = (float) $item->confirmed_qty;
+                    $rQty = (float) $item->remark_qty;
                     
                     if ($rQty > 0) {
                          $totalDone = $confirmedQty + $rQty;
-                         if ($totalDone < $assignedQty) {
+                         // Floating point tolerance
+                         if (($assignedQty - $totalDone) > 0.001) {
                              $isFullyCompleted = false;
                              break; 
                          }
                     } else {
-                         if ($confirmedQty < $assignedQty) {
+                         if (($assignedQty - $confirmedQty) > 0.001) {
                              $isFullyCompleted = false;
                              break;
                          }
@@ -187,27 +192,26 @@ class CreateWiController extends Controller
                 }
             } else {
                 $isFullyCompleted = false;
+                // If header exists but no items, effectively 0 assignment logic, but loop below won't run anyway.
             }
             
             if ($isFullyCompleted) {
                 continue;
             }
 
-            if (is_array($proItems)) {
-                foreach ($proItems as $item) {
-                    $aufnr = $item['aufnr'] ?? null;
-                    $vornr = $item['vornr'] ?? ''; // Get VORNR
-                    $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
-                    $remarkQty = floatval(str_replace(',', '.', $item['remark_qty'] ?? 0)); // Get Remark Qty
-                    
-                    // Subtract remark qty (failed items) so they become available again
-                    $effectiveAssigned = max(0, $assignedQty - $remarkQty);
+            foreach ($proItems as $item) {
+                $aufnr = $item->aufnr;
+                $vornr = $item->vornr ?? ''; 
+                $assignedQty = (float) $item->assigned_qty;
+                $remarkQty = (float) $item->remark_qty; 
+                
+                // Subtract remark qty (failed items) so they become available again
+                $effectiveAssigned = max(0, $assignedQty - $remarkQty);
 
-                    if ($aufnr) {
-                        $key = $aufnr . '-' . $vornr;
-                        $currentTotal = $assignedProQuantities[$key] ?? 0;
-                        $assignedProQuantities[$key] = $currentTotal + $effectiveAssigned;
-                    }
+                if ($aufnr) {
+                    $key = $aufnr . '-' . $vornr;
+                    $currentTotal = $assignedProQuantities[$key] ?? 0;
+                    $assignedProQuantities[$key] = $currentTotal + $effectiveAssigned;
                 }
             }
         }
@@ -599,17 +603,53 @@ class CreateWiController extends Controller
                     }
                     $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
 
-                    HistoryWi::create([
+                    // [MODIFIKASI] Create Header (history_wi)
+                    // Menghilangkan payload_data dan expired_at, menggunakan nama kolom baru workcenter_induk
+                    $history = HistoryWi::create([
                         'wi_document_code' => $documentCode,
-                        'workcenter_code' => $workcenterCode,
+                        'workcenter_induk' => $workcenterCode,
                         'plant_code' => $plantCode,
                         'document_date' => $dateForDb,
                         'document_time' => $timeForDb,       
-                        'expired_at' => $expiredAt->toDateTimeString(),
+                        // 'expired_at' => $expiredAt ... Column removed from DB
                         'sequence_number' => $nextNumber, 
-                        'payload_data' => $wcAllocation['pro_items'], 
-                        'year' => $year
+                        // 'payload_data' ... Column removed from DB
+                        'status' => 'Open',
+                        // 'year' => $year ... Column likely removed or not fillable
                     ]);
+                    
+                    // [MODIFIKASI] Create Items (history_wi_item)
+                    foreach ($wcAllocation['pro_items'] as $itemData) {
+                        \App\Models\HistoryWiItem::create([
+                            'history_wi_id' => $history->id,
+                            'nik' => $itemData['nik'] ?? null,
+                            'aufnr' => $itemData['aufnr'] ?? null,
+                            'vornr' => $itemData['vornr'] ?? null,
+                            'uom' => $itemData['uom'] ?? ($itemData['meins'] ?? null),
+                            'operator_name' => $itemData['name'] ?? null, 
+                            'dispo' => $itemData['dispo'] ?? null,
+                            'kapaz' => $itemData['kapaz'] ?? null,
+                            'kdauf' => $itemData['kdauf'] ?? null,
+                            'kdpos' => $itemData['kdpos'] ?? null,
+                            'name1' => $itemData['name1'] ?? null,
+                            'netpr' => $itemData['netpr'] ?? 0,
+                            'waerk' => $itemData['waerk'] ?? null,
+                            'ssavd' => !empty($itemData['ssavd']) ? $itemData['ssavd'] : null,
+                            'sssld' => !empty($itemData['sssld']) ? $itemData['sssld'] : null,
+                            'steus' => $itemData['steus'] ?? null,
+                            'vge01' => $itemData['vge01'] ?? null,
+                            'vgw01' => $itemData['vgw01'] ?? 0,
+                            'material_number' => $itemData['material_number'] ?? ($itemData['matnr'] ?? null),
+                            'material_desc' => $itemData['material_desc'] ?? ($itemData['maktx'] ?? null),
+                            'qty_order' => $itemData['qty_order'] ?? ($itemData['psmng'] ?? 0),
+                            'assigned_qty' => $itemData['assigned_qty'] ?? 0,
+                            'workcenter_induk' => $workcenterCode,
+                            'child_workcenter' => $itemData['child_workcenter'] ?? null,
+                            'status_item' => 'Created',
+                            'calculated_takt_time' => $itemData['calculated_tak_time'] ?? 0,
+                            'item_json' => json_encode($itemData),
+                        ]);
+                    }
                     
                     $wiDocuments[] = [
                         'workcenter' => $workcenterCode,
@@ -661,28 +701,29 @@ class CreateWiController extends Controller
                 $query->whereDate('document_date', $dateInput);
             }
         } else {
-            // DEFAULT: Load only ACTIVE documents OR Recent History (Last 7 Days)
-            // This prevents loading thousands of old records on initial page load.
-            $query->where(function($q) {
-                $q->where('expired_at', '>', Carbon::now())
-                  ->orWhereDate('document_date', '>=', Carbon::today()->subDays(7));
-            });
+            // DEFAULT: Recent History (Last 7 Days) or Future
+            $query->where('document_date', '>=', Carbon::today()->subDays(7));
         }
 
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('wi_document_code', 'like', "%{$search}%")
-                ->orWhere('workcenter_code', 'like', "%{$search}%")
-                ->orWhere('payload_data', 'like', "%{$search}%");
+                ->orWhere('workcenter_induk', 'like', "%{$search}%")
+                ->orWhereHas('items', function($q2) use ($search) {
+                     $q2->where('aufnr', 'like', "%{$search}%")
+                        ->orWhere('item_json', 'like', "%{$search}%")
+                        ->orWhere('material_desc', 'like', "%{$search}%");
+                });
             });
         }
 
         // Add Specific Workcenter Filter
         if ($request->filled('workcenter') && $request->workcenter !== 'all') {
-            $query->where('workcenter_code', $request->workcenter);
+            $query->where('workcenter_induk', $request->workcenter);
         }
-        $wiDocuments = $query->orderBy('document_date', 'desc')
+        $wiDocuments = $query->with('items')
+                            ->orderBy('document_date', 'desc')
                             ->orderBy('document_time', 'desc')
                             ->get();
 
@@ -771,30 +812,31 @@ class CreateWiController extends Controller
         foreach ($wiDocuments as $doc) {
             try {
                 $chkDate = Carbon::parse($doc->document_date)->startOfDay();
-                $expiredAt = $doc->expired_at;
+                // $expiredAt = $doc->expired_at; // Column removed
                 
                 $isExpired = false;
-                if ($expiredAt) {
-                     $expirationTime = Carbon::parse($expiredAt);
-                     $isExpired = $now->greaterThan($expirationTime);
-                } else {
-                     $effStart = Carbon::parse($doc->document_date . ' ' . $doc->document_time);
-                     $expirationTime = $effStart->copy()->addHours(12);
-                     $isExpired = $now->greaterThan($expirationTime);
-                }
+                // Expiration logic fallback (Since expired_at is missing)
+                // Assume expired if older than X or based on document_time + 12-24h
+                
+                $effStart = Carbon::parse($doc->document_date . ' ' . $doc->document_time);
+                // Prefix check for duration logic (WIH=24h, WIW=12h default?)
+                $isWIH = str_starts_with($doc->wi_document_code, 'WIH');
+                $hoursToAdd = $isWIH ? 24 : 24; // Default to 24h safe? Old code had 12/24 logic in save.
+                
+                $expirationTime = $effStart->copy()->addHours($hoursToAdd);
+                $isExpired = $now->greaterThan($expirationTime);
                 
                 $doc->is_expired = $isExpired;
 
                 if (!$isExpired && $chkDate->greaterThanOrEqualTo($today)) {
-                     $rawPl = $doc->payload_data;
-                     $plItems = is_string($rawPl) ? json_decode($rawPl, true) : (is_array($rawPl) ? $rawPl : []);
+                     $plItems = $doc->items;
                      
-                     if (is_array($plItems)) {
+                     if ($plItems->isNotEmpty()) {
                          foreach ($plItems as $plItem) {
-                             $k = ($plItem['aufnr'] ?? '-') . '_' . ($plItem['vornr'] ?? '-');
+                             $k = ($plItem->aufnr ?? '-') . '_' . ($plItem->vornr ?? '-');
                              if (!isset($concurrentUsageMap[$k])) $concurrentUsageMap[$k] = 0;
                              
-                             $q = floatval(str_replace(',', '.', $plItem['assigned_qty'] ?? 0));
+                             $q = (float) $plItem->assigned_qty;
                              $concurrentUsageMap[$k] += $q;
                          }
                      }

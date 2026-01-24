@@ -97,6 +97,7 @@ Route::middleware('auth')->group(function (){
     Route::post('/api/bulk/bulk-change-pv', [bulkController::class, 'handleBulkChangeAndRefresh'])->name('bulk.change-pv');
     Route::post('/api/bulk/bulk-change-quantity', [bulkController::class, 'bulkChangeQuantity'])->name('bulk.change-quantity');
     Route::post('/api/bulk/bulk-teco', [bulkController::class, 'processBulkTeco'])->name('bulk.teco');
+    Route::post('/api/bulk/bulk-release', [bulkController::class, 'handleBulkRelease'])->name('bulk.release'); // [NEW] Bulk Release
     Route::post('/api/bulk/delete-data', [bulkController::class, 'deleteData'])->name('bulk.delete-data');
     Route::post('/api/bulk/bulk-readpp-pro', [bulkController::class, 'processBulkReadPp'])->name('bulk.readpp-pro');
     Route::post('/bulk-change-and-refresh', [bulkController::class, 'handleBulkChangeAndRefresh']);

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\ProductionTData3;
-use App\Models\Kode;
+use App\Models\KodeLaravel;
 use Illuminate\View\View;
 use Carbon\Carbon;
 
@@ -30,9 +30,10 @@ class MonitoringProController extends Controller
         $createdProCount = $baseQuery->clone()->where('STATS', 'CRTD')->count();
         $pros = $baseQuery->clone()->orderBy('AUFNR', 'desc')->get();
 
-        $kategori = Kode::where('kode', $kode)->value('kategori');
-        $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
-        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
+        $kodeInfo = KodeLaravel::where('laravel_code', $kode)->first();
+        $kategori = $kodeInfo->plant ?? '-';
+        $sub_kategori = $kodeInfo->description ?? '-';
+        $nama_bagian = $kodeInfo->description ?? '-';
 
         return view('Features.monitoring-pro', [
             'activeKode' => $kode,

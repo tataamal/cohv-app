@@ -32,10 +32,10 @@
                     </div>
                     <div class="card-body d-flex flex-wrap" style="gap: 10px;">
                         <button class="btn btn-warning " id="bulkRescheduleBtn" disabled>
-                            <i class="fas fa-calendar-alt"></i> Rechedule PRO
+                            <i class="fas fa-calendar-alt"></i> Rechedule
                         </button>
                         <button class="btn btn-info" id="bulkRefreshBtn" disabled>
-                            <i class="fa-solid fa-arrows-rotate"></i> Refresh PRO
+                            <i class="fa-solid fa-arrows-rotate"></i> Refresh
                         </button>
                         <button class="btn btn-warning" id="bulkChangePv" disabled>
                             <i class="fa-solid fa-code-compare"></i> Change PV
@@ -44,10 +44,13 @@
                             <i class="fas fa-book-open"></i> READ PP
                         </button>
                         <button class="btn btn-warning" id="bulkChangeQty" disabled>
-                            <i class="fa-solid fa-file-pen"></i> change Quantity
+                            <i class="fa-solid fa-file-pen"></i> Change Quantity
                         </button>
                         <button class="btn btn-danger text-white" id="bulkTecoBtn" disabled>
                             <i class="fas fa-trash"></i> TECO
+                        </button>
+                        <button class="btn btn-success text-white" id="bulkReleaseBtn" disabled>
+                            <i class="fas fa-check"></i> Release
                         </button>
                     </div>
                 </div>
@@ -94,7 +97,7 @@
                                         
                                         {{-- Checkbox individual dengan style kustom --}}
                                         <div class="form-check custom-checkbox-container px-3">
-                                            <input class="form-check-input pro-checkbox" type="checkbox" value="{{ $pro->AUFNR }}" id="{{ $proId }}">
+                                            <input class="form-check-input pro-checkbox" type="checkbox" value="{{ $pro->AUFNR }}" data-stats="{{ $pro->STATS }}" id="{{ $proId }}">
                                             <label class="form-check-label" for="{{ $proId }}"></label>
                                         </div>
 
@@ -266,6 +269,186 @@
     @include('components.modals.pro-transaction.confirmation-modal')
     @push('scripts')
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const bulkReleaseBtn = document.getElementById('bulkReleaseBtn');
+                
+                if (bulkReleaseBtn) {
+                    bulkReleaseBtn.addEventListener('click', async function() {
+                        const selectedCheckboxes = document.querySelectorAll('.pro-checkbox:checked');
+                        let validPros = [];
+                        let invalidPros = [];
+                        
+                        selectedCheckboxes.forEach(cb => {
+                            const aufnr = cb.value;
+                            const stats = cb.getAttribute('data-stats');
+                            
+                            if (stats === 'CRTD') {
+                                validPros.push(aufnr);
+                            } else {
+                                invalidPros.push({ aufnr: aufnr, stats: stats });
+                            }
+                        });
+
+                        if (validPros.length === 0 && invalidPros.length === 0) {
+                            Swal.fire('Info', 'Please select at least one PRO.', 'info');
+                            return;
+                        }
+
+                        if (invalidPros.length > 0) {
+                            const invalidList = invalidPros.map(p => `PRO ${p.aufnr} (Status: ${p.stats})`).join('<br>');
+                            const result = await Swal.fire({
+                                icon: 'warning',
+                                title: 'Invalid Status Detected',
+                                html: `The following PROs are not in <b>CRTD</b> status and will be skipped:<br><br><small>${invalidList}</small><br><br>Do you want to proceed with the remaining <b>${validPros.length}</b> valid PROs?`,
+                                showCancelButton: true,
+                                confirmButtonText: 'Yes, Proceed',
+                                cancelButtonText: 'Cancel'
+                            });
+
+                            if (!result.isConfirmed) return;
+                        }
+
+                        if (validPros.length === 0) {
+                            Swal.fire('Info', 'No valid PROs to release.', 'info');
+                            return;
+                        }
+
+                        // Modern UI Setup
+                        const total = validPros.length;
+                        let processed = 0;
+                        
+                        // Show Modal (Non-blocking)
+                        Swal.fire({
+                            title: 'Processing Bulk Release',
+                            html: `
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span class="text-muted small">Progress</span>
+                                        <span class="text-muted small" id="swal-progress-text">0 / ${total}</span>
+                                    </div>
+                                    <div class="progress" style="height: 10px;">
+                                        <div id="swal-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div id="swal-log-container" class="border rounded bg-dark text-light p-2 text-start small font-monospace" style="height: 200px; overflow-y: auto; font-size: 0.85em;">
+                                    <div class="text-secondary">> Initializing process...</div>
+                                </div>
+                            `,
+                            allowOutsideClick: false,
+                            showConfirmButton: false, // Initially hidden
+                            didOpen: () => {
+                                // Swal.showLoading(); 
+                            }
+                        }).then((result) => {
+                            // Reload page when user finally clicks "Close/OK"
+                            if (result.isConfirmed) {
+                                window.location.reload();
+                            }
+                        });
+
+                        try {
+                            const response = await fetch("{{ route('bulk.release') }}", {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': "{{ csrf_token() }}"
+                                },
+                                body: JSON.stringify({
+                                    pro_list: validPros,
+                                    plant: "{{ $WERKS }}"
+                                })
+                            });
+
+                            const reader = response.body.getReader();
+                            const decoder = new TextDecoder();
+                            let buffer = '';
+
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                
+                                buffer += decoder.decode(value, { stream: true });
+                                const lines = buffer.split('\n');
+                                buffer = lines.pop(); // Keep incomplete line
+
+                                for (const line of lines) {
+                                    if (!line.trim()) continue;
+                                    try {
+                                        const data = JSON.parse(line);
+                                        const container = Swal.getHtmlContainer();
+                                        const logDiv = container ? container.querySelector('#swal-log-container') : null;
+                                        const progressBar = container ? container.querySelector('#swal-progress-bar') : null;
+                                        const progressText = container ? container.querySelector('#swal-progress-text') : null;
+
+                                        let logColor = 'text-light'; // Default white
+                                        if(data.type === 'error') logColor = 'text-danger';
+                                        if(data.type === 'success') logColor = 'text-success';
+                                        if(data.type === 'progress') logColor = 'text-info';
+
+                                        // Update counts on completion events
+                                        if (['success', 'error'].includes(data.type)) {
+                                            processed++;
+                                        }
+
+                                        // Update Log
+                                        if (logDiv) {
+                                            const time = new Date().toLocaleTimeString('id-ID');
+                                            logDiv.innerHTML += `<div class="${logColor}">[${time}] ${data.message}</div>`;
+                                            logDiv.scrollTop = logDiv.scrollHeight;
+                                        }
+
+                                        // Update Progress Bar
+                                        if (progressBar && progressText) {
+                                            const percent = Math.min(100, Math.round((processed / total) * 100));
+                                            progressBar.style.width = percent + '%';
+                                            progressText.textContent = `${processed} / ${total}`;
+                                        }
+
+                                        if (data.type === 'summary') {
+                                            // Preserve current HTML content to prevent wipe on re-render
+                                            const currentContent = Swal.getHtmlContainer().innerHTML;
+
+                                            Swal.update({
+                                                icon: data.failed > 0 ? 'warning' : 'success',
+                                                title: data.failed > 0 ? 'Completed with Errors' : 'Process Completed',
+                                                showConfirmButton: true,
+                                                confirmButtonText: 'Close & Refresh',
+                                                html: currentContent
+                                            });
+                                            
+                                            // Re-select log div after update/render
+                                            const newContainer = Swal.getHtmlContainer();
+                                            const newLogDiv = newContainer ? newContainer.querySelector('#swal-log-container') : null;
+
+                                            if (newLogDiv) {
+                                                newLogDiv.innerHTML += `<div class="text-warning mt-2 border-top pt-1">> ${data.message}</div>`;
+                                                newLogDiv.scrollTop = newLogDiv.scrollHeight;
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.error('JSON Parse Error', e);
+                                    }
+                                }
+                            }
+
+                        } catch (error) {
+                            Swal.update({
+                                icon: 'error',
+                                title: 'System Error',
+                                showConfirmButton: true,
+                                confirmButtonText: 'Close'
+                            });
+                             const container = Swal.getHtmlContainer();
+                             const logDiv = container ? container.querySelector('#swal-log-container') : null;
+                             if (logDiv) {
+                                logDiv.innerHTML += `<div class="text-danger fw-bold">!! NETWORK/SERVER ERROR: ${error.message} !!</div>`;
+                             }
+                        }
+                    });
+                }
+            });
+        </script>
     @endpush
 
 </x-layouts.app>

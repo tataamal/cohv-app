@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use App\Models\Cogi;
-use App\Models\Kode;
+use App\Models\KodeLaravel;
 use App\Models\MRP;
 use Carbon\Carbon;
 
@@ -26,7 +26,7 @@ class CogiController extends Controller
             default => $kode
         };
 
-        $kodeModels = Kode::where('kode', $kode)->get();
+        $kodeModels = KodeLaravel::where('laravel_code', $kode)->get();
         $mrpList = [];
         $kategori = null;
         $sub_kategori = null;
@@ -34,15 +34,23 @@ class CogiController extends Controller
         
         if ($kodeModels->isNotEmpty()) {
             
-            $kodeIds = $kodeModels->pluck('kode');
-            $mrpList = MRP::whereIn('kode', $kodeIds)
+            $kodeLaravelIds = $kodeModels->pluck('id');
+            
+            // Ambil mrp_id dari MappingTable
+            $mrpIds = \App\Models\MappingTable::whereIn('kode_laravel_id', $kodeLaravelIds)
+                        ->whereNotNull('mrp_id')
+                        ->pluck('mrp_id');
+
+            // Ambil kode MRP sebenarnya (string) dari tabel MRP
+            $mrpList = MRP::whereIn('id', $mrpIds)
                             ->pluck('mrp')
                             ->unique()
                             ->toArray();
+
             $firstKodeModel = $kodeModels->first();
-            $kategori = $firstKodeModel->kategori;
-            $sub_kategori = $firstKodeModel->sub_kategori;
-            $nama_bagian = $firstKodeModel->nama_bagian;
+            $kategori = $firstKodeModel->plant;
+            $sub_kategori = $firstKodeModel->description;
+            $nama_bagian = $firstKodeModel->description;
         }
 
         $baseQuery = Cogi::query();
