@@ -13,7 +13,7 @@ use App\Models\KodeLaravel;
 use Illuminate\Support\Facades\Log;
 use App\Models\UserSap;
 use App\Models\workcenter;
-use App\Models\WorkcenterMapping;
+
 use App\Models\MappingTable;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Redirect;
@@ -22,21 +22,31 @@ class adminController extends Controller
 {
     public function index(Request $request, $kode)
     {
-        $childCodes = WorkcenterMapping::where('plant', $kode)
-            ->orWhere('kode_laravel', $kode)
-            ->pluck('workcenter')
-            ->filter()
-            ->map(fn($code) => strtoupper($code))
-            ->unique();
+        // 1. Identifikasi User SAP yang login
+        $user = Auth::user();
+        if (!$user) {
+             return redirect()->route('login');
+        }
+        $sapId = str_replace('@kmi.local', '', $user->email);
+        $userSap = UserSap::where('user_sap', $sapId)->first();
 
-        $allWcQuery = DB::table('workcenters')
-            ->select('kode_wc', 'description')
-            ->where('plant', $kode);
+        // 2. Identifikasi Kode Laravel (Bagian)
+        $kodeLaravel = KodeLaravel::where('laravel_code', $kode)->first();
 
-        $realPlant = DB::table('workcenters')->where('plant', $kode)->value('plant');
+        if (!$userSap || !$kodeLaravel) {
+            // Setup fallback jika user/kode tidak valid, atau return error page
+            // Untuk saat ini kita set query kosong agar tidak error
+            $allWcQuery = DB::table('workcenters')->whereRaw('1 = 0');
+        } else {
+             // 3. Ambil ID Workcenter dari MappingTable
+             $validWorkcenterIds = MappingTable::where('user_sap_id', $userSap->id)
+                ->where('kode_laravel_id', $kodeLaravel->id)
+                ->pluck('workcenter_id');
 
-        if (!in_array($realPlant, ['1000', '1001', '2000'])) {
-            $allWcQuery->whereNotIn(DB::raw('UPPER(kode_wc)'), $childCodes);
+             // 4. Query Workcenter berdasarkan ID yang valid dari mapping
+             $allWcQuery = DB::table('workcenters')
+                ->select('kode_wc', 'description')
+                ->whereIn('id', $validWorkcenterIds);
         }
 
         $statsPerWc = DB::table(DB::raw("({$allWcQuery->toSql()}) as master_wc"))
@@ -142,7 +152,7 @@ class adminController extends Controller
         ];
         
         $nama_bagian = KodeLaravel::where('laravel_code', $kode)->value('description');
-        $sub_kategori = null; // KodeLaravel does not have sub_kategori
+        $sub_kategori = $nama_bagian; // Set sub_kategori to description as requested
         $kategori = KodeLaravel::where('laravel_code', $kode)->value('plant');
         
         // A. PENANGANAN AJAX LOAD MORE (Untuk Infinite Scroll)
@@ -194,6 +204,8 @@ class adminController extends Controller
 
             if ($section === 'total_pro') {
                 $searchTotalPro = $request->input('search_total_pro');
+                $searchDateTotalPro = $request->input('search_date_total_pro');
+                $searchStatusTotalPro = $request->input('search_status_total_pro'); // Capture Status Filter
                 
                 // Advanced Filters
                 $advAufnr = $request->input('adv_aufnr');
@@ -201,25 +213,53 @@ class adminController extends Controller
                 $advMaktx = $request->input('adv_maktx');
                 $advArbpl = $request->input('adv_arbpl');
                 $advKdauf = $request->input('adv_kdauf');
-                $advKdpos = $request->input('adv_kdpos');
+                // $advKdpos removed merged into advKdauf
 
                 // Debug Logging
                 if ($request->ajax()) {
                     Log::info("[Dashboard Search] Params:", $request->all());
                 }
 
-                $hasAdvancedFilters = $advAufnr || $advMatnr || $advMaktx || $advArbpl || $advKdauf || $advKdpos;
+                $hasAdvancedFilters = $advAufnr || $advMatnr || $advMaktx || $advArbpl || $advKdauf;
 
                 $allProData = ProductionTData3::where('WERKSX', $kode)
+                    ->when($searchStatusTotalPro, function ($query, $status) {
+                        return $query->where('STATS', $status);
+                    })
+                    ->when($searchDateTotalPro, function ($query, $date) {
+                        if (str_contains($date, ' to ')) {
+                            $parts = explode(' to ', $date);
+                            if (count($parts) === 2) {
+                                return $query->whereBetween('GSTRP', [trim($parts[0]), trim($parts[1])]);
+                            }
+                        }
+                        return $query->whereDate('GSTRP', $date);
+                    })
                     ->when($searchTotalPro, function ($query, $term) {
                         return $query->where(function($q) use ($term) {
+                            // Check for specific SO-Item pattern (e.g. 1020003662-60)
+                            if (str_contains($term, '-')) {
+                                $parts = explode('-', $term);
+                                if (count($parts) >= 2) {
+                                    $soPart = trim($parts[0]);
+                                    $itemPart = trim($parts[1]);
+                                    
+                                    // Try strict search if looks like valid SO/Item
+                                    $q->where(function($sub) use ($soPart, $itemPart) {
+                                        // Basic match logic
+                                        $sub->where('KDAUF', 'like', "%{$soPart}%")
+                                            ->where('KDPOS', 'like', "%{$itemPart}%");
+                                    });
+                                    return; // Return early
+                                }
+                            }
+
                             $q->where('AUFNR', 'like', "%{$term}%")
                               ->orWhere('KDAUF', 'like', "%{$term}%")
-                              ->orWhere('MATNR', 'like', "%{$term}%")
                               ->orWhere('MAKTX', 'like', "%{$term}%")
-                              ->orWhere('STATS', 'like', "%{$term}%")
-                              ->orWhere('KDPOS', 'like', "%{$term}%")
-                              ->orWhere('DISPO', 'like', "%{$term}%");
+                              ->orWhere('DISPO', 'like', "%{$term}%")
+                              ->orWhere('MATNR', 'like', "%{$term}%")
+                              ->orWhere('STATS', 'like', "%{$term}%");
                         });
                     })
                     // --- ADVANCED FILTERS START (AND LOGIC) ---
@@ -277,28 +317,36 @@ class adminController extends Controller
                     })
                     ->when($advKdauf, function($query, $term) {
                         $items = array_filter(array_map('trim', explode(',', $term)));
-                        $paddedItems = [];
-                        foreach ($items as $item) {
-                            if (is_numeric($item)) {
-                                $paddedItems[] = str_pad($item, 10, '0', STR_PAD_LEFT);
-                            }
-                        }
-
                         if (!empty($items)) {
-                            $query->where(function($sub) use ($items, $paddedItems) {
-                                $sub->whereIn('KDAUF', $items);
-                                if (!empty($paddedItems)) {
-                                    $sub->orWhereIn('KDAUF', $paddedItems);
+                            $query->where(function($sub) use ($items) {
+                                foreach ($items as $item) {
+                                    if (str_contains($item, '-')) {
+                                        $parts = explode('-', $item);
+                                        if (count($parts) >= 2) {
+                                            $soPart = trim($parts[0]);
+                                            $itemPart = trim($parts[1]);
+                                            $sub->orWhere(function($strict) use ($soPart, $itemPart) {
+                                                $strict->where('KDAUF', 'like', "%{$soPart}%")
+                                                       ->where('KDPOS', 'like', "%{$itemPart}%");
+                                            });
+                                            continue;
+                                        }
+                                    }
+                                    // Default KDAUF search (padded or like)
+                                    // Use LIKE to be safe with partial matches or explicit padding logic if strict
+                                    // Assuming numeric input implies KDAUF
+                                    if (is_numeric($item)) {
+                                         // Try exact match with padding if simple number
+                                         $padded = str_pad($item, 10, '0', STR_PAD_LEFT);
+                                         $sub->orWhere('KDAUF', $item)->orWhere('KDAUF', $padded);
+                                    } else {
+                                        $sub->orWhere('KDAUF', 'like', "%{$item}%");
+                                    }
                                 }
                             });
                         }
                     })
-                    ->when($advKdpos, function($query, $term) {
-                        $items = array_filter(array_map('trim', explode(',', $term)));
-                        if (!empty($items)) {
-                            $query->whereIn('KDPOS', $items);
-                        }
-                    })
+                    // advKdpos block removed
                     // --- ADVANCED FILTERS END ---
                     ->latest('AUFNR')
                     ->paginate(50, ['*'], 'page_total_pro')
@@ -309,12 +357,44 @@ class adminController extends Controller
 
             if ($section === 'so') {
                 $searchSo = $request->input('search_so');
+                $searchDateSo = $request->input('search_date_so');
+                
                 $salesOrderData = ProductionTData2::where('WERKSX', $kode)
+                    ->when($searchDateSo, function ($query, $date) {
+                        if (str_contains($date, ' to ')) {
+                            $parts = explode(' to ', $date);
+                            if (count($parts) === 2) {
+                                return $query->whereBetween('EDATU', [trim($parts[0]), trim($parts[1])]);
+                            }
+                        }
+                        return $query->whereDate('EDATU', $date);
+                    })
+
                     ->when($searchSo, function ($query, $term) {
                          return $query->where(function($q) use ($term) {
+                            // Check for specific SO-Item pattern (e.g. 1020003767-90)
+                            if (str_contains($term, '-')) {
+                                $parts = explode('-', $term);
+                                if (count($parts) >= 2) {
+                                    $soPart = trim($parts[0]);
+                                    $itemPart = trim($parts[1]);
+                                    
+                                    // Try strict search if looks like valid SO/Item
+                                    $q->where(function($sub) use ($soPart, $itemPart) {
+                                        // Basic match
+                                        $sub->where('KDAUF', 'like', "%{$soPart}%")
+                                            ->where('KDPOS', 'like', "%{$itemPart}%");
+                                    });
+                                    return; // Return early to avoid mixing with general search
+                                }
+                            }
+
+                            // General Search
                             $q->where('KDAUF', 'like', "%{$term}%")
                               ->orWhere('MATFG', 'like', "%{$term}%")
-                              ->orWhere('MAKFG', 'like', "%{$term}%");
+                              ->orWhere('MAKFG', 'like', "%{$term}%")
+                              ->orWhere('NAME1', 'like', "%{$term}%") // Buyer Name
+                              ->orWhere('BSTNK', 'like', "%{$term}%"); // PO Number
                          });
                     })
                     ->latest('KDAUF')
@@ -326,10 +406,7 @@ class adminController extends Controller
             
             return '';
         }
-
-        // B. LOAD HALAMAN UTAMA (INITIAL LOAD) - Tetap gunakan pagination 10 item awal
         
-        // 1. TData4 (Reservasi) - Page Name: page_reservasi
         $TData1 = ProductionTData1::where('WERKSX', $kode)->count();
         $TData2 = ProductionTData2::where('WERKSX', $kode)->count();
         $TData3 = ProductionTData3::where('WERKSX', $kode)->count();
@@ -387,18 +464,47 @@ class adminController extends Controller
         $advMaktx = $request->input('adv_maktx');
         $advArbpl = $request->input('adv_arbpl');
         $advKdauf = $request->input('adv_kdauf');
-        $advKdpos = $request->input('adv_kdpos');
+        // $advKdpos removed
+
+        $searchDateTotalPro = $request->input('search_date_total_pro');
+        $searchStatusTotalPro = $request->input('search_status_total_pro');
 
         $allProData = ProductionTData3::where('WERKSX', $kode)
+            ->when($searchStatusTotalPro, function ($query, $status) {
+                return $query->where('STATS', $status);
+            })
+            ->when($searchDateTotalPro, function ($query, $date) {
+                if (str_contains($date, ' to ')) {
+                    $parts = explode(' to ', $date);
+                    if (count($parts) === 2) {
+                        return $query->whereBetween('GSTRP', [trim($parts[0]), trim($parts[1])]);
+                    }
+                }
+                return $query->whereDate('GSTRP', $date);
+            })
             ->when($searchTotalPro, function ($query, $term) {
                 return $query->where(function($q) use ($term) {
+                    // Check for specific SO-Item pattern (e.g. 1020003662-60)
+                    if (str_contains($term, '-')) {
+                        $parts = explode('-', $term);
+                        if (count($parts) >= 2) {
+                            $soPart = trim($parts[0]);
+                            $itemPart = trim($parts[1]);
+                            
+                            $q->where(function($sub) use ($soPart, $itemPart) {
+                                $sub->where('KDAUF', 'like', "%{$soPart}%")
+                                    ->where('KDPOS', 'like', "%{$itemPart}%");
+                            });
+                            return; 
+                        }
+                    }
+
                     $q->where('AUFNR', 'like', "%{$term}%")
                       ->orWhere('KDAUF', 'like', "%{$term}%")
-                      ->orWhere('MATNR', 'like', "%{$term}%")
                       ->orWhere('MAKTX', 'like', "%{$term}%")
-                      ->orWhere('STATS', 'like', "%{$term}%")
-                      ->orWhere('KDPOS', 'like', "%{$term}%")
-                      ->orWhere('DISPO', 'like', "%{$term}%");
+                      ->orWhere('DISPO', 'like', "%{$term}%")
+                      ->orWhere('MATNR', 'like', "%{$term}%")
+                      ->orWhere('STATS', 'like', "%{$term}%");
                 });
             })
             // --- ADVANCED FILTERS START ---
@@ -455,26 +561,32 @@ class adminController extends Controller
             })
             ->when($advKdauf, function($q, $val) {
                 $items = array_filter(array_map('trim', explode(',', $val)));
-                $paddedItems = [];
-                foreach ($items as $item) {
-                    if (is_numeric($item)) {
-                        $paddedItems[] = str_pad($item, 10, '0', STR_PAD_LEFT);
-                    }
-                }
-
                 if (!empty($items)) {
-                    $q->where(function($sub) use ($items, $paddedItems) {
-                        $sub->whereIn('KDAUF', $items);
-                        if (!empty($paddedItems)) {
-                            $sub->orWhereIn('KDAUF', $paddedItems);
+                    $q->where(function($sub) use ($items) {
+                        foreach ($items as $item) {
+                            if (str_contains($item, '-')) {
+                                $parts = explode('-', $item);
+                                if (count($parts) >= 2) {
+                                    $soPart = trim($parts[0]);
+                                    $itemPart = trim($parts[1]);
+                                    $sub->orWhere(function($strict) use ($soPart, $itemPart) {
+                                        $strict->where('KDAUF', 'like', "%{$soPart}%")
+                                               ->where('KDPOS', 'like', "%{$itemPart}%");
+                                    });
+                                    continue;
+                                }
+                            }
+                            if (is_numeric($item)) {
+                                 $padded = str_pad($item, 10, '0', STR_PAD_LEFT);
+                                 $sub->orWhere('KDAUF', $item)->orWhere('KDAUF', $padded);
+                            } else {
+                                $sub->orWhere('KDAUF', 'like', "%{$item}%");
+                            }
                         }
                     });
                 }
             })
-            ->when($advKdpos, function($q, $val) {
-                $items = array_filter(array_map('trim', explode(',', $val)));
-                if (!empty($items)) $q->whereIn('KDPOS', $items);
-            })
+            // advKdpos block removed
             // --- ADVANCED FILTERS END ---
             ->latest('AUFNR')
             ->paginate(10, ['*'], 'page_total_pro')
@@ -482,18 +594,58 @@ class adminController extends Controller
 
         // 4. Sales Order - Page Name: page_so
         $searchSo = $request->input('search_so');
+        $searchDateSo = $request->input('search_date_so'); // New Date Filter
+
         $salesOrderData = ProductionTData2::where('WERKSX', $kode)
+            ->when($searchDateSo, function ($query, $date) {
+                if (str_contains($date, ' to ')) {
+                    $parts = explode(' to ', $date);
+                    if (count($parts) === 2) {
+                        return $query->whereBetween('EDATU', [trim($parts[0]), trim($parts[1])]);
+                    }
+                }
+                return $query->whereDate('EDATU', $date);
+            })
             ->when($searchSo, function ($query, $term) {
                  return $query->where(function($q) use ($term) {
+                    // Check for specific SO-Item pattern (e.g. 1020003767-90)
+                    if (str_contains($term, '-')) {
+                        $parts = explode('-', $term);
+                        if (count($parts) >= 2) {
+                            $soPart = trim($parts[0]);
+                            $itemPart = trim($parts[1]);
+                            
+                            // Try strict search if looks like valid SO/Item
+                            $q->where(function($sub) use ($soPart, $itemPart) {
+                                // Basic match
+                                $sub->where('KDAUF', 'like', "%{$soPart}%")
+                                    ->where('KDPOS', 'like', "%{$itemPart}%");
+                            });
+                            return; // Return early to avoid mixing with general search
+                        }
+                    }
+
+                    // General Search
                     $q->where('KDAUF', 'like', "%{$term}%")
                       ->orWhere('MATFG', 'like', "%{$term}%")
-                      ->orWhere('MAKFG', 'like', "%{$term}%");
+                      ->orWhere('MAKFG', 'like', "%{$term}%")
+                      ->orWhere('NAME1', 'like', "%{$term}%") // Buyer Name
+                      ->orWhere('BSTNK', 'like', "%{$term}%"); // PO Number
                  });
             })
             ->latest('KDAUF')
             ->paginate(10, ['*'], 'page_so')
             ->withQueryString();
         
+        // 5. Fetch Unique Statuses for Filter
+        $uniqueStatuses = ProductionTData3::where('WERKSX', $kode)
+            ->select('STATS')
+            ->distinct()
+            ->pluck('STATS')
+             ->filter() // Remove empty values
+            ->sort()
+            ->values();
+
         return view('Admin.dashboard', [
             'TData1' => $TData1, 
             'TData2' => $TData2, 
@@ -524,7 +676,9 @@ class adminController extends Controller
             'searchReservasi' => $searchReservasi,
             'searchPro' => $searchPro,
             'searchTotalPro' => $searchTotalPro,
+            'searchDateTotalPro' => $searchDateTotalPro,
             'searchSo' => $searchSo,
+            'searchDateSo' => $searchDateSo,
             
             // Advanced Params
             'advAufnr' => $advAufnr,
@@ -532,7 +686,10 @@ class adminController extends Controller
             'advMaktx' => $advMaktx,
             'advArbpl' => $advArbpl,
             'advKdauf' => $advKdauf,
-            'advKdpos' => $advKdpos,
+            // 'advKdpos' removed
+
+            // Filter Options
+            'uniqueStatuses' => $uniqueStatuses,
         ]);  
     }
 
@@ -545,8 +702,6 @@ class adminController extends Controller
         if (Auth::check()) {
             $user = Auth::user();
             $sapUser = null;
-
-            // Removing role check as requested ("semua user sama")
             $sapId = str_replace('@kmi.local', '', $user->email);
             $sapUser = UserSap::where('user_sap', $sapId)->first();
 

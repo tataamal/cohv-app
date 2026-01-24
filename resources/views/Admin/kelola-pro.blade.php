@@ -5,11 +5,7 @@
     <div class="container-fluid p-3 p-lg-4">
         <x-notification.notification />
 
-        {{-- Loading Overlay --}}
-        <div id="loading-overlay" class="loading-overlay d-none d-flex justify-content-center align-items-center flex-column text-center">
-            <div class="loader mb-4"></div>
-            <h2 class="h4 fw-semibold text-dark"Wait a Moment, Processing Data...</h2>
-        </div>
+        {{-- Loading Overlay replaced by Global Loader --}}
         
         <div class="mb-4 d-flex justify-content-between align-items-center">
             <div>

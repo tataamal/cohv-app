@@ -31,11 +31,11 @@ class MappingTable extends Model
 
     public function mrp()
     {
-        return $this->belongsTo(Mrp::class);
+        return $this->belongsTo(MRP::class);
     }
 
     public function workcenter()
     {
-        return $this->belongsTo(Workcenter::class);
+        return $this->belongsTo(workcenter::class);
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Workcenter;
+use App\Models\workcenter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
@@ -12,10 +12,10 @@ class ReadWorkcenterCsv extends Command
     /**
      * The name and signature of the console command.
      * cara penggunaan signature : 
-     * Contoh file taruh di public/csv/workcenters.csv: php artisan workcenters:import public/csv/workcenters.csv
-     * Contoh file Kalau delimiter (;) : php artisan workcenters:import public/csv/workcenters.csv --delimiter=";"
-     * Cek dulu tanpa insert : php artisan workcenters:import public/csv/workcenters.csv --dry-run
-     * Kosongkan tabel dulu sebelum isi ulang: php artisan workcenters:import public/csv/workcenters.csv --truncate
+     * Contoh file taruh di public/csv/workcenters.csv: php artisan import:workcenters public/csv/workcenters.csv
+     * Contoh file Kalau delimiter (;) : php artisan import:workcenters public/csv/workcenters.csv --delimiter=";"
+     * Cek dulu tanpa insert : php artisan import:workcenters public/csv/workcenters.csv --dry-run
+     * Kosongkan tabel dulu sebelum isi ulang: php artisan import:workcenters public/csv/workcenters.csv --truncate
      * @var string
      */
     protected $signature = 'import:workcenters

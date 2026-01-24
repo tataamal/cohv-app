@@ -33,6 +33,12 @@ Route::post('/mapping-sementara', [App\Http\Controllers\MappingController::class
 Route::delete('/mapping-sementara/bulk-delete', [App\Http\Controllers\MappingController::class, 'bulkDestroy'])->name('mapping.bulk_destroy');
 Route::delete('/mapping-sementara/{id}', [App\Http\Controllers\MappingController::class, 'destroy'])->name('mapping.destroy');
 
+// Wc Relation (Public/Loose Access)
+Route::get('/wc-relation', [App\Http\Controllers\WcRelationController::class, 'index'])->name('wc-relation.index');
+Route::post('/wc-relation', [App\Http\Controllers\WcRelationController::class, 'store'])->name('wc-relation.store');
+Route::delete('/wc-relation/bulk-delete', [App\Http\Controllers\WcRelationController::class, 'bulkDestroy'])->name('wc-relation.bulk_destroy');
+Route::delete('/wc-relation/{id}', [App\Http\Controllers\WcRelationController::class, 'destroy'])->name('wc-relation.destroy');
+
 Route::middleware('auth')->group(function (){
     Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
         Route::get('/dashboard/{kode}', [adminController::class, 'index'])->name('dashboard.show');

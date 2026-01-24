@@ -19,7 +19,7 @@ use Throwable;
 
 class Data1Controller extends Controller
 {
-    public function changeWc(Request $request)
+    public function changeWc(Request $request, \App\Services\YPPR074Z $ypprService)
     {
         // 1. Validasi input dari form
         $validated = $request->validate([
@@ -78,30 +78,11 @@ class Data1Controller extends Controller
             // Beri jeda 2 detik untuk latensi SAP
             sleep(2);
 
-            // LANGKAH 3: Refresh Data PRO yang Baru Diubah
-            Log::info("Langkah 3: Me-refresh data PRO {$proCode} dari SAP...");
-            $refreshResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])
-                ->get($flaskBase . '/api/refresh-pro', [
-                    'plant' => $validated['plant'],
-                    'aufnr' => $proCode,
-                ]);
-
-            if ($refreshResponse->failed()) {
-                throw new \Exception("API Refresh PRO Gagal: " . $refreshResponse->body());
-            }
-            $refreshedData = $refreshResponse->json();
+            // LANGKAH 3: Refresh & Sync via Service
+            Log::info("Langkah 3: Me-refresh data PRO {$proCode} via Service...");
+            $summary = $ypprService->refreshPro($validated['plant'], $proCode);
             
-            // Validasi data yang di-refresh
-            if (empty($refreshedData['T_DATA']) || empty($refreshedData['T_DATA2']) || empty($refreshedData['T_DATA3'])) {
-                throw new \Exception("Data inti tidak lengkap setelah refresh. Proses sinkronisasi dibatalkan.");
-            }
-            Log::info(" -> Data PRO berhasil di-refresh.");
-
-            // LANGKAH 4: Jalankan Sinkronisasi ke Database
-            DB::transaction(function () use ($refreshedData, $validated) {
-                // Pastikan Anda memiliki method _syncSingleProData di controller ini
-                $this->_syncSingleProData($refreshedData, $validated['plant']);
-            });
+            Log::info(" -> Data PRO berhasil di-refresh via Service.", $summary);
 
             // Kembali ke halaman sebelumnya dengan pesan SUKSES
             $successMessage = "PRO {$proCode} berhasil dipindahkan ke WC {$wc_tujuan} dan data telah disinkronkan.";
@@ -114,7 +95,7 @@ class Data1Controller extends Controller
         }
     }
 
-    public function changeWcBulk(Request $request)
+    public function changeWcBulk(Request $request, \App\Services\YPPR074Z $ypprService)
     {
         $validated = $request->validate(['bulk_pros' => 'required|string|json']);
         $wc_tujuan = $request->route('wc_tujuan');
@@ -152,38 +133,10 @@ class Data1Controller extends Controller
                     if ($changeResponse->failed()) throw new \Exception("API Save Edit Gagal: " . $changeResponse->body());
                     Log::info(" -> [PRO: {$proCode}] Perubahan WC di SAP berhasil.");
 
-                    // LANGKAH 3: Refresh data dengan mekanisme RETRY
-                    $maxRetries = 5; $retryDelay = 5; $refreshedData = null;
-                    for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-                        if ($attempt > 1) {
-                            Log::info("[BULK] [PRO: {$proCode}] Menunggu {$retryDelay} detik...");
-                            sleep($retryDelay);
-                        }
-                        Log::info("[BULK] [PRO: {$proCode}] Refresh attempt #{$attempt}/{$maxRetries}...");
-                        $refreshResponse = Http::timeout(60)->withHeaders(['X-SAP-Username' => $sapUser, 'X-SAP-Password' => $sapPass])->get($flaskBase . '/api/refresh-pro', ['plant' => $kode, 'aufnr' => $proCode]);
-                        if ($refreshResponse->failed()) throw new \Exception("API Refresh Gagal: " . $refreshResponse->body());
-                        
-                        $tempData = $refreshResponse->json();
-                        if (!empty($tempData['T_DATA'])) {
-                            $refreshedData = $tempData;
-                            
-                            // Pastikan T_DATA2 dan T_DATA3 ada sebagai array kosong agar
-                            // langkah sinkronisasi data tidak error.
-                            $refreshedData['T_DATA2'] = $tempData['T_DATA2'] ?? [];
-                            $refreshedData['T_DATA3'] = $tempData['T_DATA3'] ?? [];
-
-                            Log::info(" -> [PRO: {$proCode}] Data refresh valid on attempt #{$attempt}.");
-                            break;
-                        }
-                        Log::warning(" -> [PRO: {$proCode}] Data refresh tidak lengkap pada attempt #{$attempt}.");
-                    }
-
-                    if (is_null($refreshedData)) throw new \Exception("Data inti tidak lengkap setelah {$maxRetries} kali percobaan.");
-
-                    // LANGKAH 4: Sinkronisasi ke DB Lokal (INI YANG DIPERBAIKI)
-                    DB::transaction(function () use ($refreshedData, $kode) {
-                        $this->_syncSingleProData($refreshedData, $kode);
-                    });
+                    // LANGKAH 3: Refresh & Sync via Service
+                    Log::info("[BULK] [PRO: {$proCode}] Langkah 3: Refresh & Sync via Service...");
+                    $ypprService->refreshPro($kode, $proCode);
+                    
                     Log::info(" -> [PRO: {$proCode}] Data berhasil disinkronkan.");
                     $successes[] = $proCode;
 
@@ -200,9 +153,12 @@ class Data1Controller extends Controller
         // Membuat notifikasi akhir
         $successCount = count($successes);
         $failureCount = count($failures);
-        if ($successCount > 0 && $failureCount == 0) session()->flash('success', "{$successCount} PRO berhasil dipindahkan dan disinkronkan.");
-        elseif ($successCount > 0 && $failureCount > 0) session()->flash('warning', "{$successCount} PRO berhasil, namun {$failureCount} PRO gagal. Periksa log.");
-        elseif ($successCount == 0 && $failureCount > 0) session()->flash('error', "Data berhasil dipindahkan namun gagal disinkronkan karena Make Stock, Silahkan Refresh PRO untuk Update Data.");
+        
+        if ($successCount > 0 && $failureCount == 0) {
+            session()->flash('success', "{$successCount} PRO berhasil dipindahkan dan disinkronkan.");
+        } elseif ($failureCount > 0) {
+            session()->flash('warning', "{$successCount} PRO sukses, {$failureCount} PRO gagal. Cek log.");
+        }
 
         return redirect()->back();
     }

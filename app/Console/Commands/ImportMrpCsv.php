@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Mrp;
+use App\Models\MRP;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;

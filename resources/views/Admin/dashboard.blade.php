@@ -31,7 +31,7 @@
             <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-sm-between">
                 <div>
                     <h1 class="h3 fw-bold text-dark">Dashboard - {{ $sub_kategori }} </h1>
-                    <p class="mt-1 text-muted">Welcome, here is the COHV data information in {{ $kategori }}</p>
+                    <p class="mt-1 text-muted">Selamat datang, di {{ $sub_kategori }} plant {{ $kategori }}</p>
                 </div>
                 <div class="mt-3 mt-sm-0 small text-muted">
                     <i class="fas fa-calendar-alt me-2"></i>{{ now()->format('l, d F Y') }}
@@ -289,8 +289,7 @@
                     <div
                         class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-3">
                         <div>
-                            <h3 class="h5 fw-semibold text-dark mb-1">List of Outstanding Sales Orders (SO)</h3>
-                            <p class="small text-muted mb-0">List data Outstanding SO</p>
+                            <h3 class="h5 fw-semibold text-dark mb-1">List data Outstanding SO</h3>
                         </div>
                         <button id="backToDashboardBtnSo" class="btn btn-outline-secondary flex-shrink-0">
                             <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
@@ -299,17 +298,187 @@
 
                     {{-- Kolom Pencarian --}}
                     <div class="mb-3" style="max-width: 320px;">
-                        <form action="{{ url()->current() }}" method="GET">
-                            @foreach(request()->except(['search_so', 'page_so']) as $key => $value)
+                        <form id="soSearchForm" action="{{ url()->current() }}" method="GET" class="position-relative">
+                            @foreach(request()->except(['search_so', 'page_so', 'search_date_so']) as $key => $value)
                                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                             @endforeach
-                            <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                                <input type="text" name="search_so" value="{{ $searchSo ?? '' }}" placeholder="Search Order... (Enter)"
-                                    class="form-control border-start-0">
+                            
+                            <div class="search-premium d-flex align-items-center bg-white">
+                                {{-- Date Section --}}
+                                <div class="d-flex align-items-center px-3" style="min-width: 180px;">
+                                    <i class="fas fa-calendar-alt text-secondary me-2"></i>
+                                    <input type="text" name="search_date_so" id="soSearchDate" 
+                                        value="{{ $request->search_date_so ?? '' }}" 
+                                        class="form-control border-0 shadow-none p-0 flatpickr-range" 
+                                        style="font-size: 0.95rem; background: transparent;"
+                                        placeholder="Date Range"
+                                        readonly="readonly">
+                                </div>
+
+                                {{-- Divider --}}
+                                <div class="vertical-divider"></div>
+
+                                {{-- Text Section --}}
+                                <div class="flex-grow-1 d-flex align-items-center px-3 position-relative">
+                                    <i class="fas fa-search text-secondary me-2"></i>
+                                    <input type="text" name="search_so" id="soSearchInput" 
+                                        value="{{ $searchSo ?? '' }}" 
+                                        placeholder="Search SO, Buyer, Material..."
+                                        class="form-control border-0 shadow-none p-0"
+                                        style="font-size: 0.95rem; background: transparent;"
+                                        autocomplete="off">
+                                    
+                                    {{-- Actions --}}
+                                    <div class="d-flex align-items-center ms-2">
+                                        <button type="button" id="clearSoSearch" class="btn btn-link p-0 text-muted d-none me-2 decoration-none transition-hover">
+                                            <i class="fas fa-times-circle"></i>
+                                        </button>
+                                        <div id="soSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {{-- Search Button (Visual/Submit) --}}
+                                <button type="submit" class="btn btn-primary rounded-circle m-1 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
                             </div>
                         </form>
                     </div>
+
+                    @push('styles')
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+                        <style>
+                            .search-premium {
+                                border: 1px solid #e2e8f0;
+                                border-radius: 50px;
+                                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+                                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                                min-width: 500px;
+                            }
+                            
+                            .search-premium:focus-within {
+                                border-color: #3b82f6;
+                                box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                                transform: translateY(-1px);
+                            }
+
+                            .vertical-divider {
+                                width: 1px;
+                                height: 24px;
+                                background-color: #cbd5e1;
+                            }
+
+                            .transition-hover {
+                                transition: color 0.2s;
+                            }
+                            .transition-hover:hover {
+                                color: #ef4444 !important; /* Red on hover */
+                            }
+                            
+                            /* Custom Placeholder Color */
+                            .search-premium input::placeholder {
+                                color: #94a3b8;
+                            }
+                        </style>
+                    @endpush
+
+                    @push('scripts')
+                    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const soInput = document.getElementById('soSearchInput');
+                            const soDate = document.getElementById('soSearchDate');
+                            const soSpinner = document.getElementById('soSearchSpinner');
+                            const soTableBody = document.getElementById('outstandingSoTableBody');
+                            const clearBtn = document.getElementById('clearSoSearch');
+                            let timeout = null;
+
+                            // Initialize Flatpickr
+                            const fp = flatpickr("#soSearchDate", {
+                                mode: "range",
+                                dateFormat: "Y-m-d",
+                                onClose: function(selectedDates, dateStr, instance) {
+                                    fetchSoData();
+                                }
+                            });
+
+                            function toggleClearButton() {
+                                if (soInput.value || soDate.value) {
+                                    clearBtn.classList.remove('d-none');
+                                } else {
+                                    clearBtn.classList.add('d-none');
+                                }
+                            }
+
+                            function fetchSoData() {
+                                const term = soInput.value;
+                                const date = soDate.value;
+                                const url = new URL(window.location.href);
+                                
+                                toggleClearButton();
+
+                                // Show spinner
+                                soSpinner.classList.remove('d-none');
+                                soTableBody.style.opacity = '0.5';
+
+                                // Construct AJAX URL
+                                const fetchUrl = `${url.pathname}?load_more=so&search_so=${encodeURIComponent(term)}&search_date_so=${encodeURIComponent(date)}`;
+
+                                fetch(fetchUrl, {
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    }
+                                })
+                                .then(response => response.text())
+                                .then(html => {
+                                    soTableBody.innerHTML = html;
+                                    soTableBody.style.opacity = '1';
+                                    soSpinner.classList.add('d-none');
+                                    
+                                    // Update URL without reload (optional, good for UX)
+                                    const nextUrl = new URL(window.location.href);
+                                    if(term) nextUrl.searchParams.set('search_so', term);
+                                    else nextUrl.searchParams.delete('search_so');
+                                    
+                                    if(date) nextUrl.searchParams.set('search_date_so', date);
+                                    else nextUrl.searchParams.delete('search_date_so');
+                                    
+                                    window.history.replaceState({}, '', nextUrl);
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching SO data:', error);
+                                    soSpinner.classList.add('d-none');
+                                    soTableBody.style.opacity = '1';
+                                });
+                            }
+
+                            // Event Listeners with Debounce
+                            soInput.addEventListener('input', function() {
+                                clearTimeout(timeout);
+                                timeout = setTimeout(fetchSoData, 500);
+                            });
+
+                            // Clear Button Logic
+                            clearBtn.addEventListener('click', function() {
+                                soInput.value = '';
+                                soDate.value = ''; // Update Input
+                                fp.clear(); // Clear Flatpickr instance
+                                fetchSoData();
+                            });
+                            
+                            // Prevent form submit on enter
+                            document.getElementById('soSearchForm').addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                fetchSoData();
+                            });
+
+                            // Initial check
+                            toggleClearButton();
+                        });
+                    </script>
+                    @endpush
 
                     {{-- Tabel Responsif --}}
                     <div class="table-container-scroll" data-section="so" data-next-page="{{ $salesOrderData->currentPage() + 1 }}" data-has-more="{{ $salesOrderData->hasMorePages() ? 'true' : 'false' }}" style="max-height: 500px; overflow-y: auto;">
@@ -318,17 +487,17 @@
                                 <tr class="small text-uppercase align-middle">
                                     <th class="text-center d-none d-md-table-cell">No.</th>
                                     <th class="text-center sortable-header" data-sort-column="order">
-                                        Order <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                        SO-Item <span class="sort-icon"><i class="fas fa-sort"></i></span>
                                     </th>
-                                    <th class="text-center sortable-header" data-sort-column="item">
-                                        Item <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    <th class="text-center sortable-header" data-sort-column="buyer">
+                                        Buyer <span class="sort-icon"><i class="fas fa-sort"></i></span>
                                     </th>
                                     <th class="text-center d-none d-md-table-cell sortable-header"
                                         data-sort-column="material">
-                                        Material FG <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                        Material <span class="sort-icon"><i class="fas fa-sort"></i></span>
                                     </th>
-                                    <th class="d-none d-md-table-cell sortable-header" data-sort-column="description">
-                                        Description <span class="sort-icon"><i class="fas fa-sort"></i></span>
+                                    <th class="d-none d-md-table-cell sortable-header" data-sort-column="date">
+                                        Date <span class="sort-icon"><i class="fas fa-sort"></i></span>
                                     </th>
                                 </tr>
                             </thead>
@@ -530,8 +699,17 @@
                     <div class="d-flex flex-column flex-sm-row gap-2 align-self-stretch align-items-sm-center">
                         <select id="statusFilterTotalPro" class="form-select flex-shrink-0" style="width: 150px;">
                             <option value="">Semua Status</option>
-                            <option value="REL">RELEASE</option>
-                            <option value="CRTD">CREATED</option>
+                            @if(isset($uniqueStatuses) && count($uniqueStatuses) > 0)
+                                @foreach($uniqueStatuses as $status)
+                                    <option value="{{ $status }}">{{ $status }}</option>
+                                @endforeach
+                            @else
+                                {{-- Fallback if variable missing --}}
+                                <option value="REL">REL</option>
+                                <option value="CRTD">CRTD</option>
+                                <option value="PCNF">PCNF</option>
+                                <option value="CNF">CNF</option>
+                            @endif
                         </select>
 
                         <button id="copyProBtn" class="btn btn-outline-success flex-shrink-0" disabled>
@@ -543,28 +721,163 @@
                     </div>
                 </div>
                 <div class="mb-3" style="max-width: 450px;"> 
-                    <form action="{{ url()->current() }}" method="GET">
-                        @foreach(request()->except(['search_total_pro', 'page_total_pro']) as $key => $value)
+                    <form id="totalProSearchForm" action="{{ url()->current() }}" method="GET" class="position-relative">
+                        @foreach(request()->except(['search_total_pro', 'page_total_pro', 'search_date_total_pro']) as $key => $value)
                             <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                         @endforeach
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-search"></i></span>
-                            <input type="text" id="searchTotalProInput" name="search_total_pro" value="{{ $searchTotalPro ?? '' }}" 
-                                placeholder="Search PRO, SO, Material, Status, MRP... (Realtime)"
-                                class="form-control" list="searchHistoryList">
-                            <datalist id="searchHistoryList"></datalist>
-                            
-                            {{-- Input Hidden untuk Multi Material Filter (Legacy, kept for compat if needed, but overshadowed by Advanced Search) --}}
-                            <input type="hidden" name="multi_matnr" id="multiMatnrHiddenInput" value="{{ request('multi_matnr') }}">
+                        
+                        <div class="search-premium d-flex align-items-center bg-white">
+                            {{-- Date Section --}}
+                            <div class="d-flex align-items-center px-3" style="min-width: 180px;">
+                                <i class="fas fa-calendar-alt text-secondary me-2"></i>
+                                <input type="text" name="search_date_total_pro" id="totalProSearchDate" 
+                                    value="{{ $request->search_date_total_pro ?? '' }}" 
+                                    class="form-control border-0 shadow-none p-0 flatpickr-range" 
+                                    style="font-size: 0.95rem; background: transparent;"
+                                    placeholder="Search Date"
+                                    readonly="readonly">
+                            </div>
 
-                            <!-- TOMBOL BARU: CLEAR FILTER -->
-                            <button type="button" class="btn btn-outline-danger" id="btnClearTotalProSearch"
-                                title="Clear Search">
-                                <i class="fas fa-times"></i>
+                            {{-- Divider --}}
+                            <div class="vertical-divider"></div>
+
+                            {{-- Text Section --}}
+                            <div class="flex-grow-1 d-flex align-items-center px-3 position-relative">
+                                <i class="fas fa-search text-secondary me-2"></i>
+                                <input type="text" name="search_total_pro" id="totalProSearchInput" 
+                                    value="{{ $searchTotalPro ?? '' }}" 
+                                    placeholder="Search..."
+                                    class="form-control border-0 shadow-none p-0"
+                                    style="font-size: 0.95rem; background: transparent;"
+                                    autocomplete="off">
+                                
+                                {{-- Actions --}}
+                                <div class="d-flex align-items-center ms-2">
+                                    <button type="button" id="clearTotalProSearch" class="btn btn-link p-0 text-muted d-none me-2 decoration-none transition-hover">
+                                        <i class="fas fa-times-circle"></i>
+                                    </button>
+                                    <div id="totalProSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {{-- Search Button --}}
+                            <button type="submit" class="btn btn-primary rounded-circle m-1 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                <i class="fas fa-arrow-right"></i>
                             </button>
                         </div>
                     </form>
                 </div>
+
+                @push('scripts')
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const tpInput = document.getElementById('totalProSearchInput');
+                        const tpDate = document.getElementById('totalProSearchDate');
+                        const tpSpinner = document.getElementById('totalProSearchSpinner');
+                        const tpTableBody = document.getElementById('totalProTableBody');
+                        const tpClearBtn = document.getElementById('clearTotalProSearch');
+                        let tpTimeout = null;
+
+                        // Initialize Flatpickr
+                        const tpFp = flatpickr("#totalProSearchDate", {
+                            mode: "range",
+                            dateFormat: "Y-m-d",
+                            onClose: function(selectedDates, dateStr, instance) {
+                                fetchTotalProData();
+                            }
+                        });
+
+                        function toggleTpClearButton() {
+                            if (tpInput.value || tpDate.value) {
+                                tpClearBtn.classList.remove('d-none');
+                            } else {
+                                tpClearBtn.classList.add('d-none');
+                            }
+                        }
+
+                        function fetchTotalProData() {
+                            const term = tpInput.value;
+                            const date = tpDate.value;
+                            const statusSelect = document.getElementById('statusFilterTotalPro');
+                            const status = statusSelect ? statusSelect.value : '';
+                            const url = new URL(window.location.href);
+                            
+                            toggleTpClearButton();
+
+                            // Show spinner
+                            tpSpinner.classList.remove('d-none');
+                            tpTableBody.style.opacity = '0.5';
+
+                            // Construct AJAX URL
+                            const fetchUrl = `${url.pathname}?load_more=total_pro&search_total_pro=${encodeURIComponent(term)}&search_date_total_pro=${encodeURIComponent(date)}&search_status_total_pro=${encodeURIComponent(status)}`;
+
+                            fetch(fetchUrl, {
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => response.text())
+                            .then(html => {
+                                tpTableBody.innerHTML = html;
+                                tpTableBody.style.opacity = '1';
+                                tpSpinner.classList.add('d-none');
+                                
+                                // Update URL without reload
+                                const nextUrl = new URL(window.location.href);
+                                if(term) nextUrl.searchParams.set('search_total_pro', term);
+                                else nextUrl.searchParams.delete('search_total_pro');
+                                
+                                if(date) nextUrl.searchParams.set('search_date_total_pro', date);
+                                else nextUrl.searchParams.delete('search_date_total_pro');
+
+                                if(status) nextUrl.searchParams.set('search_status_total_pro', status);
+                                else nextUrl.searchParams.delete('search_status_total_pro');
+                                
+                                window.history.replaceState({}, '', nextUrl);
+                            })
+                            .catch(error => {
+                                console.error('Error fetching Total PRO data:', error);
+                                tpSpinner.classList.add('d-none');
+                                tpTableBody.style.opacity = '1';
+                            });
+                        }
+
+                        // Event Listeners with Debounce
+                        tpInput.addEventListener('input', function() {
+                            clearTimeout(tpTimeout);
+                            tpTimeout = setTimeout(fetchTotalProData, 500);
+                        });
+
+                        // Status Filter Listener
+                        const statusSelect = document.getElementById('statusFilterTotalPro');
+                        if(statusSelect) {
+                            statusSelect.addEventListener('change', function() {
+                                fetchTotalProData();
+                            });
+                        }
+
+                        // Clear Button Logic
+                        tpClearBtn.addEventListener('click', function() {
+                            tpInput.value = '';
+                            tpDate.value = '';
+                            tpFp.clear();
+                            if(statusSelect) statusSelect.value = ''; // Reset status
+                            fetchTotalProData();
+                        });
+                        
+                        // Prevent form submit on enter
+                        document.getElementById('totalProSearchForm').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            fetchTotalProData();
+                        });
+
+                        // Initial check
+                        toggleTpClearButton();
+                    });
+                </script>
+                @endpush
 
                 {{-- ADVANCED SEARCH UI --}}
                 <div class="mb-3">
@@ -598,16 +911,10 @@
                                     </div>
                                 </div>
 
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <div class="input-group input-group-sm">
-                                        <input type="text" id="advKdauf" name="adv_kdauf" class="form-control" placeholder="SO (KDAUF)" value="{{ $advKdauf ?? '' }}">
-                                        <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO List', false)" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
-                                    </div>
-                                </div>
-                                <div class="col-md-1">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" id="advKdpos" name="adv_kdpos" class="form-control" placeholder="Item" value="{{ $advKdpos ?? '' }}">
-                                        <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdpos', 'Item List', false)" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
+                                        <input type="text" id="advKdauf" name="adv_kdauf" class="form-control" placeholder="SO-Item (e.g. 123-10)" value="{{ $advKdauf ?? '' }}">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO-Item List', false)" title="Input Multiple"><i class="fas fa-list-ul"></i></button>
                                     </div>
                                 </div>
                                     <div class="col-md-1">
@@ -684,11 +991,8 @@
                                 </th>
                                 <th class="text-center d-none d-md-table-cell">No.</th>
                                 <th class="text-center d-none d-md-table-cell sortable-header" data-sort-column="so"
-                                    data-sort-type="text">SO <span class="sort-icon"><i
+                                    data-sort-type="text" style="min-width: 150px;">SO-Item <span class="sort-icon"><i
                                             class="fas fa-sort"></i></span></th>
-                                <th class="text-center d-none d-md-table-cell sortable-header"
-                                    data-sort-column="so_item" data-sort-type="text">Item <span
-                                        class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                 <th class="text-center sortable-header" data-sort-column="pro" data-sort-type="text">
                                     PRO <span class="sort-icon"><i class="fas fa-sort"></i></span></th>
                                 <th class="text-center sortable-header" data-sort-column="status"
@@ -1776,7 +2080,7 @@
                 }
 
                 // Attach 'Enter' key to Advanced Inputs
-                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advKdauf', 'advKdpos'];
+                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advKdauf'];
                 advIds.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) {
@@ -1952,7 +2256,7 @@
                 const totalProParams = [
                     'search_total_pro', 'page_total_pro', 
                     'adv_aufnr', 'adv_matnr', 'adv_maktx', 
-                     'adv_kdauf', 'adv_kdpos',
+                     'adv_kdauf',
                     'multi_matnr'
                 ];
                 

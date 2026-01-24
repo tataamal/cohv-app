@@ -166,6 +166,52 @@ class YPPR074Z
                 }
             }
 
+            // --- 4.4 Handle Orphan T3 (Make Stock / No Sales Order Link) ---
+            foreach ($T3 as $t3_row) {
+                // Ensure AUFNR matches target
+                if (trim($t3_row['AUFNR'] ?? '') !== $aufnr) continue;
+
+                $key_t3_unique = $plant . '-' . $aufnr;
+                if (isset($seenTData3[$key_t3_unique])) continue; // Already processed
+                $seenTData3[$key_t3_unique] = true;
+
+                $t3_row['WERKSX'] = $plant;
+                ProductionTData3::create($t3_row);
+                $inserted['t_data3']++;
+
+                // Process Children T1 & T4
+                $children_t1 = $t1_grouped->get($aufnr, []);
+                $children_t4 = $t4_grouped->get($aufnr, []);
+
+                foreach ($children_t1 as $t1_row) {
+                    $vornr = trim($t1_row['VORNR'] ?? '');
+                    $key_t1_unique = $plant . '-' . $aufnr . '-' . $vornr;
+                    if (isset($seenTData1[$key_t1_unique])) continue;
+                    $seenTData1[$key_t1_unique] = true;
+
+                    $t1_row['PV1'] = $this->buildPv($t1_row['ARBPL1'] ?? null, $this->formatTanggal($t1_row['SSSLDPV1'] ?? ''));
+                    $t1_row['PV2'] = $this->buildPv($t1_row['ARBPL2'] ?? null, $this->formatTanggal($t1_row['SSSLDPV2'] ?? ''));
+                    $t1_row['PV3'] = $this->buildPv($t1_row['ARBPL3'] ?? null, $this->formatTanggal($t1_row['SSSLDPV3'] ?? ''));
+
+                    $t1_row['WERKSX'] = $plant;
+                    ProductionTData1::create($t1_row);
+                    $inserted['t_data1']++;
+                }
+
+                foreach ($children_t4 as $t4_row) {
+                    $rsnum = trim($t4_row['RSNUM'] ?? '');
+                    $rspos = trim($t4_row['RSPOS'] ?? '');
+                    $key_t4_unique = $plant . '-' . $aufnr . '-' . $rsnum . '-' . $rspos;
+
+                    if (isset($seenTData4[$key_t4_unique])) continue;
+                    $seenTData4[$key_t4_unique] = true;
+
+                    $t4_row['WERKSX'] = $plant;
+                    ProductionTData4::create($t4_row);
+                    $inserted['t_data4']++;
+                }
+            }
+
             return [
                 'plant' => $plant,
                 'aufnr' => $aufnr,
