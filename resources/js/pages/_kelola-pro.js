@@ -251,7 +251,12 @@ function initializeKelolaProPage() {
         }
     });
     document.getElementById('changeWcForm')?.addEventListener('submit', function() {
-        document.getElementById('loading-overlay').classList.remove('d-none');
+        // [DIUBAH] Menggunakan Global Loader standar (#global-loader)
+        const globalLoader = document.getElementById('global-loader');
+        if (globalLoader) {
+            globalLoader.style.display = 'flex';
+        }
+        
         const submitButton = this.querySelector('button[type="submit"]');
         if (submitButton) {
             submitButton.disabled = true;

@@ -15,7 +15,8 @@ class ProductionTData2 extends Model
            'EDATU',
            'WERKSX',
            'KUNNR',
-           'NAME1' ];
+           'NAME1',
+           'BSTNK'];
     public function tData3()
     {
         return $this->hasMany(ProductionTData3::class, 'KDAUF', 'KDAUF')

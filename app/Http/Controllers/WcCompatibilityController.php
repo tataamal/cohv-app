@@ -11,7 +11,10 @@ use App\Models\ProductionTData1;
 use App\Models\ProductionTData2;
 use App\Models\ProductionTData3;
 use App\Models\ProductionTData4;
-use App\Models\Kode;
+
+use App\Models\KodeLaravel;
+use App\Models\MappingTable;
+use App\Models\workcenter;
 use App\Models\wc_relations;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -27,6 +30,31 @@ class WcCompatibilityController extends Controller
 
     public function showDetails($kode, $wc)
     {
+        // 1. Validasi Kode Laravel
+        $plant = KodeLaravel::where('laravel_code', $kode)->firstOrFail();
+
+        // 2. Validasi Mapping (Opsional: memastikan WC ini memang milik Kode tersebut)
+        // Cari workcenter berdasarkan kode_wc untuk mendapatkan ID-nya
+        $workcenterData = workcenter::where('kode_wc', $wc)->first();
+
+        // Cek di MappingTable apakah ada relasi User -> KodeLaravel -> Workcenter ini
+        // Namun, jika tujuannya hanya cek apakah WC ini valid untuk Kode tersebut (terlepas user siapa),
+        // kita perlu tahu logika bisnisnya. Sesuai request: "sesuaikan pengambilanya karena sekarang sudah jadi satu dalam mapping-table"
+        // Asumsi: Kita cek apakah ada entry di mapping_table yang menghubungkan kode_laravel_id ini dengan workcenter_id ini.
+        
+        $isValidMapping = false;
+        if ($workcenterData) {
+            $isValidMapping = MappingTable::where('kode_laravel_id', $plant->id)
+                ->where('workcenter_id', $workcenterData->id)
+                ->exists();
+        }
+
+        if (!$isValidMapping) {
+            // Bisa abort 403 atau 404, atau biarkan (jika hanya validasi soft). 
+            // Untuk strictness, kita abort jika tidak ada mapping.
+            abort(404, 'Workcenter not found in this Section mapping.');
+        }
+
         $compatibilities = DB::table('wc_relations as rel')
             ->join('workcenters as asal', 'rel.wc_asal_id', '=', 'asal.id')
             ->join('workcenters as tujuan', 'rel.wc_tujuan_id', '=', 'tujuan.id')
@@ -84,8 +112,6 @@ class WcCompatibilityController extends Controller
         $wcDescriptionMap = $filteredWcs->keyBy('ARBPL')->map(function ($item) {
             return $item->description;
         });
-
-        $plant = Kode::where('kode', $kode)->firstOrFail();
         
         return view('Admin.kelola-pro', [
             'workCenter'        => $wc,

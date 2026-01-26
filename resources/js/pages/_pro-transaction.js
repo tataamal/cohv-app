@@ -10,8 +10,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const readPpBtn = document.getElementById('bultkReadPpBtn');
     const changeQty = document.getElementById('bulkChangeQty');
     const tecoBtn = document.getElementById('bulkTecoBtn');
+    const releaseBtn = document.getElementById('bulkReleaseBtn');
     
-    const allBulkButtons = [scheduleBtn, refreshBtn, changePv, readPpBtn, changeQty, tecoBtn];
+    const allBulkButtons = [scheduleBtn, refreshBtn, changePv, readPpBtn, changeQty, tecoBtn, releaseBtn];
 
     // Elemen Modal Generik
     const bulkActionModal = document.getElementById('bulkActionModal');

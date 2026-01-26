@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Kode;
+
 use App\Models\ProductionTData;
 use App\Models\ProductionTData3;
-use App\Models\SapUser;
+use App\Models\UserSap;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
@@ -25,17 +25,27 @@ class SidebarService
         $sapUser = null;
         $submenuItems = [];
 
-        if ($user->role === 'admin') {
-            $sapId = str_replace('@kmi.local', '', $user->email);
-            $sapUser = SapUser::where('sap_id', $sapId)->first();
-        } elseif ($user->role === 'korlap') {
-            $nik = str_replace('@kmi.local', '', $user->email);
-            $kode = Kode::where('nik', $nik)->first();
-            if ($kode) $sapUser = $kode->sapUser;
-        }
+        // Removing role restrictions ("semua user sama")
+        $sapId = str_replace('@kmi.local', '', $user->email);
+        $sapUser = UserSap::where('user_sap', $sapId)->first();
 
         if ($sapUser) {
-            $uniqueKodes = $sapUser->kodes()->orderBy(column: 'kode')->get()->unique('kode');
+            // Fetch mappings from MappingTable
+            $mappings = \App\Models\MappingTable::where('user_sap_id', $sapUser->id)
+                ->with('kodeLaravel')
+                ->get();
+            
+            // Transform mappings to unique sections (plants/kodes)
+            $uniqueKodes = $mappings->map(function($mapping) {
+                if ($mapping->kodeLaravel) {
+                    return (object) [
+                        'kode' => $mapping->kodeLaravel->laravel_code,
+                        'nama_bagian' => $mapping->kodeLaravel->description
+                    ];
+                }
+                return null;
+            })->filter()->unique('kode')->sortBy('kode');
+
             foreach ($uniqueKodes as $kode) {
                 $submenuItems[] = [
                     'name' => $kode->nama_bagian,

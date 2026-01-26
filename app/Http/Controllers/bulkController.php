@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Client\ConnectionException;
 use Carbon\Carbon;
 use Throwable;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Services\Release;
+use App\Services\YPPR074Z;
 
 class bulkController extends Controller
 {
@@ -27,54 +30,34 @@ class bulkController extends Controller
         
         $proList = $validated['pros'];
         $plant = $validated['plant'];
+        $service = new YPPR074Z();
 
-        try {
-            $flaskResponse = $this->_callBulkFlaskService('/bulk-refresh', $proList, $plant);
-            $results = $flaskResponse['results'] ?? [];
+        $successfulPros = [];
+        $failedPros = [];
 
-            $successfulPros = [];
-            $failedPros = [];
-
-            DB::beginTransaction();
-
-            foreach ($results as $result) {
-                if (isset($result['status']) && $result['status'] === 'sukses') {
-                    $proNumber = $result['aufnr'];
-                    $sapData = $result['details'];
-                    
-                    $this->_processAndMapSinglePro($proNumber, $plant, $sapData);
-
-                    $successfulPros[] = $proNumber;
-                } else {
-                    $failedPros[] = [
-                        'aufnr' => $result['aufnr'] ?? 'Unknown',
-                        'message' => $result['message'] ?? 'Unknown error from Flask service'
-                    ];
-                }
+        foreach ($proList as $aufnr) {
+            try {
+                $service->refreshPro($plant, $aufnr);
+                $successfulPros[] = $aufnr;
+            } catch (\Exception $e) {
+                $failedPros[] = [
+                    'aufnr' => $aufnr,
+                    'message' => $e->getMessage()
+                ];
             }
-
-            DB::commit();
-
-            $message = $this->_buildResponseMessage(count($successfulPros), $failedPros);
-
-            return response()->json([
-                'success' => true, 
-                'message' => $message,
-                'details' => [
-                    'successful_count' => count($successfulPros),
-                    'failed_count' => count($failedPros),
-                    'failed_pros' => $failedPros
-                ]
-            ]);
-
-        } catch (Throwable $e) {
-            DB::rollBack();
-            Log::error("Gagal total pada proses bulk refresh: " . $e->getMessage());
-            return response()->json([
-                'success' => false, 
-                'message' => $e->getMessage()
-            ], 500);
         }
+
+        $message = $this->_buildResponseMessage(count($successfulPros), $failedPros);
+
+        return response()->json([
+            'success' => true, 
+            'message' => $message,
+            'details' => [
+                'successful_count' => count($successfulPros),
+                'failed_count' => count($failedPros),
+                'failed_pros' => $failedPros
+            ]
+        ]);
     }
 
     private function _callBulkFlaskService(string $endpoint, array $proList, string $plant): array
@@ -333,37 +316,68 @@ class bulkController extends Controller
         $validatedData = $validator->validated();
         $listOfPro = $validatedData['pro_list'];
         
-        try {
-            $scheduleApiUrl = env('FLASK_API_URL') . "/bulk-schedule-pro";
-            $credentials = [
-                'X-SAP-Username' => $request->session()->get('username'),
-                'X-SAP-Password' => $request->session()->get('password'),
-            ];
+        // Format Date/Time
+        $dateYmd   = Carbon::parse($validatedData['schedule_date'])->format('Ymd');
+        $timeColon = str_replace('.', ':', $validatedData['schedule_time']);
 
-            $scheduleResponse = Http::withHeaders($credentials)
-                ->timeout(0)
-                ->post($scheduleApiUrl, [
-                    'pro_list'      => $listOfPro,
-                    'schedule_date' => $validatedData['schedule_date'],
-                    'schedule_time' => $validatedData['schedule_time'],
-                ]);
+        $flaskUrl = rtrim(env('FLASK_API_URL'), '/') . '/api/schedule_order';
+        $credentials = [
+            'X-SAP-Username' => $request->session()->get('username'),
+            'X-SAP-Password' => $request->session()->get('password'),
+        ];
 
-            if (!$scheduleResponse->successful()) {
-                $errorData = $scheduleResponse->json();
-                $errorMessage = $errorData['error'] ?? 'Gagal saat proses scheduling di API.';
-                Log::error('Bulk Schedule API call failed.', ['response' => $errorData]);
-                return response()->json(['message' => 'Gagal memproses schedule: ' . $errorMessage], 500);
+        $results = [];
+        $failedCount = 0;
+
+        foreach ($listOfPro as $aufnr) {
+            try {
+                $response = Http::withHeaders($credentials)
+                    ->timeout(30)
+                    ->post($flaskUrl, [
+                        'AUFNR' => $aufnr,
+                        'DATE'  => $dateYmd,
+                        'TIME'  => $timeColon,
+                    ]);
+                
+                if ($response->successful()) {
+                    $payload = $response->json();
+                     // Check specific SAP error (TYPE=E)
+                    $sapReturn = $payload['sap_return'] ?? $payload['RETURN'] ?? [];
+                    // Check if any row has TYPE == 'E'
+                    $hasError = false;
+                    foreach ($sapReturn as $row) {
+                        if (isset($row['TYPE']) && strtoupper($row['TYPE']) === 'E') {
+                            $hasError = true;
+                            break;
+                        }
+                    }
+                    
+                    if ($hasError) {
+                        $results[] = ['aufnr' => $aufnr, 'status' => 'failed', 'message' => 'SAP Error'];
+                        $failedCount++;
+                    } else {
+                        $results[] = ['aufnr' => $aufnr, 'status' => 'success'];
+                    }
+                } else {
+                    $results[] = ['aufnr' => $aufnr, 'status' => 'failed', 'message' => 'API Error: ' . $response->status()];
+                    $failedCount++;
+                }
+
+            } catch (\Exception $e) {
+                $results[] = ['aufnr' => $aufnr, 'status' => 'failed', 'message' => $e->getMessage()];
+                $failedCount++;
             }
-
-        } catch (ConnectionException $e) {
-            Log::error('Gagal terhubung ke Flask API untuk Bulk Schedule.', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Gagal menghubungi service scheduler, Silahkan hubungi TIM IT'], 503);
         }
 
-        Log::info('Scheduling berhasil, melanjutkan ke proses refresh data untuk PROs:', $listOfPro);
+        Log::info('Bulk Schedule finished.', ['results' => $results]);
 
-        // Langsung return sukses, karena refresh akan dipanggil oleh Frontend
-        return response()->json(['message' => "Proses schedule berhasil."]);
+        if ($failedCount === count($listOfPro)) {
+             return response()->json(['message' => 'Semua penjadwalan gagal.'], 500);
+        }
+        
+        $successCount = count($listOfPro) - $failedCount;
+
+        return response()->json(['message' => "Proses schedule selesai. Sukses: $successCount, Gagal: $failedCount"]);
     }
 
     public function handleBulkChangeAndRefresh(Request $request): JsonResponse
@@ -615,5 +629,95 @@ class bulkController extends Controller
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error deleting data: ' . $e->getMessage()], 500);
         }
+    }
+
+    public function handleBulkRelease(Request $request)
+    {
+        // 1. Validasi
+        $request->validate([
+            'pro_list' => 'required|array|min:1',
+            'plant'    => 'required|string',
+        ]);
+
+        $proList = $request->input('pro_list');
+        $plant   = $request->input('plant');
+
+        // 2. Setup Services
+        $releaseService = new Release();
+        $refreshService = new YPPR074Z();
+
+        // 3. Return Streamed Response
+        return new StreamedResponse(function () use ($proList, $plant, $releaseService, $refreshService) {
+            // Disable output buffering
+            ob_implicit_flush(true);
+            ob_end_flush();
+
+            $total = count($proList);
+            $processed = 0;
+            $successCount = 0;
+            $failCount = 0;
+
+            foreach ($proList as $aufnr) {
+                $processed++;
+                try {
+                    // A. Send progress: Starting
+                    echo json_encode([
+                        'type' => 'progress',
+                        'aufnr' => $aufnr,
+                        'status' => 'processing',
+                        'message' => "Releasing PRO {$aufnr}..."
+                    ]) . "\n";
+                    flush();
+                    
+                    // B. Call Release Service
+                    $releaseResult = $releaseService->release($aufnr);
+                    
+                    // C. Refresh Data (YPPR074Z)
+                    echo json_encode([
+                        'type' => 'progress',
+                        'aufnr' => $aufnr,
+                        'status' => 'processing',
+                        'message' => "Refreshing data for PRO {$aufnr}..."
+                    ]) . "\n";
+                    flush();
+                    
+                    $refreshService->refreshPro($plant, $aufnr);
+
+                    $successCount++;
+                    echo json_encode([
+                        'type' => 'success',
+                        'aufnr' => $aufnr,
+                        'message' => "PRO {$aufnr} released and refreshed successfully."
+                    ]) . "\n";
+                    flush();
+
+                } catch (\Exception $e) {
+                    $failCount++;
+                    echo json_encode([
+                        'type' => 'error',
+                        'aufnr' => $aufnr,
+                        'message' => $e->getMessage()
+                    ]) . "\n";
+                    flush();
+                }
+                
+                // Optional: throttling if needed, but not strictly necessary for backend speed
+            }
+
+            // Final Summary
+            echo json_encode([
+                'type' => 'summary',
+                'total' => $total,
+                'success' => $successCount,
+                'failed' => $failCount,
+                'message' => "Process completed. Success: {$successCount}, Failed: {$failCount}."
+            ]) . "\n";
+            flush();
+
+        }, 200, [
+            'Cache-Control' => 'no-cache',
+            'Content-Type' => 'application/json',
+            'X-Accel-Buffering' => 'no', // Nginx specific
+        ]);
     }
 }

@@ -31,10 +31,16 @@
                 id="pro-check-{{ $loop->iteration + ($allProData->currentPage() - 1) * $allProData->perPage() }}">
         </td>
         <td class="text-center small d-none d-md-table-cell">{{ $loop->iteration + ($allProData->currentPage() - 1) * $allProData->perPage() }}</td>
-        <td class="text-center small d-none d-md-table-cell" data-col="so">
-            {{ $item->KDAUF ?? '-' }}</td>
-        <td class="text-center small d-none d-md-table-cell" data-col="so_item">
-            {{ $item->KDPOS ? ltrim((string) $item->KDPOS, '0') : '-' }}</td>
+        <td class="text-center small d-none d-md-table-cell text-nowrap" data-col="so_item_merged">
+            {{ $item->KDAUF ?? '-' }}
+            @php
+                $kdaufLower = strtolower($item->KDAUF ?? '');
+                $isStock = str_contains($kdaufLower, 'make stock') || str_contains($kdaufLower, 'make to stock');
+            @endphp
+            @if(!$isStock && !empty($item->KDPOS))
+                - {{ ltrim((string) $item->KDPOS, '0') }}
+            @endif
+        </td>
         <td class="text-center small" data-col="pro">{{ $item->AUFNR ?? '-' }}</td>
         <td class="text-center" data-col="status"><span
                 class="badge rounded-pill {{ $badgeClass }}">{{ $status ?: '-' }}</span>

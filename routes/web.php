@@ -27,6 +27,24 @@ Route::middleware('guest')->group(function (){
     Route::post('/login/admin', [LoginController::class, 'loginAdmin'])->name('login.admin');
 });
 
+// Mapping Sementera (Public/Loose Access)
+Route::get('/mapping-sementara', [App\Http\Controllers\MappingController::class, 'index'])->name('mapping.index');
+Route::post('/mapping-sementara', [App\Http\Controllers\MappingController::class, 'store'])->name('mapping.store');
+Route::delete('/mapping-sementara/bulk-delete', [App\Http\Controllers\MappingController::class, 'bulkDestroy'])->name('mapping.bulk_destroy');
+Route::delete('/mapping-sementara/{id}', [App\Http\Controllers\MappingController::class, 'destroy'])->name('mapping.destroy');
+
+// Wc Relation (Public/Loose Access)
+Route::get('/wc-relation', [App\Http\Controllers\WcRelationController::class, 'index'])->name('wc-relation.index');
+Route::post('/wc-relation', [App\Http\Controllers\WcRelationController::class, 'store'])->name('wc-relation.store');
+Route::delete('/wc-relation/bulk-delete', [App\Http\Controllers\WcRelationController::class, 'bulkDestroy'])->name('wc-relation.bulk_destroy');
+Route::delete('/wc-relation/{id}', [App\Http\Controllers\WcRelationController::class, 'destroy'])->name('wc-relation.destroy');
+
+// Workcenter Mappings Parent-Child (CRUD)
+Route::get('/workcenter-mappings', [App\Http\Controllers\WorkcenterMappingController::class, 'index'])->name('workcenter-mapping.index');
+Route::post('/workcenter-mappings', [App\Http\Controllers\WorkcenterMappingController::class, 'store'])->name('workcenter-mapping.store');
+Route::delete('/workcenter-mappings/bulk-delete', [App\Http\Controllers\WorkcenterMappingController::class, 'bulkDestroy'])->name('workcenter-mapping.bulk_destroy');
+Route::delete('/workcenter-mappings/{id}', [App\Http\Controllers\WorkcenterMappingController::class, 'destroy'])->name('workcenter-mapping.destroy');
+
 Route::middleware('auth')->group(function (){
     Route::prefix('manufaktur')->name('manufaktur.')->group(function () {
         Route::get('/dashboard/{kode}', [adminController::class, 'index'])->name('dashboard.show');
@@ -85,6 +103,7 @@ Route::middleware('auth')->group(function (){
     Route::post('/api/bulk/bulk-change-pv', [bulkController::class, 'handleBulkChangeAndRefresh'])->name('bulk.change-pv');
     Route::post('/api/bulk/bulk-change-quantity', [bulkController::class, 'bulkChangeQuantity'])->name('bulk.change-quantity');
     Route::post('/api/bulk/bulk-teco', [bulkController::class, 'processBulkTeco'])->name('bulk.teco');
+    Route::post('/api/bulk/bulk-release', [bulkController::class, 'handleBulkRelease'])->name('bulk.release'); // [NEW] Bulk Release
     Route::post('/api/bulk/delete-data', [bulkController::class, 'deleteData'])->name('bulk.delete-data');
     Route::post('/api/bulk/bulk-readpp-pro', [bulkController::class, 'processBulkReadPp'])->name('bulk.readpp-pro');
     Route::post('/bulk-change-and-refresh', [bulkController::class, 'handleBulkChangeAndRefresh']);

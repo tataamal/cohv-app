@@ -4,39 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\WcRelation;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class workcenter extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
+    protected $table = 'workcenters';
+
     protected $fillable = [
+        'plant',
         'kode_wc',
-        'kapaz',
-        'werks',
-        'werksx',
         'description',
+        'start_time',
+        'end_time',
+        'operating_time',
+        'capacity',
     ];
-
-    /**
-     * Mendapatkan semua relasi di mana workcenter ini menjadi ASAL.
-     */
-    public function relasiAsal(): HasMany
-    {
-        return $this->hasMany(wc_relation::class, 'wc_asal_id');
-    }
-
-    /**
-     * Mendapatkan semua relasi di mana workcenter ini menjadi TUJUAN.
-     */
-    public function relasiTujuan(): HasMany
-    {
-        return $this->hasMany(wc_relation::class, 'wc_tujuan_id');
-    }
 }

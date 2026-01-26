@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Kode;
+use App\Models\KodeLaravel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use App\Models\wc_relations;
 use App\Models\workcenter;
+use App\Models\MappingTable;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ManufactController extends Controller
@@ -252,7 +253,8 @@ class ManufactController extends Controller
 
     public function showDetail(Request $request, $kode)
     {
-        $kodeInfo = Kode::where('kode', $kode)->firstOrFail();
+        $kodeInfo = KodeLaravel::where('laravel_code', $kode)->firstOrFail();
+
         
         $query = ProductionTData::where('WERKSX', $kode);
 
@@ -310,7 +312,7 @@ class ManufactController extends Controller
         $allTData4ByAufnr = ProductionTData4::whereIn('AUFNR', $aufnrValues->values())->get()->groupBy('AUFNR');
         $allTData4ByPlnum = ProductionTData4::whereIn('PLNUM', $plnumValues->values())->get()->groupBy('PLNUM');
 
-        $workCenters = workcenter::where('WERKSX', $kode)
+        $workCenters = workcenter::where('plant', $kode)
                          ->orderBy('kode_wc')
                          ->get();
         
@@ -318,8 +320,8 @@ class ManufactController extends Controller
 
         return view('Admin.detail-data2', [
             'plant'            => $kode,
-            'categories'       => $kodeInfo->kategori,
-            'bagian'           => $kodeInfo->nama_bagian,
+            'categories'       => $kodeInfo->plant, // Was kategori
+            'bagian'           => $kodeInfo->description, // Was nama_bagian
             'tdata'            => $tdata,
             'allTData2'        => $allTData2,
             'allTData3'        => $allTData3Grouped,
@@ -334,10 +336,10 @@ class ManufactController extends Controller
 
     public function list_gr($kode)
     {
-        $kodeModel = Kode::where('kode', $kode)->first();
-        $kategori = Kode::where('kode', $kode)->value('kategori');
-        $sub_kategori = Kode::where('kode', $kode)->value('sub_kategori');
-        $nama_bagian = Kode::where('kode', $kode)->value('nama_bagian');
+        $kodeModel = KodeLaravel::where('laravel_code', $kode)->first();
+        $kategori = KodeLaravel::where('laravel_code', $kode)->value('plant');
+        $sub_kategori = null; // KodeLaravel does not have sub_kategori
+        $nama_bagian = KodeLaravel::where('laravel_code', $kode)->value('description');
 
         if (!$kodeModel) {
             return view('Admin.list-gr', [
@@ -348,7 +350,14 @@ class ManufactController extends Controller
             ]);
         }
 
-        $mrpList = Mrp::where('kode', $kode)->pluck('mrp');
+        // [MODIFIKASI] Ambil MRP Via MappingTable
+        $mrpIds = MappingTable::where('kode_laravel_id', $kodeModel->id)
+                    ->whereNotNull('mrp_id')
+                    ->pluck('mrp_id');
+        
+        $mrpList = MRP::whereIn('id', $mrpIds)
+                        ->pluck('mrp')
+                        ->unique();
 
         if ($mrpList->isEmpty()) {
             return view('Admin.list-gr', [
@@ -716,10 +725,16 @@ class ManufactController extends Controller
              return redirect()->back()->with('error', 'Tanggal wajib ada.');
         }
 
-        // 1. Get MRP List for Plant (Scope Filtering)
-        $mrpList = [];
+        // 1. Get MRP List for Plant (Scope Filtering) via MappingTable
+        $mrpList = collect();
         if ($kode) {
-            $mrpList = \App\Models\MRP::where('kode', $kode)->pluck('mrp'); // Case sensitive filename
+            $kodeObj = KodeLaravel::where('laravel_code', $kode)->first();
+            if ($kodeObj) {
+                 $mrpIds = MappingTable::where('kode_laravel_id', $kodeObj->id)
+                            ->whereNotNull('mrp_id')
+                            ->pluck('mrp_id');
+                 $mrpList = MRP::whereIn('id', $mrpIds)->pluck('mrp'); // Case sensitive filename
+            }
         }
 
         // 2. Fetch Raw Data (Use Default Connection)
