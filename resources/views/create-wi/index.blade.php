@@ -2738,6 +2738,7 @@
                          body: JSON.stringify({
                             plant_code: plantCode,
                             document_date: dateInput,
+                            document_end_date: document.getElementById('wiDocumentEndDate').value,
                             document_time: timeInput,
                             workcenter_allocations: window.latestAllocations
                          })
@@ -2778,13 +2779,54 @@
                 const content = document.getElementById('previewContent');
                 const emptyWarning = document.getElementById('emptyPreviewWarning');
                 const dateInput = document.getElementById('wiDocumentDate');
+                const endDateInput = document.getElementById('wiDocumentEndDate');
                 const timeInput = document.getElementById('wiDocumentTime');
                 const btnSave = document.getElementById('confirmSaveBtn');
                 const btnRelease = document.getElementById('btnModalRelease');
                 
-                // Set default time logic (sama)
+                // Toggle UI Elements
+                const colEndDate = document.getElementById('colEndDate');
+                const colWarning = document.getElementById('colWarning');
+
                 const now = new Date();
-                dateInput.value = now.toISOString().split('T')[0];
+                let defaultDate = now.toISOString().split('T')[0];
+                let defaultEndDate = defaultDate; 
+
+                // [UPDATED] Machining Mode Check
+                const chkMachining = document.getElementById('chkUnique1');
+                const isMachining = chkMachining && chkMachining.checked;
+
+                if (isMachining) {
+                    // Show End Date, Hide Warning
+                    if(colEndDate) colEndDate.classList.remove('d-none');
+                    if(colWarning) colWarning.classList.add('d-none');
+
+                    // Auto-Fill Logic (Min SSAVD - Max SSSLD)
+                    let minSSAVD = null;
+                    let maxSSSLD = null;
+                    
+                    data.forEach(wc => {
+                        wc.pro_items.forEach(item => {
+                            if (item.ssavd) {
+                                if (!minSSAVD || item.ssavd < minSSAVD) minSSAVD = item.ssavd;
+                            }
+                            if (item.sssld) {
+                                if (!maxSSSLD || item.sssld > maxSSSLD) maxSSSLD = item.sssld;
+                            }
+                        });
+                    });
+
+                    if (minSSAVD) defaultDate = minSSAVD.split('T')[0]; 
+                    if (maxSSSLD) defaultEndDate = maxSSSLD.split('T')[0];
+                } else {
+                    // Hide End Date, Show Warning
+                    if(colEndDate) colEndDate.classList.add('d-none');
+                    if(colWarning) colWarning.classList.remove('d-none');
+                }
+
+                if(dateInput) dateInput.value = defaultDate;
+                if(endDateInput) endDateInput.value = defaultEndDate;
+
                 const hours = String(now.getHours()).padStart(2, '0');
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 if(timeInput) timeInput.value = `${hours}:${minutes}`;
@@ -3390,17 +3432,21 @@
                         <div class="card-body p-3">
                             <div class="row g-3 align-items-end">
                                 <div class="col-md-3">
-                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Document</label>
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Mulai (Start)</label>
                                     <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-date" id="wiDocumentDate" required>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Waktu Mulai WI</label>
+                                <div class="col-md-3" id="colEndDate">
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Selesai (End)</label>
+                                    <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-date" id="wiDocumentEndDate" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Waktu</label>
                                     <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-time" id="wiDocumentTime" required>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4" id="colWarning">
                                     <div class="d-flex align-items-center text-danger small bg-danger bg-opacity-10 p-2 rounded">
                                         <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i>
-                                        <div>Dokumen akan kadaluarsa <strong>12 Jam</strong> sesuai jadwal. Pastikan jadwal operator sudah benar.</div>
+                                        <div style="line-height: 1.2;">Dokumen akan kadaluarsa <strong>12 Jam</strong> sesuai jadwal.</div>
                                     </div>
                                 </div>
                             </div>
