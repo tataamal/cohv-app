@@ -29,7 +29,6 @@ class CreateWiController extends Controller
         if (!$ids || !is_array($ids)) {
             return response()->json(['message' => 'Invalid data provided.'], 400);
         }
-
         try {
             DB::beginTransaction();
             HistoryWi::whereIn('wi_document_code', $ids)->delete();
@@ -134,14 +133,15 @@ class CreateWiController extends Controller
             $workcenters = $allWorkcenters->reject(function ($wc) use ($childCodes) {
                 return in_array(strtoupper($wc->kode_wc), $childCodes);
             });
-            $capacityData = ProductionTData1::where('WERKSX', $kode)
-                ->whereRaw('MGVRG2 > LMNGA')
-                ->select('ARBPL', 'KAPAZ')
-                ->distinct()
-                ->get();
-                
+            $capacityData = $allWorkcenters->map(function ($wc) {
+                return [
+                    'ARBPL'      => strtoupper($wc->kode_wc),
+                    'KAPAZ'      => $wc->operating_time,
+                    'START_TIME' => $wc->start_time,
+                    'END_TIME'   => $wc->end_time
+                ];
+            });
             $capacityMap = $capacityData->pluck('KAPAZ', 'ARBPL')->toArray();
-
             return view('create-wi.index', [
                 'kode'                 => $kode,
                 'employees'            => $employees,
@@ -149,6 +149,7 @@ class CreateWiController extends Controller
                 'workcenters'          => $workcenters,
                 'parentWorkcenters'    => $parentWorkcenters,
                 'capacityMap'          => $capacityMap,
+                'wcTimeInfo'           => $capacityData,
                 'wcNames'              => $wcNames, 
                 'wcDescriptions'       => $wcDescriptions,
                 'currentFilter'        => $filter,
@@ -353,7 +354,8 @@ class CreateWiController extends Controller
                 // Determine capacity from primaryWCs or from child relation
                 $childWcObj = $primaryWCs->firstWhere('kode_wc', $childCode);
                 
-                $childKapaz = $childWcObj ? $childWcObj->KAPAZ : ($mapping->childWorkcenter->capacity ?? 0);
+                // [UPDATED] Use operating_time as requested (User: operating_time satuanya jam)
+                $childKapaz = $childWcObj ? $childWcObj->operating_time : ($mapping->childWorkcenter->operating_time ?? 0);
 
                 $parentHierarchy[$parentCode][] = [
                     'code' => $childCode,
@@ -2128,24 +2130,18 @@ class CreateWiController extends Controller
 
     public function streamChangeWc(Request $request) 
     {
-        $items = $request->input('items', []); // Expecting [{aufnr, plant, oper, ...}]
+        $items = $request->input('items', []);
         $targetWc = $request->input('target_wc');
-
         if (empty($items) || !$targetWc) {
              return response()->json(['error' => 'Invalid parameters'], 400);
         }
-
         $reqPlant = $request->input('plant');
-
         $response = new StreamedResponse(function () use ($items, $targetWc, $reqPlant) {
             $total = count($items);
             $changeWcService = new ChangeWc();
             $flaskBase = rtrim(env('FLASK_API_URL'), '/');
-
-            // Pre-fetch WC Description (Optimization: Do it once)
             $shortText = '';
             try {
-                 // We need a plant to fetch WC desc. Use the first item's plant.
                  $firstPlant = is_array($items[0]) ? ($items[0]['plant'] ?? $items[0]['pwwrk'] ?? '') : ($items[0]->plant ?? $items[0]->pwwrk ?? '');
                  if ($firstPlant) {
                      $sapUser = session('username');
@@ -2166,7 +2162,6 @@ class CreateWiController extends Controller
             }
 
             foreach ($items as $index => $item) {
-                // Determine item structure (array or object) and get AUFNR field
                 $aufnr = is_array($item) ? ($item['aufnr'] ?? $item['proCode'] ?? '') : ($item->aufnr ?? $item->proCode ?? '');
                 $plant = is_array($item) ? ($item['plant'] ?? $item['pwwrk'] ?? '') : ($item->plant ?? $item->pwwrk ?? '');
                 $oper  = is_array($item) ? ($item['oper'] ?? '0010') : ($item->oper ?? '0010');
@@ -2193,20 +2188,25 @@ class CreateWiController extends Controller
                     $res = $changeWcService->handle($payload);
 
                     if (!$res['success']) {
-                         // Extract error message
-                         $errDetails = collect($res['messages'] ?? [])->pluck('message')->join(', ');
-                         if (empty($errDetails)) {
-                             $errDetails = "Unknown Error. Raw: " . json_encode($res['raw'] ?? $res);
+                         $errors = collect($res['messages'] ?? [])
+                            ->filter(fn($m) => in_array($m['type'], ['E', 'A']))
+                            ->pluck('message')
+                            ->filter()
+                            ->unique()
+                            ->join(', ');
+                         
+                         if (empty($errors)) {
+                             $errors = collect($res['messages'] ?? [])->pluck('message')->filter()->join(', ');
                          }
-                         throw new \Exception("Change WC Failed: $errDetails");
+                         
+                         if (empty($errors)) {
+                             $errors = "Unknown SAP Error. Raw: " . json_encode($res['raw'] ?? $res);
+                         }
+                         throw new \Exception("Change WC Failed: $errors");
                     }
 
-                    // 2. Refresh PRO using YPPR074Z (User Request)
-                    // USE PAGE PLANT CODE (e.g. 3015) as requested by User to ensure data is found.
-                    // "yang dipakai adalah $kode (3015) bukan PWWRK (3000)"
                     $refreshPlant = $reqPlant; 
                     if (!$refreshPlant) {
-                         // Fallback strategies just in case
                          $existingPro = ProductionTData3::where('AUFNR', $aufnr)->first();
                          $refreshPlant = $existingPro->WERKSX ?? $plant;
                     }
@@ -2334,7 +2334,6 @@ class CreateWiController extends Controller
                  'available_qty' => $item->real_sisa_qty,
                  'uom' => $item->MEINS, 
                  'workcenter' => $item->ARBPL,
-                 // Pass Time Data for Calculation in Frontend
                  'vgw01' => floatval($item->VGW01 ?? 0),
                  'vge01' => strtoupper($item->VGE01 ?? ''),
              ];
@@ -2793,14 +2792,21 @@ class CreateWiController extends Controller
                 $query->where(function($q) use ($terms) {
                     foreach ($terms as $term) {
                         $q->orWhere(function($subQ) use ($term) {
-                            $subQ->where('AUFNR', 'like', "%{$term}%")
-                                 ->orWhere('MATNR', 'like', "%{$term}%")
-                                 ->orWhere('MAKTX', 'like', "%{$term}%")
-                                 ->orWhere('KDAUF', 'like', "%{$term}%")
-                                 ->orWhere('KDPOS', 'like', "%{$term}%")
-                                 ->orWhere('ARBPL', 'like', "%{$term}%")
-                                 ->orWhere('STEUS', 'like', "%{$term}%")
-                                 ->orWhere('VORNR', 'like', "%{$term}%");
+                            if (preg_match('/^(\d+)\s*-\s*(\d+)$/', $term, $matches)) {
+                                $so = $matches[1];
+                                $item = str_pad($matches[2], 6, '0', STR_PAD_LEFT);
+                                $subQ->where('KDAUF', '=', $so)
+                                     ->where('KDPOS', '=', $item);
+                            } else {
+                                $subQ->where('AUFNR', 'like', "%{$term}%")
+                                     ->orWhere('MATNR', 'like', "%{$term}%")
+                                     ->orWhere('MAKTX', 'like', "%{$term}%")
+                                     ->orWhere('KDAUF', 'like', "%{$term}%")
+                                     ->orWhere('KDPOS', 'like', "%{$term}%")
+                                     ->orWhere('ARBPL', 'like', "%{$term}%")
+                                     ->orWhere('STEUS', 'like', "%{$term}%")
+                                     ->orWhere('VORNR', 'like', "%{$term}%");
+                            }
                         });
                     }
                 });
@@ -2848,26 +2854,42 @@ class CreateWiController extends Controller
                  $query->where('ARBPL', '=', $val);
             }
         }
+        
+        // Revised SO (KDAUF) & Item Logic
         if ($request->has('adv_kdauf') && $request->adv_kdauf) {
             $val = $request->adv_kdauf;
-            if(str_contains($val, ',')) {
-                 $arr = array_map('trim', explode(',', $val));
-                 $query->whereIn('KDAUF', $arr);
-            } else {
-                 $query->where('KDAUF', '=', $val);
+            $rawInputs = str_contains($val, ',') ? explode(',', $val) : [$val];
+            
+            $soList = [];
+            $soItemPairs = [];
+
+            foreach ($rawInputs as $input) {
+                $input = trim($input);
+                if (empty($input)) continue;
+
+                if (preg_match('/^(\d+)\s*-\s*(\d+)$/', $input, $matches)) {
+                    // It is SO-Item
+                    $soItemPairs[] = [
+                        'so' => $matches[1],
+                        'item' => str_pad($matches[2], 6, '0', STR_PAD_LEFT)
+                    ];
+                } else {
+                    // Assume it is just SO or maybe partial
+                     $soList[] = $input;
+                }
             }
-        }
-        if ($request->has('adv_kdpos') && $request->adv_kdpos) {
-            $val = $request->adv_kdpos;
-            if(str_contains($val, ',')) {
-                 $arr = array_map(function($v) {
-                     return str_pad(trim($v), 6, '0', STR_PAD_LEFT);
-                 }, explode(',', $val));
-                 $query->whereIn('KDPOS', $arr);
-            } else {
-                 $paddedVal = str_pad(trim($val), 6, '0', STR_PAD_LEFT);
-                 $query->where('KDPOS', '=', $paddedVal);
-            }
+
+            $query->where(function($q) use ($soList, $soItemPairs) {
+                if (!empty($soList)) {
+                    $q->orWhereIn('KDAUF', $soList);
+                }
+                foreach ($soItemPairs as $pair) {
+                    $q->orWhere(function($sub) use ($pair) {
+                        $sub->where('KDAUF', '=', $pair['so'])
+                            ->where('KDPOS', '=', $pair['item']);
+                    });
+                }
+            });
         }
         if ($request->has('adv_vornr') && $request->adv_vornr) {
             $query->where('VORNR', 'like', '%' . $request->adv_vornr . '%');

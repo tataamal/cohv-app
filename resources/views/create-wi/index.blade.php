@@ -214,6 +214,33 @@
                 font-size: 0.9rem;
             }
             
+            
+            /* Machining Mode Styles */
+            #assignmentCardContainer.machining-mode-active .col-qty,
+            #assignmentCardContainer.machining-mode-active .col-time,
+            #assignmentCardContainer.machining-mode-active .btn-add-wrapper,
+            #assignmentCardContainer.machining-mode-active .qty-badge-vis {
+                display: none !important;
+            }
+            
+            #assignmentCardContainer.machining-mode-active .longshift-wrapper {
+                display: block !important;
+            }
+            #assignmentCardContainer.machining-mode-active .date-info-wrapper {
+                display: flex !important;
+            }
+            
+            #assignmentCardContainer.machining-mode-active .col-operator {
+                width: 50% !important; 
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+            #assignmentCardContainer.machining-mode-active .col-subwc {
+                width: 50% !important;
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+
             .table-scroll-area {
                 min-height: 150px;
             }
@@ -322,16 +349,10 @@
                                             <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advArbpl', 'WC List')" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-3">
                                         <div class="input-group input-group-sm">
-                                            <input type="text" id="advKdauf" class="form-control" placeholder="SO (KDAUF)">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO List', false)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <div class="input-group input-group-sm">
-                                            <input type="text" id="advKdpos" class="form-control" placeholder="Item">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdpos', 'Item List', false)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                            <input type="text" id="advKdauf" class="form-control" placeholder="SO or SO-Item">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO / SO-Item List', true)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
                                         </div>
                                     </div>
                                      <div class="col-md-1">
@@ -421,26 +442,53 @@
                                 }
                                 $kapazMins = $totalMins;
                             } else {
-                                $k = floatval(str_replace(',', '.', $wc->kapaz ?? 0));
+                                // [UPDATED] Use operating_time as capacity source
+                                $k = floatval(str_replace(',', '.', $wc->operating_time ?? 0));
                                 if ($k == 0) $k = 9.5; // Fallback 570 mins
                                 $kapazMins = $k * 60;
                             }
+                            
+                            $formatTime = function($t) {
+                                if (!$t) return '-';
+                                $clean = str_replace(':', '', $t);
+                                // Assume HHMMSS or similar
+                                if (strlen($clean) >= 4) {
+                                    return substr($clean, 0, 2) . ':' . substr($clean, 2, 2);
+                                }
+                                return $t; 
+                            };
+                            
+                            $sTime = $formatTime($wc->start_time);
+                            $eTime = $formatTime($wc->end_time);
                         @endphp
 
                         {{-- @if (!$isUnknown) --}}
-                            <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-capacity-mins="{{ $kapazMins }}">
+                            <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-capacity-mins="{{ $kapazMins }}" 
+                                 data-start-time="{{ $wc->start_time }}" data-end-time="{{ $wc->end_time }}">
                                 {{-- Card Header --}}
-                                <div class="wc-header">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <h6 class="fw-bold text-dark mb-0">{{ $wc->kode_wc }}</h6>
-                                        <span class="badge bg-light text-dark border" id="label-cap-{{ $wc->kode_wc }}" style="font-size: 0.75rem;">0 / 0 Min</span>
-                                    </div>
-                                    <div class="text-muted text-xs text-truncate mb-2" title="{{ $wc->description }}">
-                                        {{ $wc->description }}
+                                <div class="wc-header" style="padding: 12px 15px; background: #fff; border-bottom: 1px solid #f1f5f9;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex flex-column" style="min-width: 0; max-width: 65%;">
+                                            <h6 class="fw-bold text-dark mb-0 text-truncate" style="font-size: 0.95rem;">
+                                                <i class="fa-solid fa-industry text-muted me-1 opacity-25" style="font-size: 0.8rem;"></i>{{ $wc->kode_wc }}
+                                            </h6>
+                                            <div class="text-muted text-truncate mt-1" title="{{ $wc->description }}" style="font-size: 0.7rem;">
+                                                {{ $wc->description }}
+                                            </div>
+                                        </div>
+                                        <div class="d-flex flex-column align-items-end ms-2">
+                                            <span class="badge bg-white text-dark border shadow-sm rounded-pill px-2 py-1 mb-1" id="label-cap-{{ $wc->kode_wc }}" style="font-size: 0.75rem;">
+                                                0 / 0 Min
+                                            </span>
+                                             <div class="d-flex align-items-center gap-1 text-secondary" style="font-size: 0.65rem; font-weight: 600; opacity: 0.8;">
+                                                <i class="fa-regular fa-clock text-primary"></i>
+                                                <span>{{ $sTime }} - {{ $eTime }}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                     
                                     {{-- Progress Bar --}}
-                                    <div class="progress bg-white border" style="height: 8px; border-radius: 4px;">
+                                    <div class="progress bg-light" style="height: 6px; border-radius: 6px;">
                                         <div id="progress-{{ $wc->kode_wc }}" class="progress-bar rounded-pill bg-success" role="progressbar" style="width: 0%"></div>
                                     </div>
                                 </div>
@@ -521,8 +569,20 @@
     <div class="modal fade" id="uniqueAssignmentModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-dark text-white border-0 py-3">
-                    <h6 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>Assign Operator</h6>
+                <div class="modal-header bg-dark text-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-4">
+                        <h6 class="modal-title fw-bold mb-0"><i class="fa-solid fa-user-pen me-2"></i>Assign Operator</h6>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="chkUnique1">
+                                <label class="form-check-label small text-white" for="chkUnique1">Machining</label>
+                            </div>
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="chkUnique2">
+                                <label class="form-check-label small text-white" for="chkUnique2">Auto Assign</label>
+                            </div>
+                        </div>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <select id="employeeTemplateSelect" class="d-none">
@@ -723,47 +783,33 @@
                 const wcContainer = toList.closest('.wc-card-container');
                 const targetWcId = wcContainer ? wcContainer.dataset.wcId : '';
                 const originWc = item.dataset.arbpl;
-
-                // --- CAPACITY PRE-CHECK START ---
                 if (wcContainer) {
                     const kapazHours = parseFloat(wcContainer.dataset.kapazWc) || 0;
                     const maxMins = kapazHours * 60;
-                    
-                    // Calc Current Load (excluding the newly dropped item and any cached dragged items if they are momentarily in the list)
-                    let currentLoad = 0;
+                    let currentLoad = 0;    
                     wcContainer.querySelectorAll('.pro-item-card').forEach(card => {
-                        // Check if this card is part of the currently dragged set
                         const isDragged = (card === item) || (draggedItemsCache && draggedItemsCache.includes(card));
                         if (!isDragged) {
-                             // Force calculation to ensure accuracy (fix for potential stale dataset)
                              const mins = calculateItemMinutes(card);
                              currentLoad += mins;
                         }
                     });
-
-                    // Calc Incoming Load
                     let incomingLoad = 0;
-                    // If bulk drag
                     if (draggedItemsCache && draggedItemsCache.length > 0) {
                          draggedItemsCache.forEach(dItem => {
                              incomingLoad += parseFloat(dItem.dataset.calculatedMins) || 0;
                          });
                     } else {
-                         // Single item fallback
                          incomingLoad += parseFloat(item.dataset.calculatedMins) || 0;
                     }
-
                     if ((currentLoad + incomingLoad) > (maxMins + 0.1)) { 
                         console.warn("Capacity exceeded for " + targetWcId + ", but allowing drop.");
                     }
                 }
-                // --- CAPACITY PRE-CHECK END ---
-
                 if (originWc && targetWcId && originWc !== targetWcId) {
                     pendingMismatchItem = item;
                     targetContainerCache = toList;
                     sourceContainerCache = fromList;
-                    
                     if (!draggedItemsCache || draggedItemsCache.length === 0) {
                         draggedItemsCache = [item]; 
                     }
@@ -781,10 +827,8 @@
                         document.getElementById('btnBulkRelease').classList.add('d-none');
                         document.getElementById('btnBulkRefresh').classList.add('d-none');
                     }
-                    
                     document.getElementById('mismatchCurrentWC').value = originWc;
                     document.getElementById('mismatchTargetWC').value = targetWcId;
-                    
                     mismatchModalInstance.show();
                     return;
                 }
@@ -892,29 +936,23 @@
                 
                 draggedItemsCache.forEach((row, index) => {
                     const rAufnr = String(row.dataset.aufnr || '').trim();
-                    const rVornr = String(row.dataset.vornr || '').trim(); // [FIX] Add VORNR check
+                    const rVornr = String(row.dataset.vornr || '').trim();
                     const rMaktx = row.dataset.maktx || ''; 
                     const originalSisa = parseFloat(row.dataset.sisaQty) || 0;
                     
-                    // [NEW] Calculate effective sisa by checking drop boxes
                     let allocatedInDropBoxes = 0;
                     document.querySelectorAll('.wc-drop-zone .pro-item-card').forEach(c => {
                         const cAufnr = String(c.dataset.aufnr || '').trim();
                         const cVornr = String(c.dataset.vornr || '').trim();
-                        // Exclude the item currently being dragged (if it's already in DOM, though usually it's in list)
-                        if (cAufnr === rAufnr && cVornr === rVornr) { // [FIX] Match PRO + VORNR
+                        if (cAufnr === rAufnr && cVornr === rVornr) {
                              allocatedInDropBoxes += parseFloat(c.dataset.assignedQty) || 0;
                         }
                     });
                     
                     let rSisa = originalSisa - allocatedInDropBoxes;
                     if (rSisa < 0) rSisa = 0;
-                    
-                    // Cap at 0? Yes.
-
                     const rVgw01 = parseFloat(row.dataset.vgw01) || 0; 
                     const rVge01 = row.dataset.vge01 || ''; 
-
                     const card = document.createElement('div');
                     card.className = 'card mb-3 border-0 shadow-sm pro-card';
                     card.dataset.refAufnr = rAufnr;
@@ -927,37 +965,45 @@
                     card.innerHTML = `
                         <div class="card-header bg-dark text-white py-2 px-3 d-flex justify-content-between align-items-center">
                             <span class="fw-bold small"><i class="fa-solid fa-box me-1"></i> ${rAufnr} - ${rMaktx}</span>
+                            
+                            <div class="form-check form-check-inline mb-0 ms-auto me-3 longshift-wrapper d-none">
+                                <input class="form-check-input" type="checkbox" id="ls-${rAufnr}" onchange="handleLongshiftChange('${rAufnr}', this)">
+                                <label class="form-check-label text-white small fw-bold" for="ls-${rAufnr}">Longshift</label>
+                            </div>
+
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-secondary border border-light">Max: ${rSisa.toLocaleString('id-ID')}</span>
+                                <span class="badge bg-secondary border border-light qty-badge-vis">Max: ${rSisa.toLocaleString('id-ID')}</span>
                                 <button type="button" class="btn btn-sm btn-outline-danger border-0 text-white p-0 ms-2" style="width: 20px; height: 20px; line-height: 1;" onclick="removeProFromModal(this)">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="card-body p-2 bg-light">
-                            <!-- Rows Container -->
+                             <div class="alert alert-warning p-1 mb-2 d-flex justify-content-between align-items-center date-info-wrapper d-none" style="font-size: 0.75rem;">
+                                 <div><i class="fa-regular fa-calendar me-1"></i><strong>Start:</strong> ${row.dataset.ssavd ? new Date(row.dataset.ssavd).toLocaleDateString('id-ID') : '-'}</div>
+                                 <div><i class="fa-regular fa-calendar-check me-1"></i><strong>Finish:</strong> ${row.dataset.sssld ? new Date(row.dataset.sssld).toLocaleDateString('id-ID') : '-'}</div>
+                             </div>
+
                             <div class="assignment-rows">
-                                <!-- Initial Row -->
                                 <div class="row g-2 align-items-end mb-2 assignment-row">
-                                    <div class="col-md-4">
+                                    <div class="col-md-4 col-operator">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Operator</label>
                                         <select class="form-select form-select-sm emp-select shadow-none border-secondary" required onchange="updateEmpOptions('${rAufnr}')">
                                             ${empOptions}
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-3 col-subwc">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Sub-WC</label>
                                         <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateEmpOptions('${rAufnr}'); updateCardSummary('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
                                             ${childOptionsHtml}
                                         </select>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-2 col-qty">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Qty</label>
                                         <input type="text" class="form-control form-control-sm qty-input shadow-none border-secondary fw-bold text-center" 
                                             value="${rSisa.toLocaleString('id-ID')}" oninput="updateCardSummary('${rAufnr}')" ${hasChildren ? 'disabled title="Pilih Sub-WC terlebih dahulu"' : ''}>
                                     </div>
-                                    <!-- NEW: Time Field (Auto Calc) -->
-                                    <div class="col-md-2">
+                                    <div class="col-md-2 col-time">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Time (Min)</label>
                                         <input type="text" class="form-control form-control-sm time-input shadow-none border-secondary text-center bg-white text-dark fw-bold" value="0" readonly>
                                     </div>
@@ -969,8 +1015,7 @@
                                 </div>
                             </div>
                             
-                            <!-- Add Button / Summary -->
-                             <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                             <div class="d-flex justify-content-between align-items-center mt-2 px-1 btn-add-wrapper">
                                 <button class="btn btn-sm btn-outline-primary border-dashed fw-bold px-3 btn-add-split" type="button" onclick="addAssignmentRow('${rAufnr}')" ${hasChildren ? 'disabled' : ''}>
                                     <i class="fa-solid fa-plus-circle me-1"></i> Add Split
                                 </button>
@@ -986,8 +1031,34 @@
                     updateCardSummary(rAufnr); 
                 });
 
+                if(window.updateMachiningMode) window.updateMachiningMode();
                 assignmentModalInstance.show();
             }
+
+            window.updateMachiningMode = function() {
+                const chk = document.getElementById('chkUnique1');
+                const container = document.getElementById('assignmentCardContainer');
+                if (chk && container) {
+                    if (chk.checked) container.classList.add('machining-mode-active');
+                    else container.classList.remove('machining-mode-active');
+                }
+            };
+
+            window.handleLongshiftChange = function(aufnr, checkbox) {
+                 const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                 if (!card) return;
+                 const rowsContainer = card.querySelector('.assignment-rows');
+                 
+                 if (checkbox.checked) {
+                     if (rowsContainer.querySelectorAll('.assignment-row').length < 2) {
+                         window.addAssignmentRow(aufnr);
+                     }
+                 } else {
+                     const rows = rowsContainer.querySelectorAll('.assignment-row');
+                     for (let i = 1; i < rows.length; i++) rows[i].remove();
+                     window.updateCardSummary(aufnr);
+                 }
+            };
             window.addAssignmentRow = function(aufnr) {
                 const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
                 if (!card) return;
@@ -1385,13 +1456,9 @@
                 if (!card) return;
 
                 const hasChildren = card.dataset.hasChildren === 'true';
-                const parentTargetWc = card.dataset.targetWc; // WC Induk / Target Utama
-                
-                // Get fresh template options
+                const parentTargetWc = card.dataset.targetWc;
                 const templateSelect = document.getElementById('employeeTemplateSelect');
                 const templateOptions = Array.from(templateSelect.options);
-
-                // Collect selected NIKs across rows to disable duplicates
                 const allSelects = Array.from(card.querySelectorAll('.emp-select'));
                 const selectedNiks = allSelects
                     .map(sel => sel.value)
@@ -1403,38 +1470,39 @@
                     const currentVal = select.value;
                     
                     let requiredArbpl = null;
-
-                    // 1. Determine Filtering Criteria
                     if (hasChildren) {
                         const subWc = childSelect.value;
                         if (!subWc) {
-                            // Enforce Sub-WC selection first
                             select.innerHTML = '<option value="" selected disabled>Pilih Sub-WC terlebih dahulu...</option>';
                             select.disabled = true;
-                            return; // Stop processing for this select
+                            return; 
                         } else {
                             requiredArbpl = subWc;
                             select.disabled = false;
                         }
                     } else {
-                         // Single WC (No Children) -> Filter by Target WC
                          requiredArbpl = parentTargetWc;
                          select.disabled = false;
                     }
 
                     select.innerHTML = '<option value="" selected disabled>Pilih Operator...</option>';
+                    
+                    // [UPDATED] Bypass unique NIK filter if Machining + Auto Assign are both Checked
+                    const chkMachining = document.getElementById('chkUnique1');
+                    const chkAutoAssign = document.getElementById('chkUnique2');
+                    const isBypassFilter = (chkMachining && chkMachining.checked) && (chkAutoAssign && chkAutoAssign.checked);
 
                     templateOptions.forEach(tmplOpt => {
                         if (tmplOpt.value === "") return;
-
-                        const empArbpl = tmplOpt.getAttribute('data-arbpl'); // Get from data attribute
+                        const empArbpl = tmplOpt.getAttribute('data-arbpl');
                         const newOpt = tmplOpt.cloneNode(true);
                         
-                        if (selectedNiks.includes(newOpt.value) && newOpt.value !== currentVal) {
-                            newOpt.disabled = true;
-                            newOpt.innerText += ' (Selected)';
+                        if (!isBypassFilter) {
+                            if (selectedNiks.includes(newOpt.value) && newOpt.value !== currentVal) {
+                                newOpt.disabled = true;
+                                newOpt.innerText += ' (Selected)';
+                            }
                         }
-                        
                         select.appendChild(newOpt);
                     });
                     let valid = false;
@@ -1455,6 +1523,64 @@
                 const btnCancel = document.getElementById('btnCancelDrop');
                 if (btnConfirm) btnConfirm.onclick = confirmFinalAssignment;
                 if (btnCancel) btnCancel.onclick = cancelDrop;
+                const container = document.getElementById('assignmentCardContainer');
+                const chkPlant1000 = document.getElementById('chkUnique2'); // For All
+                const chkMachining = document.getElementById('chkUnique1'); // Machining
+
+                if (chkMachining) {
+                    chkMachining.addEventListener('change', function() {
+                        if(window.updateMachiningMode) window.updateMachiningMode();
+                    });
+                }
+
+                if (chkPlant1000 && container) {
+                    chkPlant1000.addEventListener('change', function() {
+                        if (this.checked) {
+                            // 1. Propagate Operator
+                            const allEmp = container.querySelectorAll('.emp-select');
+                            let sourceEmp = "";
+                            for (const el of allEmp) { if (el.value) { sourceEmp = el.value; break; } }
+                            if (sourceEmp) allEmp.forEach(el => el.value = sourceEmp);
+
+                            // 2. Propagate Sub-WC
+                            const allChild = container.querySelectorAll('.child-select');
+                            let sourceChild = "";
+                            for (const el of allChild) { if (el.value) { sourceChild = el.value; break; } }
+                            if (sourceChild) {
+                                allChild.forEach(el => {
+                                    if(el.value !== sourceChild) {
+                                        el.value = sourceChild;
+                                        el.dispatchEvent(new Event('change')); 
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+
+                if(container) {
+                    container.addEventListener('change', function(e) {
+                         const isEmp = e.target.classList.contains('emp-select');
+                         const isChild = e.target.classList.contains('child-select');
+                         
+                         if ((isEmp || isChild) && chkPlant1000 && chkPlant1000.checked) {
+                             const selector = isEmp ? '.emp-select' : '.child-select';
+                             const selectedVal = e.target.value;
+                             const allTargets = container.querySelectorAll(selector);
+                             
+                             allTargets.forEach(el => {
+                                 if (el !== e.target) {
+                                     if (el.value !== selectedVal) {
+                                         el.value = selectedVal;
+                                         if (isChild) {
+                                             el.dispatchEvent(new Event('change'));
+                                         }
+                                     }
+                                 } 
+                             });
+                         }
+                    });
+                }
             }
 
 
@@ -2122,7 +2248,7 @@
                 });
 
                 // Advanced Search Listeners
-                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advKdauf', 'advKdpos'];
+                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advKdauf'];
                 advIds.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) {
