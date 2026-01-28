@@ -38,7 +38,6 @@ return new class extends Migration
             $table->decimal('confirmed_qty', 18, 3)->nullable()->index();
             $table->decimal('remark_qty', 18, 3)->nullable()->index();
             $table->string('remark_text', 30)->nullable()->index();
-            $table->string('tag', 30)->nullable()->index();
             $table->string('workcenter_induk', 20)->nullable()->index();
             $table->string('child_workcenter', 20)->nullable()->index();
             $table->string('status_item', 30)->nullable()->index();

@@ -505,6 +505,12 @@
                                                                 <div class="fw-bold text-dark small">{{ $item['nik'] ?? ($item['nik'] ?? '-') }}</div>
                                                                 <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
                                                                 <span class="badge bg-success text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
+                                                                @if(!empty($item['is_machining']))
+                                                                    <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
+                                                                @endif
+                                                                @if(!empty($item['is_longshift']))
+                                                                    <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
+                                                                @endif
                                                             </div>
                                                             @php
                                                                 $kdaufHist = $item['kdauf'] ?? '';
@@ -699,6 +705,12 @@
                                                             <div class="fw-bold text-dark small">{{ $item['nik'] ?? '-' }}</div>
                                                             <div class="fw-bold text-dark small">{{ $item['name'] ?? '-' }}</div>
                                                             <span class="badge bg-warning text-dark">{{ $item['vornr'] ?? '-' }}</span>
+                                                            @if(!empty($item['is_machining']))
+                                                                <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
+                                                            @endif
+                                                            @if(!empty($item['is_longshift']))
+                                                                <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
+                                                            @endif
                                                         </div>
                                                         <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                     </div>
@@ -795,6 +807,12 @@
                                                               <div class="fw-bold text-dark small">{{ $item['nik'] ?? ($item['nik'] ?? '-') }}</div>
                                                               <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
                                                               <span class="badge bg-danger text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
+                                                              @if(!empty($item['is_machining']))
+                                                                  <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
+                                                              @endif
+                                                              @if(!empty($item['is_longshift']))
+                                                                  <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
+                                                              @endif
                                                           </div>
                                                           @php
                                                               $kdaufHist = $item['kdauf'] ?? '';

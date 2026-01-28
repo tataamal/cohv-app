@@ -37,7 +37,11 @@ class HistoryWiItem extends Model
         'child_workcenter',
         'status_item',
         'calculated_takt_time',
+        'machining',
+        'longshift',
         'item_json',
+        'remark_text',
+        'remark_qty',
     ];
 
     protected $casts = [

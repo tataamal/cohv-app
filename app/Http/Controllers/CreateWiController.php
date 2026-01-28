@@ -60,7 +60,7 @@ class CreateWiController extends Controller
             }
 
             $tData1 = $this->_buildSourceQuery($request, $kode);
-            $perPage = 30;
+            $perPage = 200;
             $page = $request->input('page', 1);
             $tDataQuery = $tData1;
             if (!$tData1) {
@@ -165,7 +165,10 @@ class CreateWiController extends Controller
     {
         $histories = HistoryWi::with('items')
                               ->where('plant_code', $kodePlant)
-                              ->where('document_date', '>=', Carbon::today()) 
+                              ->where(function ($query) {
+                                  $query->where('document_date', '>=', Carbon::today())
+                                        ->orWhere('expired_at', '>=', Carbon::now());
+                              })
                               ->get();
                               
         $assignedProQuantities = [];
@@ -428,10 +431,12 @@ class CreateWiController extends Controller
                          if ($unit === 'S' || $unit === 'SEC') $mins = $totalRaw / 60;
                          elseif ($unit === 'H' || $unit === 'HUR') $mins = $totalRaw * 60;
                          
-                         $mergedMap[$key]['calculated_tak_time'] = number_format($mins, 2, '.', '');
-                         Log::info("Merged Item. New Qty: {$newQty}");
-                         
-                     } else {
+                        $mergedMap[$key]['calculated_tak_time'] = number_format($mins, 2, '.', '');
+
+                        if (!empty($item['is_machining'])) $mergedMap[$key]['is_machining'] = 1;
+                        if (!empty($item['is_longshift'])) $mergedMap[$key]['is_longshift'] = 1;
+                        
+                        Log::info("Merged Item. New Qty: {$newQty}");
                          $mergedMap[$key] = $item;
                      }
                 }
@@ -439,7 +444,48 @@ class CreateWiController extends Controller
                 $wcAllocation['pro_items'] = array_values($mergedMap); 
                 Log::info("Final Items Count: " . count($wcAllocation['pro_items']));
 
-                DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, &$wiDocuments) {
+                $headerMachining = false;
+                $headerLongshift = false;
+                foreach ($wcAllocation['pro_items'] as $itm) {
+                    if (!empty($itm['is_machining'])) $headerMachining = true;
+                    if (!empty($itm['is_longshift'])) $headerLongshift = true;
+                }
+                if (!empty($wcAllocation['is_machining'])) $headerMachining = true;
+                if (!empty($wcAllocation['is_longshift'])) $headerLongshift = true;
+
+                if ($headerMachining) {
+                    $minSsavd = null;
+                    $maxSssld = null;
+                    
+                    foreach ($wcAllocation['pro_items'] as $itm) {
+                        $s = ($itm['ssavd'] ?? '-') !== '-' ? $itm['ssavd'] : null;
+                        $e = ($itm['sssld'] ?? '-') !== '-' ? $itm['sssld'] : null;
+                        
+                        if ($s) {
+                            $ts = strtotime($s);
+                            if ($minSsavd === null || $ts < $minSsavd) $minSsavd = $ts;
+                        }
+                        if ($e) {
+                            $te = strtotime($e);
+                            if ($maxSssld === null || $te > $maxSssld) $maxSssld = $te;
+                        }
+                    }
+                    
+                    if ($minSsavd) {
+                        $dt = Carbon::createFromTimestamp($minSsavd);
+                        $dateForDb = $dt->toDateString();
+                    }
+                    
+                    if ($maxSssld) {
+                        $expiredAt = Carbon::createFromTimestamp($maxSssld);
+                    } else {
+
+                    }
+                    
+                } else {
+                }
+
+                DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, $isMachining, $isLongshift, &$wiDocuments) {
                     $latestHistory = HistoryWi::withTrashed()
                         ->where('wi_document_code', 'LIKE', $docPrefix . '%')
                         ->orderByRaw('LENGTH(wi_document_code) DESC')
@@ -455,54 +501,69 @@ class CreateWiController extends Controller
                         $nextNumber = intval($numberPart) + 1;
                     }
                     $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
-
-                    // [MODIFIKASI] Create Header (history_wi)
-                    // Menghilangkan payload_data dan expired_at, menggunakan nama kolom baru workcenter_induk
                     $history = HistoryWi::create([
                         'wi_document_code' => $documentCode,
                         'workcenter_induk' => $workcenterCode,
                         'plant_code' => $plantCode,
                         'document_date' => $dateForDb,
                         'document_time' => $timeForDb,       
-                        // 'expired_at' => $expiredAt ... Column removed from DB
+                        'expired_at' => $expiredAt,
                         'sequence_number' => $nextNumber, 
-                        // 'payload_data' ... Column removed from DB
                         'status' => 'Open',
-                        // 'year' => $year ... Column likely removed or not fillable
+                        'machining' => $headerMachining,
+                        'longshift' => $headerLongshift,
                     ]);
-                    
-                    // [MODIFIKASI] Create Items (history_wi_item)
                     foreach ($wcAllocation['pro_items'] as $itemData) {
-                        \App\Models\HistoryWiItem::create([
-                            'history_wi_id' => $history->id,
-                            'nik' => $itemData['nik'] ?? null,
-                            'aufnr' => $itemData['aufnr'] ?? null,
-                            'vornr' => $itemData['vornr'] ?? null,
-                            'uom' => $itemData['uom'] ?? ($itemData['meins'] ?? null),
-                            'operator_name' => $itemData['name'] ?? null, 
-                            'dispo' => $itemData['dispo'] ?? null,
-                            'kapaz' => $itemData['kapaz'] ?? null,
-                            'kdauf' => $itemData['kdauf'] ?? null,
-                            'kdpos' => $itemData['kdpos'] ?? null,
-                            'name1' => $itemData['name1'] ?? null,
-                            'netpr' => $itemData['netpr'] ?? 0,
-                            'waerk' => $itemData['waerk'] ?? null,
-                            'ssavd' => !empty($itemData['ssavd']) ? $itemData['ssavd'] : null,
-                            'sssld' => !empty($itemData['sssld']) ? $itemData['sssld'] : null,
-                            'steus' => $itemData['steus'] ?? null,
-                            'vge01' => $itemData['vge01'] ?? null,
-                            'vgw01' => $itemData['vgw01'] ?? 0,
-                            'material_number' => $itemData['material_number'] ?? ($itemData['matnr'] ?? null),
-                            'material_desc' => $itemData['material_desc'] ?? ($itemData['maktx'] ?? null),
-                            'qty_order' => $itemData['qty_order'] ?? ($itemData['psmng'] ?? 0),
-                            'assigned_qty' => $itemData['assigned_qty'] ?? 0,
-                            'workcenter_induk' => $workcenterCode,
-                            'child_workcenter' => $itemData['child_workcenter'] ?? null,
-                            'status_item' => 'Created',
-                            'calculated_takt_time' => $itemData['calculated_tak_time'] ?? 0,
-                            'item_json' => json_encode($itemData),
-                        ]);
+                        
+                        $nik = $itemData['nik'] ?? null;
+                        $aufnr = $itemData['aufnr'] ?? null;
+                        $vornr = $itemData['vornr'] ?? null;
+                        
+                        $exists = \App\Models\HistoryWiItem::where('aufnr', $aufnr)
+                                    ->where('vornr', $vornr)
+                                    ->where('nik', $nik)
+                                    ->exists();
+                                    
+                        if (!$exists) {
+                            \App\Models\HistoryWiItem::create([
+                                'history_wi_id' => $history->id,
+                                'nik' => $nik,
+                                'aufnr' => $aufnr,
+                                'vornr' => $vornr,
+                                'uom' => $itemData['uom'] ?? null,
+                                'operator_name' => $itemData['name'] ?? null, 
+                                'dispo' => $itemData['dispo'] ?? null,
+                                'kapaz' => $itemData['kapaz'] ?? null,
+                                'kdauf' => $itemData['kdauf'] ?? null,
+                                'kdpos' => $itemData['kdpos'] ?? null,
+                                'name1' => $itemData['name1'] ?? null,
+                                'netpr' => $itemData['netpr'] ?? 0,
+                                'waerk' => $itemData['waerk'] ?? null,
+                                'ssavd' => ($itemData['ssavd'] ?? '-') !== '-' ? $itemData['ssavd'] : null,
+                                'sssld' => ($itemData['sssld'] ?? '-') !== '-' ? $itemData['sssld'] : null,
+                                'steus' => $itemData['steus'] ?? null,
+                                'vge01' => $itemData['vge01'] ?? null,
+                                'vgw01' => $itemData['vgw01'] ?? 0,
+                                'material_number' => $itemData['material_number'] ?? null,
+                                'material_desc' => $itemData['material_desc'] ?? null,
+                                'qty_order' => $itemData['qty_order'] ?? 0,
+                                'assigned_qty' => $itemData['assigned_qty'] ?? 0,
+                                'confirmed_qty' => 0,
+                                'workcenter_induk' => $workcenterCode,
+                                'child_workcenter' => $itemData['child_workcenter'] ?? null,
+                                'status_item' => 'Open',
+                                'calculated_takt_time' => $itemData['calculated_tak_time'] ?? 0,
+                                'calculated_takt_time' => $itemData['calculated_tak_time'] ?? 0,
+                                'machining' => !empty($itemData['is_machining']),
+                                'longshift' => !empty($itemData['is_longshift']),
+                                'remark_text' => $itemData['remark'] ?? null,
+                                'remark_qty' => $itemData['remark_qty'] ?? 0,
+                            ]);
+                        } else {
+                            Log::warning("Skipping duplicate HistoryWiItem: $aufnr - $vornr - $nik");
+                        }
                     }
+
                     
                     $wiDocuments[] = [
                         'workcenter' => $workcenterCode,
@@ -534,10 +595,6 @@ class CreateWiController extends Controller
     {
         $plantCode = $kode;
         $nama_bagian  = KodeLaravel::where('laravel_code', $plantCode)->first();
-        
-        // $employees removed from here to reduce load time. 
-        // Fetched via AJAX in getEmployees() when needed (Add Item Modal).
-
         $now = Carbon::now();
         $query = HistoryWi::where('plant_code', $plantCode);
 
@@ -728,17 +785,22 @@ class CreateWiController extends Controller
             $doc->is_inactive = $docDate->greaterThan($today) && !$doc->is_expired; 
             $doc->is_active = $docDate->equalTo($today) && !$doc->is_expired;       
 
-            $rawData = $doc->payload_data;
-            if (is_array($rawData)) {
-                $payloadItems = $rawData;
-            } elseif (is_string($rawData)) {
-                $payloadItems = json_decode($rawData, true);
+            $payloadItems = [];
+            // [REFACTOR] Use Items Relationship if available (New Data)
+            if ($doc->items && $doc->items->count() > 0) {
+                 $payloadItems = $doc->items->toArray();
             } else {
-                $payloadItems = [];
+                // Fallback to JSON Payload (Old Data)
+                $rawData = $doc->payload_data;
+                if (is_array($rawData)) {
+                    $payloadItems = $rawData;
+                } elseif (is_string($rawData)) {
+                    $payloadItems = json_decode($rawData, true);
+                }
             }
             $payloadItems = $payloadItems ?? [];
             $firstItem = $payloadItems[0] ?? [];
-            $rawKapaz = str_replace(',', '.', $firstItem['kapaz'] ?? 0);
+            $rawKapaz = str_replace(',', '.', $firstItem['kapaz'] ?? ($firstItem['kapaz'] ?? 0));
             $kapazHours = floatval($rawKapaz);
             $maxMins = $kapazHours * 60; 
             $summary = [
@@ -819,7 +881,8 @@ class CreateWiController extends Controller
                     'progress_pct'  => $progressPct,
                     'status'        => $statusItem,
                     'item_mins'     => $takTime,
-                    'remark'        => $item['remark'] ?? null,
+                    'item_mins'     => $takTime,
+                    'remark'        => $item['remark'] ?? ($item['remark_text'] ?? null),
                     'remark_qty'    => $item['remark_qty'] ?? 0,
                     'vgw01'         => $item['vgw01'] ?? 0,
                     'vge01'         => $item['vge01'] ?? ''
