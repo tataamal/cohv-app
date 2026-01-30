@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 use Carbon\Carbon;
-use App\Models\HistoryWi;
+use App\Models\HistoryWiItem;
 use App\Models\DailyTimeWi;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Request;
 
 class SendTotalTimeController extends Controller
 {
@@ -15,60 +14,67 @@ class SendTotalTimeController extends Controller
         try {
             // Determine date range
             if ($startDate) {
-                $start = Carbon::parse($startDate);
-                $end = $endDate ? Carbon::parse($endDate) : Carbon::parse($startDate);
+                $start = Carbon::parse($startDate)->startOfDay();
+                $end   = $endDate ? Carbon::parse($endDate)->startOfDay() : Carbon::parse($startDate)->startOfDay();
             } else {
-                $start = Carbon::yesterday();
-                $end = Carbon::yesterday();
+                $start = Carbon::yesterday()->startOfDay();
+                $end   = Carbon::yesterday()->startOfDay();
             }
 
             $totalProcessed = 0;
             $processedDates = [];
 
-            // Loop through each day
             for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
                 $currentDate = $date->toDateString();
-                
-                $documents = HistoryWi::whereDate('document_date', $currentDate)->get();
-                
+
+                // Ambil semua item di tanggal tersebut + plant_code dari header
+                // NOTE: HistoryWi pakai SoftDeletes, jadi aman untuk exclude deleted header dengan whereNull(deleted_at)
+                $rows = HistoryWiItem::query()
+                    ->join('history_wi', 'history_wi_item.history_wi_id', '=', 'history_wi.id')
+                    ->whereNull('history_wi.deleted_at')
+                    ->whereDate('history_wi.document_date', $currentDate)
+                    ->whereNotNull('history_wi_item.nik')
+                    ->where('history_wi_item.nik', '!=', '')
+                    ->select([
+                        'history_wi_item.nik',
+                        'history_wi_item.operator_name',
+                        'history_wi_item.name1',
+                        'history_wi.plant_code',
+                        'history_wi_item.calculated_takt_time',
+                    ])
+                    ->get();
+
                 $aggregatedData = [];
 
-                foreach ($documents as $doc) {
-                    $payload = $doc->payload_data;
-                    $plantCode = $doc->plant_code;
+                foreach ($rows as $r) {
+                    $nik = trim((string) $r->nik);
+                    if ($nik === '') continue;
 
-                    if (is_array($payload)) {
-                        foreach ($payload as $item) {
-                            $nik = trim($item['nik'] ?? '');
-                            
-                            if (empty($nik)) continue;
+                    // pilih nama operator yang tersedia
+                    $nama = $r->operator_name ?: ($r->name1 ?: null);
 
-                            $nama = $item['name'] ?? null;
+                    // calculated_takt_time (decimal:2) -> float
+                    $timeVal = (float) ($r->calculated_takt_time ?? 0);
+                    if ($timeVal < 0) $timeVal = 0;
 
-                            $timeStr = $item['calculated_tak_time'] ?? '0';
-                            $timeVal = floatval(str_replace(',', '.', $timeStr));
+                    if (!isset($aggregatedData[$nik])) {
+                        $aggregatedData[$nik] = [
+                            'nik'        => $nik,
+                            'nama'       => $nama,
+                            'plants'     => [],
+                            'total_time' => 0.0,
+                        ];
+                    }
 
-                            $key = $nik;
+                    if (empty($aggregatedData[$nik]['nama']) && !empty($nama)) {
+                        $aggregatedData[$nik]['nama'] = $nama;
+                    }
 
-                            if (!isset($aggregatedData[$key])) {
-                                $aggregatedData[$key] = [
-                                    'nik' => $nik,
-                                    'nama' => $nama,
-                                    'plants' => [],
-                                    'total_time' => 0
-                                ];
-                            }
-                            
-                            if (empty($aggregatedData[$key]['nama']) && !empty($nama)) {
-                                $aggregatedData[$key]['nama'] = $nama;
-                            }
+                    $aggregatedData[$nik]['total_time'] += $timeVal;
 
-                            $aggregatedData[$key]['total_time'] += $timeVal;
-                            
-                            if (!in_array($plantCode, $aggregatedData[$key]['plants'])) {
-                                $aggregatedData[$key]['plants'][] = $plantCode;
-                            }
-                        }
+                    $plantCode = (string) ($r->plant_code ?? '');
+                    if ($plantCode !== '' && !in_array($plantCode, $aggregatedData[$nik]['plants'], true)) {
+                        $aggregatedData[$nik]['plants'][] = $plantCode;
                     }
                 }
 
@@ -76,19 +82,20 @@ class SendTotalTimeController extends Controller
                 foreach ($aggregatedData as $data) {
                     sort($data['plants']);
                     $plantString = implode(',', $data['plants']);
+
                     $record = DailyTimeWi::firstOrNew([
                         'tanggal' => $currentDate,
-                        'nik' => $data['nik']
+                        'nik'     => $data['nik'],
                     ]);
-                    
-                    $record->kode_laravel = $plantString;
-                    $record->total_time_wi = ceil($data['total_time']); 
-                    $record->nama = $data['nama']; 
-                    
+
+                    $record->kode_laravel   = $plantString;
+                    $record->total_time_wi  = (int) ceil($data['total_time']); // sama seperti sebelumnya
+                    $record->nama           = $data['nama'];
+
                     $record->save();
                     $count++;
                 }
-                
+
                 $totalProcessed += $count;
                 $processedDates[] = $currentDate;
             }
@@ -96,17 +103,17 @@ class SendTotalTimeController extends Controller
             $dateRangeStr = $start->toDateString() . ($start->notEqualTo($end) ? ' to ' . $end->toDateString() : '');
 
             return response()->json([
-                'success' => true,
-                'message' => "Berhasil menghitung dan menyimpan data harian untuk: {$dateRangeStr}.",
+                'success'           => true,
+                'message'           => "Berhasil menghitung dan menyimpan data harian untuk: {$dateRangeStr}.",
                 'records_processed' => $totalProcessed,
-                'dates_processed' => $processedDates
+                'dates_processed'   => $processedDates,
             ]);
 
         } catch (\Exception $e) {
             Log::error("Error Calculating Daily Time WI: " . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan internal: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan internal: ' . $e->getMessage(),
             ], 500);
         }
     }

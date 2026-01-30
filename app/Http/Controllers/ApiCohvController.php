@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\UserSap;
+use App\Models\MappingTable;
 
 class ApiCohvController extends Controller
 {
@@ -17,14 +19,8 @@ class ApiCohvController extends Controller
             ], 400);
         }
 
-        $user = \App\Models\UserSap::select('id', 'user_sap', 'name')
+        $user = UserSap::select('id', 'user_sap', 'name')
             ->where('user_sap', $sap_id)
-            ->with(['kodes' => function ($query) {
-                $query->select('id', 'user_sap_id', 'kode', 'kategori', 'nama_bagian');
-            }, 'kodes.mrps' => function ($query) {
-                // Select 'kode' (FK) so Laravel can match it to the parent Kode
-                $query->select('id', 'kode', 'mrp');
-            }])
             ->first();
 
         if (!$user) {
@@ -34,13 +30,26 @@ class ApiCohvController extends Controller
             ], 404);
         }
 
-        $groupedKodes = $user->kodes->groupBy('kode')->map(function ($group) {
+        // New mapping: read from MappingTable which links user_sap -> kode_laravel -> mrp
+        $mappings = MappingTable::with(['kodeLaravel', 'mrp'])
+            ->where('user_sap_id', $user->id)
+            ->get();
+
+        // Normalize into kode entries: kode, kategori (plant), nama_bagian (description), mrps
+        $groupedKodes = $mappings->groupBy(function ($m) {
+            return optional($m->kodeLaravel)->laravel_code ?? ('kode_'.$m->kode_laravel_id);
+        })->map(function ($group) {
             $first = $group->first();
+            $kodeModel = optional($first->kodeLaravel);
+            $mrps = $group->map(function ($m) {
+                return optional($m->mrp)->mrp;
+            })->filter()->unique()->values();
+
             return [
-                'kode' => $first->kode,
-                'kategori' => $first->kategori,
-                'nama_bagian' => $first->nama_bagian,
-                'mrps' => $group->pluck('mrps')->flatten()->pluck('mrp')->unique()->values()
+                'kode' => $kodeModel->laravel_code ?? null,
+                'kategori' => $kodeModel->plant ?? (optional($first->mrp)->plant ?? 'unknown'),
+                'nama_bagian' => $kodeModel->description ?? null,
+                'mrps' => $mrps
             ];
         });
 
