@@ -185,6 +185,7 @@
                 background-color: rgba(255,255,255,0.2) !important;
                 color: #fff !important;
             }
+            
         </style>
     @endpush
 
@@ -323,8 +324,6 @@
                 <div class="tab-content" id="historyTabsContent">
                     {{-- TAB 1: ACTIVE --}}
                     <div class="tab-pane fade {{ $activeTab == 'active' ? 'show active' : '' }}" id="active-content" role="tabpanel">
-                        
-                        {{-- CAPACITY SUMMARY BAR (NEW) --}}
                         @if(isset($activeWorkcenterCapacities) && count($activeWorkcenterCapacities) > 0)
                         <div class="card border-0 shadow-sm mb-4 bg-white" style="border-left: 5px solid #3b82f6 !important;">
                             <div class="card-body py-3 px-4">
@@ -401,9 +400,6 @@
                                     <button type="button" id="btnActiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('active')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countActiveDel">0</span>)
                                     </button>
-                                    <button type="button" id="btnActiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('active')">
-                                        <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countActiveDel">0</span>)
-                                    </button>
                                     
                                     <div class="dropdown d-none" id="btnActiveAction">
                                         <button class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -451,7 +447,7 @@
                                                         <i class="fa-solid fa-print me-1"></i> Cetak
                                                     </button>
                                                     <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
-                                                        onclick="openAddItemModal('{{ $document->wi_document_code }}', '{{ $document->workcenter_code }}')">
+                                                        onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'
                                                         <i class="fa-solid fa-plus me-1"></i> Tambah Item
                                                     </button>
                                                 </div>
@@ -460,14 +456,25 @@
                                                     <span class="badge badge-soft bg-soft-success ms-2">Active</span>
                                                 </div>
                                             </div>
-                                            <div class="mt-1">
+                                            <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
                                                 <span class="text-xs fw-bold text-secondary">
-                                                    {{ $document->workcenter_code }} - {{ $wcNames[strtoupper($document->workcenter_code)] ?? '' }}
+                                                    {{ $document->workcenter }} - {{ $wcNames[strtoupper($document->workcenter)] ?? '' }}
                                                 </span>
+
+                                                @if(!empty($document->machining))
+                                                    <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
+                                                @endif
+                                                @if(!empty($document->longshift))
+                                                    <span class="badge bg-info text-dark border shadow-sm" style="font-size:0.7rem;">Longshift</span>
+                                                @endif
                                             </div>
                                             <div class="d-flex gap-3 mt-1 small text-muted">
                                                 <span><i class="fa-regular fa-calendar me-1"></i> {{ \Carbon\Carbon::parse($document->document_date)->format('d M Y') }}</span>
-                                                <span><i class="fa-regular fa-clock me-1"></i> {{ \Carbon\Carbon::parse($document->document_time)->format('H:i') }}</span>
+                                                @if(!empty($document->machining))
+                                                    <span><i class="fa-regular fa-clock me-1"></i> Range (Machining)</span>
+                                                @else
+                                                    <span><i class="fa-regular fa-clock me-1"></i> {{ \Carbon\Carbon::parse($document->document_time)->format('H:i') }}</span>
+                                                @endif  
                                                 <span><i class="fa-solid fa-stopwatch me-1"></i> Expired: {{ \Carbon\Carbon::parse($document->expired_at)->format('d M H:i') }}</span>
                                             </div>
                                         </div>
@@ -475,23 +482,9 @@
                                 </div>
 
                                 <div class="card-body-area">
-                                    {{-- Capacity Bar --}}
-                                    <!-- <div class="mb-3">
-                                        <div class="d-flex justify-content-between text-xs fw-bold text-muted mb-1">
-                                            <span>KAPASITAS KERJA HARIAN</span>
-                                            <span>{{ number_format($usedMins, 1, ',', '.') }} / {{ number_format($maxMins, 0, ',', '.') }} Min</span>
-                                        </div>
-                                        <div class="progress bg-secondary bg-opacity-10" style="height: 6px;">
-                                            <div class="progress-bar {{ $percentage > 100 ? 'bg-danger' : 'bg-primary' }}" 
-                                                 role="progressbar" 
-                                                 style="width: {{ min($percentage, 100) }}%"></div>
-                                        </div>
-                                    </div> -->
-
-                                    {{-- Accordion --}}
                                     <div class="accordion-trigger-area d-flex justify-content-between align-items-center pe-3">
                                         <button class="btn-accordion-toggle collapsed flex-grow-1 text-center py-1 bg-light text-muted fw-bold rounded-3 small" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ $document->id }}" style="border: 1px dashed #ccc;">
-                                            Tampilkan / Sembunyikan {{ $docItemsCount }} PRO
+                                            Tampilkan / Sembunyikan {{ $docItemsCount }} Order
                                         </button>
                                     </div>
                                     <div id="collapse-{{ $document->id }}" class="collapse item-list-container">
@@ -505,12 +498,12 @@
                                                                 <div class="fw-bold text-dark small">{{ $item['nik'] ?? ($item['nik'] ?? '-') }}</div>
                                                                 <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
                                                                 <span class="badge bg-success text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
-                                                                @if(!empty($item['is_machining']))
+                                                                @if(!empty($item['machining']))
                                                                     <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
                                                                 @endif
-                                                                @if(!empty($item['is_longshift']))
+                                                                @if(!empty($item['longshift']))
                                                                     <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
-                                                                @endif
+                                                                @endif  
                                                             </div>
                                                             @php
                                                                 $kdaufHist = $item['kdauf'] ?? '';
@@ -528,17 +521,26 @@
                                                         <div class="col-lg-4 text-end">
                                                             <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
+
+                                                                @php
+                                                                    $isMachining = !empty($item['machining']) || !empty($item['is_machining']);
+                                                                    $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
+                                                                @endphp
+                                                                
                                                                 @if(($item['confirmed_qty'] ?? 0) == 0)
-                                                                    <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                            onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['description'] ?? $item['material_desc']) }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ addslashes($item['uom'] ?? '-') }}', '{{ $item['vgw01'] ?? 0 }}', '{{ addslashes($item['vge01'] ?? '') }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ $maxMins }}', '{{ $usedMins }}', '{{ $item['item_mins'] ?? 0 }}')">
-                                                                        <i class="fa-solid fa-pen-to-square"></i>
-                                                                    </button>
-                                                                    <!-- <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
-                                                                            onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['assigned_qty'] ?? 0 }}')">
-                                                                        <i class="fa-solid fa-trash"></i>
-                                                                    </button> -->
+                                                                    @if(!$isMachining)
+                                                                        <button class="btn btn-sm btn-outline-primary btn-edit-qty ..." onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['description'] ?? $item['material_desc']) }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ addslashes($item['uom'] ?? '-') }}', '{{ $item['vgw01'] ?? 0 }}', '{{ addslashes($item['vge01'] ?? '') }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ $maxMins }}', '{{ $usedMins }}', '{{ $item['item_mins'] ?? 0 }}')">
+                                                                            <i class="fa-solid fa-pen-to-square"></i>
+                                                                        </button>
+                                                                        <!-- <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
+                                                                                onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['assigned_qty'] ?? 0 }}')">
+                                                                            <i class="fa-solid fa-trash"></i>
+                                                                        </button> -->
+                                                                    @else
+                                                                        <span class="badge bg-secondary text-white small">Fitur dikunci untuk mode Machining</span>
+                                                                    @endif
                                                                 @endif
-                                                            </div>
+                                                            </div>  
                                                         </div>
                                                     </div>
                                                     <div class="d-flex justify-content-end mb-1">
@@ -618,7 +620,7 @@
                         @endif
                     </div>
 
-                    {{-- TAB 2: INACTIVE (FUTURE) --}}
+                    {{-- TAB 2: INACTIVE --}}
                     <div class="tab-pane fade {{ $activeTab == 'inactive' ? 'show active' : '' }}" id="inactive-content" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold text-dark mb-0">Dokument Belum Aktif</h5>
@@ -638,14 +640,12 @@
                             @php
                                 $payload = $document->pro_summary['details'] ?? [];
                                 $docItemsCount = count($payload);
-                                
-                                // Calculate Capacity Info (Copied from Active Tab)
                                 $maxMins = $document->capacity_info['max_mins'] ?? 0;
                                 $usedMins = $document->capacity_info['used_mins'] ?? 0;
                                 $percentage = $document->capacity_info['percentage'] ?? 0;
                             @endphp
                             
-                            <div class="wi-item-card mb-3 status-active">
+                            <div class="wi-item-card mb-3 status-inactive">
                                 <div class="card-header-area">
                                     <div class="row align-items-center">
                                         <div class="col-auto">
@@ -656,19 +656,25 @@
                                                 <div>
                                                     <h6 class="fw-bold mb-1 d-inline-block align-middle me-2">{{ $document->wi_document_code }}</h6>
                                                     <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
-                                                        onclick="openAddItemModal('{{ $document->wi_document_code }}', '{{ $document->workcenter_code }}')">
+                                                        onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'
                                                         <i class="fa-solid fa-plus me-1"></i> Tambah Item
                                                     </button>
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-secondary">Inactive</span>
-                                                    <span class="badge bg-light text-dark border">{{ $docItemsCount }} PRO</span>
+                                                    <span class="badge bg-light text-dark border">{{ $docItemsCount }} Order</span>
                                                 </div>
                                             </div>
-                                            <div class="mt-1">
+                                            <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
                                                 <span class="text-xs fw-bold text-secondary">
-                                                    {{ $document->workcenter_code }} - {{ $wcNames[strtoupper($document->workcenter_code)] ?? '' }}
+                                                    {{ $document->workcenter }} - {{ $wcNames[strtoupper($document->workcenter)] ?? '' }}
                                                 </span>
+                                                @if(!empty($document->machining))
+                                                    <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
+                                                @endif
+                                                @if(!empty($document->longshift))
+                                                    <span class="badge bg-info text-dark border shadow-sm" style="font-size:0.7rem;">Longshift</span>
+                                                @endif
                                             </div>
                                             <div class="d-flex gap-3 mt-1 small text-muted">
                                                 <span><i class="fa-regular fa-calendar me-1"></i> Dokumen WI akan aktif pada : {{ \Carbon\Carbon::parse($document->document_date)->format('d M') }}</span>
@@ -692,7 +698,7 @@
 
                                     <div class="accordion-trigger-area d-flex justify-content-between align-items-center pe-3">
                                         <button class="btn-accordion-toggle collapsed flex-grow-1 text-center py-1 bg-light text-muted fw-bold rounded-3 small" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-inactive-{{ $document->id }}" style="border: 1px dashed #ccc;">
-                                            Tampilkan / Sembunyikan {{ $docItemsCount }} PRO
+                                            Tampilkan / Sembunyikan {{ $docItemsCount }} Order
                                         </button>
                                     </div>
                                         <div id="collapse-inactive-{{ $document->id }}" class="collapse item-list-container">
@@ -705,27 +711,35 @@
                                                             <div class="fw-bold text-dark small">{{ $item['nik'] ?? '-' }}</div>
                                                             <div class="fw-bold text-dark small">{{ $item['name'] ?? '-' }}</div>
                                                             <span class="badge bg-warning text-dark">{{ $item['vornr'] ?? '-' }}</span>
-                                                            @if(!empty($item['is_machining']))
+                                                            @if(!empty($item['machining']))
                                                                 <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
                                                             @endif
-                                                            @if(!empty($item['is_longshift']))
+                                                            @if(!empty($item['longshift']))
                                                                 <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
-                                                            @endif
+                                                            @endif  
                                                         </div>
                                                         <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                     </div>
                                                     <div class="col-lg-4 text-end">
                                                         <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
-                                                                <button class="btn btn-sm btn-outline-primary btn-edit-qty py-0 px-2 rounded-pill small fw-bold" 
-                                                                        onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['description'] ?? $item['material_desc']) }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ addslashes($item['uom'] ?? '-') }}', '{{ $item['vgw01'] ?? 0 }}', '{{ addslashes($item['vge01'] ?? '') }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ $maxMins }}', '{{ $usedMins }}', '{{ $item['item_mins'] ?? 0 }}')">
-                                                                    <i class="fa-solid fa-pen-to-square"></i>
-                                                                </button>
-                                                                @if(($item['confirmed_qty'] ?? 0) <= 0)
-                                                                    <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
-                                                                            onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['assigned_qty'] ?? 0 }}')">
-                                                                        <i class="fa-solid fa-trash"></i>
-                                                                    </button>
+                                                                @php
+                                                                    $isMachining = !empty($item['machining']) || !empty($item['is_machining']);
+                                                                    $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
+                                                                @endphp
+
+                                                                @if(($item['confirmed_qty'] ?? 0) == 0)
+                                                                    @if(!$isMachining)
+                                                                        <button class="btn btn-sm btn-outline-primary btn-edit-qty ..." onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['description'] ?? $item['material_desc']) }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ addslashes($item['uom'] ?? '-') }}', '{{ $item['vgw01'] ?? 0 }}', '{{ addslashes($item['vge01'] ?? '') }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ $maxMins }}', '{{ $usedMins }}', '{{ $item['item_mins'] ?? 0 }}')">
+                                                                            <i class="fa-solid fa-pen-to-square"></i>
+                                                                        </button>
+                                                                        <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
+                                                                                onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['assigned_qty'] ?? 0 }}')">
+                                                                            <i class="fa-solid fa-trash"></i>
+                                                                        </button>
+                                                                    @else
+                                                                        <span class="badge bg-secondary text-white small">Fitur dikunci untuk mode Machining</span>
+                                                                    @endif
                                                                 @endif
                                                             </div>
                                                     </div>
@@ -754,7 +768,7 @@
                     <div class="tab-pane fade {{ $activeTab == 'expired' ? 'show active' : '' }}" id="expired-content" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold text-dark mb-0">Dokument Tidak Aktif</h5>
-                             <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex align-items-center gap-3">
                                 <div class="form-check">
                                     <input class="form-check-input wi-checkbox mt-0" type="checkbox" id="selectAllExpired">
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllExpired">Pilih Semua</label>
@@ -775,230 +789,358 @@
                                 </div>
                             </div>
                         </div>
+
                         @forelse ($expiredWIDocuments as $document)
-                             @php
+                            @php
                                 $payload = $document->pro_summary['details'] ?? [];
                                 $docItemsCount = count($payload);
                             @endphp
-                             <div class="wi-item-card mb-3 status-expired">
-                                 <div class="card-header-area">
-                                     <div class="d-flex align-items-center gap-3">
-                                         <input class="form-check-input wi-checkbox cb-expired" type="checkbox" value="{{ $document->wi_document_code }}">
-                                         <div>
+
+                            <div class="wi-item-card mb-3 status-expired">
+                                <div class="card-header-area">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <input class="form-check-input wi-checkbox cb-expired" type="checkbox" value="{{ $document->wi_document_code }}">
+                                        <div>
                                             <h6 class="fw-bold mb-0">{{ $document->wi_document_code }}</h6>
                                             <div class="small text-muted">Expired pada tanggal : {{ \Carbon\Carbon::parse($document->expired_at)->format('d M H:i') }}</div>
-                                         </div>
-                                         <span class="badge badge-soft bg-soft-danger ms-auto">Expired</span>
-                                     </div>
-                                 </div>
-                                  <div class="card-body-area">
-                                       <div class="accordion-trigger-area">
-                                          <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-expired-{{ $document->id }}">
-                                              Tampilkan {{ $docItemsCount }} PRO
-                                          </button>
-                                      </div>
-                                      <div id="collapse-expired-{{ $document->id }}" class="collapse item-list-container">
-                                         @foreach ($payload ?? [] as $item)
-                                              <div class="pro-item-row p-3 mb-2 border rounded-3 bg-light">
-                                                  <div class="row align-items-center mb-2">
-                                                      <div class="col-lg-8">
-                                                          <div class="d-flex align-items-center gap-2 mb-1">
-                                                              <span class="badge bg-white text-danger border border-danger-subtle shadow-sm">{{ $item['aufnr'] }}</span>
-                                                              <div class="fw-bold text-dark small">{{ $item['nik'] ?? ($item['nik'] ?? '-') }}</div>
-                                                              <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
-                                                              <span class="badge bg-danger text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
-                                                              @if(!empty($item['is_machining']))
-                                                                  <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
-                                                              @endif
-                                                              @if(!empty($item['is_longshift']))
-                                                                  <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
-                                                              @endif
-                                                          </div>
-                                                          @php
-                                                              $kdaufHist = $item['kdauf'] ?? '';
-                                                              $matKdaufHist = $item['mat_kdauf'] ?? '';
-                                                              $isMakeStockHist = (strcasecmp($kdaufHist, 'Make Stock') === 0) || (strcasecmp($matKdaufHist, 'Make Stock') === 0);
-                                                              $kdposHist = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
-                                                              $soItemHist = $isMakeStockHist ? $kdaufHist : ($kdaufHist . ($kdposHist ? ' - ' . $kdposHist : ''));
-                                                          @endphp
-                                                          <div class="text-muted text-xs text-truncate ps-1">
-                                                              {{ $soItemHist }}
-                                                              <span class="ms-1 fw-bold text-primary" style="font-size: 0.65rem;">(Tak: {{ number_format($item['item_mins'] ?? 0, 2, ',', '.') }} min)</span>
-                                                          </div>
-                                                          <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
-                                                      </div>
-                                                      <div class="col-lg-4 text-end">
-                                                          <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
-                                                      </div>
-                                                  </div>
-                                                  {{-- FULL WIDTH PROGRESS BAR --}}
-                                                  {{-- FULL WIDTH PROGRESS BAR --}}
-                                                  <div class="d-flex justify-content-end mb-1">
-                                                      <span class="text-xs fw-bold text-muted">
-                                                          {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }}
-                                                          @if(($item['remark_qty'] ?? 0) > 0)
-                                                              <span class="text-danger"> + {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }} (Remark)</span>
-                                                          @endif
-                                                           / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} Quantity
-                                                      </span>
-                                                  </div>
-                                                  @php
-                                                      $rQty = $item['remark_qty'] ?? 0;
-                                                      $aQty = $item['assigned_qty'] > 0 ? $item['assigned_qty'] : 1;
-                                                      $rPct = ($rQty / $aQty) * 100;
-                                                  @endphp
-                                                  <div class="progress" style="height: 6px;">
-                                                      <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $item['progress_pct'] ?? 0 }}%"></div>
-                                                      <div class="progress-bar bg-danger border-start border-white" role="progressbar" style="width: {{ $rPct }}%"></div> {{-- Border to distinguish if main is also red --}}
-                                                  </div>
-                                                  @if(!empty($item['remark']))
-                                                      <div class="mt-2 text-danger" style="font-size: 0.75rem; font-weight: 600;">
-                                                          @foreach(explode(';', $item['remark']) as $r)
-                                                              @if(trim($r))
-                                                                  <div class="d-flex align-items-start gap-1">
-                                                                      <i class="fa-solid fa-circle-exclamation mt-1" style="font-size: 8px;"></i> 
-                                                                      <span>{{ trim($r) }}</span>
-                                                                  </div>
-                                                              @endif
-                                                          @endforeach
-                                                      </div>
-                                                  @endif
-                                              </div>
-                                          @endforeach
-                                      </div>
-                                  </div>
-                              </div>
+                                        </div>
+                                        <span class="badge badge-soft bg-soft-danger ms-auto">Expired</span>
+                                    </div>
+                                </div>
+
+                                <div class="card-body-area">
+                                    <div class="accordion-trigger-area">
+                                        <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-expired-{{ $document->id }}">
+                                            Tampilkan {{ $docItemsCount }} PRO
+                                        </button>
+                                    </div>
+
+                                    <div id="collapse-expired-{{ $document->id }}" class="collapse item-list-container">
+                                        @foreach ($payload ?? [] as $item)
+                                            @php
+                                                // Selaras logika baru machining / longshift
+                                                $isMachining = !empty($item['machining']) || !empty($item['is_machining']);
+                                                $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
+
+                                                $kdaufHist = $item['kdauf'] ?? '';
+                                                $matKdaufHist = $item['mat_kdauf'] ?? '';
+                                                $isMakeStockHist = (strcasecmp($kdaufHist, 'Make Stock') === 0) || (strcasecmp($matKdaufHist, 'Make Stock') === 0);
+                                                $kdposHist = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                                                $soItemHist = $isMakeStockHist ? $kdaufHist : ($kdaufHist . ($kdposHist ? ' - ' . $kdposHist : ''));
+
+                                                // Progress
+                                                $rQty = $item['remark_qty'] ?? 0;
+                                                $aQty = ($item['assigned_qty'] ?? 0) > 0 ? $item['assigned_qty'] : 1;
+                                                $rPct = ($rQty / $aQty) * 100;
+                                            @endphp
+
+                                            <div class="pro-item-row p-3 mb-2 border rounded-3 bg-light">
+                                                <div class="row align-items-center mb-2">
+                                                    <div class="col-lg-8">
+                                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                                            <span class="badge bg-white text-danger border border-danger-subtle shadow-sm">{{ $item['aufnr'] }}</span>
+                                                            <div class="fw-bold text-dark small">{{ $item['nik'] ?? '-' }}</div>
+                                                            <div class="fw-bold text-dark small">{{ $item['name'] ?? '-' }}</div>
+                                                            <span class="badge bg-danger text-white">{{ $item['vornr'] ?? '-' }}</span>
+
+                                                            @php
+                                                                $isMachining = !empty($item['machining']) || !empty($item['is_machining']);
+                                                                $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
+                                                            @endphp
+
+                                                            @if($isMachining)
+                                                                <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
+                                                            @endif
+                                                            @if($isLongshift)
+                                                                <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
+                                                            @endif
+                                                        </div>
+
+                                                        <div class="text-muted text-xs text-truncate ps-1">
+                                                            {{ $soItemHist }}
+                                                            <span class="ms-1 text-primary">
+                                                                Time Required: {{ number_format($item['item_mins'] ?? 0, 2, ',', '.') }} min
+                                                            </span>
+                                                        </div>
+                                                        <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
+                                                    </div>
+
+                                                    <div class="col-lg-4 text-end">
+                                                        <div class="fw-bold text-dark fs-6">
+                                                            {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }}
+                                                            <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {{-- FULL WIDTH PROGRESS BAR (selaras Active) --}}
+                                                <div class="d-flex justify-content-end mb-1">
+                                                    <span class="text-xs fw-bold text-muted">
+                                                        {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }}
+                                                        @if(($item['remark_qty'] ?? 0) > 0)
+                                                            <span class="text-danger">
+                                                                + {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }} (Remark)
+                                                            </span>
+                                                        @endif
+                                                        / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} Quantity
+                                                    </span>
+                                                </div>
+
+                                                <div class="progress" style="height: 6px;">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $item['progress_pct'] ?? 0 }}%"></div>
+                                                    <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
+                                                </div>
+
+                                                {{-- Remark Area (selaras Active) --}}
+                                                @if(!empty($item['remark_history']) && is_array($item['remark_history']))
+                                                    <div class="mt-2">
+                                                        <div class="fw-bold text-danger" style="font-size: 0.75rem;">Riwayat Remark:</div>
+                                                        <ul class="list-unstyled mb-0 ps-1 mt-1">
+                                                            @foreach($item['remark_history'] as $h)
+                                                                <li class="mb-1">
+                                                                    <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                        <strong>
+                                                                            Jumlah Item Gagal:
+                                                                            {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}
+                                                                        </strong>
+                                                                        - {{ $h['remark'] ?? '-' }}
+                                                                    </span>
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    </div>
+                                                @elseif(!empty($item['remark']))
+                                                    <div class="mt-2 text-danger" style="font-size: 0.75rem;">
+                                                        @foreach(explode(';', $item['remark']) as $r)
+                                                            @if(trim($r))
+                                                                @php
+                                                                    $parts = explode(':', $r, 2);
+                                                                    $remarkMsg = trim($r);
+
+                                                                    if (count($parts) == 2 && stripos($parts[0], 'Qty') !== false) {
+                                                                        $qtyVal = trim(str_ireplace('Qty', '', $parts[0]));
+                                                                        $remarkMsg = trim($parts[1]);
+                                                                        $qtyDisplay = "Jumlah Item Gagal: " . $qtyVal;
+                                                                    } else {
+                                                                        $qtyDisplay = "Remark";
+                                                                    }
+                                                                @endphp
+
+                                                                <div class="mb-1">
+                                                                    <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                        @if(!empty($qtyDisplay) && $qtyDisplay !== 'Remark')
+                                                                            <strong>{{ $qtyDisplay }}</strong> - {{ $remarkMsg }}
+                                                                        @else
+                                                                            {{ $remarkMsg }}
+                                                                        @endif
+                                                                    </span>
+                                                                </div>
+                                                            @endif
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
                         @empty
-                             <p class="text-muted text-center py-5">Tidak ada dokumen expired.</p>
+                            <p class="text-muted text-center py-5">Tidak ada dokumen expired.</p>
                         @endforelse
                     </div>
 
                     {{-- TAB 4: COMPLETED --}}
-                    <div class="tab-pane fade {{ $activeTab == 'completed' ? 'show active' : '' }}" id="completed-content" role="tabpanel">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold text-dark mb-0">Dokumen Selesai</h5>
-                             <div class="d-flex align-items-center gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input wi-checkbox mt-0" type="checkbox" id="selectAllCompleted">
-                                    <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllCompleted">Pilih Semua</label>
-                                </div>
-                                <div class="d-flex gap-2" id="actionGroupCompleted">
-                                    <button type="button" id="btnCompletedDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('completed')">
-                                        <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countCompletedDel">0</span>)
-                                    </button>
-                                     <div class="dropdown d-none" id="btnCompletedAction">
-                                        <button class="btn btn-info text-white btn-sm px-3 rounded-pill fw-bold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="fa-solid fa-file-invoice me-1"></i> Report (<span id="countCompleted">0</span>)
+                        <div class="tab-pane fade {{ $activeTab == 'completed' ? 'show active' : '' }}" id="completed-content" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold text-dark mb-0">Dokumen Selesai</h5>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input wi-checkbox mt-0" type="checkbox" id="selectAllCompleted">
+                                        <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllCompleted">Pilih Semua</label>
+                                    </div>
+                                    <div class="d-flex gap-2" id="actionGroupCompleted">
+                                        <button type="button" id="btnCompletedDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('completed')">
+                                            <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countCompletedDel">0</span>)
                                         </button>
-                                        <ul class="dropdown-menu shadow border-0 rounded-4">
-                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('completed', 'document')"><i class="fa-solid fa-file-export me-2 text-info"></i>Completed Report</a></li>
-                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('completed', 'nik')"><i class="fa-solid fa-users-viewfinder me-2 text-primary"></i>By NIK</a></li>
-                                        </ul>
+                                        <div class="dropdown d-none" id="btnCompletedAction">
+                                            <button class="btn btn-info text-white btn-sm px-3 rounded-pill fw-bold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fa-solid fa-file-invoice me-1"></i> Report (<span id="countCompleted">0</span>)
+                                            </button>
+                                            <ul class="dropdown-menu shadow border-0 rounded-4">
+                                                <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('completed', 'document')"><i class="fa-solid fa-file-export me-2 text-info"></i>Completed Report</a></li>
+                                                <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('completed', 'nik')"><i class="fa-solid fa-users-viewfinder me-2 text-primary"></i>By NIK</a></li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
+                            @forelse ($completedWIDocuments as $document)
+                                @php
+                                    $payload = $document->pro_summary['details'] ?? [];
+                                    $docItemsCount = count($payload);
+                                @endphp
+
+                                <div class="wi-item-card mb-3 status-active" style="border-left-color: #0ea5e9;">
+                                    <div class="card-header-area">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <input class="form-check-input wi-checkbox cb-completed" type="checkbox" value="{{ $document->wi_document_code }}">
+                                            <div>
+                                                <h6 class="fw-bold mb-0">{{ $document->wi_document_code }}</h6>
+                                                <div class="small text-muted">Selesai</div>
+                                            </div>
+                                            <span class="badge badge-soft bg-info text-white ms-auto">Selesai</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="card-body-area">
+                                        <div class="accordion-trigger-area">
+                                            <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-completed-{{ $document->id }}">
+                                                Tampilkan {{ $docItemsCount }} PRO
+                                            </button>
+                                        </div>
+
+                                        <div id="collapse-completed-{{ $document->id }}" class="collapse item-list-container">
+                                            @foreach ($payload ?? [] as $item)
+                                                @php
+                                                    // Selaras logika baru machining / longshift
+                                                    $isMachining = !empty($item['machining']) || !empty($item['is_machining']);
+                                                    $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
+
+                                                    $kdaufHist = $item['kdauf'] ?? '';
+                                                    $matKdaufHist = $item['mat_kdauf'] ?? '';
+                                                    $isMakeStockHist = (strcasecmp($kdaufHist, 'Make Stock') === 0) || (strcasecmp($matKdaufHist, 'Make Stock') === 0);
+                                                    $kdposHist = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                                                    $soItemHist = $isMakeStockHist ? $kdaufHist : ($kdaufHist . ($kdposHist ? ' - ' . $kdposHist : ''));
+
+                                                    // Progress (selaras Active)
+                                                    $rQty = $item['remark_qty'] ?? 0;
+                                                    $aQty = ($item['assigned_qty'] ?? 0) > 0 ? $item['assigned_qty'] : 1;
+                                                    $rPct = ($rQty / $aQty) * 100;
+
+                                                    // kalau progress_pct tidak ada, hitung dari confirmed
+                                                    $confQty = $item['confirmed_qty'] ?? 0;
+                                                    $fallbackConfPct = ($confQty / $aQty) * 100;
+                                                    $mainPct = $item['progress_pct'] ?? $fallbackConfPct;
+                                                @endphp
+
+                                                <div class="pro-item-row p-3 mb-2 border rounded-3 bg-light">
+                                                    <div class="row align-items-center mb-2">
+                                                        <div class="col-lg-8">
+                                                            <div class="d-flex align-items-center gap-2 mb-1">
+                                                                <span class="badge bg-white text-info border border-info-subtle shadow-sm">{{ $item['aufnr'] }}</span>
+                                                                <div class="fw-bold text-dark small">{{ $item['nik'] ?? '-' }}</div>
+                                                                <div class="fw-bold text-dark small">{{ $item['name'] ?? '-' }}</div>
+                                                                <span class="badge bg-info text-white">{{ $item['vornr'] ?? '-' }}</span>
+                                                                @php
+                                                                    $isMachining = !empty($item['machining']) || !empty($item['is_machining']);
+                                                                    $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
+                                                                @endphp
+                                                                @if($isMachining)
+                                                                    <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
+                                                                @endif
+                                                                @if($isLongshift)
+                                                                    <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
+                                                                @endif
+                                                            </div>
+
+                                                            <div class="text-muted text-xs text-truncate ps-1">
+                                                                {{ $soItemHist }}
+                                                                <span class="ms-1 text-primary">
+                                                                    Time Required: {{ number_format($item['item_mins'] ?? 0, 2, ',', '.') }} min
+                                                                </span>
+                                                            </div>
+                                                            <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
+                                                        </div>
+
+                                                        <div class="col-lg-4 text-end">
+                                                            <div class="fw-bold text-dark fs-6">
+                                                                {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }}
+                                                                <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span>
+                                                            </div>
+
+                                                            <button class="btn btn-sm btn-outline-info py-0 px-2 rounded-pill small fw-bold" disabled>
+                                                                <i class="fa-solid fa-check-double me-1"></i> Completed
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- FULL WIDTH PROGRESS BAR (selaras Active) --}}
+                                                    <div class="d-flex justify-content-end mb-1">
+                                                        <span class="text-xs fw-bold text-muted">
+                                                            {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }}
+                                                            @if(($item['remark_qty'] ?? 0) > 0)
+                                                                <span class="text-danger">
+                                                                    + {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }} (Remark)
+                                                                </span>
+                                                            @endif
+                                                            / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} Quantity
+                                                        </span>
+                                                    </div>
+
+                                                    <div class="progress" style="height: 6px;">
+                                                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $mainPct }}%"></div>
+                                                        <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
+                                                    </div>
+
+                                                    {{-- Remark Area (selaras Active) --}}
+                                                    @if(!empty($item['remark_history']) && is_array($item['remark_history']))
+                                                        <div class="mt-2">
+                                                            <div class="fw-bold text-danger" style="font-size: 0.75rem;">Riwayat Remark:</div>
+                                                            <ul class="list-unstyled mb-0 ps-1 mt-1">
+                                                                @foreach($item['remark_history'] as $h)
+                                                                    <li class="mb-1">
+                                                                        <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                            <strong>
+                                                                                Jumlah Item Gagal:
+                                                                                {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}
+                                                                            </strong>
+                                                                            - {{ $h['remark'] ?? '-' }}
+                                                                        </span>
+                                                                    </li>
+                                                                @endforeach
+                                                            </ul>
+                                                        </div>
+                                                    @elseif(!empty($item['remark']))
+                                                        <div class="mt-2 text-danger" style="font-size: 0.75rem;">
+                                                            @foreach(explode(';', $item['remark']) as $r)
+                                                                @if(trim($r))
+                                                                    @php
+                                                                        $parts = explode(':', $r, 2);
+                                                                        $remarkMsg = trim($r);
+
+                                                                        if (count($parts) == 2 && stripos($parts[0], 'Qty') !== false) {
+                                                                            $qtyVal = trim(str_ireplace('Qty', '', $parts[0]));
+                                                                            $remarkMsg = trim($parts[1]);
+                                                                            $qtyDisplay = "Jumlah Item Gagal: " . $qtyVal;
+                                                                        } else {
+                                                                            $qtyDisplay = "Remark";
+                                                                        }
+                                                                    @endphp
+
+                                                                    <div class="mb-1">
+                                                                        <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                            @if(!empty($qtyDisplay) && $qtyDisplay !== 'Remark')
+                                                                                <strong>{{ $qtyDisplay }}</strong> - {{ $remarkMsg }}
+                                                                            @else
+                                                                                {{ $remarkMsg }}
+                                                                            @endif
+                                                                        </span>
+                                                                    </div>
+                                                                @endif
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                </div>
+
+                            @empty
+                                <p class="text-muted text-center py-5">Tidak ada dokumen completed.</p>
+                            @endforelse
                         </div>
-                        @forelse ($completedWIDocuments as $document)
-                             @php
-                                $payload = $document->pro_summary['details'] ?? [];
-                                $docItemsCount = count($payload);
-                            @endphp
-                             <div class="wi-item-card mb-3 status-active" style="border-left-color: #0ea5e9;"> {{-- Custom Blue --}}
-                                 <div class="card-header-area">
-                                     <div class="d-flex align-items-center gap-3">
-                                         <input class="form-check-input wi-checkbox cb-completed" type="checkbox" value="{{ $document->wi_document_code }}">
-                                         <div>
-                                            <h6 class="fw-bold mb-0">{{ $document->wi_document_code }}</h6>
-                                            <div class="small text-muted">Selesai</div>
-                                         </div>
-                                         <span class="badge badge-soft bg-info text-white ms-auto">Selesai</span>
-                                     </div>
-                                 </div>
-                                 <div class="card-body-area">
-                                      <div class="accordion-trigger-area">
-                                        <button class="btn-accordion-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-completed-{{ $document->id }}">
-                                            Tampilkan {{ $docItemsCount }} PRO
-                                        </button>
-                                    </div>
-                                    <div id="collapse-completed-{{ $document->id }}" class="collapse item-list-container">
-                                         @foreach ($payload ?? [] as $item)
-                                             <div class="pro-item-row p-3 mb-2 border rounded-3 bg-light">
-                                                 <div class="row align-items-center mb-2">
-                                                     <div class="col-lg-8">
-                                                         <div class="d-flex align-items-center gap-2 mb-1">
-                                                             <span class="badge bg-white text-info border border-info-subtle shadow-sm">{{ $item['aufnr'] }}</span>
-                                                             <div class="fw-bold text-dark small">{{ $item['nik'] ?? ($item['nik'] ?? '-') }}</div>
-                                                             <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
-                                                              <span class="badge bg-info text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
-                                                         </div>
-                                                         @php
-                                                             $kdaufHist = $item['kdauf'] ?? '';
-                                                             $matKdaufHist = $item['mat_kdauf'] ?? '';
-                                                             $isMakeStockHist = (strcasecmp($kdaufHist, 'Make Stock') === 0) || (strcasecmp($matKdaufHist, 'Make Stock') === 0);
-                                                             $kdposHist = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
-                                                             $soItemHist = $isMakeStockHist ? $kdaufHist : ($kdaufHist . ($kdposHist ? ' - ' . $kdposHist : ''));
-                                                         @endphp
-                                                         <div class="text-muted text-xs text-truncate ps-1">
-                                                             {{ $soItemHist }}
-                                                             <span class="ms-1 fw-bold text-primary" style="font-size: 0.65rem;">(Tak: {{ number_format($item['item_mins'] ?? 0, 2, ',', '.') }} min)</span>
-                                                         </div>
-                                                         <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
-                                                     </div>
-                                                     <div class="col-lg-4 text-end">
-                                                         <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ $item['uom'] ?? '-' }}</span></div>
-                                                         
-                                                         {{-- Completed doesn't usually need edit, but keeping for consistency --}}
-                                                         <button class="btn btn-sm btn-outline-info py-0 px-2 rounded-pill small fw-bold" disabled>
-                                                             <i class="fa-solid fa-check-double me-1"></i> Completed
-                                                         </button>
-                                                     </div>
-                                                 </div>
-                                                 
-                                                 {{-- FULL WIDTH PROGRESS BAR --}}
-                                                 {{-- FULL WIDTH PROGRESS BAR --}}
-                                                 <div class="d-flex justify-content-end mb-1">
-                                                     <span class="text-xs fw-bold text-muted">
-                                                         {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }} {{-- Usually full in completed, but good to check --}}
-                                                          @if(($item['remark_qty'] ?? 0) > 0)
-                                                              <span class="text-danger"> + {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }} (Remark)</span>
-                                                          @endif
-                                                          / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }}
-                                                     </span>
-                                                 </div>
-                                                 @php
-                                                      $rQty = $item['remark_qty'] ?? 0;
-                                                      $aQty = $item['assigned_qty'] > 0 ? $item['assigned_qty'] : 1;
-                                                      $confQty = $item['confirmed_qty'] ?? 0;
-                                                      $confPct = ($confQty / $aQty) * 100;
-                                                      $rPct = ($rQty / $aQty) * 100;
-                                                      
-                                                      // Handle total > 100 visual cap? Bootstrap progress handles overflow by stacking or capping if using multiple bars.
-                                                 @endphp
-                                                 <div class="progress" style="height: 6px;">
-                                                    <div class="progress-bar bg-info" role="progressbar" style="width: {{ $confPct }}%"></div>
-                                                    <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
-                                                 </div>
-                                                 @if(!empty($item['remark']))
-                                                      <div class="mt-2 text-danger" style="font-size: 0.75rem; font-weight: 600;">
-                                                          @foreach(explode(';', $item['remark']) as $r)
-                                                              @if(trim($r))
-                                                                  <div class="d-flex align-items-start gap-1">
-                                                                      <i class="fa-solid fa-circle-exclamation mt-1" style="font-size: 8px;"></i> 
-                                                                      <span>{{ trim($r) }}</span>
-                                                                  </div>
-                                                              @endif
-                                                          @endforeach
-                                                      </div>
-                                                  @endif
-                                             </div>
-                                         @endforeach
-                                    </div>
-                                 </div>
-                             </div>
-                        @empty
-                             <p class="text-muted text-center py-5">Tidak ada dokumen completed.</p>
-                        @endforelse
-                    </div>
                 </div>
         </div>
     </div>
@@ -1581,164 +1723,144 @@
             };
         }
 
-        window.openAddItemModal = function(wiCode, wcCode) {
+        window.openAddItemModal = function (wiCode, wcCode, isMachiningDoc = false) {
+            // ✅ Pastikan state ada dulu
+            window.AddItemState = window.AddItemState || {
+                wiCode: '',
+                parentWc: '',
+                flags: { machining: false, longshift: false },
+                employeesLoaded: false,
+                employeesData: [],
+                availableItemsMap: {}
+            };
+
+            // ✅ Set state utama
+            window.AddItemState.wiCode = wiCode;
+            window.AddItemState.parentWc = (wcCode || '').toUpperCase();
+            window.AddItemState.flags.machining = !!isMachiningDoc;
+            window.AddItemState.flags.longshift = false; // reset default (nanti per item via checkbox)
+
             currentAddWiCode = wiCode;
-            window.hasAddedItems = false; // Reset flag
-            availableItemsMap = {};
-            
+            window.hasAddedItems = false;
+            availableItemsMap = {};              // cache local
+            window.availableItemsMap = availableItemsMap; // ✅ sync kalau kamu masih pakai window.availableItemsMap
+
             const addWiInput = document.getElementById('add_wi_code');
             const addTitle = document.getElementById('addItemTitle');
-            const searchInput = document.getElementById('search_available_item'); 
-            
-            if(addWiInput) addWiInput.value = wiCode;
-            if(addTitle) addTitle.innerText = 'Dokumen: ' + wiCode;
-            if(searchInput) searchInput.value = ''; // Clear search
-            
+            const searchInput = document.getElementById('search_available_item');
+
+            if (addWiInput) addWiInput.value = wiCode;
+
+            // ✅ Tambah label mode biar jelas di UI (opsional)
+            if (addTitle) {
+                addTitle.innerText = `Dokumen: ${wiCode}` + (isMachiningDoc ? ' (Machining)' : '');
+            }
+
+            if (searchInput) searchInput.value = '';
+
             // --- POPULATE CHILD WC DASHBOARD ---
             const dashboardContainer = document.getElementById('childWcDashboard');
-            if(dashboardContainer) {
-                
+            const capWrap = document.getElementById('capacityAccordionWrapper');
+
+            if (dashboardContainer && capWrap) {
                 dashboardContainer.innerHTML = '';
-                const parentCode = wcCode.toUpperCase();
+                const parentCode = (wcCode || '').toUpperCase();
                 const children = wcMappings.filter(m => (m.wc_induk || '').toUpperCase() === parentCode);
-                
-                if(children.length > 0) {
-                    let html = `<div class="row g-2">`;
-                        
-                    children.forEach(c => {
-                        const childCode = c.workcenter;
-                        const childName = c.nama_workcenter || '';
-                        const ref = refWorkcentersData[childCode];
-                        let maxMins = 570; 
-                        if(ref && ref.kapaz) maxMins = parseFloat(ref.kapaz) || 570;
-                        
-                        html += `
-                        <div class="col-md-6 col-12">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="text-xs fw-bold text-dark text-truncate" style="max-width: 65%;">
-                                    ${childCode} ${childName ? '- ' + childName : ''}
-                                </span>
-                                <span class="text-xs fw-bold text-muted" id="dashboard_val_${childCode}" data-max="${maxMins}">${(0).toLocaleString('id-ID', {minimumFractionDigits: 2})} / ${maxMins.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2})} Min</span>
-                            </div>
-                            <div class="progress mb-2" style="height: 5px;">
-                                <div class="progress-bar bg-success" id="dashboard_bar_${childCode}" role="progressbar" style="width: 0%"></div>
-                            </div>
-                        </div>`;
-                    });
-                    html += '</div>';
-                    dashboardContainer.innerHTML = html;
-                    document.getElementById('capacityAccordionWrapper').classList.remove('d-none');
+
+                if (children.length > 0) {
+                let html = `<div class="row g-2">`;
+
+                children.forEach(c => {
+                    const childCode = (c.workcenter || '').toUpperCase();
+                    const childName = c.nama_workcenter || '';
+                    const ref = (typeof refWorkcentersData !== 'undefined') ? refWorkcentersData[childCode] : null;
+
+                    let maxMins = 570;
+                    if (ref && ref.kapaz) maxMins = parseFloat(ref.kapaz) || 570;
+
+                    html += `
+                    <div class="col-md-6 col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-xs fw-bold text-dark text-truncate" style="max-width: 65%;">
+                            ${childCode} ${childName ? '- ' + childName : ''}
+                        </span>
+                        <span class="text-xs fw-bold text-muted" id="dashboard_val_${childCode}" data-max="${maxMins}">
+                            ${(0).toLocaleString('id-ID', { minimumFractionDigits: 2 })} / ${maxMins.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Min
+                        </span>
+                        </div>
+                        <div class="progress mb-2" style="height: 5px;">
+                        <div class="progress-bar bg-success" id="dashboard_bar_${childCode}" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>`;
+                });
+
+                html += `</div>`;
+                dashboardContainer.innerHTML = html;
+                capWrap.classList.remove('d-none');
                 } else {
-                    document.getElementById('capacityAccordionWrapper').classList.add('d-none');
+                capWrap.classList.add('d-none');
                 }
             }
-            
+
+            // ✅ set filter wc
             const sel = document.getElementById('filter_wc_add');
-            sel.innerHTML = ''; 
-            const target = wcCode.toUpperCase();
-            const o = document.createElement('option');
-            o.value = target;
-            o.innerText = target;
-            sel.appendChild(o);
-            sel.value = target;
-            
-            // Fetch Employees FIRST to ensure dropdowns are populated
+            if (sel) {
+                sel.innerHTML = '';
+                const target = (wcCode || '').toUpperCase();
+                const o = document.createElement('option');
+                o.value = target;
+                o.innerText = target;
+                sel.appendChild(o);
+                sel.value = target;
+            }
+
+            // Fetch Employees FIRST
             fetchEmployees().then(() => {
-                fetchAvailableItems();
+                fetchAvailableItems(); // nanti fetchAvailableItems baca AddItemState.flags.machining
                 const modalEl = document.getElementById('addItemModal');
-                if(modalEl) new bootstrap.Modal(modalEl).show();
+                if (modalEl) new bootstrap.Modal(modalEl).show();
             });
         };
 
-        let employeesList = []; // Init empty
-        
-        // Fetch Function
+        window.AddItemState = {
+            wiCode: '',
+            parentWc: '',
+            flags: { machining: false, longshift: false },
+            employeesLoaded: false,
+            employeesData: [],
+            availableItemsMap: {} 
+        };
+        function normalizeEmployees(raw) {
+            return (Array.isArray(raw) ? raw : []).map(e => {
+                const nik = (e.nik ?? e.pernr ?? e.NIK ?? '').toString().trim();
+                const name = (e.name ?? e.stext ?? e.nama ?? '').toString().trim();
+                const arbpl = (e.arbpl ?? e.workcenter ?? e.wc ?? '').toString().toUpperCase().trim();
+                return nik ? { nik, name, arbpl } : null;
+            }).filter(Boolean);
+        }
+
         window.fetchEmployees = function() {
-            return new Promise((resolve, reject) => {
-                if (employeesList.length > 0) {
-                    resolve(); // Already loaded
-                    return;
-                }
-                
-                // For now just fetch.
-                fetch('{{ route("wi.get-employees", ["kode" => $plantCode]) }}')
-                    .then(res => res.json())
-                    .then(res => {
-                        if(res.success) {
-                            employeesList = res.data;
-                            resolve();
-                        } else {
-                            console.error('Failed to load employees:', res.message);
-                            resolve();
-                        }
-                    })
-                    .catch(e => {
-                        console.error('Fetch Employees Error:', e);
-                        resolve();
-                    });
-            });
-        };
-        const workcentersData = @json($workcenters ?? []); 
-        const refWorkcentersData = @json($refWorkcenters ?? []);
-
-        function getOperatorOptions(wcCode, excludeNiks = []) {
-            const targetWc = (wcCode || '').toUpperCase();
-            let opts = '<option value="">-- Pilih Operator --</option>';
-            let count = 0;
-            
-            employeesList.forEach(e => {
-                const nik = e.pernr;
-                const name = e.stext; 
-                
-                if (excludeNiks.includes(nik.toString())) {
-                     opts += `<option value="${nik}" disabled style="color:#ccc;">${nik} - ${name} (Terpakai)</option>`;
-                } else {
-                        opts += `<option value="${nik}" data-name="${name}">${nik} - ${name}</option>`;
-                        count++;
-                    }
-            });
-            
-            if (count === 0 && excludeNiks.length > 0) {
-                 opts += '<option disabled>Semua operator tersedia telah dialokasikan</option>';
-            } else if (count === 0) {
-                 opts += '<option disabled>Tidak ada operator di WC ini</option>';
+            if (window.AddItemState?.employeesLoaded) {
+                window.employeesData = window.AddItemState.employeesData;
+                return Promise.resolve(window.employeesData);
             }
-            return opts;
-        }
-        
-        function getUsedNiksInBatch(container, excludeRow) {
-            let used = [];
-            if(!container) return used;
-            container.querySelectorAll('.split-row-item').forEach(r => {
-                if(r !== excludeRow) {
-                    const sel = r.querySelector('.emp-select');
-                    if(sel && sel.value) used.push(sel.value.toString());
-                }
-            });
-            return used;
-        }
 
-        window.filterOperators = function(wcSelect, targetId) {
-            const wcCode = wcSelect.value;
-            const targetSelect = document.getElementById(targetId);
-            
-            if(targetSelect) { 
-                const row = wcSelect.closest('.split-row-item');
-                let excludeNiks = [];
-                if(row) {
-                    const container = row.parentElement;
-                    excludeNiks = getUsedNiksInBatch(container, row);
-                    
-                    const qtyInput = row.querySelector('.qty-input');
-                    const empSelect = row.querySelector('.emp-select');
-                    
-                    if(wcCode) {
-                        if(qtyInput) qtyInput.disabled = false;
-                    } else {
-                         if(qtyInput) { qtyInput.disabled = true; qtyInput.value = ''; }
-                    }
-                }
-            }
+            return fetch(`{{ route('wi.get-employees', ['kode' => $plantCode]) }}`)
+                .then(r => r.json())
+                .then(res => {
+                const normalized = normalizeEmployees(res.data);
+                window.AddItemState.employeesLoaded = true;
+                window.AddItemState.employeesData = normalized;
+                window.employeesData = normalized;
+                return normalized;
+                })
+                .catch(err => {
+                console.error('fetchEmployees failed:', err);
+                window.AddItemState.employeesLoaded = true;
+                window.AddItemState.employeesData = [];
+                window.employeesData = [];
+                return [];
+            });
         };
 
         function getWcFamilyOptions(wcCode, container = null) {
@@ -1746,175 +1868,461 @@
             const asChild = wcMappings.find(m => (m.workcenter || '').toUpperCase() === target);
             const children = wcMappings.filter(m => (m.wc_induk || '').toUpperCase() === target);
             const isParent = children.length > 0;
-            
-            // Check Usage
+
             let batchUsage = {};
-            if(container) {
-                container.querySelectorAll('.split-row-item').forEach(r => {
-                    const wcS = r.querySelector('.child-select');
-                    const nikS = r.querySelector('.emp-select');
-                    if(wcS && nikS && nikS.value) {
-                         const w = wcS.value;
-                         if(!batchUsage[w]) batchUsage[w] = 0;
-                         batchUsage[w]++;
-                    }
+            if (container) {
+                container.querySelectorAll('.split-row').forEach(r => {
+                const wcS  = r.querySelector('.row-wc');
+                const nikS = r.querySelector('.row-nik');
+                if (wcS && nikS && nikS.value) {
+                    const w = wcS.value.toUpperCase();
+                    batchUsage[w] = (batchUsage[w] || 0) + 1;
+                }
                 });
             }
 
             const buildOpt = (code, name) => {
-                let capLabel = '';
-                const wcInfo = workcentersData.find(w => w.workcenter_code === code) || {};
-                let k = parseFloat(wcInfo.kapaz) || 0;
-                
-                if(k === 0) {
-                }
+                const wcInfo = (workcentersData || []).find(w => (w.workcenter_code || '').toUpperCase() === code) || {};
+                const k = parseFloat(wcInfo.kapaz) || 0;
+                const capLabel = ` (Cap: ${k.toLocaleString()} Min)`;
 
-                capLabel = ` (Cap: ${k.toLocaleString()} Min)`;
-                
-                let totalOps = 0;
-                employeesList.forEach(e => {
-                    if((e.arbpl || '').toUpperCase() === code) totalOps++;
-                });
-                
-                let used = batchUsage[code] || 0;
-                let disabled = (totalOps > 0 && used >= totalOps);
-                let disAttr = disabled ? 'disabled' : '';
-                let disText = disabled ? ' (Penuh)' : '';
+                // PAKAI employeesData, bukan employeesList
+                const employees = window.employeesData || [];
+                const totalOps = employees.filter(e => (e.arbpl || '').toUpperCase() === code).length;
 
-                return `<option value="${code}" ${disAttr}>${name}${capLabel}${disText}</option>`;
+                const used = batchUsage[code] || 0;
+                const disabled = (totalOps > 0 && used >= totalOps);
+                return `<option value="${code}" ${disabled ? 'disabled' : ''}>${name}${capLabel}${disabled ? ' (Penuh)' : ''}</option>`;
             };
 
             let opts = [];
             if (isParent) {
-                 children.forEach(c => {
-                   if(c.workcenter) opts.push(buildOpt(c.workcenter, c.workcenter + ' - ' + c.nama_workcenter));
-                 });
+                children.forEach(c => c.workcenter && opts.push(buildOpt(c.workcenter.toUpperCase(), `${c.workcenter} - ${c.nama_workcenter}`)));
             } else if (asChild) {
-                 opts.push(buildOpt(target, target + ' - ' + asChild.nama_workcenter));
+                opts.push(buildOpt(target, `${target} - ${asChild.nama_workcenter}`));
             } else {
-                 opts.push(buildOpt(target, target));
+                opts.push(buildOpt(target, target));
             }
             return opts.join('');
         }
 
-        window.fetchAvailableItems = function() {
-            const wc = document.getElementById('filter_wc_add').value;
-            const searchInput = document.getElementById('search_available_item');
-            const searchTerm = searchInput ? searchInput.value : '';
-            
-            const container = document.getElementById('availableItemsContainer');
-            
-            if(container) container.innerHTML = '<div class="text-center p-5"><i class="fa-solid fa-spinner fa-spin text-primary fa-2x mb-2"></i><p class="text-muted">Memuat Data...</p></div>';
-            
-            const url = `{{ route('wi.available-items', ['kode' => $plantCode]) }}?workcenter=${wc}&search=${encodeURIComponent(searchTerm)}`;
-            
-            fetch(url)
-                .then(res => res.json())
-                .then(res => {
-                    const items = res.data;
-                    availableItemsMap = {};
-                    
-                    if(items.length === 0) {
-                        if(container) container.innerHTML = '<div class="text-center p-5 border rounded-3 bg-white text-muted"><i class="fa-solid fa-box-open fa-2x mb-3 opacity-25"></i><p>Tidak ada item tersedia atau tidak cocok dengan pencarian.</p></div>';
-                        return;
-                    }
+        window.employeesData = window.employeesData || [];
 
-                    let html = '';
-                    items.forEach(item => {
-                        const itemKey = `${item.aufnr}_${item.vornr}`;
-                        availableItemsMap[itemKey] = item;
-                        
-                        let displayUom = (item.uom || '-').toUpperCase();
-                        if (displayUom === 'ST') displayUom = 'PC';
+        window.getWcOptionsHtml = function() {
+            const sel = document.getElementById('filter_wc_add');
+            const parent = (sel?.value || '').toUpperCase().trim();
+            if (!parent) return `<option value="">Pilih Workcenter</option>`;
 
-                        html += `
-                        <div class="card mb-3 border shadow-sm">
-                            <div class="card-header bg-white py-3">
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <div class="d-flex align-items-center mb-1">
-                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 px-2">${item.aufnr}</span>
-                                        <span class="fw-bold text-dark text-truncate" style="max-width: 400px;" title="${item.description}">${item.description}</span>
-                                    </div>
-                                    <span class="text-success fw-bold small"><i class="fa-solid fa-check-circle me-1"></i> Available: <span id="max_qty_${itemKey}">${parseFloat(item.available_qty).toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span> ${displayUom}</span>
-                                </div>
-                                <div class="small text-muted mb-0 ms-1">
-                                    <span><i class="fa-solid fa-cube me-1"></i> ${item.material}</span>
-                                    <span class="mx-2">•</span>
-                                    <span class="fst-italic"><i class="fa-solid fa-industry me-1"></i> ${item.workcenter}</span>
-                                </div>
-                            </div>
-                            <div class="card-body bg-light p-3">
-                                <!-- Container for Split Rows -->
-                                <div id="split_container_${itemKey}"></div>
-                                
-                                <!-- Footer Actions -->
-                                <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                                    <button class="btn btn-outline-secondary btn-sm fw-bold rounded-pill px-3" onclick="addSplitRow('${itemKey}')">
-                                        <i class="fa-solid fa-code-branch me-1"></i> Split / Tambah Baris
-                                    </button>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="text-end lh-1">
-                                            <div class="text-xs text-muted fw-bold">TOTAL ASSIGNED</div>
-                                            <div class="fw-bold text-dark" id="total_assign_${itemKey}">0</div>
-                                        </div>
-                                        <button class="btn btn-primary btn-sm fw-bold px-4 rounded-pill shadow-sm" id="btn_save_${itemKey}" onclick="submitBatchItem('${item.aufnr}', '${item.vornr}', this)">
-                                            <i class="fa-solid fa-save me-1"></i> Simpan
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        `;
-                    });
-                    
-                    if(container) container.innerHTML = html;
+            const children = (window.wcMappings || [])
+                .filter(m => ((m.wc_induk || '').toUpperCase() === parent))
+                .map(m => ({
+                code: (m.workcenter || '').toUpperCase().trim(),
+                name: (m.nama_workcenter || '').trim()
+                }))
+                .filter(x => x.code);
 
-                    // Initialize first row for each item
-                    items.forEach(item => {
-                         addSplitRow(`${item.aufnr}_${item.vornr}`);
-                    });
-                })
-                .catch(err => {
-                    console.error(err);
-                    if(container) container.innerHTML = '<div class="text-center text-danger p-5">Gagal memuat data. Silakan coba lagi.</div>';
-                });
+            const list = children.length ? children : [{ code: parent, name: '' }];
+
+            const seen = new Set();
+            return list.map(wc => {
+                if (seen.has(wc.code)) return '';
+                seen.add(wc.code);
+                return `<option value="${wc.code}">${wc.code}${wc.name ? ' - ' + wc.name : ''}</option>`;
+            }).join('');
         };
-        window.updateDashboardUsage = function() {
-            let usageMap = {};
-            const rows = document.querySelectorAll('#addItemModal .split-row-item');
-            rows.forEach(r => {
-                const wcS = r.querySelector('.child-select');
-                const timeI = r.querySelector('.time-input');
-                if(wcS && timeI && wcS.value) {
-                    const w = wcS.value;
-                    // time-input is "10,5" -> parse locally
-                    const t = window.parseLocaleNum(timeI.value);
-                    if(!usageMap[w]) usageMap[w] = 0;
-                    usageMap[w] += t;
+
+        window.recalcTotalAssigned = function (itemKey) {
+            const container = document.getElementById(`split_container_${itemKey}`);
+            const totalEl = document.getElementById(`total_assign_${itemKey}`);
+            const btnSave = document.getElementById(`btn_save_${itemKey}`);
+            if (!container) return 0;
+
+            const parseNum = (v) => {
+                if (v === null || v === undefined) return 0;
+                let s = String(v).trim();
+                if (!s) return 0;
+                // support "1.234,56" dan "1234.56"
+                if (s.includes(",")) return parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
+                return parseFloat(s) || 0;
+            };
+
+            let total = 0;
+            let missingRequired = false;
+
+            container.querySelectorAll(".split-row").forEach((row) => {
+                const qtyInp = row.querySelector(".row-qty");
+                const nikSel = row.querySelector(".row-nik");
+                const wcSel = row.querySelector(".row-wc");
+
+                const qty = parseNum(qtyInp?.value);
+                if (qty > 0) {
+                total += qty;
+                if (!nikSel?.value || !wcSel?.value) missingRequired = true;
                 }
             });
-            
-            for (const [wc, ref] of Object.entries(refWorkcentersData)) {
-                const el = document.getElementById(`dashboard_val_${wc}`);
-                if(el) {
-                    const max = parseFloat(el.getAttribute('data-max')) || 0;
-                    const used = usageMap[wc] || 0;
-                    const pct = max > 0 ? (used / max) * 100 : 0;
-                    el.innerText = `${used.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ${max.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Min`;
-                    
-                    const elBar = document.getElementById(`dashboard_bar_${wc}`);
-                    if(elBar) {
-                        elBar.style.width = `${Math.min(pct, 100)}%`;
-                        if(used > max) {
-                            elBar.classList.remove('bg-success');
-                            elBar.classList.add('bg-danger');    
-                            el.classList.add('text-danger');     
-                        } else {
-                            elBar.classList.remove('bg-danger');
-                            elBar.classList.add('bg-success');
-                            el.classList.remove('text-danger');
-                        }
+
+            if (totalEl) {
+                totalEl.innerText = total.toLocaleString("id-ID", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+                });
+            }
+
+            // IMPORTANT: gunakan availableItemsMap (bukan window.availableItemsMap)
+            const item = (typeof availableItemsMap !== "undefined" ? availableItemsMap : {})[itemKey];
+            const maxAvail = parseNum(item?.available_qty);
+            const over = maxAvail > 0 && total > maxAvail + 1e-9;
+
+            if (totalEl) {
+                totalEl.classList.toggle("text-danger", over);
+                totalEl.title = over ? `Melebihi available (${maxAvail})` : "";
+            }
+
+            if (btnSave) {
+                btnSave.disabled = total <= 0 || over || missingRequired;
+            }
+
+            return total;
+        };
+        // LISTENER: input qty
+        document.addEventListener("input", (e) => {
+            if (e.target.classList.contains("row-qty")) {
+                const container = e.target.closest('[id^="split_container_"]');
+                if (container) {
+                const itemKey = container.id.replace("split_container_", "");
+                recalcTotalAssigned(itemKey);
+                }
+                updateDashboardUsage();
+            }
+        });
+            // LISTENER: change operator / workcenter
+        document.addEventListener("change", (e) => {
+            if (e.target.classList.contains("row-wc") || e.target.classList.contains("row-nik")) {
+                const container = e.target.closest('[id^="split_container_"]');
+                if (container) {
+                const itemKey = container.id.replace("split_container_", "");
+                recalcTotalAssigned(itemKey);
+                }
+                updateDashboardUsage();
+            }
+        });
+
+        document.addEventListener('change', (e) => {
+            if (e.target.classList.contains('row-wc') || e.target.classList.contains('row-nik')) {
+                const container = e.target.closest('[id^="split_container_"]');
+                if (container) {
+                const itemKey = container.id.replace('split_container_', '');
+                recalcTotalAssigned(itemKey);
+
+                if (e.target.classList.contains('row-nik')) {
+                    enforceLongshiftUniqueNik(itemKey);
+                }
+                }
+                updateDashboardUsage();
+            }
+        });
+
+        window.fetchAvailableItems = function () {
+            const wcEl = document.getElementById('filter_wc_add');
+            const wc = wcEl ? wcEl.value : '';
+            const searchInput = document.getElementById('search_available_item');
+            const searchTerm = searchInput ? searchInput.value : '';
+            const container = document.getElementById('availableItemsContainer');
+            const isMachiningDoc = !!window.AddItemState?.flags?.machining;
+
+            if (container) {
+                container.innerHTML =
+                '<div class="text-center p-5">' +
+                '<i class="fa-solid fa-spinner fa-spin text-primary fa-2x mb-2"></i>' +
+                '<p class="text-muted">Memuat Data...</p>' +
+                '</div>';
+            }
+
+            const url = `{{ route('wi.available-items', ['kode' => $plantCode]) }}?workcenter=${encodeURIComponent(
+                wc
+            )}&search=${encodeURIComponent(searchTerm)}`;
+
+            fetch(url)
+                .then(async (res) => {
+                const text = await res.text();
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    throw new Error(`HTTP ${res.status} (Non-JSON): ${text.slice(0, 200)}`);
+                }
+
+                if (!res.ok || data.success === false) {
+                    throw new Error(data.message || `HTTP ${res.status} ${res.statusText}`);
+                }
+
+                return data;
+                })
+                .then((res) => {
+                const items = Array.isArray(res.data) ? res.data : [];
+
+                // reset map
+                availableItemsMap = {};
+
+                if (items.length === 0) {
+                    if (container) {
+                    container.innerHTML =
+                        '<div class="text-center p-5 border rounded-3 bg-white text-muted">' +
+                        '<i class="fa-solid fa-box-open fa-2x mb-3 opacity-25"></i>' +
+                        '<p>Tidak ada item tersedia atau tidak cocok dengan pencarian.</p>' +
+                        '</div>';
                     }
+                    return;
+                }
+
+                let html = '';
+
+                // info banner (khusus machining)
+                if (isMachiningDoc) {
+                    html += `
+                    <div class="alert alert-warning border-0 shadow-sm">
+                        <div class="fw-bold mb-1"><i class="fa-solid fa-gear me-1"></i> MODE MACHINING</div>
+                        <div class="small">
+                        Qty otomatis (default full). Jika Longshift dicentang, qty dibagi 2 (ceil untuk operator 1). Split manual dinonaktifkan.
+                        </div>
+                    </div>
+                    `;
+                }
+
+                items.forEach((item) => {
+                    const itemKey = `${item.aufnr}_${item.vornr}`;
+                    availableItemsMap[itemKey] = item;
+
+                    let displayUom = (item.uom || '-').toUpperCase();
+                    if (displayUom === 'ST') displayUom = 'PC';
+
+                    const longshiftToggle = isMachiningDoc
+                    ? `
+                        <div class="form-check form-switch ms-3">
+                        <input class="form-check-input" type="checkbox" id="ls_${itemKey}"
+                                onchange="toggleMachiningLongshift('${itemKey}', this.checked)">
+                        <label class="form-check-label small fw-bold" for="ls_${itemKey}">
+                            Longshift
+                        </label>
+                        </div>
+                    `
+                    : '';
+
+                    const splitButton = !isMachiningDoc
+                    ? `
+                        <button
+                            class="btn btn-outline-secondary btn-sm fw-bold rounded-pill px-3"
+                            id="btn_split_${itemKey}"
+                            onclick="addSplitRow('${itemKey}')"
+                        >
+                        <i class="fa-solid fa-code-branch me-1"></i> Split / Tambah Baris
+                        </button>
+                    `
+                    : `<div></div>`;
+
+                    html += `
+                    <div class="card mb-3 border shadow-sm">
+                        <div class="card-header bg-white py-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center mb-1">
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 px-2">${item.aufnr}</span>
+                            <span class="fw-bold text-dark text-truncate" style="max-width: 400px;" title="${item.description || ''}">
+                                ${item.description || ''}
+                            </span>
+                            ${isMachiningDoc ? `<span class="badge bg-warning text-dark ms-2">Machining</span>` : ''}
+                            </div>
+
+                            <div class="d-flex align-items-center">
+                            ${longshiftToggle}
+                            <span class="text-success fw-bold small ms-3">
+                                <i class="fa-solid fa-check-circle me-1"></i>
+                                Available:
+                                <span id="max_qty_${itemKey}">
+                                ${(parseFloat(item.available_qty) || 0).toLocaleString('id-ID', {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 2
+                                })}
+                                </span>
+                                ${displayUom}
+                            </span>
+                            </div>
+                        </div>
+
+                        <div class="small text-muted mb-0 ms-1">
+                            <span><i class="fa-solid fa-cube me-1"></i> ${item.material || '-'}</span>
+                            <span class="mx-2">•</span>
+                            <span class="fst-italic"><i class="fa-solid fa-industry me-1"></i> ${item.workcenter || '-'}</span>
+                        </div>
+                        </div>
+
+                        <div class="card-body bg-light p-3">
+                        <div id="split_container_${itemKey}"></div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                            ${splitButton}
+
+                            <div class="d-flex align-items-center gap-3">
+                            <div class="text-end lh-1">
+                                <div class="text-xs text-muted fw-bold">TOTAL ASSIGNED</div>
+                                <div class="fw-bold text-dark" id="total_assign_${itemKey}">0</div>
+                            </div>
+
+                            <button class="btn btn-primary btn-sm fw-bold px-4 rounded-pill shadow-sm"
+                                    id="btn_save_${itemKey}"
+                                    type="button"
+                                    disabled
+                                    onclick="submitBatchItem('${item.aufnr}', '${item.vornr}', this)">
+                                <i class="fa-solid fa-save me-1"></i> Simpan
+                            </button>
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                    `;
+                });
+
+                if (container) container.innerHTML = html;
+
+                items.forEach(item => {
+                    const itemKey = `${item.aufnr}_${item.vornr}`;
+
+                    if (window.AddItemState?.flags?.machining) {
+                        window.applyMachiningRows(itemKey);   // <-- ini yang bikin row muncul saat pertama kali modal dibuka
+                    } else {
+                        addSplitRow(itemKey);
+                    }
+                });
+
+                // sync global map sekali saja
+                window.availableItemsMap = availableItemsMap;
+                })
+                .catch((err) => {
+                console.error('fetchAvailableItems error:', err);
+                if (container) {
+                    container.innerHTML = `
+                    <div class="text-center text-danger p-5">
+                        Gagal memuat data.<br>
+                        <small class="text-muted">${err.message}</small>
+                    </div>
+                    `;
+                }
+            });
+        };
+        
+        window.toggleMachiningLongshift = function(itemKey, checked) {
+            window.AddItemState = window.AddItemState || {};
+            window.AddItemState.longshiftMap = window.AddItemState.longshiftMap || {};
+            window.AddItemState.longshiftMap[itemKey] = !!checked;
+
+            applyMachiningRows(itemKey);
+            enforceLongshiftUniqueNik(itemKey);
+        };
+
+        window.enforceLongshiftUniqueNik = function(itemKey) {
+            const isMachiningDoc = !!window.AddItemState?.flags?.machining;
+            const lsChecked = !!document.getElementById(`ls_${itemKey}`)?.checked;
+            if (!isMachiningDoc || !lsChecked) return;
+
+            const container = document.getElementById(`split_container_${itemKey}`);
+            if (!container) return;
+
+            const nikSelects = Array.from(container.querySelectorAll('.split-row .row-nik'));
+            if (nikSelects.length < 2) return;
+
+            const nik1 = (nikSelects[0].value || '').trim();
+            const nik2 = (nikSelects[1].value || '').trim();
+
+            // kalau sama -> clear row 2 dan kasih warning
+            if (nik1 && nik2 && nik1 === nik2) {
+                nikSelects[1].value = '';
+                Swal.fire('Perhatian', 'NIK row 1 dan row 2 tidak boleh sama (Longshift).', 'warning');
+            }
+
+            const chosen = [nik1, nik2].filter(Boolean);
+
+            nikSelects.forEach(sel => {
+                const myVal = (sel.value || '').trim();
+                Array.from(sel.options).forEach(opt => {
+                if (!opt.value) return; // skip placeholder
+                opt.disabled = opt.value !== myVal && chosen.includes(opt.value);
+                });
+            });
+        };
+
+        window.renderMachiningRows = function (itemKey, isLongshift) {
+            const container = document.getElementById(`split_container_${itemKey}`);
+            if (!container) return;
+
+            const item = (window.availableItemsMap || {})[itemKey];
+            if (!item) return;
+
+            const maxAvail = parseFloat(item.available_qty || 0) || 0;
+            const wcDefault = (item.workcenter || document.getElementById('filter_wc_add')?.value || '').toUpperCase();
+
+            container.innerHTML = '';
+
+            if (!isLongshift) {
+                addSplitRow(itemKey, { qty: maxAvail, disableQty: true, wc: wcDefault });
+            } else {
+                // 2 operator: split ceil
+                const q1 = Math.ceil(maxAvail / 2);
+                const q2 = Math.max(0, maxAvail - q1);
+
+                addSplitRow(itemKey, { qty: q1, disableQty: true, wc: wcDefault });
+
+                if (q2 > 0) {
+                addSplitRow(itemKey, { qty: q2, disableQty: true, wc: wcDefault });
+                }
+            }
+
+            recalcTotalAssigned(itemKey);
+            updateDashboardUsage();
+        };
+
+        window.updateDashboardUsage = function() {
+            let usageMap = {};
+            const rows = document.querySelectorAll('#addItemModal .split-row');
+
+            rows.forEach(r => {
+                const wcS = r.querySelector('.row-wc');
+                const qtyI = r.querySelector('.row-qty');
+                const nikS = r.querySelector('.row-nik');
+                if (!wcS || !qtyI) return;
+
+                const wc = (wcS.value || '').toUpperCase().trim();
+                const qty = parseFloat(qtyI.value || '0') || 0;
+                if (!wc || qty <= 0) return;
+
+                // ambil itemKey dari container terdekat
+                const container = r.closest('[id^="split_container_"]');
+                if (!container) return;
+                const itemKey = container.id.replace('split_container_', '');
+                const item = availableItemsMap[itemKey];
+                if (!item) return;
+
+                let tak = parseFloat(item.vgw01) || 0;
+                const unit = (item.vge01 || '').toUpperCase();
+                if (unit === 'S' || unit === 'SEC') tak = tak / 60;
+
+                const mins = tak * qty;
+                usageMap[wc] = (usageMap[wc] || 0) + mins;
+            });
+
+            // render ke dashboard
+            for (const el of document.querySelectorAll('[id^="dashboard_val_"]')) {
+                const wc = el.id.replace('dashboard_val_', '');
+                const max = parseFloat(el.getAttribute('data-max')) || 0;
+                const used = usageMap[wc] || 0;
+                const pct = max > 0 ? (used / max) * 100 : 0;
+
+                el.innerText = `${used.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2})} / ${max.toLocaleString('id-ID')} Min`;
+
+                const bar = document.getElementById(`dashboard_bar_${wc}`);
+                if (bar) {
+                bar.style.width = `${Math.min(pct, 100)}%`;
+                bar.classList.toggle('bg-danger', used > max);
+                bar.classList.toggle('bg-success', used <= max);
                 }
             }
         };
@@ -1945,87 +2353,56 @@
              }
         };
 
-        window.addSplitRow = function(itemKey) {
+        window.addSplitRow = function (itemKey, opts = {}) {
             const container = document.getElementById(`split_container_${itemKey}`);
-            if(!container) return;
+            if (!container) return;
 
-            const item = availableItemsMap[itemKey];
-            if(!item) return;
+            const qtyVal = parseFloat(opts.qty || 0) || 0;
+            const disableQty = !!opts.disableQty;
+            const wcDefault = (opts.wc || '').toUpperCase();
 
-            const rowCount = container.children.length;
-            const uniqueId = `${itemKey}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-            
-            const wcOptsHtml = getWcFamilyOptions(item.workcenter, container);
-            
-            let wcSelectHtml = `<select class="form-select form-select-sm child-select" 
-                                        id="wc_${uniqueId}" 
-                                        data-row-id="${uniqueId}">
-                                    <option value="">- Induk/None -</option>
-                                    ${wcOptsHtml}
-                                </select>`;
-            
-            const excludeNiks = getUsedNiksInBatch(container, null);
-            const opOptions = getOperatorOptions(null, excludeNiks);
-            
-            let empSelectHtml = `<select class="form-select form-select-sm emp-select" id="nik_${uniqueId}">${opOptions}</select>`;
+            const row = document.createElement('div');
+            row.className = 'split-row row g-2 align-items-center mb-2';
 
-            const isIntegerOnly = (['ST', 'SET'].includes((item.uom || '').toUpperCase()) || ['PC', 'SER'].includes((item.uom || '').toUpperCase()));
-            const rowDiv = document.createElement('div');
-            rowDiv.className = 'row g-2 align-items-end mb-2 split-row-item border-bottom pb-2'; 
-            rowDiv.id = `row_${uniqueId}`;
-            rowDiv.innerHTML = `
-                <div class="col-md-3">
-                     <label class="form-label text-xs fw-bold text-muted mb-0">Operator</label>
-                     ${empSelectHtml}
+            row.innerHTML = `
+                <div class="col-md-4">
+                <select class="form-select form-select-sm row-nik">
+                    <option value="">Pilih Operator</option>
+                    ${(window.employeesData || []).map(e => `<option value="${e.nik}" data-name="${e.name}">${e.nik} - ${e.name}</option>`).join('')}
+                </select>
+                </div>
+                <div class="col-md-4">
+                <select class="form-select form-select-sm row-wc">
+                    ${getWcOptionsHtml()}
+                </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label text-xs fw-bold text-muted mb-0">Sub-WC</label>
-                    ${wcSelectHtml}
+                <input class="form-control form-control-sm text-end row-qty" type="number" step="0.01" min="0" value="${qtyVal}">
                 </div>
-                <div class="col-md-3">
-                     <label class="form-label text-xs fw-bold text-muted mb-0">Qty</label>
-                     <div class="input-group input-group-sm">
-                        <input type="text" inputmode="${isIntegerOnly ? 'numeric' : 'decimal'}" 
-                               class="form-control fw-bold qty-input" id="qty_${uniqueId}" 
-                               data-is-int="${isIntegerOnly}"
-                               placeholder="0" disabled>
-                     </div>
-                </div>
-                <div class="col-md-3">
-                     <label class="form-label text-xs fw-bold text-muted mb-0">Time Req</label>
-                     <input type="text" class="form-control form-control-sm fw-bold time-input bg-white" readonly value="0">
-                </div>
-                <div class="col-md-1">
-                     ${rowCount > 0 ? `<button class="btn btn-outline-danger btn-sm w-100 remove-btn"><i class="fa-solid fa-trash"></i></button>` : ''}
+                <div class="col-md-1 text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row"
+                        onclick="this.closest('.split-row').remove(); recalcTotalAssigned('${itemKey}'); updateDashboardUsage();">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
                 </div>
             `;
-            container.appendChild(rowDiv);
-            
-            const wcSel = rowDiv.querySelector('.child-select');
-            if(wcSel) {
-                wcSel.addEventListener('change', function() { 
-                    filterOperators(this, `nik_${uniqueId}`); 
-                    updateChildCapacity(this.closest('.split-row-item'), itemKey);
-                });
-            }
 
-            const qtyInp = rowDiv.querySelector('.qty-input');
-            if(qtyInp) {
-                qtyInp.addEventListener('input', function() {
-                    enforceBatchLimit(itemKey, this);
-                    updateChildCapacity(this.closest('.split-row-item'), itemKey);
-                });
-            }
+            container.appendChild(row);
 
-            const remBtn = rowDiv.querySelector('.remove-btn');
-            if(remBtn) {
-                remBtn.addEventListener('click', function() {
-                    removeSplitRow(uniqueId, itemKey);
-                });
-            }
-            
-            updateTotalBatch(itemKey);
+            const qtyInp = row.querySelector('.row-qty');
+            if (qtyInp) qtyInp.disabled = disableQty;
+
+            const wcSel = row.querySelector('.row-wc');
+            if (wcSel && wcDefault) wcSel.value = wcDefault;
+
+            recalcTotalAssigned(itemKey);
         };
+
+        document.addEventListener('input', (e) => {
+            if (e.target.classList.contains('row-qty') || e.target.classList.contains('row-wc')) {
+                updateDashboardUsage();
+            }
+        });
 
         window.removeSplitRow = function(uniqueId, itemKey) {
             const row = document.getElementById(`row_${uniqueId}`);
@@ -2051,8 +2428,6 @@
              });
              
              const remaining = max - otherTotal;
-
-             
              let val = window.parseLocaleNum(currentInput.value);
              const isInt = (currentInput.getAttribute('data-is-int') === 'true');
 
@@ -2102,136 +2477,179 @@
             }
         };
 
-        window.submitBatchItem = function(aufnr, vornr, btn) {
-            const itemKey = `${aufnr}_${vornr}`;
+        window.applyMachiningRows = function (itemKey) {
             const container = document.getElementById(`split_container_${itemKey}`);
-            if(!container) return;
+            if (!container) return;
 
-            // Collect Data
-            const rows = container.querySelectorAll('.split-row-item');
-            let itemsPayload = [];
-            let totalQty = 0;
-            let isValid = true;
-            let errorMsg = '';
-            
-            rows.forEach(row => {
-                const wcSel = row.querySelector('.child-select');
-                const nikSel = row.querySelector('.emp-select');
-                const qtyInp = row.querySelector('.qty-input');
-                
-                const wc = wcSel.value;
-                const nik = nikSel.value;
-                const qtyView = qtyInp.value;
-                const qty = window.parseLocaleNum(qtyView);
-                const isInt = (qtyInp.getAttribute('data-is-int') === 'true');
-                
-                if(!wc) { isValid = false; errorMsg = 'Pilih Workcenter untuk semua baris.'; return; }
-                if(!nik) { isValid = false; errorMsg = 'Pilih Operator untuk semua baris.'; return; }
-                
-                if (isInt) {
-                     if (qty < 1 || !Number.isInteger(qty)) { isValid = false; errorMsg = 'Qty harus berupa angka bulat minimal 1 (Unit: ST/SET).'; return; }
-                } else {
-                     if (qty <= 0) { isValid = false; errorMsg = 'Quantity wajib lebih dari 0.'; return; }
-                }
-                
-                const name = nikSel.options[nikSel.selectedIndex].getAttribute('data-name');
-                
-                itemsPayload.push({
-                    aufnr: aufnr,
-                    vornr: vornr,
-                    qty: qty,
-                    nik: nik,
-                    name: name,
-                    target_workcenter: wc
-                });
-                totalQty += qty;
-            });
+            const item = (window.availableItemsMap || {})[itemKey];
 
-            if(!isValid) return Swal.fire('Error', errorMsg, 'error');
-            if(itemsPayload.length === 0) return Swal.fire('Error', 'Tidak ada item untuk disimpan.', 'error');
-            
-            const max = availableItemsMap[itemKey].available_qty;
-            if(totalQty > max + 0.0001) {
-                return Swal.fire('Over Capacity', `Total quantity (${totalQty}) melebihi sisa tersedia (${max}).`, 'warning');
-            }
-
-            const capInfo = wiCapacityMap[currentAddWiCode] || { max_mins: 0, used_mins: 0 };
-            const itemData = availableItemsMap[itemKey];
-            let additionalMins = 0;
-            if(itemData) {
-                additionalMins = calculateItemMinutes(itemData.vgw01, itemData.vge01, totalQty);
-            }
-            const projected = parseFloat(capInfo.used_mins) + additionalMins;
-            const maxCap = parseFloat(capInfo.max_mins);
-            
-            const executeBatch = () => {
-                const originalHtml = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                
-                fetch('{{ route("wi.add-item-batch") }}', {
-                    method: 'POST', 
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        wi_code: currentAddWiCode,
-                        items: itemsPayload
-                    })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if(data.success) {
-                        window.hasAddedItems = true;
-                        
-                        let newUsed = 0; 
-                        let newMax = 0;
-                        if(wiCapacityMap && wiCapacityMap[currentAddWiCode]) {
-                            wiCapacityMap[currentAddWiCode].used_mins += additionalMins;
-                            newUsed = wiCapacityMap[currentAddWiCode].used_mins;
-                            newMax = wiCapacityMap[currentAddWiCode].max_mins;
-                        }
-                        updateCapacityBarUI(currentAddWiCode, newUsed, newMax);
-
-                        btn.className = 'btn btn-success btn-sm fw-bold px-4 rounded-pill shadow-sm';
-                        btn.innerHTML = '<i class="fa-solid fa-check"></i> Tersimpan';
-                        
-                        // Disable inputs
-                        container.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
-                        
-                        const Toast = Swal.mixin({
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 2000,
-                            timerProgressBar: false
-                        });
-                        Toast.fire({ icon: 'success', title: 'Berhasil Disimpan' });
-                        
-                        // NO RELOAD HERE. Reload happens when modal closes (checked by window.hasAddedItems).
-
-                    } else {
-                        btn.disabled = false;
-                        btn.innerHTML = originalHtml;
-                        Swal.fire('Gagal', data.message, 'error');
-                    }
-                })
-                .catch(err => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalHtml;
-                    Swal.fire('Error', err.message || 'System Error', 'error');
-                });
+            const parseNum = (v) => {
+                if (v === null || v === undefined) return 0;
+                let s = String(v).trim();
+                if (!s) return 0;
+                if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+                return parseFloat(s) || 0;
             };
 
-            if (maxCap > 0 && projected > maxCap) {
-                return Swal.fire({
-                    title: 'Over Capacity Error',
-                    html: `Total penambahan ini (${additionalMins.toFixed(1)} min) akan melebihi kapasitas available!<br>Batas: ${maxCap} Min.`,
-                    icon: 'error'
-                });
+            const maxAvail = parseNum(item?.available_qty);
+            const lsEl = document.getElementById(`ls_${itemKey}`);
+            const isLongshift = !!lsEl?.checked;
+            const btnSplit = document.getElementById(`btn_split_${itemKey}`);
+            if (btnSplit) btnSplit.disabled = true;
+            container.innerHTML = '';
+
+            const addLockedRow = (qty) => {
+                // pakai addSplitRow yang sudah ada
+                addSplitRow(itemKey);
+
+                const rows = container.querySelectorAll('.split-row');
+                const row = rows[rows.length - 1];
+                if (!row) return;
+
+                const qtyInp = row.querySelector('.row-qty');
+                if (qtyInp) {
+                qtyInp.value = qty;
+                qtyInp.disabled = true;
+                qtyInp.readOnly = true;
+                }
+                const btnRemove = row.querySelector('.btn-remove-row, .btn-remove-split, .btn-remove');
+                if (btnRemove) btnRemove.disabled = true;
+            };
+
+            if (maxAvail > 0) {
+                if (isLongshift) {
+                const q1 = Math.ceil(maxAvail / 2);
+                const q2 = maxAvail - q1;
+                addLockedRow(q1);
+                addLockedRow(q2);
+                } else {
+                addLockedRow(maxAvail);
+                }
             } else {
-                executeBatch();
+                // tetap tampil 1 row biar operator bisa dipilih, qty 0
+                addLockedRow(0);
+            }
+
+            // update total & state tombol simpan
+            recalcTotalAssigned(itemKey);
+            if (typeof updateDashboardUsage === 'function') updateDashboardUsage();
+        };
+
+        window.submitBatchItem = function (aufnr, vornr, btnEl) {
+            const itemKey = `${aufnr}_${vornr}`;
+            const isMachiningDoc = !!window.AddItemState?.flags?.machining;
+            const isLongshift = !!document.getElementById(`ls_${itemKey}`)?.checked;
+
+            const container = document.getElementById(`split_container_${itemKey}`);
+            if (!container) return;
+
+            const setBtn = (v) => {
+                if (btnEl) btnEl.disabled = v;
+            };
+
+            const parseNum = (v) => {
+                if (v === null || v === undefined) return 0;
+                let s = String(v).trim();
+                if (!s) return 0;
+
+                // support "1.234,56" dan "1234.56"
+                if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+                return parseFloat(s) || 0;
+            };
+
+            setBtn(true);
+
+            try {
+                const rows = container.querySelectorAll('.split-row');
+                const items = [];
+                const seenNik = new Set();
+                let total = 0;
+
+                rows.forEach((r) => {
+                const nikSel = r.querySelector('.row-nik');
+                const qtyInp = r.querySelector('.row-qty');
+                const wcSel = r.querySelector('.row-wc');
+
+                const nik = (nikSel?.value || '').trim();
+                const name = nikSel?.selectedOptions?.[0]?.dataset?.name || '';
+                const wc = (wcSel?.value || '').trim();
+                const qty = parseNum(qtyInp?.value);
+
+                // skip baris yang tidak valid
+                if (!nik || !wc || qty <= 0) return;
+
+                if (seenNik.has(nik)) {
+                    throw new Error(`NIK ${nik} dipilih lebih dari sekali untuk PRO ${aufnr}/${vornr}.`);
+                }
+                seenNik.add(nik);
+
+                total += qty;
+
+                items.push({
+                    aufnr,
+                    vornr,
+                    qty,
+                    nik,
+                    name,
+                    target_workcenter: wc
+                });
+                });
+
+                if (items.length === 0) {
+                throw new Error('Tidak ada baris valid untuk disimpan.');
+                }
+
+                const maxAvail = parseNum(availableItemsMap?.[itemKey]?.available_qty);
+                const over = (maxAvail > 0) && (total > maxAvail + 1e-9);
+                if (over) {
+                throw new Error(`Total assigned (${total}) melebihi available (${maxAvail}).`);
+                }
+
+                const payload = {
+                wi_code: currentAddWiCode,
+                machining: isMachiningDoc,
+                longshift: isLongshift,
+                items
+                };
+
+                return fetch(`{{ route('wi.add-item-batch') }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(payload)
+                })
+                .then(async (res) => {
+                    const text = await res.text();
+
+                    let data;
+                    try {
+                    data = JSON.parse(text);
+                    } catch (e) {
+                    throw new Error(`HTTP ${res.status} (Non-JSON): ${text.slice(0, 200)}`);
+                    }
+
+                    if (!res.ok || data.success === false) {
+                    throw new Error(data.message || `HTTP ${res.status} ${res.statusText}`);
+                    }
+
+                    return data;
+                })
+                .then((data) => {
+                    Swal.fire('Berhasil', data.message || 'Berhasil', 'success');
+                    window.hasAddedItems = true;
+                    fetchAvailableItems();
+                })
+                .catch((err) => {
+                    Swal.fire('Gagal', err.message || 'Error', 'error');
+                })
+                .finally(() => {
+                    setBtn(false);
+                });
+            } catch (err) {
+                Swal.fire('Error', err.message || 'Error', 'error');
+                setBtn(false);
             }
         };
 
@@ -2524,8 +2942,6 @@
             setupCheckboxGroup('selectAllCompleted', '.cb-completed', 'btnCompletedAction', 'btnCompletedDelete', 'countCompleted', 'countCompletedDel');
         });
 
-        // --- 7. OPEN EDIT QTY MODAL ---
-        // --- 7. OPEN EDIT QTY MODAL ---
         window.openEditQtyModal = function(wiCode, aufnr, description, assignedQty, orderQty, uom, vgw01, vge01, nik, vornr, maxCapacity, currentTotalUsed, currentItemLoad) {
             // Helper for ID locale
             const parseLocaleNum = (str) => {
@@ -2559,8 +2975,6 @@
             if(inputAufnr) inputAufnr.value = aufnr;
             if(inputDesc) inputDesc.innerText = description; 
             if(displayAufnrDiv) displayAufnrDiv.innerText = aufnr;
-            
-            // Format Initial Qty (For Display)
             const initialQtyVal = parseFloat(assignedQty) || 0;
             if(inputNewQty) {
                 // If Integer, 0 decimals. If float, 2 decimals (or varying).
@@ -2600,11 +3014,6 @@
             // 1. Normalize Display
             if(displayUnit === 'ST') displayUnit = 'PC';
             if(modalUnitText) modalUnitText.innerText = `UNIT: ${displayUnit}`;
-            
-            // 2. Set Input Step (Integer vs Decimal) - Not strictly needed if input is text, but for mobile keyboard hints if we used number
-            // if(inputNewQty) ...
-
-            // Update Max Text
             if(document.getElementById('modalMaxCapText')) document.getElementById('modalMaxCapText').innerText = maxCapValue.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
             
             // Function to Update Capacity UI

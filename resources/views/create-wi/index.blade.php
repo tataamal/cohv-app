@@ -3014,161 +3014,89 @@
             const confirmBtn = document.getElementById('confirmSaveBtn');
             if (confirmBtn) {
                 confirmBtn.addEventListener('click', function() {
-                    console.log('confirmSaveBtn clicked! Calling startWiCreationStream...');
                     startWiCreationStream();
                 });
             }
-            window.startWiCreationStream = async function() {
+            window.startWiCreationStream = async function () {
                 const plantCode = '{{ $kode }}';
-                const dateInput = document.getElementById('wiDocumentDate').value; 
+                const dateInput = document.getElementById('wiDocumentDate').value;
                 const timeInput = document.getElementById('wiDocumentTime').value;
 
                 if (!window.latestAllocations || window.latestAllocations.length === 0) {
-                     Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning'); 
-                     return;
+                    Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning');
+                    return;
                 }
 
+                // tutup preview modal
                 const previewModalEl = document.getElementById('previewModal');
                 const previewModal = bootstrap.Modal.getInstance(previewModalEl);
                 if (previewModal) previewModal.hide();
 
+                // tampilkan progress modal
                 const progressModalEl = document.getElementById('streamProgressModal');
                 const progressModal = new bootstrap.Modal(progressModalEl);
                 progressModal.show();
-                
+
                 const progressBar = document.getElementById('wiProgressBar');
                 const statusText = document.getElementById('wiStatusText');
                 const logArea = document.getElementById('wiLogArea');
-                
-                progressBar.style.width = '0%';
-                progressBar.innerText = '0%';
-                statusText.innerText = 'Checking items status...';
+
+                progressBar.classList.remove('bg-danger', 'bg-success');
+                progressBar.classList.add('bg-primary');
+                progressBar.style.width = '10%';
+                progressBar.innerText = '10%';
+
+                statusText.classList.remove('text-danger');
+                statusText.innerText = 'Saving document...';
+
                 logArea.innerHTML = '';
                 logArea.classList.remove('d-none');
-                const releaseQueue = [];
-                const allProItems = []; 
-                const processedAufnrs = new Set();
-                
-                window.latestAllocations.forEach(alloc => {
-                    alloc.pro_items.forEach(item => {
-                        const aufnr = item.aufnr;
-                        if (!processedAufnrs.has(aufnr)) {
-                            processedAufnrs.add(aufnr);
-                            const stats = item.stats || '';
-                            const needsRelease = stats.includes('CRTD') || !(stats.includes('REL') || stats.includes('DSP'));
-                            if (needsRelease) {
-                                releaseQueue.push({ aufnr: aufnr });
-                            }
-                            allProItems.push({ aufnr: aufnr });
-                        }
-                    });
-                });
 
+                const payload = {
+                    plant_code: plantCode,
+                    document_date: dateInput,
+                    document_end_date: document.getElementById('wiDocumentEndDate').value,
+                    document_time: timeInput,
+                    workcenter_allocations: window.latestAllocations,
+                };
+
+                console.log('WI SAVE payload:', payload);
                 try {
-                    if (releaseQueue.length > 0) {
-                        statusText.innerText = `Releasing ${releaseQueue.length} items...`;
-                        
-                        const response = await fetch('{{ route("create-wi.stream-release") }}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({
-                                plant_code: plantCode,
-                                items: releaseQueue
-                            })
-                        });
+                    progressBar.style.width = '30%';
+                    progressBar.innerText = '30%';
 
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(`Release Server Error (${response.status}): ${errorText}`);
-                        }
-
-                        const reader = response.body.getReader();
-                        const decoder = new TextDecoder();
-                        let buffer = '';
-
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split('\n\n');
-                            buffer = lines.pop(); 
-
-                            for (const line of lines) {
-                                if (line.startsWith('data: ')) {
-                                    const jsonStr = line.substring(6);
-                                    try {
-                                        const data = JSON.parse(jsonStr);
-                                        
-                                        if (data.progress !== undefined) {
-                                            progressBar.style.width = data.progress + '%';
-                                            progressBar.innerText = data.progress + '%';
-                                        }
-                                        if (data.message) {
-                                            statusText.innerText = data.message;
-                                            const logEntry = document.createElement('div');
-                                            logEntry.innerText = `> ${data.message}`;
-                                            if (data.status === 'error') {
-                                                logEntry.classList.add('text-danger');
-                                                throw new Error(data.message); // Abort on single failure
-                                            }
-                                            else if (data.status === 'success') logEntry.classList.add('text-success');
-                                            
-                                            logArea.appendChild(logEntry);
-                                            logArea.scrollTop = logArea.scrollHeight;
-                                        }
-                                    } catch (e) {
-                                        if (e.message.includes('Release Failed')) throw e; // Re-throw critical errors
-                                        console.error("Stream parse error", e);
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                         statusText.innerText = "All items have valid status (REL/DSP). Proceeding...";
-                         progressBar.style.width = '100%';
-                    }
-                    statusText.innerText = "Finalizing Document...";
-                    
                     const saveResponse = await fetch('{{ route("wi.save") }}', {
-                         method: 'POST',
-                         headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                         },
-                         body: JSON.stringify({
-                            plant_code: plantCode,
-                            document_date: dateInput,
-                            document_end_date: document.getElementById('wiDocumentEndDate').value,
-                            document_time: timeInput,
-                            workcenter_allocations: window.latestAllocations
-                         })
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify(payload),
                     });
-                    
-                    const saveResult = await saveResponse.json();
-                    
-                    if (saveResponse.ok) {
-                         progressBar.classList.remove('bg-primary');
-                         progressBar.classList.add('bg-success');
-                         statusText.innerText = "Pembuatan Penugasan Berhasil!";
-                         
-                         setTimeout(() => {
-                            window.location.href = "{{ route('wi.history', $kode) }}";
-                         }, 1500);
-                    } else {
-                         const detail = saveResult.error_detail ? ` (${saveResult.error_detail})` : '';
-                         throw new Error((saveResult.message || "Save failed.") + detail);
+
+                    const saveResult = await saveResponse.json().catch(() => ({}));
+
+                    if (!saveResponse.ok) {
+                    const detail = saveResult.error_detail ? ` (${saveResult.error_detail})` : '';
+                    throw new Error((saveResult.message || 'Save failed.') + detail);
                     }
 
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-success');
+                    progressBar.style.width = '100%';
+                    progressBar.innerText = '100%';
+                    statusText.innerText = 'Pembuatan Penugasan Berhasil!';
+
+                    setTimeout(() => {
+                    window.location.href = "{{ route('wi.history', $kode) }}";
+                    }, 1500);
                 } catch (error) {
                     console.error(error);
-                    statusText.innerText = "Error: " + error.message;
+                    statusText.innerText = 'Error: ' + error.message;
                     statusText.classList.add('text-danger');
+                    progressBar.classList.remove('bg-primary');
                     progressBar.classList.add('bg-danger');
-                    
+
                     const logEntry = document.createElement('div');
                     logEntry.innerText = `> PROCESS ABORTED: ${error.message}`;
                     logEntry.classList.add('text-danger', 'fw-bold');

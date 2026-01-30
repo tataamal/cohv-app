@@ -6,11 +6,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\workcenter;
 use App\Models\ProductionTData1; 
 use App\Models\WorkcenterMapping;
 use App\Models\HistoryWi;
+use App\Models\HistoryWiItem;
+use App\Models\HistoryPro;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\KodeLaravel;
@@ -21,6 +24,7 @@ use App\Models\ProductionTData4;
 use App\Services\Release;
 use App\Services\YPPR074Z;
 use App\Services\ChangeWc;
+use Carbon\CarbonInterface;
 
 class CreateWiController extends Controller
 {
@@ -378,224 +382,323 @@ class CreateWiController extends Controller
     public function saveWorkInstruction(Request $request)
     {
         $requestData = $request->json()->all();
-        $plantCode = $requestData['plant_code'] ?? null;
-        $inputDate = $requestData['document_date'] ?? now()->toDateString();
-        $inputTime = $requestData['document_time'] ?? '00:00';
-        $payload = $requestData['workcenter_allocations'] ?? [];
 
-        if (empty($payload) || !$plantCode || !$inputDate) {
-            return response()->json(['message' => 'Data tidak lengkap. Tanggal/Plant/alokasi kosong.'], 400);
+        $plantCode  = $requestData['plant_code'] ?? null;
+        $inputDate  = $requestData['document_date'] ?? null;
+        $inputTime  = $requestData['document_time'] ?? null;
+        $payload    = $requestData['workcenter_allocations'] ?? [];
+
+        if (!$plantCode || !$inputDate || empty($payload)) {
+            return response()->json([
+                'message' => 'Data tidak lengkap. Tanggal/Plant/alokasi kosong.'
+            ], 400);
         }
+
         $docPrefix = str_starts_with($plantCode, '3') ? 'WIH' : 'WIW';
+        $baseDateTime = Carbon::parse(trim($inputDate . ' ' . ($inputTime ?: '00:00')));
 
-        $dateTime = Carbon::parse($inputDate . ' ' . $inputTime);
-        
         if ($docPrefix === 'WIH') {
-            $expiredAt = $dateTime->copy()->addDay()->startOfDay();
+            $defaultExpiredAt = $baseDateTime->copy()->addDay()->startOfDay();
         } else {
-            $expiredAt = $dateTime->copy()->addHours(24);
+            $defaultExpiredAt = $baseDateTime->copy()->addHours(24);
         }
-        $dateForDb = $dateTime->toDateString();
-        $timeForDb = $dateTime->toTimeString();
-        $year = $dateTime->year;
-        
+
+        $defaultDateForDb = $baseDateTime->toDateString();
+        $defaultTimeForDb = $baseDateTime->format('H:i:s');
+
         $wiDocuments = [];
 
         try {
             foreach ($payload as $wcAllocation) {
-                $workcenterCode = $wcAllocation['workcenter'];
                 $rawItems = $wcAllocation['pro_items'] ?? [];
-                Log::info("Raw Items Received: " . count($rawItems), ['items' => $rawItems]);
-                $mergedMap = [];
-                
-                foreach ($rawItems as $item) {
-                     $uAufnr = trim($item['aufnr'] ?? '');
-                     $uVornr = trim($item['vornr'] ?? '');
-                     $uNik = trim($item['nik'] ?? '');
-                     $uWc = trim($item['child_workcenter'] ?? '');
-                     
-                     $key = "{$uAufnr}_{$uVornr}_{$uNik}_{$uWc}";
-                     
-                     Log::info("Merge Check: Key = $key. Existing? " . (isset($mergedMap[$key]) ? "YES" : "NO"));
-                     
-                     if (isset($mergedMap[$key])) {
-                         $mergedMap[$key]['assigned_qty'] = floatval($mergedMap[$key]['assigned_qty']) + floatval($item['assigned_qty']);
-                         
-                         $baseTime = floatval($mergedMap[$key]['vgw01'] ?? 0);
-                         $newQty = $mergedMap[$key]['assigned_qty'];
-                         $unit = strtoupper($mergedMap[$key]['vge01'] ?? '');
-                         
-                         $totalRaw = $baseTime * $newQty;
-                         $mins = $totalRaw;
-                         
-                         if ($unit === 'S' || $unit === 'SEC') $mins = $totalRaw / 60;
-                         elseif ($unit === 'H' || $unit === 'HUR') $mins = $totalRaw * 60;
-                         
-                        $mergedMap[$key]['calculated_tak_time'] = number_format($mins, 2, '.', '');
-
-                        if (!empty($item['is_machining'])) $mergedMap[$key]['is_machining'] = 1;
-                        if (!empty($item['is_longshift'])) $mergedMap[$key]['is_longshift'] = 1;
-                        
-                        Log::info("Merged Item. New Qty: {$newQty}");
-                         $mergedMap[$key] = $item;
-                     }
+                if (empty($rawItems)) {
+                    continue;
                 }
-                
-                $wcAllocation['pro_items'] = array_values($mergedMap); 
-                Log::info("Final Items Count: " . count($wcAllocation['pro_items']));
 
-                $headerMachining = false;
-                $headerLongshift = false;
-                foreach ($wcAllocation['pro_items'] as $itm) {
+                $headerWc = $wcAllocation['parent_wc']
+                    ?? $wcAllocation['workcenter']
+                    ?? ($rawItems[0]['parent_wc'] ?? null)
+                    ?? ($rawItems[0]['child_wc'] ?? null);
+
+                if (!$headerWc) {
+                    return response()->json([
+                        'message' => 'Workcenter header tidak ditemukan pada allocation/payload.'
+                    ], 400);
+                }
+
+                $merged = [];
+                foreach ($rawItems as $it) {
+                    $aufnr = trim($it['aufnr'] ?? '');
+                    $vornr = trim($it['vornr'] ?? '');
+                    $nik   = trim($it['nik'] ?? '');
+
+                    if ($aufnr === '' || $vornr === '' || $nik === '') {
+                        continue;
+                    }
+
+                    $key = "{$aufnr}_{$vornr}_{$nik}";
+                    $assignedQty = (float)($it['assigned_qty'] ?? 0);
+
+                    if (!isset($merged[$key])) {
+                        $merged[$key] = $it;
+                        $merged[$key]['assigned_qty'] = $assignedQty;
+                    } else {
+                        $merged[$key]['assigned_qty'] = (float)$merged[$key]['assigned_qty'] + $assignedQty;
+                        $merged[$key]['is_machining'] = !empty($merged[$key]['is_machining']) || !empty($it['is_machining']);
+                        $merged[$key]['is_longshift'] = !empty($merged[$key]['is_longshift']) || !empty($it['is_longshift']);
+
+                        $oldChild = $merged[$key]['child_wc'] ?? ($merged[$key]['child_workcenter'] ?? null);
+                        $newChild = $it['child_wc'] ?? ($it['child_workcenter'] ?? null);
+                        if ($oldChild && $newChild && $oldChild !== $newChild) {
+                            Log::warning("Duplicate key with different child_wc for $key: $oldChild vs $newChild (merged by requirement)");
+                        }
+                    }
+
+                    $baseTime = (float)($merged[$key]['vgw01'] ?? $it['vgw01'] ?? 0);
+                    $unit = strtoupper((string)($merged[$key]['vge01'] ?? $it['vge01'] ?? ''));
+                    $qty = (float)$merged[$key]['assigned_qty'];
+
+                    $mins = $baseTime * $qty;
+                    if (in_array($unit, ['S', 'SEC'], true)) {
+                        $mins = $mins / 60;
+                    } elseif (in_array($unit, ['H', 'HUR'], true)) {
+                        $mins = $mins * 60;
+                    }
+
+                    $merged[$key]['calculated_takt_time'] = number_format($mins, 2, '.', '');
+                }
+
+                $items = array_values($merged);
+                $headerMachining = !empty($wcAllocation['is_machining']);
+                $headerLongshift = !empty($wcAllocation['is_longshift']);
+                foreach ($items as $itm) {
                     if (!empty($itm['is_machining'])) $headerMachining = true;
                     if (!empty($itm['is_longshift'])) $headerLongshift = true;
                 }
-                if (!empty($wcAllocation['is_machining'])) $headerMachining = true;
-                if (!empty($wcAllocation['is_longshift'])) $headerLongshift = true;
+
+                $dateForDb = $defaultDateForDb;
+                $timeForDb = $defaultTimeForDb;
+                $expiredAt = $defaultExpiredAt;
 
                 if ($headerMachining) {
                     $minSsavd = null;
                     $maxSssld = null;
-                    
-                    foreach ($wcAllocation['pro_items'] as $itm) {
-                        $s = ($itm['ssavd'] ?? '-') !== '-' ? $itm['ssavd'] : null;
-                        $e = ($itm['sssld'] ?? '-') !== '-' ? $itm['sssld'] : null;
-                        
-                        if ($s) {
-                            $ts = strtotime($s);
-                            if ($minSsavd === null || $ts < $minSsavd) $minSsavd = $ts;
-                        }
-                        if ($e) {
-                            $te = strtotime($e);
-                            if ($maxSssld === null || $te > $maxSssld) $maxSssld = $te;
-                        }
-                    }
-                    
-                    if ($minSsavd) {
-                        $dt = Carbon::createFromTimestamp($minSsavd);
-                        $dateForDb = $dt->toDateString();
-                    }
-                    
-                    if ($maxSssld) {
-                        $expiredAt = Carbon::createFromTimestamp($maxSssld);
-                    } else {
 
+                    foreach ($items as $itm) {
+                        $sRaw = (($itm['ssavd'] ?? '-') !== '-') ? trim((string)$itm['ssavd']) : null;
+                        $eRaw = (($itm['sssld'] ?? '-') !== '-') ? trim((string)$itm['sssld']) : null;
+
+                        $s = $this->parseWiDate($sRaw);
+                        $e = $this->parseWiDate($eRaw);
+
+                        if ($s && (!$minSsavd || $s->lt($minSsavd))) $minSsavd = $s;
+                        if ($e && (!$maxSssld || $e->gt($maxSssld))) $maxSssld = $e;
                     }
-                    
-                } else {
+
+                    if ($minSsavd) {
+                        $dateForDb = $minSsavd->toDateString();
+                    }
+
+                    if ($maxSssld) {
+                        $expiredAt = $maxSssld->copy()->endOfDay();
+                    }
+
+                    $timeForDb = null;
                 }
 
-                DB::transaction(function () use ($docPrefix, $workcenterCode, $plantCode, $dateForDb, $timeForDb, $year, $expiredAt, $wcAllocation, $isMachining, $isLongshift, &$wiDocuments) {
+                DB::transaction(function () use (
+                    $docPrefix,
+                    $plantCode,
+                    $headerWc,
+                    $dateForDb,
+                    $timeForDb,
+                    $expiredAt,
+                    $headerMachining,
+                    $headerLongshift,
+                    $items,
+                    &$wiDocuments
+                ) {
+                    // generate next doc code (lock)
                     $latestHistory = HistoryWi::withTrashed()
                         ->where('wi_document_code', 'LIKE', $docPrefix . '%')
                         ->orderByRaw('LENGTH(wi_document_code) DESC')
                         ->orderBy('wi_document_code', 'desc')
-                        ->lockForUpdate() 
+                        ->lockForUpdate()
                         ->first();
-    
+
                     $nextNumber = 1;
-                    
                     if ($latestHistory) {
                         $currentCode = $latestHistory->wi_document_code;
-                        $numberPart = substr($currentCode, 3); 
+                        $numberPart = substr($currentCode, 3);
                         $nextNumber = intval($numberPart) + 1;
                     }
+
                     $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
+
+                    // create header (HistoryWi)
                     $history = HistoryWi::create([
                         'wi_document_code' => $documentCode,
-                        'workcenter_induk' => $workcenterCode,
-                        'plant_code' => $plantCode,
-                        'document_date' => $dateForDb,
-                        'document_time' => $timeForDb,       
-                        'expired_at' => $expiredAt,
-                        'sequence_number' => $nextNumber, 
-                        'status' => 'Open',
-                        'machining' => $headerMachining,
-                        'longshift' => $headerLongshift,
+                        'workcenter'       => $headerWc,        // <-- parent_wc / wc_induk disimpan di sini
+                        'plant_code'       => $plantCode,
+                        'document_date'    => $dateForDb,
+                        'document_time'    => $timeForDb,       // null saat machining
+                        'expired_at'       => $expiredAt,
+                        'sequence_number'  => $nextNumber,
+                        'status'           => 'Open',
+                        'machining'        => $headerMachining ? 1 : 0,
+                        'longshift'        => $headerLongshift ? 1 : 0,
                     ]);
-                    foreach ($wcAllocation['pro_items'] as $itemData) {
-                        
-                        $nik = $itemData['nik'] ?? null;
+
+                    $seen = [];
+
+                    foreach ($items as $itemData) {
+                        $nik   = $itemData['nik'] ?? null;
                         $aufnr = $itemData['aufnr'] ?? null;
                         $vornr = $itemData['vornr'] ?? null;
-                        
-                        $exists = \App\Models\HistoryWiItem::where('aufnr', $aufnr)
-                                    ->where('vornr', $vornr)
-                                    ->where('nik', $nik)
-                                    ->exists();
-                                    
-                        if (!$exists) {
-                            \App\Models\HistoryWiItem::create([
-                                'history_wi_id' => $history->id,
-                                'nik' => $nik,
-                                'aufnr' => $aufnr,
-                                'vornr' => $vornr,
-                                'uom' => $itemData['uom'] ?? null,
-                                'operator_name' => $itemData['name'] ?? null, 
-                                'dispo' => $itemData['dispo'] ?? null,
-                                'kapaz' => $itemData['kapaz'] ?? null,
-                                'kdauf' => $itemData['kdauf'] ?? null,
-                                'kdpos' => $itemData['kdpos'] ?? null,
-                                'name1' => $itemData['name1'] ?? null,
-                                'netpr' => $itemData['netpr'] ?? 0,
-                                'waerk' => $itemData['waerk'] ?? null,
-                                'ssavd' => ($itemData['ssavd'] ?? '-') !== '-' ? $itemData['ssavd'] : null,
-                                'sssld' => ($itemData['sssld'] ?? '-') !== '-' ? $itemData['sssld'] : null,
-                                'steus' => $itemData['steus'] ?? null,
-                                'vge01' => $itemData['vge01'] ?? null,
-                                'vgw01' => $itemData['vgw01'] ?? 0,
-                                'material_number' => $itemData['material_number'] ?? null,
-                                'material_desc' => $itemData['material_desc'] ?? null,
-                                'qty_order' => $itemData['qty_order'] ?? 0,
-                                'assigned_qty' => $itemData['assigned_qty'] ?? 0,
-                                'confirmed_qty' => 0,
-                                'workcenter_induk' => $workcenterCode,
-                                'child_workcenter' => $itemData['child_workcenter'] ?? null,
-                                'status_item' => 'Open',
-                                'calculated_takt_time' => $itemData['calculated_tak_time'] ?? 0,
-                                'calculated_takt_time' => $itemData['calculated_tak_time'] ?? 0,
-                                'machining' => !empty($itemData['is_machining']),
-                                'longshift' => !empty($itemData['is_longshift']),
-                                'remark_text' => $itemData['remark'] ?? null,
-                                'remark_qty' => $itemData['remark_qty'] ?? 0,
-                            ]);
+
+                        $k = trim((string)$aufnr) . '_' . trim((string)$vornr) . '_' . trim((string)$nik);
+                        if (isset($seen[$k])) {
+                            Log::warning("Duplicate item in same document (skipped): $k");
+                            continue;
+                        }
+                        $seen[$k] = true;
+
+                        // normalisasi child/parent key (kalau payload masih pakai nama lama)
+                        $childWc  = $itemData['child_wc'] ?? ($itemData['child_workcenter'] ?? null);
+                        $parentWc = $itemData['parent_wc'] ?? ($itemData['parent_workcenter'] ?? $headerWc);
+
+                        // create item (HistoryWiItem)
+                        $wiItem = HistoryWiItem::create([
+                            'history_wi_id' => $history->id,
+                            'nik'           => $nik,
+                            'aufnr'         => $aufnr,
+                            'vornr'         => $vornr,
+                            'uom'           => $itemData['uom'] ?? null,
+                            'operator_name' => $itemData['operator_name'] ?? ($itemData['name'] ?? null),
+                            'dispo'         => $itemData['dispo'] ?? null,
+                            'kapaz'         => $itemData['kapaz'] ?? null,
+                            'kdauf'         => $itemData['kdauf'] ?? null,
+                            'kdpos'         => $itemData['kdpos'] ?? null,
+                            'name1'         => $itemData['name1'] ?? null,
+                            'netpr'         => $itemData['netpr'] ?? 0,
+                            'waerk'         => $itemData['waerk'] ?? null,
+                            'ssavd'         => ($itemData['ssavd'] ?? '-') !== '-' ? $itemData['ssavd'] : null,
+                            'sssld'         => ($itemData['sssld'] ?? '-') !== '-' ? $itemData['sssld'] : null,
+                            'steus'         => $itemData['steus'] ?? null,
+                            'vge01'         => $itemData['vge01'] ?? null,
+                            'vgw01'         => $itemData['vgw01'] ?? 0,
+                            'material_number' => $itemData['material_number'] ?? null,
+                            'material_desc'   => $itemData['material_desc'] ?? null,
+                            'qty_order'        => $itemData['qty_order'] ?? 0,
+                            'assigned_qty'     => $itemData['assigned_qty'] ?? 0,
+                            'parent_wc'        => $parentWc,
+                            'child_wc'         => $childWc,
+                            'status'           => $itemData['status'] ?? ($itemData['stats'] ?? 'Open'),
+                            'machining'        => !empty($itemData['is_machining']),
+                            'longshift'        => !empty($itemData['is_longshift']),
+                            'calculated_takt_time' => $itemData['calculated_takt_time'] ?? 0,
+                        ]);
+
+                        $proEntries = $itemData['history_pro'] ?? ($itemData['pro_entries'] ?? null);
+
+                        if (is_array($proEntries) && count($proEntries) > 0) {
+                            foreach ($proEntries as $p) {
+                                HistoryPro::create([
+                                    'history_wi_item_id' => $wiItem->id,
+                                    'qty_pro'     => (int)($p['qty_pro'] ?? 0),
+                                    'status'      => $p['status'] ?? null, // confirmasi / remark
+                                    'remark_text' => $p['remark_text'] ?? null,
+                                    'tag'         => $p['tag'] ?? null,
+                                ]);
+                            }
                         } else {
-                            Log::warning("Skipping duplicate HistoryWiItem: $aufnr - $vornr - $nik");
+                            // fallback field tunggal
+                            $tag = $itemData['tag'] ?? null;
+
+                            $confirmedQty = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
+                            if ($confirmedQty > 0) {
+                                HistoryPro::create([
+                                    'history_wi_item_id' => $wiItem->id,
+                                    'qty_pro'     => $confirmedQty,
+                                    'status'      => 'confirmasi',
+                                    'remark_text' => null,
+                                    'tag'         => $tag,
+                                ]);
+                            }
+
+                            $remarkText = $itemData['remark_text'] ?? ($itemData['remark'] ?? null);
+                            if ($remarkText) {
+                                $remarkQty = (int)($itemData['remark_qty'] ?? 0);
+                                HistoryPro::create([
+                                    'history_wi_item_id' => $wiItem->id,
+                                    'qty_pro'     => $remarkQty,
+                                    'status'      => 'remark',
+                                    'remark_text' => $remarkText,
+                                    'tag'         => $tag,
+                                ]);
+                            }
                         }
                     }
 
-                    
                     $wiDocuments[] = [
-                        'workcenter' => $workcenterCode,
-                        'document_code' => $documentCode,
+                        'workcenter'     => $headerWc,
+                        'document_code'  => $documentCode,
                     ];
                 });
             }
 
             return response()->json([
-                'message' => 'Work Instructions berhasil disimpan.',
+                'message'   => 'Work Instructions berhasil disimpan.',
                 'documents' => $wiDocuments,
             ], 201);
 
         } catch (\Exception $e) {
             Log::error('Error saat menyimpan WI:', [
                 'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'payload' => $requestData
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+                'payload' => $requestData,
             ]);
+
             return response()->json([
-                'message' => 'Terjadi kesalahan saat menyimpan Work Instructions.',
+                'message'      => 'Terjadi kesalahan saat menyimpan Work Instructions.',
                 'error_detail' => $e->getMessage()
             ], 500);
         }
     }
 
-    public function history(Request $request, $kode) 
+    private function wiStartEnd($doc): array
+    {
+        $date = $doc->document_date instanceof CarbonInterface
+            ? $doc->document_date->format('Y-m-d')
+            : Carbon::parse($doc->document_date)->format('Y-m-d');
+
+        if ((int)$doc->machining === 1) {
+            $start = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
+            $end   = $doc->expired_at ? Carbon::parse($doc->expired_at) : $start->copy()->endOfDay();
+            $end   = $end->endOfDay();
+            return [$start, $end];
+        }
+
+        $time = $doc->document_time instanceof CarbonInterface
+            ? $doc->document_time->format('H:i:s')
+            : trim((string)($doc->document_time ?? ''));
+
+        if ($time === '') $time = '00:00:00';
+        if (preg_match('/^\d{2}:\d{2}$/', $time)) $time .= ':00';
+
+        $start = Carbon::createFromFormat('Y-m-d H:i:s', "{$date} {$time}");
+        $end   = $doc->expired_at ? Carbon::parse($doc->expired_at) : $start->copy()->addHours(24);
+
+        return [$start, $end];
+    }
+
+    public function history(Request $request, $kode)
     {
         $plantCode = $kode;
-        $nama_bagian  = KodeLaravel::where('laravel_code', $plantCode)->first();
-        $now = Carbon::now();
+        $nama_bagian = KodeLaravel::where('laravel_code', $plantCode)->first();
+        $now   = Carbon::now();
+        $today = Carbon::today();
         $query = HistoryWi::where('plant_code', $plantCode);
 
         if ($request->filled('date')) {
@@ -611,7 +714,6 @@ class CreateWiController extends Controller
                 $query->whereDate('document_date', $dateInput);
             }
         } else {
-            // DEFAULT: Recent History (Last 7 Days) or Future
             $query->where('document_date', '>=', Carbon::today()->subDays(7));
         }
 
@@ -619,77 +721,76 @@ class CreateWiController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('wi_document_code', 'like', "%{$search}%")
-                ->orWhere('workcenter_induk', 'like', "%{$search}%")
+                ->orWhere('workcenter', 'like', "%{$search}%")
                 ->orWhereHas('items', function($q2) use ($search) {
-                     $q2->where('aufnr', 'like', "%{$search}%")
-                        ->orWhere('item_json', 'like', "%{$search}%")
-                        ->orWhere('material_desc', 'like', "%{$search}%");
+                    $q2->where('aufnr', 'like', "%{$search}%")
+                        ->orWhere('material_desc', 'like', "%{$search}%")
+                        ->orWhere('operator_name', 'like', "%{$search}%");
+                })
+                ->orWhereHas('items.pros', function($q3) use ($search) {
+                    $q3->where('remark_text', 'like', "%{$search}%")
+                        ->orWhere('tag', 'like', "%{$search}%")
+                        ->orWhere('status', 'like', "%{$search}%");
                 });
             });
         }
 
-        // Add Specific Workcenter Filter
         if ($request->filled('workcenter') && $request->workcenter !== 'all') {
-            $query->where('workcenter_induk', $request->workcenter);
+            $query->where('workcenter', $request->workcenter);
         }
-        $wiDocuments = $query->with('items')
-                            ->orderBy('document_date', 'desc')
-                            ->orderBy('document_time', 'desc')
-                            ->get();
 
-        $activeWIDocuments = collect();   
-        $inactiveWIDocuments = collect(); 
-        $expiredWIDocuments = collect();  
-        $completedWIDocuments = collect(); 
-        
+        $wiDocuments = $query->with(['items.pros'])
+            ->orderBy('document_date', 'desc')
+            ->orderByRaw('CASE WHEN document_time IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('document_time', 'desc')
+            ->get();
+
+        $activeWIDocuments    = collect();
+        $inactiveWIDocuments  = collect();
+        $expiredWIDocuments   = collect();
+        $completedWIDocuments = collect();
         $workcenterMappings = WorkcenterMapping::with(['parentWorkcenter', 'childWorkcenter'])
             ->where('kode_laravel_id', $nama_bagian ? $nama_bagian->id : null)
             ->get();
 
-        $wcNames = [];
+        $sapPlant = $nama_bagian ? $nama_bagian->plant : $plantCode;
 
-        foreach ($workcenterMappings as $m) {
-            if ($m->parentWorkcenter) $wcNames[strtoupper($m->parentWorkcenter->kode_wc)] = $m->parentWorkcenter->description;
-            if ($m->childWorkcenter) $wcNames[strtoupper($m->childWorkcenter->kode_wc)] = $m->childWorkcenter->description;
-        }
+        $wcNames = workcenter::where('plant', $sapPlant)
+            ->get()
+            ->mapWithKeys(function ($item) {
+                 return [strtoupper($item->kode_wc) => $item->description];
+            })
+            ->toArray();
 
-        $childWorkcenters = workcenter::where('plant', $plantCode)
-                            ->get()
-                            ->mapWithKeys(function ($item) {
-                                return [strtoupper($item->kode_wc) => $item];
-                            });
-        
+        $childWorkcenters = workcenter::where('plant', $sapPlant)
+            ->get()
+            ->mapWithKeys(fn($item) => [strtoupper($item->kode_wc) => $item]);
+
         $allWcCodes = $workcenterMappings->flatMap(function($m) {
             $codes = [];
             if ($m->parentWorkcenter) $codes[] = $m->parentWorkcenter->kode_wc;
-            if ($m->childWorkcenter) $codes[] = $m->childWorkcenter->kode_wc;
+            if ($m->childWorkcenter)  $codes[] = $m->childWorkcenter->kode_wc;
             return $codes;
-        })->filter()->unique()->map(function($code) { return strtoupper($code); });
-        
-        // --- CAPACITY SOURCING FROM WORKCENTERS TABLE ---
-        $rawWcData = workcenter::where('plant', $plantCode)
-            ->get();
-            
-        // 1. Build Base Capacity Map (Single WCs)
+        })->filter()->unique()->map(fn($code) => strtoupper($code));
+
+        $rawWcData = workcenter::where('plant', $plantCode)->get();
         $wcCapacityMap = [];
         foreach ($rawWcData as $rw) {
             $code = strtoupper($rw->kode_wc);
             $kapazHours = floatval(str_replace(',', '.', $rw->kapaz ?? 0));
-            $wcCapacityMap[$code] = $kapazHours * 60; // Convert to Minutes
+            $wcCapacityMap[$code] = $kapazHours * 60; // minutes
         }
 
-        // 2. Resolve Parent Capacities (Sum of Children)
         $workcenters = collect();
         foreach ($allWcCodes as $wcCode) {
-            $isParent = false;
-            // Check if this WC code appears as 'wc_induk' for OTHERS
             $children = $workcenterMappings->filter(function($m) use ($wcCode) {
-                 return $m->parentWorkcenter && strtoupper($m->parentWorkcenter->kode_wc) === $wcCode && 
-                        $m->childWorkcenter && strtoupper($m->childWorkcenter->kode_wc) !== $wcCode;
+                return $m->parentWorkcenter
+                    && strtoupper($m->parentWorkcenter->kode_wc) === $wcCode
+                    && $m->childWorkcenter
+                    && strtoupper($m->childWorkcenter->kode_wc) !== $wcCode;
             });
 
             if ($children->isNotEmpty()) {
-                // It is a Parent
                 $totalCap = 0;
                 foreach ($children as $child) {
                     $cCode = strtoupper($child->childWorkcenter->kode_wc);
@@ -697,233 +798,153 @@ class CreateWiController extends Controller
                 }
                 $finalCap = $totalCap;
             } else {
-                // It is a Single/Child WC
                 $finalCap = $wcCapacityMap[$wcCode] ?? 0;
             }
 
             $workcenters->push((object) [
-                 'workcenter_code' => $wcCode,
-                 'kapaz' => $finalCap,
-                 'raw_unit' => 'MIN'
+                'workcenter_code' => $wcCode,
+                'kapaz' => $finalCap,
+                'raw_unit' => 'MIN'
             ]);
-            
-            if ($finalCap == 0 && $children->isNotEmpty()) {
-                Log::info("DEBUG CAPACITY WC ZERO: {$wcCode}. Children Count: " . $children->count());
-                foreach($children as $child) {
-                     $cCode = strtoupper($child->workcenter);
-                     $cap = $wcCapacityMap[$cCode] ?? 'MISSING';
-                     Log::info(" - Child {$cCode}: {$cap}");
+        }
+
+        $concurrentUsageMap = [];
+        foreach ($wiDocuments as $doc) {
+            [$start, $end] = $this->wiStartEnd($doc);
+
+            $isExpired = $now->greaterThan($end);
+            $doc->is_expired = $isExpired;
+
+            if (!$isExpired && $end->greaterThanOrEqualTo($today)) {
+                foreach (($doc->items ?? collect()) as $plItem) {
+                    $k = ($plItem->aufnr ?? '-') . '_' . ($plItem->vornr ?? '-');
+                    if (!isset($concurrentUsageMap[$k])) $concurrentUsageMap[$k] = 0;
+                    $concurrentUsageMap[$k] += (float)($plItem->assigned_qty ?? 0);
                 }
             }
         }
-        
-        $concurrentUsageMap = [];
-        $today = Carbon::today();
-        $now = Carbon::now();
 
-        foreach ($wiDocuments as $doc) {
-            try {
-                $chkDate = Carbon::parse($doc->document_date)->startOfDay();
-                // $expiredAt = $doc->expired_at; // Column removed
-                
-                $isExpired = false;
-                // Expiration logic fallback (Since expired_at is missing)
-                // Assume expired if older than X or based on document_time + 12-24h
-                
-                $effStart = Carbon::parse($doc->document_date . ' ' . $doc->document_time);
-                // Prefix check for duration logic (WIH=24h, WIW=12h default?)
-                $isWIH = str_starts_with($doc->wi_document_code, 'WIH');
-                $hoursToAdd = $isWIH ? 24 : 24; // Default to 24h safe? Old code had 12/24 logic in save.
-                
-                $expirationTime = $effStart->copy()->addHours($hoursToAdd);
-                $isExpired = $now->greaterThan($expirationTime);
-                
-                $doc->is_expired = $isExpired;
-
-                if (!$isExpired && $chkDate->greaterThanOrEqualTo($today)) {
-                     $plItems = $doc->items;
-                     
-                     if ($plItems->isNotEmpty()) {
-                         foreach ($plItems as $plItem) {
-                             $k = ($plItem->aufnr ?? '-') . '_' . ($plItem->vornr ?? '-');
-                             if (!isset($concurrentUsageMap[$k])) $concurrentUsageMap[$k] = 0;
-                             
-                             $q = (float) $plItem->assigned_qty;
-                             $concurrentUsageMap[$k] += $q;
-                         }
-                     }
-                }
-            } catch (\Exception $e) { /* Ignore parsing errors */ }
-        }
-
-        // --- BATCH FETCHING PRODUCTION DATA ---
         $allAufnrs = [];
         foreach ($wiDocuments as $doc) {
-            $raw = $doc->payload_data;
-            if(empty($raw)) continue;
-            $items = is_string($raw) ? json_decode($raw, true) : (is_array($raw) ? $raw : []);
-            if(is_array($items)) {
-                foreach($items as $i) {
-                     if(!empty($i['aufnr'])) $allAufnrs[] = $i['aufnr'];
-                }
+            foreach (($doc->items ?? collect()) as $it) {
+                if (!empty($it->aufnr)) $allAufnrs[] = $it->aufnr;
             }
         }
-        $allAufnrs = array_unique($allAufnrs);
-        
+        $allAufnrs = array_values(array_unique($allAufnrs));
+
         $prodDataMap1 = [];
         $prodDataMap3 = [];
-
         if (!empty($allAufnrs)) {
             $prodDataMap1 = ProductionTData1::whereIn('AUFNR', $allAufnrs)->get()->keyBy('AUFNR');
             $prodDataMap3 = ProductionTData3::whereIn('AUFNR', $allAufnrs)->get()->keyBy('AUFNR');
         }
 
         foreach ($wiDocuments as $doc) {
-            $docDate = Carbon::parse($doc->document_date)->startOfDay();
-            $today = Carbon::today();
+            [$start, $end] = $this->wiStartEnd($doc);
 
-            $doc->is_inactive = $docDate->greaterThan($today) && !$doc->is_expired; 
-            $doc->is_active = $docDate->equalTo($today) && !$doc->is_expired;       
+            $doc->is_expired  = $now->greaterThan($end);
+            $doc->is_inactive = !$doc->is_expired && $now->lessThan($start);
+            $doc->is_active   = !$doc->is_expired && $now->betweenIncluded($start, $end);
 
-            $payloadItems = [];
-            // [REFACTOR] Use Items Relationship if available (New Data)
-            if ($doc->items && $doc->items->count() > 0) {
-                 $payloadItems = $doc->items->toArray();
-            } else {
-                // Fallback to JSON Payload (Old Data)
-                $rawData = $doc->payload_data;
-                if (is_array($rawData)) {
-                    $payloadItems = $rawData;
-                } elseif (is_string($rawData)) {
-                    $payloadItems = json_decode($rawData, true);
-                }
-            }
-            $payloadItems = $payloadItems ?? [];
-            $firstItem = $payloadItems[0] ?? [];
-            $rawKapaz = str_replace(',', '.', $firstItem['kapaz'] ?? ($firstItem['kapaz'] ?? 0));
-            $kapazHours = floatval($rawKapaz);
-            $maxMins = $kapazHours * 60; 
+            $items = $doc->items ?? collect();
+
             $summary = [
                 'total_items' => 0,
-                'total_load_mins' => 0, 
-                'details' => [] 
+                'total_load_mins' => 0,
+                'details' => []
             ];
 
-            $isFullyCompleted = true;
-            if (empty($payloadItems)) $isFullyCompleted = false;
+            $isFullyCompleted = $items->isNotEmpty();
 
-            foreach ($payloadItems as $item) {
+            foreach ($items as $item) {
                 $summary['total_items']++;
-                $assignedQty = floatval(str_replace(',', '.', $item['assigned_qty'] ?? 0));
-                $confirmedQty = floatval(str_replace(',', '.', $item['confirmed_qty'] ?? 0));
-                
-                // Optimized: Use Map
-                // $prodData = ProductionTData1::where('AUFNR', $item['aufnr'] ?? '')->first();
-                $auf = $item['aufnr'] ?? '';
+
+                $assignedQty = (float)($item->assigned_qty ?? 0);
+                $pros = $item->pros ?? collect();
+                $confirmedQty = (float)$pros->filter(function($p){
+                    $s = strtolower((string)($p->status ?? ''));
+                    return in_array($s, ['confirmasi','confirm','confirmed'], true);
+                })->sum('qty_pro');
+
+                $remarkQty = (float)$pros->filter(function($p){
+                    return strtolower((string)($p->status ?? '')) === 'remark';
+                })->sum('qty_pro');
+
+                $latestRemark = $pros->filter(function($p){
+                    return strtolower((string)($p->status ?? '')) === 'remark';
+                })->sortByDesc('id')->first();
+
+                $totalDone = $confirmedQty + $remarkQty;
+                $auf = $item->aufnr ?? '';
                 $prodData = $prodDataMap1[$auf] ?? null;
-                
-                if (!$prodData) {
-                    // $prodData = ProductionTData3::where('AUFNR', $item['aufnr'] ?? '')->first();
-                    $prodData = $prodDataMap3[$auf] ?? null;
-                }
-
-                // Calculate Base Remaining: MGVRG2 (Total) - LMNGA (Confirmed)
-                $sapTotal = $prodData ? floatval($prodData->MGVRG2) : (isset($item['qty_order']) ? floatval(str_replace(',', '.', $item['qty_order'])) : $assignedQty);
+                if (!$prodData) $prodData = $prodDataMap3[$auf] ?? null;
+                $sapTotal = $prodData ? floatval($prodData->MGVRG2) : (float)($item->qty_order ?? $assignedQty);
                 $sapConfirmed = $prodData ? floatval($prodData->LMNGA) : 0;
-                
                 $fullOrderQty = max(0, $sapTotal - $sapConfirmed);
-                
-                $key = ($item['aufnr'] ?? '-') . '_' . ($item['vornr'] ?? '-');
+                $key = ($item->aufnr ?? '-') . '_' . ($item->vornr ?? '-');
                 $totalConcurrentUsage = $concurrentUsageMap[$key] ?? 0;
-                
-                $chkDate = Carbon::parse($doc->document_date)->startOfDay();
-                $isUsedInMap = !$doc->is_expired && $chkDate->greaterThanOrEqualTo($today);
-                
-                if ($isUsedInMap) {
-                    $usageByOthers = max(0, $totalConcurrentUsage - $assignedQty);
-                } else {
-                    $usageByOthers = $totalConcurrentUsage;
-                }
-                
+                $isUsedInMap = !$doc->is_expired && $end->greaterThanOrEqualTo($today);
+                $usageByOthers = $isUsedInMap ? max(0, $totalConcurrentUsage - $assignedQty) : $totalConcurrentUsage;
                 $effectiveMax = max(0, $fullOrderQty - $usageByOthers);
-                
                 $qtyOrderRaw = $effectiveMax;
-
-                $takTime = floatval(str_replace(',', '.', $item['calculated_tak_time'] ?? 0));
+                $takTime = (float)($item->calculated_takt_time ?? 0);
                 $summary['total_load_mins'] += $takTime;
-                $progressPct = $assignedQty > 0 ? ($confirmedQty / $assignedQty) * 100 : 0;
-
+                $progressPct = $assignedQty > 0 ? ($totalDone / $assignedQty) * 100 : 0;
                 if ($progressPct >= 100) $statusItem = 'Completed';
-                elseif ($confirmedQty > 0) $statusItem = 'On Progress';
-                else $statusItem = 'Created';
-
-                // Fetch KDAUF & KDPOS
+                elseif ($totalDone > 0)  $statusItem = 'On Progress';
+                else                     $statusItem = 'Created';
                 $t3Data = $prodDataMap3[$auf] ?? null;
-                $kdaufRaw = $t3Data->KDAUF ?? ($item['kdauf'] ?? '-');
-                $kdposRaw = $t3Data->KDPOS ?? ($item['kdpos'] ?? '-');
-                
-                // Format KDPOS: Remove leading zeros
+                $kdaufRaw = $t3Data->KDAUF ?? ($item->kdauf ?? '-');
+                $kdposRaw = $t3Data->KDPOS ?? ($item->kdpos ?? '-');
                 $kdposDisplay = ($kdposRaw !== '-' && $kdposRaw !== '') ? ltrim($kdposRaw, '0') : $kdposRaw;
 
                 $summary['details'][] = [
-                    'aufnr'         => $item['aufnr'] ?? '-',
+                    'aufnr'         => $item->aufnr ?? '-',
                     'kdauf'         => $kdaufRaw,
                     'kdpos'         => $kdposDisplay,
-                    'material'      => $item['material_desc'] ?? ($item['material'] ?? '-'),
-                    'nik'           => $item['nik'] ?? '-',
-                    'name'          => $item['name'] ?? '-',
-                    'vornr'         => $item['vornr'] ?? '-',
-                    'description'   => $item['material_desc'] ?? '', 
+                    'material'      => $item->material_desc ?? '-',
+                    'nik'           => $item->nik ?? '-',
+                    'name'          => $item->operator_name ?? '-',
+                    'vornr'         => $item->vornr ?? '-',
+                    'description'   => $item->material_desc ?? '',
                     'assigned_qty'  => $assignedQty,
                     'confirmed_qty' => $confirmedQty,
                     'qty_order'     => $qtyOrderRaw,
-                    'uom'           => $item['uom'] ?? 'EA',
+                    'uom'           => $item->uom ?? 'EA',
                     'progress_pct'  => $progressPct,
                     'status'        => $statusItem,
                     'item_mins'     => $takTime,
-                    'item_mins'     => $takTime,
-                    'remark'        => $item['remark'] ?? ($item['remark_text'] ?? null),
-                    'remark_qty'    => $item['remark_qty'] ?? 0,
-                    'vgw01'         => $item['vgw01'] ?? 0,
-                    'vge01'         => $item['vge01'] ?? ''
+                    'remark'        => $latestRemark->remark_text ?? null,
+                    'remark_qty'    => $remarkQty,
+                    'vgw01'         => $item->vgw01 ?? 0,
+                    'vge01'         => $item->vge01 ?? '',
+                    'machining'     => (int)($item->machining ?? 0),
+                    'longshift'     => (int)($item->longshift ?? 0),    
                 ];
 
-                
-                $rQty = floatval(str_replace(',', '.', $item['remark_qty'] ?? 0));
-                
-                if ($rQty > 0) {
-                     $totalDone = $confirmedQty + $rQty;
-                     if ($totalDone < $assignedQty) {
-                         $isFullyCompleted = false;
-                     }
-                } else {
-                     if ($confirmedQty < $assignedQty) {
-                         $isFullyCompleted = false;
-                     }
-                }
+                if ($totalDone < $assignedQty) $isFullyCompleted = false;
             }
-            // --- RESOLVE MAX CAPACITY FROM WORKCENTERS TABLE ---
-            $targetWcCode = strtoupper($doc->workcenter_code);
+
+            $targetWcCode = strtoupper($doc->workcenter ?? '');
             $maxMins = 0;
 
-            // Check if Parent (Has children in mapping)
-             $childrenOfThisWc = $workcenterMappings->filter(function($m) use ($targetWcCode) {
-                 return strtoupper($m->wc_induk) === $targetWcCode && 
-                        strtoupper($m->workcenter) !== $targetWcCode;
-             });
+            $childrenOfThisWc = $workcenterMappings->filter(function($m) use ($targetWcCode) {
+                return $m->parentWorkcenter
+                    && strtoupper($m->parentWorkcenter->kode_wc) === $targetWcCode
+                    && $m->childWorkcenter
+                    && strtoupper($m->childWorkcenter->kode_wc) !== $targetWcCode;
+            });
 
             if ($childrenOfThisWc->count() > 0) {
-                // It is a Parent - Sum Children
                 foreach ($childrenOfThisWc as $child) {
-                     $cCode = strtoupper($child->workcenter);
-                     $cap = $wcCapacityMap[$cCode] ?? 0;
-                     if ($cap == 0) $cap = 570; // Fallback Default
-                     $maxMins += $cap;
+                    $cCode = strtoupper($child->childWorkcenter->kode_wc);
+                    $cap = $wcCapacityMap[$cCode] ?? 0;
+                    if ($cap == 0) $cap = 570; // fallback
+                    $maxMins += $cap;
                 }
             } else {
-                 // Single - Check self
-                 $maxMins = $wcCapacityMap[$targetWcCode] ?? 0;
-                 if ($maxMins == 0) $maxMins = 570; // Fallback Default
+                $maxMins = $wcCapacityMap[$targetWcCode] ?? 0;
+                if ($maxMins == 0) $maxMins = 570; // fallback
             }
 
             $percentageLoad = $maxMins > 0 ? ($summary['total_load_mins'] / $maxMins) * 100 : 0;
@@ -934,15 +955,8 @@ class CreateWiController extends Controller
                 'percentage' => $percentageLoad
             ];
 
-            // Sort details by NIK ascending
             usort($summary['details'], function($a, $b) {
-                // Ensure we compare strings or numbers correctly
-                // Use 'nik' key
-                $nikA = $a['nik'] ?? '';
-                $nikB = $b['nik'] ?? '';
-                
-                // Natural string comparison is usually best for NIKs
-                return strnatcmp($nikA, $nikB);
+                return strnatcmp($a['nik'] ?? '', $b['nik'] ?? '');
             });
 
             $doc->pro_summary = $summary;
@@ -960,31 +974,25 @@ class CreateWiController extends Controller
 
         $wiCapacityMap = [];
         foreach ($activeWIDocuments as $doc) {
-            $wiCapacityMap[$doc->document_code] = $doc->capacity_info ?? ['max_mins' => 0, 'used_mins' => 0];
+            $wiCapacityMap[$doc->wi_document_code] = $doc->capacity_info ?? ['max_mins' => 0, 'used_mins' => 0];
         }
 
-        // --- AGGREGATE WORKCENTER CAPACITIES FOR PROGRESS BAR ---
         $aggregatedCapacities = [];
         foreach ($activeWIDocuments as $doc) {
-            $wcCode = $doc->workcenter_code;
+            $wcCode = $doc->workcenter ?? '';
             if (!isset($aggregatedCapacities[$wcCode])) {
                 $aggregatedCapacities[$wcCode] = [
                     'code' => $wcCode,
                     'name' => $wcNames[strtoupper($wcCode)] ?? $wcCode,
-                    'max_mins' => $doc->capacity_info['max_mins'] ?? 0, 
+                    'max_mins' => $doc->capacity_info['max_mins'] ?? 0,
                     'used_mins' => 0
                 ];
             }
             $aggregatedCapacities[$wcCode]['used_mins'] += $doc->capacity_info['used_mins'] ?? 0;
         }
 
-        // Finalize percentages
         foreach ($aggregatedCapacities as &$cap) {
-            if ($cap['max_mins'] > 0) {
-                $cap['percentage'] = ($cap['used_mins'] / $cap['max_mins']) * 100;
-            } else {
-                $cap['percentage'] = 0;
-            }
+            $cap['percentage'] = $cap['max_mins'] > 0 ? ($cap['used_mins'] / $cap['max_mins']) * 100 : 0;
         }
         unset($cap);
 
@@ -994,14 +1002,14 @@ class CreateWiController extends Controller
             'activeWIDocuments' => $activeWIDocuments,
             'inactiveWIDocuments' => $inactiveWIDocuments,
             'expiredWIDocuments' => $expiredWIDocuments,
-            'completedWIDocuments' => $completedWIDocuments, 
+            'completedWIDocuments' => $completedWIDocuments,
             'wcNames' => $wcNames,
-            'workcenters' => $workcenters, 
-            'refWorkcenters' => $childWorkcenters, 
-            'workcenterMappings' => $workcenterMappings, 
-            'wiCapacityMap' => $wiCapacityMap, 
+            'workcenters' => $workcenters,
+            'refWorkcenters' => $childWorkcenters,
+            'workcenterMappings' => $workcenterMappings,
+            'wiCapacityMap' => $wiCapacityMap,
             'activeWorkcenterCapacities' => $aggregatedCapacities,
-            'employees' => [], // Empty initially, fetched via AJAX
+            'employees' => [],
             'search' => $request->search,
             'date' => $request->date,
             'defaultRecipients' => [
@@ -1014,157 +1022,49 @@ class CreateWiController extends Controller
                 'kmi3.16.smg@gmail.com',
                 'kmi3.29.smg@gmail.com',
                 'tataamal1128@gmail.com',
-            ] 
+            ]
         ]);
     }
 
     public function updateQty(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'wi_code' => 'required|string',
             'aufnr'   => 'required|string',
+            'nik'     => 'required|string',
+            'vornr'   => 'required|string',
             'new_qty' => 'required|numeric|min:0',
         ]);
 
         try {
-            $doc = HistoryWi::where('wi_document_code', $request->wi_code)->firstOrFail();
-            $rawData = $doc->payload_data;
-            if (is_string($rawData)) {
-                $payload = json_decode($rawData, true);
-                if (!is_array($payload)) $payload = [];
-            } else {
-                $payload = (array) $rawData;
+            $doc = HistoryWi::where('wi_document_code', $validated['wi_code'])->firstOrFail();
+
+            $item = HistoryWiItem::where('history_wi_id', $doc->id)
+                ->where('aufnr', $validated['aufnr'])
+                ->where('nik', $validated['nik'])
+                ->where('vornr', $validated['vornr'])
+                ->first();
+
+            if (!$item) {
+                return back()->with('error', 'Item tidak ditemukan (AUFNR+NIK+VORNR tidak match).');
             }
 
-            $updated = false;
-            $materialName = '';
-            $parseNumber = function($value) {
-                if (is_numeric($value)) return floatval($value);
-                $string = (string) $value;
-                if (strpos($string, '.') !== false && strpos($string, ',') !== false) {
-                    if (strrpos($string, ',') > strrpos($string, '.')) {
-                        $string = str_replace('.', '', $string); 
-                        $string = str_replace(',', '.', $string);
-                    } else {
-                        $string = str_replace(',', '', $string); 
-                    }
-                } elseif (strpos($string, ',') !== false) {
-                    $string = str_replace(',', '.', $string);
-                }
-                return floatval($string);
-            };
+            $newQty = (float) $validated['new_qty'];
 
-            $targetAufnr = $request->aufnr;
-            
-            // 1. Fetch Production Data for Real Limits
-            $prodData = ProductionTData1::where('AUFNR', $targetAufnr)->first();
-            if (!$prodData) {
-                $prodData = ProductionTData3::where('AUFNR', $targetAufnr)->first();
-            }
-            
-            $sapTotal = $prodData ? floatval($prodData->MGVRG2) : 0;
-            $sapConfirmed = $prodData ? floatval($prodData->LMNGA) : 0;
-            
-            $dbMaxQty = $prodData ? max(0, $sapTotal - $sapConfirmed) : 0;
+            // Recalc takt time (minutes)
+            $vgw01 = (float) ($item->vgw01 ?? 0);
+            $unit  = strtoupper((string) ($item->vge01 ?? 'MIN'));
 
-            $plantCode = $doc->plant_code;
-            $today = Carbon::today();
-            $now = Carbon::now();
+            $mins = $vgw01 * $newQty;
+            if (in_array($unit, ['S','SEC'], true)) $mins = $mins / 60;
+            elseif (in_array($unit, ['H','HUR'], true)) $mins = $mins * 60;
 
-            $relatedDocs = HistoryWi::where('plant_code', $plantCode)
-                ->where('id', '!=', $doc->id) 
-                ->get();
-            
-            $otherUsage = 0;
-            
-            foreach ($relatedDocs as $rDoc) {
-                try {
-                    $chkDate = Carbon::parse($rDoc->document_date)->startOfDay();
-                    
-                    // Determine Expiration
-                    $isExpired = false;
-                    if ($rDoc->expired_at) {
-                         $isExpired = $now->greaterThan(Carbon::parse($rDoc->expired_at));
-                    } else {
-                         // Default 12h logic if field null
-                         $effStart = Carbon::parse($rDoc->document_date . ' ' . $rDoc->document_time);
-                         $isExpired = $now->greaterThan($effStart->addHours(12));
-                    }
+            $item->assigned_qty = $newQty;
+            $item->calculated_takt_time = $mins; // IMPORTANT: pakai field yang benar
+            $item->save();
 
-                    if (!$isExpired && $chkDate->greaterThanOrEqualTo($today)) {
-                        $rawPl = $rDoc->payload_data;
-                        $plItems = is_string($rawPl) ? json_decode($rawPl, true) : (is_array($rawPl) ? $rawPl : []);
-                        
-                        if (is_array($plItems)) {
-                            foreach ($plItems as $plItem) {
-                            }
-                        }
-                    }
-                } catch (\Exception $e) {}
-            }
-            // --- End Setup ---
-            $targetNik = $request->nik;
-            $targetVornr = $request->vornr;
-            
-            foreach ($payload as &$item) {
-                // strict comparison for all 3 keys
-                $itemAufnr = $item['aufnr'] ?? '';
-                $itemNik = $item['nik'] ?? '';
-                $itemVornr = $item['vornr'] ?? '';
-
-                if ($itemAufnr === $request->aufnr && 
-                    $itemNik === $targetNik && 
-                    $itemVornr === $targetVornr
-                ) {
-                    
-
-                    // Capacity Check & Max Qty Check REMOVED (User Request 2026-01-03)
-                    $newQty = floatval($request->new_qty);
-
-                    $vgw01 = $parseNumber($item['vgw01'] ?? 0);
-                    $unit = strtoupper($item['vge01'] ?? '');
-                    
-                    Log::info("Update Qty Calc: AUFNR: $request->aufnr, VGW01: $vgw01, Unit: $unit");
-    
-                    if ($vgw01 == 0) {
-                        $oldTakTime = floatval($item['calculated_tak_time'] ?? 0);
-                        $oldQty = floatval($item['assigned_qty'] ?? 0);
-                        
-                        if ($oldQty > 0) {
-                            $vgw01 = $oldTakTime / $oldQty; 
-                            $unit = 'MIN'; 
-                        }
-                    }
-    
-                    $totalRaw = $vgw01 * $newQty;
-                    $newMinutes = 0;
-    
-                    if ($unit === 'S' || $unit === 'SEC') {
-                        $newMinutes = $totalRaw / 60;
-                    } else {
-                        $newMinutes = $totalRaw; 
-                    }
-    
-                    $item['assigned_qty'] = $newQty;
-                    $item['calculated_tak_time'] = number_format($newMinutes, 2, '.', '');
-                    $item['vgw01'] = $vgw01; 
-                    $item['vge01'] = $unit;
-                    $updated = true;
-                    $materialName = $item['material_desc'] ?? $item['aufnr'];
-                    
-                    Log::info("Update Qty Success: $materialName set to $newQty (Total: $newMinutes min)");
-                    break; 
-                }
-            }
-
-            if ($updated) {
-                $doc->payload_data = $payload; 
-                $doc->save();
-
-                return back()->with('success', "Qty $materialName diupdate menjadi $newQty. Kapasitas diperbarui.");
-            }
-
-            return back()->with('error', 'Item tidak ditemukan.');
+            $label = $item->material_desc ?? $item->aufnr;
+            return back()->with('success', "Qty {$label} diupdate menjadi {$newQty}.");
 
         } catch (\Exception $e) {
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
@@ -2320,9 +2220,25 @@ class CreateWiController extends Controller
             });
             
         if ($workcenter && $workcenter !== 'all') {
-            $children = WorkcenterMapping::where('wc_induk', $workcenter)->pluck('workcenter')->toArray();
+
+            $nama_bagian = KodeLaravel::where('laravel_code', $kode)->first();
+            $children = WorkcenterMapping::with(['parentWorkcenter', 'childWorkcenter'])
+                ->where('kode_laravel_id', $nama_bagian ? $nama_bagian->id : null)
+                ->get()
+                ->filter(function ($m) use ($workcenter) {
+                    return $m->parentWorkcenter
+                        && strtoupper($m->parentWorkcenter->kode_wc) === strtoupper($workcenter)
+                        && $m->childWorkcenter;
+                })
+                ->map(function ($m) {
+                    return strtoupper($m->childWorkcenter->kode_wc);
+                })
+                ->unique()
+                ->values()
+                ->all();
+
             if (!empty($children)) {
-                $children[] = $workcenter;
+                $children[] = strtoupper($workcenter);
                 $tData1->whereIn('ARBPL', $children);
             } else {
                 $tData1->where('ARBPL', $workcenter);
@@ -2389,17 +2305,19 @@ class CreateWiController extends Controller
         $availableItems = $this->getAvailableProsData($kode, $workcenter, $search);
         
         $data = $availableItems->values()->map(function($item) {
-             return [
-                 'aufnr' => $item->AUFNR,
-                 'vornr' => $item->VORNR,
-                 'material' => $item->MATNR,
-                 'description' => $item->MAKTX,
-                 'available_qty' => $item->real_sisa_qty,
-                 'uom' => $item->MEINS, 
-                 'workcenter' => $item->ARBPL,
-                 'vgw01' => floatval($item->VGW01 ?? 0),
-                 'vge01' => strtoupper($item->VGE01 ?? ''),
-             ];
+            return [
+                'aufnr' => $item->AUFNR,
+                'vornr' => $item->VORNR,
+                'material' => $item->MATNR,
+                'description' => $item->MAKTX,
+                'available_qty' => $item->real_sisa_qty,
+                'uom' => $item->MEINS,
+                'workcenter' => $item->ARBPL,
+                'vgw01' => floatval($item->VGW01 ?? 0),
+                'vge01' => strtoupper($item->VGE01 ?? ''),
+                'ssavd' => $item->SSAVD ?? null,
+                'sssld' => $item->SSSLD ?? null,
+            ];
         });
 
         return response()->json([
@@ -2564,7 +2482,7 @@ class CreateWiController extends Controller
 
     public function addItemBatch(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'wi_code' => 'required|string',
             'items' => 'required|array|min:1',
             'items.*.aufnr' => 'required|string',
@@ -2572,169 +2490,205 @@ class CreateWiController extends Controller
             'items.*.qty' => 'required|numeric|min:0.001',
             'items.*.nik' => 'required|string',
             'items.*.name' => 'required|string',
-            'items.*.target_workcenter' => 'required|string'
+            'items.*.target_workcenter' => 'required|string',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $doc = HistoryWi::where('wi_document_code', $request->wi_code)->lockForUpdate()->firstOrFail();
-            $plantCode = $doc->plant_code; 
+            /** @var HistoryWi $doc */
+            $doc = HistoryWi::where('wi_document_code', $validated['wi_code'])
+                ->lockForUpdate()
+                ->firstOrFail();
 
+            $plantCode = $doc->plant_code;
+            $isMachiningDoc = ((int)($doc->machining ?? 0) === 1);
             $availableItems = $this->getAvailableProsData($plantCode);
-            
-            $groupedRequests = collect($request->items)->groupBy(function($item) {
-                return $item['aufnr'] . '_' . $item['vornr'];
+            $allMappingsQuery = WorkcenterMapping::query();
+            $allMappingsQuery->where(function ($q) use ($plantCode) {
+                if (Schema::hasColumn('workcenter_mappings', 'plant_code')) {
+                    $q->orWhere('plant_code', $plantCode);
+                }
+                if (Schema::hasColumn('workcenter_mappings', 'kode_laravel')) {
+                    $q->orWhere('kode_laravel', $plantCode);
+                }
+                if (Schema::hasColumn('workcenter_mappings', 'plant')) {
+                    $q->orWhere('plant', $plantCode);
+                }
             });
 
-            $allMappings = WorkcenterMapping::where('plant', $plantCode)
-                                            ->orWhere('kode_laravel', $plantCode)
-                                            ->get();
+            $allMappings = $allMappingsQuery->get();
+            $groupedRequests = collect($validated['items'])->groupBy(fn($it) => $it['aufnr'].'_'.$it['vornr']);
+            $minSsavd = null;
+            $maxSssld = null;
 
-            $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
-            if (!is_array($payload)) $payload = [];
+            foreach ($groupedRequests as $groupKey => $requests) {
 
-            foreach ($groupedRequests as $key => $requests) {
+                $niks = $requests->pluck('nik')
+                    ->map(fn($n) => trim((string)$n))
+                    ->filter();
+
+                if ($niks->count() !== $niks->unique()->count()) {
+                    throw new \Exception("NIK tidak boleh sama untuk PRO {$firstReq['aufnr']} / {$firstReq['vornr']} (Longshift).");
+                }
                 $firstReq = $requests->first();
+
                 $targetItem = $availableItems->first(function($i) use ($firstReq) {
-                    return $i->AUFNR == $firstReq['aufnr'] && $i->VORNR == $firstReq['vornr'];
+                    return (string)$i->AUFNR === (string)$firstReq['aufnr']
+                        && (string)$i->VORNR === (string)$firstReq['vornr'];
                 });
 
                 if (!$targetItem) {
-                    throw new \Exception("Item {$firstReq['aufnr']} tidak ditemukan atau quantity sudah habis.");
+                    throw new \Exception("Item {$firstReq['aufnr']} / {$firstReq['vornr']} tidak ditemukan atau quantity sudah habis.");
                 }
 
-                $totalRequestedQty = $requests->sum('qty');
-                
-                if ($totalRequestedQty > $targetItem->real_sisa_qty + 0.0001) {
-                     throw new \Exception("Total Quantity ({$totalRequestedQty}) melebihi sisa tersedia ({$targetItem->real_sisa_qty}) untuk Pro {$firstReq['aufnr']}.");
+                $totalRequestedQty = (float)$requests->sum('qty');
+                $availableQty = (float)($targetItem->real_sisa_qty ?? 0);
+
+                if ($totalRequestedQty > $availableQty + 0.0001) {
+                    throw new \Exception("Total Qty ({$totalRequestedQty}) melebihi sisa tersedia ({$availableQty}) untuk PRO {$firstReq['aufnr']}.");
                 }
 
+                // proses per operator (nik)
                 foreach ($requests as $req) {
-                    $requestedNik = $req['nik'];
-                    $requestedWc = $req['target_workcenter'];
-                    
-                    $isMerged = false;
-                    foreach ($payload as &$existing) {
-                        $exNik = $existing['nik'] ?? '-';
-                        $exWc = $existing['target_workcenter'] ?? ($existing['workcenter'] ?? ($existing['child_workcenter'] ?? '')); 
-                        
-                        $exAufnr = $existing['aufnr'] ?? '-';
-                        $exVornr = $existing['vornr'] ?? '-';
-                        
-                        Log::info("Compare AddItem: Req[N:{$requestedNik}, W:{$requestedWc}, A:{$req['aufnr']}] vs Ex[N:{$exNik}, W:{$exWc}, A:{$exAufnr}]");
+                    $aufnr = (string)$req['aufnr'];
+                    $vornr = (string)$req['vornr'];
+                    $nik   = (string)$req['nik'];
+                    $qty   = (float)$req['qty'];
 
-                        if (trim($exNik) == trim($requestedNik) && 
-                            trim($exWc) == trim($requestedWc) && 
-                            trim($exAufnr) == trim($req['aufnr']) && 
-                            (trim($exVornr) == trim($req['vornr'] ?? ''))
-                           ) {
-                             $confirmed = floatval($existing['confirmed_qty'] ?? 0);
-                             if ($confirmed > 0) {
-                                 throw new \Exception("Item PRO {$exAufnr} untuk Operator {$req['name']} tidak bisa ditambahkan karena sudah ada item yang dikonfirmasi.");
-                             } else {
-                                 Log::info("MATCH FOUND! Merging.");
-                                 $currentAssigned = floatval($existing['assigned_qty']);
-                                 $newAssigned = $currentAssigned + floatval($req['qty']);
-                                 $existing['assigned_qty'] = $newAssigned;
+                    // cari existing item berdasarkan UNIQUE KEY dokumen: aufnr+vornr+nik
+                    $existingItem = HistoryWiItem::where('history_wi_id', $doc->id)
+                        ->where('aufnr', $aufnr)
+                        ->where('vornr', $vornr)
+                        ->where('nik', $nik)
+                        ->first();
 
-                                 $baseTime = floatval($existing['vgw01'] ?? 0);
-                                 $unit = strtoupper($existing['vge01'] ?? '');
-                                 $totalRaw = $baseTime * $newAssigned;
-                                 
-                                 $mins = $totalRaw;
-                                 if ($unit === 'S' || $unit === 'SEC') $mins = $totalRaw / 60;
-                                 elseif ($unit === 'H' || $unit === 'HUR') $mins = $totalRaw * 60;
-                                 
-                                 $existing['calculated_tak_time'] = number_format($mins, 2, '.', '');
-                                 
-                                 $isMerged = true;
-                                 break; 
-                             }
+                    // mapping WC
+                    $wcTarget = (string)$req['target_workcenter'];
+                    $mapping = $allMappings->first(fn($m) => strtoupper((string)$m->workcenter) === strtoupper($wcTarget));
+
+                    $childWc  = $wcTarget;
+                    $parentWc = $mapping ? ($mapping->wc_induk ?? $wcTarget) : $wcTarget;
+
+                    // hitung takt time (menit)
+                    $baseTime = (float)($targetItem->VGW01 ?? 0);
+                    $unit     = strtoupper((string)($targetItem->VGE01 ?? 'MIN'));
+
+                    $mins = $baseTime * $qty;
+                    if (in_array($unit, ['S','SEC'], true)) $mins = $mins / 60;
+                    elseif (in_array($unit, ['H','HUR'], true)) $mins = $mins * 60;
+
+                    if ($existingItem) {
+                        // blok merge kalau sudah ada confirmasi
+                        $confirmedQty = 0;
+                        if (method_exists($existingItem, 'pros')) {
+                            $confirmedQty = (float)$existingItem->pros()
+                                ->whereIn(DB::raw('LOWER(status)'), ['confirmasi','confirm','confirmed'])
+                                ->sum('qty_pro');
+                        }
+
+                        if ($confirmedQty > 0) {
+                            throw new \Exception("Item PRO {$aufnr} untuk operator {$req['name']} tidak bisa ditambah karena sudah ada konfirmasi.");
+                        }
+
+                        // merge qty
+                        $newAssigned = (float)$existingItem->assigned_qty + $qty;
+
+                        // recalc takt berdasarkan VGW01/VGE01 yang tersimpan pada item (lebih konsisten)
+                        $exBase = (float)($existingItem->vgw01 ?? $baseTime);
+                        $exUnit = strtoupper((string)($existingItem->vge01 ?? $unit));
+
+                        $newMins = $exBase * $newAssigned;
+                        if (in_array($exUnit, ['S','SEC'], true)) $newMins = $newMins / 60;
+                        elseif (in_array($exUnit, ['H','HUR'], true)) $newMins = $newMins * 60;
+
+                        $existingItem->assigned_qty = $newAssigned;
+                        $existingItem->calculated_takt_time = $newMins;
+
+                        // kalau WC beda, pilih: keep yg lama + log warning (atau bisa throw)
+                        if (!empty($existingItem->child_wc) && strtoupper($existingItem->child_wc) !== strtoupper($childWc)) {
+                            Log::warning("AddItem merge: same AUFNR+VORNR+NIK but different child_wc. Keep existing child_wc={$existingItem->child_wc}, incoming={$childWc}");
+                        } else {
+                            $existingItem->child_wc  = $childWc;
+                            $existingItem->parent_wc = $parentWc;
+                        }
+
+                        if ($isMachiningDoc) $existingItem->machining = 1;
+
+                        $existingItem->save();
+                    } else {
+                        // create baru di history_wi_item
+                        $wiItem = HistoryWiItem::create([
+                            'history_wi_id' => $doc->id,
+                            'nik'           => $nik,
+                            'aufnr'         => $aufnr,
+                            'vornr'         => $vornr,
+                            'uom'           => $targetItem->MEINS ?? null,
+                            'operator_name' => $req['name'] ?? null,
+
+                            'material_number' => $targetItem->MATNR ?? null,
+                            'material_desc'   => $targetItem->MAKTX ?? null,
+
+                            'qty_order'        => (float)($targetItem->MGVRG2 ?? 0),
+                            'assigned_qty'     => $qty,
+
+                            'kdauf' => $targetItem->KDAUF ?? null,
+                            'kdpos' => $targetItem->KDPOS ?? null,
+                            'dispo' => $targetItem->DISPO ?? null,
+                            'steus' => $targetItem->STEUS ?? null,
+
+                            'ssavd' => $targetItem->SSAVD ?? null,
+                            'sssld' => $targetItem->SSSLD ?? null,
+
+                            'kapaz' => $targetItem->KAPAZ ?? null,
+
+                            'vgw01' => (float)($targetItem->VGW01 ?? 0),
+                            'vge01' => $targetItem->VGE01 ?? null,
+
+                            'parent_wc' => $parentWc,
+                            'child_wc'  => $childWc,
+
+                            'machining' => $isMachiningDoc ? 1 : 0,
+                            'calculated_takt_time' => $mins,
+                            'status' => 'Open',
+                        ]);
+
+                        if ($isMachiningDoc) {
+                            $s = $this->parseWiDate(($targetItem->SSAVD ?? null));
+                            $e = $this->parseWiDate(($targetItem->SSSLD ?? null));
+
+                            if ($s && (!$minSsavd || $s->lt($minSsavd))) $minSsavd = $s;
+                            if ($e && (!$maxSssld || $e->gt($maxSssld))) $maxSssld = $e;
                         }
                     }
-                    unset($existing); 
-
-                    if ($isMerged) continue; 
-
-                    $duplicatesInBatch = $requests->filter(function($r) use ($requestedNik, $requestedWc, $req) {
-                        return $r['nik'] === $requestedNik && 
-                               $r['target_workcenter'] === $requestedWc &&
-                               $r['aufnr'] == $req['aufnr'] &&
-                               ($r['vornr'] ?? '') == ($req['vornr'] ?? '');
-                    });
-                    if ($duplicatesInBatch->count() > 1) {
-                         throw new \Exception("Operator {$req['name']} dipilih lebih dari satu kali untuk PRO/Workcenter yang sama dalam batch ini.");
-                    }
-
-                    $wcTarget = $req['target_workcenter'];
-                    $mapping = $allMappings->first(function($m) use ($wcTarget) {
-                        return strtoupper($m->workcenter) === strtoupper($wcTarget);
-                    });
-
-                    if ($mapping) {
-                        $childWc = $wcTarget;
-                        $parentWc = $mapping->wc_induk;
-                    } else {
-                        $childWc = $wcTarget;
-                        $parentWc = $wcTarget;
-                    }
-
-                    $newItem = [
-                        'aufnr' => $targetItem->AUFNR,
-                        'vornr' => $targetItem->VORNR,
-                        'material' => $targetItem->MATNR,
-                        'material_desc' => $targetItem->MAKTX,
-                        'assigned_qty' => $req['qty'],
-                        'qty_order' => $targetItem->MGVRG2, 
-                        'confirmed_qty' => 0,
-                        'remark_qty' => 0,
-                        'uom' => $targetItem->MEINS,
-                        'nik' => $req['nik'],
-                        'name' => $req['name'],
-                        'child_workcenter' => $childWc,
-                        'workcenter_induk' => $parentWc,
-                        'vge01' => $targetItem->VGE01,
-                        'vgw01' => $targetItem->VGW01,
-                        'kdauf' => $targetItem->KDAUF,
-                        'kdpos' => $targetItem->KDPOS,
-                        'dispo' => $targetItem->DISPO,
-                        'steus' => $targetItem->STEUS,
-                        'sssld' => $targetItem->SSSLD,
-                        'ssavd' => $targetItem->SSAVD,
-                        'kapaz' => $targetItem->KAPAZ, 
-                        'material_number' => $targetItem->MATNR, 
-                    ];
-                    
-                    $baseTime = floatval($targetItem->VGW01);
-                    $qty = floatval($req['qty']);
-                    $unit = strtoupper($targetItem->VGE01);
-                    $totalRaw = $baseTime * $qty;
-                     if ($unit === 'S' || $unit === 'SEC') {
-                        $mins = $totalRaw / 60;
-                    } elseif ($unit === 'H' || $unit === 'HUR') {
-                        $mins = $totalRaw * 60;
-                    } else {
-                        $mins = $totalRaw;
-                    }
-                    $newItem['calculated_tak_time'] = number_format($mins, 2, '.', '');
-                    $newItem['name1'] = $targetItem->NAME1 ?? '-';
-                    $newItem['netpr'] = $targetItem->NETPR ?? 0;
-                    $newItem['waerk'] = $targetItem->WAERK ?? '';
-
-                    $payload[] = $newItem;
                 }
             }
 
-            $doc->payload_data = $payload;
-            $doc->save();
+            if ($isMachiningDoc) {
+                $docDate = Carbon::parse($doc->document_date)->startOfDay();
+                $docExp  = $doc->expired_at ? Carbon::parse($doc->expired_at) : null;
+
+                if ($minSsavd && $minSsavd->lt($docDate)) {
+                    $doc->document_date = $minSsavd->toDateString();
+                }
+
+                if ($maxSssld) {
+                    $newExp = $maxSssld->copy()->endOfDay();
+                    if (!$docExp || $newExp->gt($docExp)) {
+                        $doc->expired_at = $newExp;
+                    }
+                }
+
+                $doc->document_time = null; // machining flow
+                $doc->save();
+            }
 
             DB::commit();
-            return response()->json(['success' => true, 'message' => count($request->items) . ' Item berhasil ditambahkan.']);
+            return response()->json(['success' => true, 'message' => count($validated['items']).' Item berhasil ditambahkan.']);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 400); 
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
         }
     }
 
@@ -2965,4 +2919,21 @@ class CreateWiController extends Controller
         return $query;
     }
 
+    private function parseWiDate(?string $value): ? Carbon
+    {
+        if (!$value) return null;
+
+        foreach (['Y-m-d', 'd-m-Y', 'd/m/Y', 'd.m.Y', 'Y/m/d'] as $fmt) {
+            try {
+                return Carbon::createFromFormat($fmt, $value)->startOfDay();
+            } catch (\Exception $e) {
+            }
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->startOfDay();
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
 }

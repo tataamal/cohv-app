@@ -50,6 +50,7 @@ class ProductionTData1 extends Model
             'STATS2',
             'NAME1',
             'NETPR',
+            'NETPR2',
             'WAERK',
             'ARBPL',
             'PV1',
