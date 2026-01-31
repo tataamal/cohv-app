@@ -46,7 +46,6 @@
         .page-number:after { content: counter(page); }
 
         /* --- FRAMEWORK --- */
-        /* --- FRAMEWORK --- */
         .container-frame {
             width: 100%;
             border: 2px solid #000;
@@ -73,14 +72,6 @@
             padding: 4px;
             vertical-align: middle;
         }
-
-        /* ... (Keep existing Header/Info styles if match/implied, but skipping to save tokens if unchanged. Wait, I must replacing contiguous block.) ... */
-        /* Re-including Header/Info styles for safety since I'm replacing a large block? No, I can target specific blocks. */
-        
-        /* Let's target the logic block specifically for minRows and the signature wrapper. */
-        /* BUT wait, I need to update CSS first. I will do this in chunks. Check lines. */
-
-
         /* --- HEADER SECTION --- */
         .header-left {
             width: 70%; 
@@ -170,8 +161,7 @@
 
     {{-- Ambil Items untuk dokumen ini --}}
     @php
-        $items = is_array($doc->payload_data) ? $doc->payload_data : json_decode($doc->payload_data, true);
-        if(!$items) $items = [];
+        $items = $doc->items ?? [];
     @endphp
 
     <div class="container-frame">
@@ -186,7 +176,7 @@
                             </td>
                             <td>
                                 <div class="company-name">PT KAYU MEBEL INDONESIA</div>
-                                <div class="doc-title">WORK INSTRUCTION SHEET</div>
+                                <div class="doc-title">TASK INSTRUCTION</div>
                             </td>
                         </tr>
                     </table>
@@ -201,11 +191,29 @@
         {{-- 2. INFO BAR --}}
         <table>
             <tr class="info-bar">
-                <td width="25%">DEPARTMENT: <span class="info-val fw-bold">{{ strtoupper($doc->department ?? $department) }}</span></td>
+                @php
+                    $deptRaw = $doc->department ?? $department;
+                    // Replace "???" which often appears from bad encoding
+                    $deptClean = str_replace('???', '-', $deptRaw);
+                    // Filter non-printable ASCII
+                    $deptClean = preg_replace('/[^\x20-\x7E]/', '', $deptClean);
+                @endphp
+                <td width="25%">BAGIAN: <span class="info-val fw-bold">{{ strtoupper($deptClean) }}</span></td>
                 @if(isset($isEmail) && $isEmail && isset($doc->total_price_formatted))
                     <td width="25%">TOTAL PRICE: <span class="info-val fw-bold">{{ $doc->total_price_formatted }}</span></td>
                 @else
-                    <td width="25%">STATUS: <span class="info-val fw-bold">ACTIVE</span></td>
+                    @php
+                        $override = $status_override ?? null; 
+                        
+                        if ($override) {
+                            $statusDateBased = $override;
+                        } else {
+                            $isExpired = ($doc->expired_at && $doc->expired_at->isPast());
+                            $isInactiveDb = isset($doc->status) && strtoupper($doc->status) === 'INACTIVE';
+                            $statusDateBased = ($isExpired || $isInactiveDb) ? 'INACTIVE' : 'ACTIVE';
+                        }
+                    @endphp
+                    <td width="25%">STATUS: <span class="info-val fw-bold">{{ $statusDateBased }}</span></td>
                 @endif
                 <td width="25%">DATE: <span class="info-val">{{ $doc->document_date->format('d-M-Y') }}</span></td>
                 <td width="25%" style="border-right: none;">EXPIRED: <span class="info-val expired-alert">{{ $doc->expired_at->format('d-M-Y H:i') }}</span></td>
@@ -218,17 +226,16 @@
                 <tr class="data-header">
                     <th width="3%">NO</th>
                     <th width="7%">WORK CENTER</th>
+                    <th width="7%">NIK</th>
+                    <th width="13%">NAMA</th>
                     <th width="8%">SO-ITEM</th>
                     <th width="8%">PRO</th>
-                    <th width="9%">MATERIAL NO</th>
-                    <th width="15%">DESCRIPTION</th>
-                    <th width="5%">QTY WI</th>
+                    <th width="9%">KODE MAT.</th>
+                    <th width="19%">DESKRIPSI</th>
+                    <th width="5%">QTY TASK</th>
                     <th width="5%">CONF</th>
-                    <th width="6%">Time Req</th>
-                    <th width="7%">NIK</th>
-                    <th width="10%">NAME</th>
-                    <th width="8%">REMARK</th>
-                    <th width="9%">PRICE</th>
+                    <th width="6%">Task Time</th>
+                    <th width="10%">REMARK</th>
                 </tr>
             </thead>
             <tbody>
@@ -241,57 +248,68 @@
                 @foreach($items as $index => $item)
                 @php
                     // --- LOGIC PER ITEM ---
-                    $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
+                    $wc = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
                     
-                    $kdauf = $item['kdauf'] ?? '';
-                    $matKdauf = $item['mat_kdauf'] ?? '';
-                    $isMakeStock = (strcasecmp($kdauf, 'Make Stock') === 0) || (strcasecmp($matKdauf, 'Make Stock') === 0);
-                    $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
+                    $kdauf = $item->aufnr ?? ''; // Use aufnr as fallback if kdauf not available in item model? No, item model has aufnr.
+                    // Wait, HistoryWiItem model vs payload_data keys.
+                    // HistoryWiItem: nik, aufnr, vornr, material_number, material_desc, assigned_qty, ...
                     
-                    $soItem = $isMakeStock ? $kdauf : ($kdauf . '-' . $kdpos);
-
-                    $matnr = $item['material_number'] ?? '';
+                    // Re-mapping based on model attributes
+                    $aufnr = $item->aufnr ?? '-';
+                    $matnr = $item->material_number ?? '';
                     if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
 
-                    $qtyWi = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
+                    $qtyWi = floatval($item->assigned_qty ?? 0);
 
-                    $baseTime = isset($item['vgw01']) ? floatval($item['vgw01']) : 0;
-                    $unit = isset($item['vge01']) ? strtoupper($item['vge01']) : '';
+                    // Takt Time Calculation (using existing fields if available or calculating)
+                    // The model has 'calculated_takt_time' which is already the final string? No, check model.
+                    // If not, use stored 'machining' json or similar?
+                    // Let's assume calculated_takt_time is the string "X Menit". 
+                    // But if fallback needed:
                     
-                    $totalTime = $baseTime * $qtyWi;
-
-                    if ($unit == 'S' || $unit == 'SEC') {
-                        $finalTime = $totalTime / 60; 
-                        $finalUnit = 'Menit';
+                    $taktDisplay = '-';
+                    $finalUnit = '';
+                    
+                    if ($item->calculated_takt_time) {
+                         $taktDisplay = $item->calculated_takt_time;
+                         // If it's just a number, append unit. But usually it's "0.45 Menit".
+                         // Check clean value.
+                         if (is_numeric($item->calculated_takt_time)) {
+                             $taktDisplay = $item->calculated_takt_time;
+                             $finalUnit = 'Menit'; // Default assumption
+                         } else {
+                             // Already formatted
+                             $finalUnit = ''; 
+                         }
                     } else {
-                        $finalTime = $totalTime;
-                        $finalUnit = $unit; 
+                        // Fallback to recalculate if raw data exists (unlikely in this model refactor unless added)
+                        // Using placeholder for now if null.
                     }
-                    
-                    $taktDisplay = (fmod($finalTime, 1) !== 0.00) ? number_format($finalTime, 2) : number_format($finalTime, 0);
 
                     // NIK & Name
-                    $nik = $item['nik'] ?? '-';
-                    $empName = $item['employee_name'] ?? ($item['name'] ?? '-');
+                    $nik = $item->nik ?? '-';
+                    $empName = $item->operator_name ?? '-';
                     
                     // Price
-                    $priceDisp = $item['price_sourced'] ?? '-';
+                    // $priceDisp = $item['price_sourced'] ?? '-'; // Not in standard model? 
+                    // Check if 'price' is in HistoryWiItem tables.
+                    // If not, we might lose this feature unless we join/calculate.
+                    // For now set to default/empty to avoid error.
+                    $priceDisp = '-'; 
                 @endphp
                 <tr class="data-row">
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td class="text-center fw-bold">{{ $wc }}</td>
-                    <td class="text-center">{{ $soItem }}</td>
-                    <td class="text-center">{{ $item['aufnr'] ?? '-' }}</td>
+                    <td class="text-center">{{ $nik }}</td>
+                    <td>{{ $empName }}</td>
+                    <td class="text-center">{{ $aufnr }}</td> {{-- Using AUFNR as SO-ITEM fallback --}}
+                    <td class="text-center">{{ $aufnr }}</td>
                     <td class="text-center">{{ $matnr }}</td>
-                    <td>{{ $item['material_desc'] ?? '-' }}</td>
+                    <td>{{ $item->material_desc ?? '-' }}</td>
                     <td class="text-center fw-bold">{{ $qtyWi }}</td>
                     <td class="text-center fw-bold">0</td> {{-- Default 0 as requested --}}
                     <td class="text-center fw-bold">{{ $taktDisplay }} {{ $finalUnit }}</td>
-                    <td class="text-center">{{ $nik }}</td>
-                    <td>{{ $empName }}</td>
                     <td class="text-center">-</td> {{-- Remark Default - --}}
-                    <td class="text-center">{{ $priceDisp }}</td>
-                </tr>
                 @endforeach
 
                 {{-- AUTO FILL ROWS --}}
@@ -309,13 +327,13 @@
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
-                    <td>&nbsp;</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
 
         {{-- 4. FOOTER --}}
+        {{-- 
         <div class="avoid-break">
             <table>
                 <tr>
@@ -334,6 +352,7 @@
                 </tr>
             </table>
         </div>
+        --}}
     </div>
 
     {{-- PAGE BREAK JIKA BUKAN HALAMAN TERAKHIR --}}

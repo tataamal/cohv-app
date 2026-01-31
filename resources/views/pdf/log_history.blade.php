@@ -171,7 +171,7 @@
         {{-- 1. HEADER --}}
         <table style="width: 100%;">
             <tr>
-                <td class="header-left" style="width: 100%; border-right: 2px solid #000 !important;">
+                <td class="header-left" style="width: 70%; border-right: none !important;">
                     <table class="branding-table">
                         <tr>
                             <td class="logo-img">
@@ -181,15 +181,15 @@
                                 <div class="company-name">PT KAYU MEBEL INDONESIA</div>
                                 <!-- New Title Format -->
                                 @if($isEmail ?? false)
-                                    <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT WI' }} - {{ $report['nama_bagian'] }} - {{ $report['filterInfo'] }}</div>
+                                    <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT WI' }} - {{ $report['nama_bagian'] }}</div>
                                 @else
                                     @php
                                         $docStatus = strtoupper($report['doc_metadata']['status'] ?? '');
-                                        $headerTitle = 'WORK INSTRUCTION SHEET';
+                                        $headerTitle = 'TASK INSTRUCTION';
                                         if (str_contains($docStatus, 'COMPLETED') && !str_contains($docStatus, 'NOT')) {
-                                            $headerTitle = 'COMPLETED WORK INSTRUCTION';
+                                            $headerTitle = 'COMPLETED TASK INSTRUCTION';
                                         } elseif (str_contains($docStatus, 'EXPIRED') || str_contains($docStatus, 'NOT COMPLETED')) {
-                                            $headerTitle = 'EXPIRED WORK INSTRUCTION';
+                                            $headerTitle = 'EXPIRED TASK INSTRUCTION';
                                         }
                                     @endphp
                                     <div class="doc-title" style="font-size: 14pt; color: #000;">{{ $headerTitle }}</div>
@@ -198,6 +198,15 @@
                         </tr>
                     </table>
                 </td>
+                
+                {{-- RIGHT HEADER --}}
+                 <td class="header-right" style="width: 30%; border-left: none !important; background-color: #fff; vertical-align: middle; padding: 5px 10px !important; text-align: right;">
+                    @if(!empty($report['filterInfo']) && stripos($report['filterInfo'], 'all history') === false)
+                        <div style="font-size: 11pt; font-weight: bold; color: rgba(0, 0, 0, 0.7);">
+                            {{ $report['filterInfo'] }}
+                        </div>
+                    @endif
+                </td>
         </table>
 
         {{-- 2. INFO ROW (For Manual Print) --}}
@@ -205,10 +214,28 @@
             <table class="info-bar" style="width: 100%; border: 2px solid #000; border-top: none; margin-bottom: 0px;">
                 <tr>
                     <td style="width: 35%; border-right: 2px solid #000;">
-                        DEPARTMENT: <span class="info-val">{{ $report['nama_bagian'] }}</span>
+                        BAGIAN: <span class="info-val">{{ $report['nama_bagian'] }}</span>
                     </td>
                     <td style="width: 25%; border-right: 2px solid #000;">
-                        STATUS: <span class="info-val">{{ $report['doc_metadata']['status'] ?? '-' }}</span>
+                        @php
+                            $rawStatus = $report['doc_metadata']['status'] ?? '-';
+                            $expStr = $report['doc_metadata']['expired'] ?? '';
+                            
+                            $isExpired = false;
+                            try {
+                                // Date format from controller usually 'd-M-Y H:i' or similar
+                                // If validation fails, fallback to raw status
+                                $expDate = \Carbon\Carbon::createFromFormat('d-M-Y H:i', $expStr);
+                                if ($expDate && $expDate->isPast()) {
+                                    $isExpired = true;
+                                }
+                            } catch (\Exception $e) {
+                                // If parsing fails, ignore expiration check (likely '-' or empty)
+                            }
+
+                            $finalStatus = ($isExpired || strtoupper($rawStatus) === 'INACTIVE') ? 'INACTIVE' : $rawStatus;
+                        @endphp
+                        STATUS: <span class="info-val">{{ $finalStatus }}</span>
                     </td>
                     <td style="width: 20%; border-right: 2px solid #000;">
                         DATE: <span class="info-val">{{ $report['doc_metadata']['date'] ?? '-' }}</span>
@@ -225,16 +252,16 @@
          <table>
             <tr class="summary-header">
                 @if($isEmail ?? false)
-                    <td width="16%">Quantity WI</td>
-                    <td width="16%">Quantity Terkonfirmasi</td>
-                    <td width="16%">Quantity Tidak Terkonfirmasi</td>
+                    <td width="16%">Quantity Task</td>
+                    <td width="16%">Terkonfirmasi</td>
+                    <td width="16%">Tidak Terkonfirmasi</td>
                     <td width="20%">Rata-rata Keberhasilan</td>
                     <td width="16%">Total Price OK</td>
                     <td width="16%">Total Price Fail</td>
                 @else
-                    <td width="25%">Quantity WI</td>
-                    <td width="25%">Quantity Terkonfirmasi</td>
-                    <td width="25%">Quantity Tidak Terkonfirmasi</td>
+                    <td width="25%">QTY TASK</td>
+                    <td width="25%">Terkonfirmasi</td>
+                    <td width="25%">Tidak Terkonfirmasi</td>
                     <td width="25%">Rata-rata Keberhasilan</td>
                 @endif
             </tr>
@@ -255,17 +282,15 @@
             <thead>
                 <tr class="data-header">
                     <th width="3%">NO</th>
-                    <th width="8%">DOC NO</th>
-                    <th width="6%">WC</th>
-                    <th width="10%">DESCRIPTION</th>
+                    <th width="8%">DOC</th>
+                    <th width="6%">TIME</th>
+                    <th width="10%">WORKCENTER</th>
                     <th width="8%">SO-ITEM</th>
                     <th width="8%">PRO</th>
-                    <th width="9%">MATERIAL NO</th>
-                    <th width="15%">DESCRIPTION</th>
+                    <th width="10%">MATERIAL</th>
                     <th width="4%">QTY</th>
                     <th width="4%">CONF</th>
-                    <th width="6%">TIME</th>
-                    <th width="9%">REMARK</th>
+                    <th width="20%">REMARK</th>
                     @if($isEmail ?? false)
                         <th width="8%">PRICE OK</th>
                         <th width="8%">PRICE FAIL</th>
@@ -293,17 +318,29 @@
                             
                             $gAssigned = $groupItems->sum('assigned');
                             $gConfirmed = $groupItems->sum('confirmed');
+                            $gRemark = $groupItems->sum(function($item) { return $item['remark_qty'] ?? 0; });
                             $gUnconfirmed = $gAssigned - $gConfirmed; // "Tidak Terkonfirmasi"
                             
                             $gPriceOk = $groupItems->sum('confirmed_price');
                             $gPriceFail = $groupItems->sum('failed_price');
+                            $pctOk = ($gAssigned > 0) ? ($gConfirmed / $gAssigned) * 100 : 0;
+                            $pctFail = ($gAssigned > 0) ? ($gUnconfirmed / $gAssigned) * 100 : 0;
                             
-                            // Calculate Totals for Header
                             $gTotalTimeMin = $groupItems->sum('raw_total_time');
-                            $gTotalTimeHours = $gTotalTimeMin > 0 ? $gTotalTimeMin / 60 : 0;
-                            $gTotalTimeHoursFmt = number_format($gTotalTimeHours, 2) . ' Jam';
+                            
+                            $totalSeconds = $gTotalTimeMin * 60;
+                            $hrs = floor($totalSeconds / 3600);
+                            $mins = floor(($totalSeconds % 3600) / 60);
+                            $secs = round($totalSeconds % 60);
 
-                            // Formatting
+                            $timeParts = [];
+                            if ($hrs > 0) $timeParts[] = $hrs . ' Jam';
+                            if ($mins > 0) $timeParts[] = $mins . ' Menit';
+                            if ($secs > 0 || empty($timeParts)) $timeParts[] = $secs . ' Detik';
+                            
+                            $gTotalTimeHoursFmt = implode(', ', $timeParts);
+
+
                             $gCurr = $row['currency'] ?? 'IDR';
                             $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
                             $dec = (strtoupper($gCurr) === 'USD') ? 2 : 0;
@@ -312,20 +349,13 @@
                             $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
                         @endphp
                         <tr>
-                            <td colspan="14" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
+                            <td colspan="13" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
                                 <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
                                     @if($isEmail ?? false)
-                                        (Total Qty WI: {{ number_format($gAssigned, 0) }} | 
-                                        Total Time Working Hours: {{ $gTotalTimeHoursFmt }} |
-                                        {{ $groupCount }} Transaksi | 
-                                        Konfirmasi: {{ number_format($gConfirmed, 0) }}, 
-                                        Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }}
-                                         | OK : {{ $fmtOk }}, 
-                                         Fail : {{ $fmtFail }} 
-                                        )
+                                        (Total Qty: {{ number_format($gAssigned, 0) }} | Working Hours: {{ $gTotalTimeHoursFmt }} | Konfirmasi: {{ number_format($gConfirmed, 0) }} ({{ number_format($pctOk, 1) }}%), Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} ({{ number_format($pctFail, 1) }}%) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }})
                                     @else
-                                        (Total Qty WI: {{ number_format($gAssigned, 0) }} | Total Time Req : {{ number_format($gTotalTimeMin, 2, ',', '.') }})
+                                        (Total Qty: {{ number_format($gAssigned, 0) }} | Working Hours: {{ $gTotalTimeHoursFmt }})
                                     @endif
                                 </span>
                             </td>
@@ -341,9 +371,18 @@
                                 <span style="font-size: 7pt; font-weight: normal;">{{ $row['doc_date'] ?? '' }}</span>
                             @endif
                         </td>
-                        {{-- New Columns --}}
-                        <td class="text-center">{{ $row['workcenter'] }}</td>
-                        <td>{{ $row['wc_description'] ?? '-' }}</td>
+                        <td class="text-center fw-bold">
+                            @if(isset($row['takt_time']) && $row['takt_time'] !== '-')
+                                {{ $row['takt_time'] }}
+                            @else
+                                -
+                            @endif
+                        </td>
+                        {{-- Merged Column --}}
+                        <td class="text-center">
+                            <!-- <strong>{{ $row['workcenter'] }}</strong><br> -->
+                            {{ $row['description'] ?? '-' }}
+                        </td>
                         
                         <td class="text-center">{{ $row['so_item'] }}</td>
                         <td class="text-center fw-bold">
@@ -353,20 +392,31 @@
                                 <span style="font-weight: normal; font-style: italic; font-size: 7pt;">({{ ltrim($row['vornr'], '0') }})</span>
                             @endif
                         </td>
-                        <td class="text-center">{{ $row['material'] }}</td>
-                        <td>{{ $row['description'] }}</td>
+                        <td>
+                            <strong>{{ $row['material'] }}</strong><br>
+                            {{ $row['description'] }}
+                        </td>
                         <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                         <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
-                        <td class="text-center fw-bold">{{ $row['takt_time'] ?? '-' }}</td>
                         
                         {{-- Remark --}}
-                        <td class="text-center" style="font-size: 7pt;">
-                            @if(floatval($row['remark_qty']) > 0)
-                                {{ $row['remark_text'] }}
+                        {{-- Remark --}}
+                        <td class="text-left" style="font-size: 7pt;">
+                            @if(!empty($row['remark_details']) && count($row['remark_details']) > 0)
+                                <ul style="padding-left: 15px; margin: 0; text-align: left;">
+                                @foreach($row['remark_details'] as $rem)
+                                    <li>Qty : {{ floatval($rem['qty']) }}, {{ $rem['text'] }}</li>
+                                @endforeach
+                                </ul>
+                            @elseif(floatval($row['remark_qty'] ?? 0) > 0)
+                                <div style="text-align: center;">
+                                    <strong>Qty: {{ floatval($row['remark_qty']) }}</strong><br>
+                                    {{ $row['remark_text'] ?? '-' }}
+                                </div>
                             @elseif(!empty($row['remark_text']) && $row['remark_text'] !== '-')
-                                {{ $row['remark_text'] }}
+                                <div style="text-align: center;">{{ $row['remark_text'] }}</div>
                             @else
-                                -
+                                <div style="text-align: center;">-</div>
                             @endif
                         </td>
 
@@ -400,13 +450,14 @@
                             <td style="border: 1px solid #000;">&nbsp;</td>
                             <td style="border: 1px solid #000;">&nbsp;</td>
                             <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
+                            {{-- Removed one td to match new column count (11) --}}
                         </tr>
                     @endfor
                 @endif
             </tbody>
         </table>
 
+        {{--
         @if(!($isEmail ?? false) && $isActiveStatus)
             <table style="width: 100%; border: 1px solid #000; border-top: none; page-break-inside: avoid;">
                 <tr style="background-color: #ccc;">
@@ -426,6 +477,7 @@
                 </tr>
             </table>
         @endif
+        --}}
     </div>
 
     </div>

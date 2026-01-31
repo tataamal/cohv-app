@@ -219,9 +219,7 @@
         <div class="filter-panel p-3">
             <form action="{{ route('wi.history', ['kode' => $plantCode]) }}" method="GET" id="filterForm">
                 <div class="row g-2 align-items-end">
-                    
-                    {{-- Quick Date Filter --}}
-                    <div class="col-lg-3">
+                    <div class="col-lg-4">
                         <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Tanggal Dokumen</label>
                         <div class="input-group input-group-sm">
                             <input type="text" name="date" id="dateInput" class="form-control flatpickr-range" value="{{ request('date') }}" placeholder="Pilih Rentang Tanggal..." onchange="document.getElementById('filterForm').submit()">
@@ -231,7 +229,7 @@
                         </div>
                     </div>
 
-                    {{-- Workcenter Filter (NEW) --}}
+                    {{-- Workcenter Filter --}}
                     <div class="col-lg-2">
                         <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Workcenter</label>
                         <select name="workcenter" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
@@ -240,6 +238,15 @@
                                 <option value="{{ $code }}" {{ request('workcenter') == $code ? 'selected' : '' }}>{{ $code }}</option>
                             @endforeach
                         </select>
+                    </div>
+
+                    {{-- NIK Filter (NEW) --}}
+                    <div class="col-lg-2">
+                        <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">NIK</label>
+                        <input type="text" name="search_nik" class="form-control form-control-sm" 
+                               placeholder="Cari NIK..." 
+                               value="{{ request('search_nik') }}"
+                               onkeypress="if(event.keyCode == 13) { document.getElementById('filterForm').submit(); return false; }">
                     </div>
 
                     {{-- Search --}}
@@ -251,24 +258,15 @@
                                    placeholder="Kode WI, PRO..." 
                                    value="{{ request('search') }}"
                                    onkeypress="if(event.keyCode == 13) { document.getElementById('filterForm').submit(); return false; }">
+                             <button type="button" class="btn btn-secondary" onclick="new bootstrap.Modal(document.getElementById('multiSearchModal')).show()">
+                                <i class="fa-solid fa-layer-group"></i>
+                             </button>
                         </div>
                     </div>
 
-                    {{-- Status Filter --}}
-                    <div class="col-lg-2">
-                        <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Status</label>
-                        <select name="status" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
-                            <option value="">Semua Status</option>
-                            <option value="ACTIVE" {{ request('status') == 'ACTIVE' ? 'selected' : '' }}>Active</option>
-                            <option value="INACTIVE" {{ request('status') == 'INACTIVE' ? 'selected' : '' }}>Inactive</option>
-                            <option value="NOT COMPLETED" {{ request('status') == 'NOT COMPLETED' ? 'selected' : '' }}>Expired</option>
-                            <option value="COMPLETED" {{ request('status') == 'COMPLETED' ? 'selected' : '' }}>Completed</option>
-                        </select>
-                    </div>
-
                     {{-- Action --}}
-                    <div class="col-lg-2 d-flex gap-2">
-                        <a href="{{ route('wi.history', ['kode' => $plantCode]) }}" class="btn btn-light btn-sm border w-100"><i class="fa-solid fa-rotate-left me-1"></i> Reset</a>
+                    <div class="col-lg-1 d-flex gap-2">
+                        <a href="{{ route('wi.history', ['kode' => $plantCode]) }}" class="btn btn-light btn-sm border w-100" title="Reset Filter"><i class="fa-solid fa-rotate-left"></i></a>
                     </div>
                 </div>
             </form>
@@ -498,12 +496,6 @@
                                                                 <div class="fw-bold text-dark small">{{ $item['nik'] ?? ($item['nik'] ?? '-') }}</div>
                                                                 <div class="fw-bold text-dark small">{{ $item['name'] ?? ($item['name'] ?? '-') }}</div>
                                                                 <span class="badge bg-success text-white">{{ $item['vornr'] ?? ($item['vornr'] ?? '-') }}</span>
-                                                                @if(!empty($item['machining']))
-                                                                    <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
-                                                                @endif
-                                                                @if(!empty($item['longshift']))
-                                                                    <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
-                                                                @endif  
                                                             </div>
                                                             @php
                                                                 $kdaufHist = $item['kdauf'] ?? '';
@@ -633,6 +625,15 @@
                                     <button type="button" id="btnInactiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('inactive')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countInactiveDel">0</span>)
                                     </button>
+                                    <div class="dropdown d-none" id="btnInactiveAction">
+                                        <button class="btn btn-warning text-dark btn-sm px-3 rounded-pill fw-bold shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fa-solid fa-print me-1"></i> Cetak (<span id="countInactive">0</span>)
+                                        </button>
+                                        <ul class="dropdown-menu shadow border-0 rounded-4">
+                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('inactive', 'document')"><i class="fa-solid fa-file-invoice me-2 text-warning"></i>By Document</a></li>
+                                            <li><a class="dropdown-item small fw-bold py-2" href="#" onclick="openPrintModal('inactive', 'nik')"><i class="fa-solid fa-users-viewfinder me-2 text-primary"></i>By NIK</a></li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -710,13 +711,7 @@
                                                             <span class="badge bg-white text-secondary border border-secondary-subtle shadow-sm">{{ $item['aufnr'] }}</span>
                                                             <div class="fw-bold text-dark small">{{ $item['nik'] ?? '-' }}</div>
                                                             <div class="fw-bold text-dark small">{{ $item['name'] ?? '-' }}</div>
-                                                            <span class="badge bg-warning text-dark">{{ $item['vornr'] ?? '-' }}</span>
-                                                            @if(!empty($item['machining']))
-                                                                <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
-                                                            @endif
-                                                            @if(!empty($item['longshift']))
-                                                                <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
-                                                            @endif  
+                                                            <span class="badge bg-warning text-dark">{{ $item['vornr'] ?? '-' }}</span> 
                                                         </div>
                                                         <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                     </div>
@@ -802,9 +797,15 @@
                                         <input class="form-check-input wi-checkbox cb-expired" type="checkbox" value="{{ $document->wi_document_code }}">
                                         <div>
                                             <h6 class="fw-bold mb-0">{{ $document->wi_document_code }}</h6>
+                                            @if(!empty($document->machining))
+                                                <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
+                                            @endif
+                                            @if(!empty($document->longshift))
+                                                <span class="badge bg-info text-dark border shadow-sm" style="font-size:0.7rem;">Longshift</span>
+                                            @endif
+                                            <span class="badge badge-soft bg-soft-danger ms-auto">Expired</span>
                                             <div class="small text-muted">Expired pada tanggal : {{ \Carbon\Carbon::parse($document->expired_at)->format('d M H:i') }}</div>
                                         </div>
-                                        <span class="badge badge-soft bg-soft-danger ms-auto">Expired</span>
                                     </div>
                                 </div>
 
@@ -842,18 +843,6 @@
                                                             <div class="fw-bold text-dark small">{{ $item['nik'] ?? '-' }}</div>
                                                             <div class="fw-bold text-dark small">{{ $item['name'] ?? '-' }}</div>
                                                             <span class="badge bg-danger text-white">{{ $item['vornr'] ?? '-' }}</span>
-
-                                                            @php
-                                                                $isMachining = !empty($item['machining']) || !empty($item['is_machining']);
-                                                                $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
-                                                            @endphp
-
-                                                            @if($isMachining)
-                                                                <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
-                                                            @endif
-                                                            @if($isLongshift)
-                                                                <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
-                                                            @endif
                                                         </div>
 
                                                         <div class="text-muted text-xs text-truncate ps-1">
@@ -987,9 +976,14 @@
                                             <input class="form-check-input wi-checkbox cb-completed" type="checkbox" value="{{ $document->wi_document_code }}">
                                             <div>
                                                 <h6 class="fw-bold mb-0">{{ $document->wi_document_code }}</h6>
-                                                <div class="small text-muted">Selesai</div>
+                                                @if(!empty($document->machining))
+                                                    <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
+                                                @endif
+                                                @if(!empty($document->longshift))
+                                                    <span class="badge bg-info text-dark border shadow-sm" style="font-size:0.7rem;">Longshift</span>
+                                                @endif
+                                                <span class="badge badge-soft bg-info text-white ms-auto">Selesai</span>
                                             </div>
-                                            <span class="badge badge-soft bg-info text-white ms-auto">Selesai</span>
                                         </div>
                                     </div>
 
@@ -1032,16 +1026,6 @@
                                                                 <div class="fw-bold text-dark small">{{ $item['nik'] ?? '-' }}</div>
                                                                 <div class="fw-bold text-dark small">{{ $item['name'] ?? '-' }}</div>
                                                                 <span class="badge bg-info text-white">{{ $item['vornr'] ?? '-' }}</span>
-                                                                @php
-                                                                    $isMachining = !empty($item['machining']) || !empty($item['is_machining']);
-                                                                    $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
-                                                                @endphp
-                                                                @if($isMachining)
-                                                                    <span class="badge bg-warning text-dark border shadow-sm ms-1">Machining</span>
-                                                                @endif
-                                                                @if($isLongshift)
-                                                                    <span class="badge bg-info text-dark border shadow-sm ms-1">Longshift</span>
-                                                                @endif
                                                             </div>
 
                                                             <div class="text-muted text-xs text-truncate ps-1">
@@ -1221,7 +1205,7 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">BAGIAN</label>
-                                <input type="text" name="department" class="form-control fw-bold" value="{{ $nama_bagian->nama_bagian ?? '-' }}" readonly>
+                                <input type="text" name="department" class="form-control fw-bold" value="{{ $nama_bagian->description ?? '-' }}" readonly>
                                 <input type="hidden" name="filter_status" value="">
                             </div>
                         </div>
@@ -1416,7 +1400,35 @@
             modal.show();
         }
 
-        // --- 3. UI SETUP FOR MODAL ---
+        function ensureHidden(form, name) {
+            let el = form.querySelector(`input[name="${name}"]`);
+            if (!el) {
+                el = document.createElement('input');
+                el.type = 'hidden';
+                el.name = name;
+                form.appendChild(el);
+            }
+            return el;
+        }
+
+        function getMainFilters() {
+            const date = document.getElementById('dateInput')?.value || '';
+            const search = document.querySelector('input[name="search"]')?.value || '';
+            const status = document.querySelector('select[name="status"]')?.value || '';
+            const department =
+                document.querySelector('[name="department"]')?.value ||
+                document.querySelector('[name="filter_department"]')?.value ||
+                document.querySelector('#department')?.value ||
+                '';
+
+            const printedBy =
+                document.querySelector('[name="printed_by"]')?.value ||
+                document.querySelector('#printed_by')?.value ||
+                '';
+
+            return { date, search, status, department, printedBy };
+        }
+
         function setupModalUI(type, count, mode = 'document', totalTak = 0) {
             const form = document.getElementById('printForm');
             const alertMsg = document.getElementById('modalAlert');
@@ -1424,233 +1436,273 @@
             const btnSubmit = document.getElementById('btnSubmitPrint');
             const headerBg = document.getElementById('modalHeaderBg');
             const previewContainer = document.getElementById('previewContainer');
-            
-            // Sync Hidden Inputs
+            const recipientContainer = document.getElementById('emailRecipientsContainer');
+
+            // ===== 1) Ambil filter dari URL (paling reliable) =====
+            const urlParams = new URLSearchParams(window.location.search);
+
+            let mainDate   = urlParams.get('date')   || '';
+            let mainSearch = urlParams.get('search') || '';
+            let mainStatus = urlParams.get('status') || '';
+
+            // ===== 2) Fallback ke DOM kalau URL kosong =====
+            if (!mainDate) {
+                const el = document.getElementById('dateInput'); // pastikan id ini sesuai view kamu
+                if (el) mainDate = el.value || '';
+            }
+
+            if (!mainSearch) {
+                const el = document.querySelector('input[name="search"]');
+                if (el) mainSearch = el.value || '';
+            }
+
+            if (!mainStatus) {
+                const el = document.querySelector('select[name="status"]');
+                if (el) mainStatus = el.value || '';
+            }
+
             const dateInput = document.querySelector('input[name="filter_date"]');
             const searchInput = document.querySelector('input[name="filter_search"]');
-            const statusInput = document.querySelector('input[name="filter_status"]'); // Hidden input
-            
-            const mainDate = document.getElementById('dateInput').value;
-            const mainSearch = document.querySelector('input[name="search"]').value;
-            const mainStatus = document.querySelector('select[name="status"]').value;
+            const statusInput = document.querySelector('input[name="filter_status"]');
 
-            if(dateInput) dateInput.value = mainDate;
-            if(searchInput) searchInput.value = mainSearch;
-            if(statusInput) statusInput.value = mainStatus;
+            if (dateInput) dateInput.value = mainDate;
+            if (searchInput) searchInput.value = mainSearch;
+            if (statusInput) statusInput.value = mainStatus;
+            if (form) {
+                form.target = "_blank";
+                form.action = "";
+            }
+            if (btnSubmit) {
+                btnSubmit.onclick = null;
+                btnSubmit.disabled = false;
+            }
+            if (previewContainer) previewContainer.classList.add('d-none');
+            if (recipientContainer) recipientContainer.classList.add('d-none');
 
-            // --- RESET STATE GLOBAL ---
-            form.target = "_blank"; // Default back to new tab (PDF)
-            form.action = "";      // Clear action
-            btnSubmit.onclick = null; // Clear previous event handlers!
-            btnSubmit.disabled = false;
-            previewContainer.classList.add('d-none'); // Hide preview by default
-            const recipientContainer = document.getElementById('emailRecipientsContainer');
-            if(recipientContainer) recipientContainer.classList.add('d-none'); // Hide recipients by default
-            
-            // Manual Email Logic Block (Keep existing if needed or rely on existing initialization)
-            
-            // Format Total Tak
-            // const formattedTak = totalTak.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            // const takInfoHtml = (mode === 'nik' && totalTak > 0) 
-            //     ? ` <span class="ms-2 badge bg-warning text-dark border border-warning-subtle"><i class="fa-regular fa-clock me-1"></i>Total Time: ${formattedTak} Min</span>` 
-            //     : '';
-            const takInfoHtml = '';
+            const setHeaderColor = (color) => {
+                if (!headerBg) return;
+                headerBg.style.background = '';
+                headerBg.style.backgroundColor = color;
+            };
 
-            // Handle Print Modes
+            const safe = (v, fallback = '-') => {
+                if (v === null || v === undefined) return fallback;
+                const s = String(v).trim();
+                return s ? s : fallback;
+            };
+
+            const safeNum = (v, fallback = 0) => {
+                const n = parseFloat(v);
+                return Number.isFinite(n) ? n : fallback;
+            };
+
             if (mode === 'nik') {
-                form.action = "{{ route('wi.print-log-nik', ['kode' => $plantCode]) }}";
-                modalTitle.innerText = 'CETAK LOG BY NIK';
-                headerBg.style.background = '#6366f1'; // Indigo/Purple
-                
-                alertMsg.className = 'alert bg-primary-subtle text-primary border-0 fw-bold';
-                alertMsg.innerHTML = `<i class="fa-solid fa-users me-2"></i>Mencetak Log History berdasarkan NIK untuk ${count} dokumen.${takInfoHtml}`;
-                
-                btnSubmit.className = 'btn btn-primary px-4 rounded-pill fw-bold shadow-sm';
-                btnSubmit.innerHTML = '<i class="fa-solid fa-print me-2"></i>Print by NIK';
-                return; // Exit early as mode overrides standard types
+                let actionUrl = "{{ route('wi.print-log-nik', ['kode' => $plantCode]) }}";
+                if (type === 'inactive' || type === 'expired') {
+                    actionUrl += "?status_override=INACTIVE";
+                }
+                if (form) form.action = actionUrl;
+
+                if (modalTitle) modalTitle.innerText = 'CETAK LOG BY NIK';
+                setHeaderColor('#6366f1'); // indigo
+
+                if (alertMsg) {
+                    alertMsg.className = 'alert bg-primary-subtle text-primary border-0 fw-bold';
+                    alertMsg.innerHTML = `<i class="fa-solid fa-users me-2"></i>Mencetak Log History berdasarkan NIK untuk ${count} dokumen.`;
+                }
+
+                if (btnSubmit) {
+                    btnSubmit.className = 'btn btn-primary px-4 rounded-pill fw-bold shadow-sm';
+                    btnSubmit.innerHTML = '<i class="fa-solid fa-print me-2"></i>Print by NIK';
+                }
+                return; // selesai
             }
 
+            // ===== 6) Type: ACTIVE =====
             if (type === 'active') {
-                form.action = "{{ route('wi.print-single') }}"; 
-                modalTitle.innerText = 'CETAK WORK INSTRUCTION';
-                headerBg.style.background = '#10b981'; // Green
-                
-                alertMsg.className = 'alert bg-success-subtle text-success border-0 fw-bold';
-                alertMsg.innerHTML = `<i class="fa-solid fa-print me-2"></i>Mencetak ${count} Dokumen Kerja.`;
-                
-                btnSubmit.className = 'btn btn-success px-4 rounded-pill fw-bold shadow-sm';
-                btnSubmit.innerHTML = '<i class="fa-solid fa-download me-2"></i>Download WI';
+                if (form) form.action = "{{ route('wi.print-single') }}";
 
-            } else if (type === 'expired') {
-                form.action = "{{ route('wi.print-expired-report') }}"; 
-                modalTitle.innerText = 'CETAK LAPORAN HASIL';
-                headerBg.style.background = '#ef4444'; // Red
-                
-                alertMsg.className = 'alert bg-danger-subtle text-danger border-0 fw-bold';
-                alertMsg.innerHTML = `<i class="fa-solid fa-file-invoice me-2"></i>Laporan untuk ${count} dokumen selesai.`;
-                
-                btnSubmit.className = 'btn btn-danger px-4 rounded-pill fw-bold shadow-sm';
-                btnSubmit.innerHTML = '<i class="fa-solid fa-file-export me-2"></i>Export Report';
+                if (modalTitle) modalTitle.innerText = 'CETAK WORK INSTRUCTION';
+                setHeaderColor('#10b981'); // green
 
-            } else if (type === 'completed') {
-                form.action = "{{ route('wi.print-completed-report') }}"; 
-                modalTitle.innerText = 'CETAK LAPORAN COMPLETED';
-                headerBg.style.background = '#0ea5e9'; // Info Blue
-                
-                alertMsg.className = 'alert bg-info-subtle text-info border-0 fw-bold';
-                alertMsg.innerHTML = `<i class="fa-solid fa-file-invoice me-2"></i>Laporan untuk ${count} dokumen selesai.`;
-                
-                btnSubmit.className = 'btn btn-info text-white px-4 rounded-pill fw-bold shadow-sm';
-                btnSubmit.innerHTML = '<i class="fa-solid fa-file-export me-2"></i>Export Report';
+                if (alertMsg) {
+                    alertMsg.className = 'alert bg-success-subtle text-success border-0 fw-bold';
+                    alertMsg.innerHTML = `<i class="fa-solid fa-print me-2"></i>Mencetak ${count} Dokumen Kerja.`;
+                }
 
-            } else if (type === 'log') {
-                // NOTE: Action will be handled via JS for Email, but kept for fallback
-                form.action = "#"; // Prevent default submission
-                form.target = "_self"; // No new tab
-                
-                modalTitle.innerText = 'EXPORT LOG & EMAIL';
-                headerBg.style.background = '#ffffffff'; // Dark
-                
-                alertMsg.className = 'alert bg-info-subtle text-info border-0 fw-bold';
-                alertMsg.innerHTML = `<div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div> Loading Preview...</div>`;
-                
-                // Show Preview Container & Recipient Container
-                if(previewContainer) previewContainer.classList.remove('d-none');
-                if(recipientContainer) recipientContainer.classList.remove('d-none');
-                
-                btnSubmit.className = 'btn btn-dark px-4 rounded-pill fw-bold shadow-sm';
-                btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Email';
-                btnSubmit.disabled = true; // Disable until preview loads
+                if (btnSubmit) {
+                    btnSubmit.className = 'btn btn-success px-4 rounded-pill fw-bold shadow-sm';
+                    btnSubmit.innerHTML = '<i class="fa-solid fa-download me-2"></i>Download WI';
+                }
+                return;
+            }
 
-                // --- FETCH PREVIEW AJAX ---
+            // ===== 7) Type: INACTIVE =====
+            if (type === 'inactive') {
+                if (form) form.action = "{{ route('wi.print-inactive-report') }}";
+
+                if (modalTitle) modalTitle.innerText = 'CETAK LAPORAN INACTIVE';
+                setHeaderColor('#f59e0b'); // amber
+
+                if (alertMsg) {
+                    alertMsg.className = 'alert bg-warning-subtle text-dark border-0 fw-bold';
+                    alertMsg.innerHTML = `<i class="fa-solid fa-file-invoice me-2"></i>Laporan untuk ${count} dokumen inactive.`;
+                }
+
+                if (btnSubmit) {
+                    btnSubmit.className = 'btn btn-warning text-dark px-4 rounded-pill fw-bold shadow-sm';
+                    btnSubmit.innerHTML = '<i class="fa-solid fa-file-export me-2"></i>Export Report';
+                }
+                return;
+            }
+
+            // ===== 8) Type: EXPIRED =====
+            if (type === 'expired') {
+                if (form) form.action = "{{ route('wi.print-expired-report') }}";
+
+                if (modalTitle) modalTitle.innerText = 'CETAK LAPORAN HASIL';
+                setHeaderColor('#ef4444'); // red
+
+                if (alertMsg) {
+                    alertMsg.className = 'alert bg-danger-subtle text-danger border-0 fw-bold';
+                    alertMsg.innerHTML = `<i class="fa-solid fa-file-invoice me-2"></i>Laporan untuk ${count} dokumen selesai.`;
+                }
+
+                if (btnSubmit) {
+                    btnSubmit.className = 'btn btn-danger px-4 rounded-pill fw-bold shadow-sm';
+                    btnSubmit.innerHTML = '<i class="fa-solid fa-file-export me-2"></i>Export Report';
+                }
+                return;
+            }
+
+            // ===== 9) Type: COMPLETED =====
+            if (type === 'completed') {
+                if (form) form.action = "{{ route('wi.print-completed-report') }}";
+
+                if (modalTitle) modalTitle.innerText = 'CETAK LAPORAN COMPLETED';
+                setHeaderColor('#0ea5e9'); // blue
+
+                if (alertMsg) {
+                    alertMsg.className = 'alert bg-info-subtle text-info border-0 fw-bold';
+                    alertMsg.innerHTML = `<i class="fa-solid fa-file-invoice me-2"></i>Laporan untuk ${count} dokumen selesai.`;
+                }
+
+                if (btnSubmit) {
+                    btnSubmit.className = 'btn btn-info text-white px-4 rounded-pill fw-bold shadow-sm';
+                    btnSubmit.innerHTML = '<i class="fa-solid fa-file-export me-2"></i>Export Report';
+                }
+                return;
+            }
+
+            if (type === 'log') {
+                // prevent form submit default
+                if (form) {
+                    form.action = "#";
+                    form.target = "_self";
+                }
+
+                if (modalTitle) modalTitle.innerText = 'EXPORT LOG & EMAIL';
+                setHeaderColor('#111827'); // dark
+
+                if (alertMsg) {
+                    alertMsg.className = 'alert bg-info-subtle text-info border-0 fw-bold';
+                    alertMsg.innerHTML = `<div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        Loading Preview...
+                    </div>`;
+                }
+
+                if (previewContainer) previewContainer.classList.remove('d-none');
+                if (recipientContainer) recipientContainer.classList.remove('d-none');
+
+                if (btnSubmit) {
+                    btnSubmit.className = 'btn btn-dark px-4 rounded-pill fw-bold shadow-sm';
+                    btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Email';
+                    btnSubmit.disabled = true; // enable setelah preview sukses
+                }
+
                 const previewBody = document.getElementById('previewTableBody');
                 const countInfo = document.getElementById('previewCountInfo');
-                previewBody.innerHTML = ''; 
-                
-                const filterDate = mainDate;
-                const filterSearch = mainSearch;
-                const filterStatus = mainStatus;
-                
-                console.log("Fetching preview with:", { filterDate, filterSearch, filterStatus });
+                if (previewBody) previewBody.innerHTML = '';
 
-                // Pass status in URL
-                fetch(`{{ route('wi.preview-log', ['kode' => $plantCode]) }}?filter_date=${filterDate}&filter_search=${filterSearch}&filter_status=${filterStatus}`)
-                .then(response => response.json())
-                .then(res => {
-                        // ... logic ...
-                        console.log("Preview Loaded", res);
+                const url =
+                    `{{ route('wi.preview-log', ['kode' => $plantCode]) }}` +
+                    `?filter_date=${encodeURIComponent(mainDate)}` +
+                    `&filter_search=${encodeURIComponent(mainSearch)}` +
+                    `&filter_status=${encodeURIComponent(mainStatus)}`;
 
-                        if(res.success) {
+                fetch(url)
+                    .then(r => r.json())
+                    .then(res => {
+                        if (!res || !res.success) {
+                            if (alertMsg) alertMsg.innerHTML = 'Gagal memuat preview.';
+                            return;
+                        }
+
+                        if (alertMsg) {
                             alertMsg.className = 'alert bg-secondary-subtle text-dark border-0 fw-bold';
                             alertMsg.innerHTML = `<i class="fa-solid fa-info-circle me-2"></i>Review data sebelum dikirim via email.`;
-                            
-                            btnSubmit.disabled = false;
-                            
-                            // Populate Table
-                            if(res.data.length === 0) {
-                                previewBody.innerHTML = `<tr><td colspan="7" class="text-center py-3 text-muted">Tidak ada data ditemukan.</td></tr>`;
-                                btnSubmit.disabled = true;
-                            } else {
-                                let no = 1;
-                                res.data.forEach(row => {
-                                    const tr = document.createElement('tr');
-                                    // Color logic for status
-                                    let badgeClass = 'bg-secondary';
-                                    if(row.status === 'COMPLETED') badgeClass = 'bg-primary';
-                                    else if(row.status === 'ACTIVE') badgeClass = 'bg-success';
-                                    else if(row.status === 'NOT COMPLETED') badgeClass = 'bg-danger';
-                                    else if(row.status === 'INACTIVE') badgeClass = 'bg-warning text-dark';
-    
-                                    tr.innerHTML = `
-                                        <td>${no++}</td>
-                                        <td>${row.doc_no}</td>
-                                        <td>${row.expired_at}</td>
-                                        <td class="text-center">${row.description.substring(0, 15)}...</td>
-                                        <td class="text-center">${row.balance}</td>
-                                        <td class="text-center"><span class="badge ${badgeClass}">${row.status}</span></td>
-                                    `;
-                                    previewBody.appendChild(tr);
-                                });
-                            }
-                            const uniqueDocsCount = new Set(res.data.map(d => d.doc_no)).size;
-                            countInfo.innerText = `Menampilkan ${uniqueDocsCount} dari total ${res.total_docs} dokumen.`;
-                            
-                            // --- CLICK HANDLER FOR EMAIL ---
-                            btnSubmit.onclick = function(e) {
-                                e.preventDefault();
-                                console.log("Email Submit Clicked");
-                                
-                                // Collect Recipients
-                                const checkedRecipients = document.querySelectorAll('.email-recipient-cb:checked');
-                                let recipients = [];
-                                checkedRecipients.forEach(cb => recipients.push(cb.value));
-                                
-                                if (recipients.length === 0) {
-                                    Swal.fire('Peringatan', 'Pilih minimal satu penerima email.', 'warning');
-                                    return;
-                                }
-    
-                                Swal.fire({
-                                    title: 'Kirim Email Report?',
-                                    text: `Report akan dikirim ke ${recipients.length} alamat email terpilih.`,
-                                    icon: 'question',
-                                    showCancelButton: true,
-                                    confirmButtonColor: '#3085d6',
-                                    cancelButtonColor: '#d33',
-                                    confirmButtonText: 'Ya, Kirim!',
-                                    cancelButtonText: 'Batal'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        btnSubmit.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div> Mengirim...';
-                                        btnSubmit.disabled = true;
-                                        
-                                        const departmentVal = document.querySelector('input[name="department"]').value;
-                                        const printedByVal = document.querySelector('input[name="printed_by"]').value;
-    
-                                        fetch(`{{ route('wi.email-log', ['kode' => $plantCode]) }}?filter_date=${filterDate}&filter_search=${filterSearch}&filter_status=${filterStatus}`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                                'Content-Type': 'application/json'
-                                            },
-                                            body: JSON.stringify({
-                                                department: departmentVal,
-                                                printed_by: printedByVal,
-                                                recipients: recipients
-                                            })
-                                        })
-                                        .then(resp => resp.json())
-                                        .then(data => {
-                                            if(data.success) {
-                                                Swal.fire('Berhasil!', data.message, 'success').then(() => {
-                                                    const modalEl = document.getElementById('universalPrintModal');
-                                                    const modal = bootstrap.Modal.getInstance(modalEl);
-                                                    modal.hide();
-                                                });
-                                            } else {
-                                                Swal.fire('Gagal', data.message, 'error');
-                                                btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Email';
-                                                btnSubmit.disabled = false;
-                                            }
-                                        })
-                                        .catch(err => {
-                                            console.error(err);
-                                            Swal.fire('Error', 'Terjadi kesalahan koneksi.', 'error');
-                                            btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Email';
-                                            btnSubmit.disabled = false;
-                                        });
-                                    }
-                                });
-                            };
-    
-                        } else {
-                            alertMsg.innerHTML = 'Gagal memuat preview.';
                         }
-                })
-                .catch(err => { /* ... */ });
 
+                        if (btnSubmit) btnSubmit.disabled = false;
 
+                        const rows = Array.isArray(res.data) ? res.data : [];
+
+                        if (!previewBody) return;
+
+                        // jika kosong
+                        if (rows.length === 0) {
+                            previewBody.innerHTML = `<tr><td colspan="8" class="text-center py-3 text-muted">Tidak ada data ditemukan.</td></tr>`;
+                            if (btnSubmit) btnSubmit.disabled = true;
+                        } else {
+                            let no = 1;
+                            rows.forEach(row => {
+                                const tr = document.createElement('tr');
+
+                                let badgeClass = 'bg-secondary';
+                                if (row.status === 'COMPLETED') badgeClass = 'bg-primary';
+                                else if (row.status === 'ACTIVE') badgeClass = 'bg-success';
+                                else if (row.status === 'NOT COMPLETED') badgeClass = 'bg-danger';
+                                else if (row.status === 'INACTIVE') badgeClass = 'bg-warning text-dark';
+
+                                // OPTIONAL: nama bagian (sesuaikan nama field backend kamu)
+                                const dept = row.department_name || row.department || row.bagian || '';
+
+                                tr.innerHTML = `
+                                    <td>${no++}</td>
+                                    <td>${safe(row.doc_no)}</td>
+                                    <td>${safe(row.expired_at)}</td>
+                                    <td class="text-center">${safe(row.description, '').substring(0, 15)}...</td>
+                                    <td class="text-center">${safeNum(row.balance, 0)}</td>
+                                    <td class="text-center"><span class="badge ${badgeClass}">${safe(row.status)}</span></td>
+                                    <td class="text-center">${dept ? safe(dept) : '-'}</td>
+                                `;
+                                previewBody.appendChild(tr);
+                            });
+                        }
+
+                        const uniqueDocsCount = new Set(rows.map(d => d.doc_no)).size;
+                        if (countInfo) {
+                            countInfo.innerText = `Menampilkan ${uniqueDocsCount} dari total ${safeNum(res.total_docs, uniqueDocsCount)} dokumen.`;
+                        }
+
+                        // NOTE: handler btnSubmit.onclick tetap pakai versi kamu (send email)
+                        // pastikan kamu set onclick setelah preview sukses kalau dibutuhkan
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        if (alertMsg) alertMsg.innerHTML = 'Gagal memuat preview (error koneksi).';
+                    });
+
+                return;
             }
+
+            // fallback jika type tidak dikenal
+            if (alertMsg) {
+                alertMsg.className = 'alert alert-warning border-0 fw-bold';
+                alertMsg.innerHTML = 'Tipe print tidak dikenali.';
+            }
+            if (btnSubmit) btnSubmit.disabled = true;
         }
 
         // --- DEBUG EXECUTION ---
@@ -3286,4 +3338,31 @@
 
     </script>
     @endpush
+
+{{-- Multi Search Modal --}}
+<div class="modal fade" id="multiSearchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Pencarian Multi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ route('wi.history', ['kode' => $plantCode]) }}" method="GET" id="multiSearchForm">
+                    <!-- Preserve existing filters -->
+                    @if(request('date')) <input type="hidden" name="date" value="{{ request('date') }}"> @endif
+                    @if(request('workcenter') && request('workcenter')!='all') <input type="hidden" name="workcenter" value="{{ request('workcenter') }}"> @endif
+                    @if(request('status')) <input type="hidden" name="status" value="{{ request('status') }}"> @endif
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">Masukkan Kode WI, PRO, atau NIK (Satu per baris)</label>
+                        <textarea name="multi_search" class="form-control" rows="10" placeholder="WIW00055&#10;10006543&#10;..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Cari</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 </x-layouts.app>
