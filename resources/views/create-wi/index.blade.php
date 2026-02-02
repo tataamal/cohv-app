@@ -1663,6 +1663,10 @@
                         */
                     }
 
+                    // Preserve caches before cancelDrop wipes them
+                    const preservedTargetContainer = targetContainerCache;
+                    const preservedSourceContainer = sourceContainerCache;
+
                     mismatchModalInstance.hide();
                     cancelDrop();
 
@@ -1679,8 +1683,8 @@
                     processDrop(
                         null, // evt null
                         itemsToProcess[0],
-                        targetContainerCache,
-                        sourceContainerCache,
+                        preservedTargetContainer, 
+                        preservedSourceContainer,
                         targetWc
                     );  
                 });
