@@ -1284,7 +1284,10 @@ class CreateWiController extends Controller
         $namaBagian = preg_replace('/[^\x20-\x7E]/', '', $namaBagian);
 
         // Fetch Workcenter Descriptions
-        $wcDescriptions = \App\Models\workcenter::where('plant', $plantCode)
+        // Fetch Workcenter Descriptions (Global & With Trashed to ensure match)
+        $wcDescriptions = \App\Models\workcenter::withTrashed()
+            ->whereNotNull('description')
+            ->where('description', '!=', '')
             ->pluck('description', 'kode_wc')
             ->mapWithKeys(fn($item, $key) => [strtoupper(trim($key)) => $item])
             ->toArray();
