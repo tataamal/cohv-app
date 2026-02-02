@@ -104,7 +104,7 @@
 
     <table>
         <tr class="summary-header">
-            <td width="20%">Quantity WI</td>
+            <td width="20%">QTY TASK</td>
             <td width="20%">Quantity Terkonfirmasi</td>
             <td width="20%">Quantity Remark</td>
             <td width="20%">Quantity Tidak Terkonfirmasi</td>
@@ -123,13 +123,12 @@
         <thead>
             <tr class="data-header">
                 <th width="3%">NO</th>
-                <th width="9%">Kode WI</th>
                 <th width="6%">NIK</th>
                 <th width="12%">NAMA</th>
-                <th width="8%">Workcenter</th>
+                <th width="15%">Workcenter</th>
                 <th width="5%">PRO</th>
-                <th width="5%">KD. Material</th>
-                <th width="18%">Deskripsi</th>
+                <th width="7%">KODE MAT.</th>
+                <th width="20%">Deskripsi</th>
                 <th width="4%">Qty. WI</th>
                 <th width="4%">Conf</th>
                 <th width="16%">REMARK</th>
@@ -148,7 +147,6 @@
             @foreach($items as $idx => $row)
             <tr class="data-row">
                 <td class="text-center">{{ $idx + 1 }}</td>
-                <td class="fw-bold">{{ $row['wi_code'] }}</td>
                 <td class="text-center">{{ $row['nik'] ?? '-' }}</td>
                 <td>{{ substr($row['employee_name'] ?? ($row['name'] ?? '-'), 0, 15) }}</td>
                 <td class="text-center">{{ $row['workcenter'] }}</td>
@@ -157,7 +155,8 @@
                 <td>{{ substr($row['description'], 0, 30) }}</td>
                 <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                 <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
-                <td class="text-danger" style="font-size: 7pt;">
+                <td class="text-danger text-center" style="font-size: 7pt;">
+                    <strong>Qty: {{ floatval($row['remark_qty'] ?? 0) }}</strong><br>
                     {!! nl2br(e($row['remark_text'] ?? ($row['remark'] ?? '-'))) !!} 
                 </td>
                 <td class="text-center" style="font-size: 6pt;">
@@ -171,7 +170,6 @@
             {{-- AUTO FILL ROWS --}}
             @for($i = 0; $i < $rowsToFill; $i++)
             <tr class="data-row">
-                <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>

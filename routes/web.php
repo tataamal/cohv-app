@@ -144,6 +144,7 @@ Route::middleware('auth')->group(function (){
     Route::post('/history-wi/update-qty', [CreateWiController::class, 'updateQty'])->name('history-wi.update-qty');
     Route::post('/work-instruction/history/print/{kode}', [CreateWiController::class, 'printPdf'])->name('wi.print-pdf');
     Route::post('/work-instruction/print-single', [CreateWiController::class, 'printSingleWi'])->name('wi.print-single');
+    Route::post('/wi/print-inactive-report', [CreateWiController::class, 'printInactiveReport'])->name('wi.print-inactive-report');
     Route::post('/work-instruction/print-expired', [CreateWiController::class, 'printExpiredReport'])->name('wi.print-expired-report');
     Route::post('/work-instruction/print-completed', [CreateWiController::class, 'printCompletedReport'])->name('wi.print-completed-report');
     Route::get('/work-instruction/history/preview/{kode}', [CreateWiController::class, 'previewLog'])->name('wi.preview-log');

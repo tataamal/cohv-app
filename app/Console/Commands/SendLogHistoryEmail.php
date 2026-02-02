@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\HistoryWi;
 use Carbon\Carbon;
-use App\Models\Kode;
+use App\Models\KodeLaravel;
 
 class SendLogHistoryEmail extends Command
 {
@@ -49,12 +49,12 @@ class SendLogHistoryEmail extends Command
         $this->info("Active Date (Today): $dateActive");
 
         // --- 1. FETCH DATA (GLOBAL) ---
-        $queryHistory = HistoryWi::with('kode')
+        $queryHistory = HistoryWi::with(['kode', 'items.pros'])
                     ->where('wi_document_code', 'LIKE', 'WIH%')
                     ->whereDate('document_date', $dateHistory)
                     ->orderBy('created_at', 'desc');
 
-        $queryActive = HistoryWi::with('kode')
+        $queryActive = HistoryWi::with(['kode', 'items.pros'])
                     ->where('wi_document_code', 'LIKE', 'WIH%')
                     ->whereDate('document_date', $dateActive)
                     ->orderBy('created_at', 'desc');
@@ -76,9 +76,11 @@ class SendLogHistoryEmail extends Command
                  $kData = null; // Invalidate if mismatch
             }
             if (!$kData) {
-                $kData = Kode::where('kode', $pCode)->first();
+                $kData = KodeLaravel::where('laravel_code', $pCode)->first();
             }
-            $rawName = $kData ? $kData->nama_bagian : 'UNKNOWN';
+            $rawName = $kData ? $kData->description : 'UNKNOWN';
+            // Sanitize: Replace en-dash/em-dash with standard hyphen
+            $rawName = str_replace(['–', '—'], '-', $rawName);
             
             $upperName = strtoupper($rawName);
             $slug = preg_replace('/[^A-Z0-9]/', '', $upperName); 
@@ -95,11 +97,10 @@ class SendLogHistoryEmail extends Command
             }
             $groupedData[$slug]['plant_codes'][] = $pCode;
             
-            $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : (is_array($doc->payload_data) ? $doc->payload_data : []);
-            if (!is_array($payload)) continue;
+            // Refactored: Use relationship
+            foreach ($doc->items as $item) {
 
-            foreach ($payload as $item) {
-                 $item['_doc_no'] = $doc->wi_document_code;
+                 $item->setAttribute('_doc_no', $doc->wi_document_code);
                  $groupedData[$slug]['items'][] = $item;
             }
         }
@@ -112,8 +113,7 @@ class SendLogHistoryEmail extends Command
             $this->info(">>> Processing Bagian: '{$namaBagian}' [Slug: {$slug}] (Items: " . count($rawItems) . ")");
             $this->info("    Plant Codes: " . implode(', ', $uniqueCodes));
 
-            $wcMap = \App\Models\workcenter::whereIn('werksx', $uniqueCodes)
-                ->orWhereIn('werks', $uniqueCodes)
+            $wcMap = \App\Models\workcenter::whereIn('plant', $uniqueCodes)
                 ->pluck('description', 'kode_wc')
                 ->mapWithKeys(fn($d, $k) => [strtoupper($k) => $d])
                 ->toArray();
@@ -121,65 +121,95 @@ class SendLogHistoryEmail extends Command
             $processedItems = [];
             
             foreach ($rawItems as $item) {
-                 $wcCode = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
+                 // $item is now a HistoryWiItem Model
+                 $wcCode = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
                  $wcDesc = $wcMap[strtoupper($wcCode)] ?? '-';
                  
-                 $matnr = $item['material_number'] ?? '';
+                 $matnr = $item->material_number ?? '';
                  if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
 
-                 $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
-                 $confirmed = isset($item['confirmed_qty']) ? floatval($item['confirmed_qty']) : 0;
-                 $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
-                 $waerk = isset($item['waerk']) ? $item['waerk'] : '';
+                 $assigned = floatval($item->assigned_qty ?? 0);
+                 
+                 // Calculate confirmed & remarks from PROS
+                 $confirmed = 0;
+                 $remarkQty = 0;
+                 $remarkTexts = [];
+                 $remarkDetails = [];
+
+                 foreach ($item->pros as $pro) {
+                    $st = strtolower($pro->status ?? '');
+                    if (in_array($st, ['confirmation', 'confirm', 'confirmed'])) {
+                        $confirmed += $pro->qty_pro;
+                    } elseif ($st === 'remark') {
+                        $remarkQty += $pro->qty_pro;
+                        if (!empty($pro->remark_text)) {
+                            $remarkTexts[] = $pro->remark_text;
+                        }
+                        $remarkDetails[] = [
+                            'qty' => $pro->qty_pro,
+                            'text' => $pro->remark_text ?? '-'
+                        ];
+                    }
+                 }
+
+                 $remarkText = !empty($remarkTexts) ? implode("\n", $remarkTexts) : '-';
+                 $netpr = 0; 
+                 $waerk = ''; 
                  
                  $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : $waerk . ' ');
                  $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
                  $confirmedPrice = $netpr * $confirmed;
                  
-                 $remarkQty = isset($item['remark_qty']) ? floatval($item['remark_qty']) : 0;
-                 $remarkText = isset($item['remark']) ? $item['remark'] : '-';
-                 $remarkText = isset($item['remark']) ? $item['remark'] : '-';
-                 // Strip "Qty X:" or "M:X" prefix to avoid duplication with the view's "Qty:" label
-                 $remarkText = preg_replace('/^(Qty|M)[:\s]*\d+[:]?\s*/i', '', $remarkText);
-                 
                  $balance = $assigned - ($confirmed + $remarkQty);
                  $failedPrice = $netpr * ($balance + $remarkQty);
 
-                 $baseTime = isset($item['vgw01']) ? floatval($item['vgw01']) : 0;
-                 $unit = isset($item['vge01']) ? strtoupper($item['vge01']) : '';
-                 $totalTime = $baseTime * $assigned;
-                 $finalTime = ($unit == 'S' || $unit == 'SEC') ? $totalTime/60 : $totalTime;
-                 $timeUnit = ($unit == 'S' || $unit == 'SEC') ? 'Menit' : $unit;
-                 $taktFull = ((fmod($finalTime, 1) !== 0.00) ? number_format($finalTime, 2) : number_format($finalTime, 0)) . ' ' . $timeUnit;
+                 // Takt Time Logic
+                 $taktFull = $item->calculated_takt_time ?? '-';
+                 $finalTime = floatval($taktFull);
+                 
+                 if ($finalTime > 0) {
+                     $totSec = $finalTime * 60;
+                     $hrs = floor($totSec / 3600);
+                     $mins = floor(($totSec % 3600) / 60);
+                     $secs = round($totSec % 60);
+                     
+                     $parts = [];
+                     if ($hrs > 0) $parts[] = $hrs . ' Jam';
+                     if ($mins > 0) $parts[] = $mins . ' Menit';
+                     if ($secs > 0 || empty($parts)) $parts[] = $secs . ' Detik';
+                     
+                     $taktFull = implode(', ', $parts);
+                 } else {
+                     $taktFull = '-';
+                 }
 
                  $priceOkFmt = $prefix . number_format($confirmedPrice, $decimals, ',', '.');
                  $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
 
-                 $kdauf = $item['kdauf'] ?? '';
-                 $matKdauf = $item['mat_kdauf'] ?? '';
-                 $isMakeStock = (strcasecmp($kdauf, 'Make Stock') === 0) || (strcasecmp($matKdauf, 'Make Stock') === 0);
-                 $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
-                 
-                 $soItem = $isMakeStock ? $kdauf : ($kdauf . ($kdpos ? '-' . $kdpos : ''));
+                 // SO Item Logic
+                 $kdauf = $item->kdauf ?? '-';
+                 $kdpos = $item->kdpos ? ltrim((string)$item->kdpos, '0') : '-';
+                 $soItem = ($kdauf !== '-' && $kdpos !== '-') ? "{$kdauf}-{$kdpos}" : '-';
 
-                    $nik = $item['nik'] ?? '-';
+                 $nik = $item->nik ?? '-';
                  
                  $processedItems[] = [
-                    'doc_no'        => $item['_doc_no'],
+                    'doc_no'        => $item->_doc_no,
                     'workcenter'    => $wcCode,
                     'wc_description'=> $wcDesc,
                     'so_item'       => $soItem,
-                    'aufnr'         => $item['aufnr'] ?? '-',
-                    'vornr'         => $item['vornr'] ?? '', // [NEW] Added vornr
+                    'aufnr'         => $item->aufnr ?? '-',
+                    'vornr'         => $item->vornr ?? '', 
                     'material'      => $matnr,
-                    'description'   => $item['material_desc'] ?? '-',
+                    'description'   => $item->material_desc ?? '-',
                     'assigned'      => $assigned,
                     'confirmed'     => $confirmed,
                     'remark_qty'    => $remarkQty,
                     'remark_text'   => $remarkText,
+                    'remark_details'=> $remarkDetails,
                     'takt_time'     => $taktFull,
                     'nik'           => $nik,
-                    'name'          => $item['name'] ?? '-',
+                    'name'          => $item->operator_name ?? '-',
                     'price_ok_fmt'    => $priceOkFmt,
                     'price_fail_fmt'  => $priceFailFmt,
                     'confirmed_price' => $confirmedPrice, 
@@ -222,7 +252,8 @@ class SendLogHistoryEmail extends Command
             ];
             
             // Generate PDF
-            $safeName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $namaBagian);
+            $safeName = preg_replace('/[^A-Za-z0-9]/', ' ', $namaBagian);
+            $safeName = trim(preg_replace('/\s+/', ' ', $safeName));
             $historyPdfName = "Daily Report WI - {$safeName} - {$dateHistory}.pdf";
             
             $pdfViewData = ['reports' => [$reportData], 'isEmail' => true];
@@ -288,8 +319,8 @@ class SendLogHistoryEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No reports/files to send.");
         } else {
-            $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com','kmi3.16.smg@gmail.com','kmi3.29.smg@gmail.com'];
-            // $recipients = ['tataamal1128@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com','kmi3.16.smg@gmail.com','kmi3.29.smg@gmail.com'];
+            $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateHistory)->locale('id')->translatedFormat('d F Y');
 
             try {

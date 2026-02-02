@@ -10,7 +10,7 @@
         data-id="{{ $item->id }}"
         data-aufnr="{{ $item->AUFNR }}"
         data-pwwrk="{{ $item->PWWRK ?? $item->WERKS ?? '' }}"
-        data-vgw01="{{ number_format($item->VGW01, 2, '.', '') }}"
+        data-vgw01="{{ $item->VGW01 }}"
         data-vge01="{{ $item->VGE01 }}" 
         data-psmng="{{ $item->PSMNG }}"
         data-sisa-qty="{{ $sisaQty }}" 
@@ -122,12 +122,16 @@
         <td class="text-center table-col text-primary fw-bold">{{ number_format($qtySisaDisplay, $decimals, ',', '.') }} {{ $showUnit }}</td>
         
         @php
-            $taktTime = $item->VGW01 * $qtySisaDisplay;
-            if ($item->VGE01 == 'S') {
-                $taktTime = $taktTime / 60;
+            // Numeric standard value (time/value per unit)
+            $vgw01 = (float) ($item->VGW01 ?? $item->vgw01 ?? 0);
+            $unitVge = strtoupper(trim($item->VGE01 ?? $item->vge01 ?? ''));
+            $timeReq = $vgw01 * (float) $qtySisaDisplay;
+
+            if (in_array($unitVge, ['S', 'SET', 'ST'], true)) {
+                $timeReq = $timeReq / 60;
             }
-            $taktTimeDisplay = (float) number_format($taktTime, 2, '.', '');
-            $taktTimeDisplay = str_replace('.', ',', (string) $taktTimeDisplay);
+
+            $taktTimeDisplay = str_replace('.', ',', number_format($timeReq, 2, '.', ''));
         @endphp
         <td class="text-center table-col">{{ $taktTimeDisplay }} Min</td>
         <td class="text-center table-col">
@@ -140,10 +144,7 @@
         <td class="card-view-content" colspan="9">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <span class="fw-bold text-primary small">{{ $item->AUFNR }}</span>
-                <button type="button" class="btn btn-sm btn-icon btn-ghost-danger rounded-circle p-1" 
-                        onclick="handleReturnToTable(this.closest('.pro-item-card'), this.closest('.wc-drop-zone'))" title="Kembalikan ke Table">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <!-- X button removed by request -->
             </div>
 
             <div class="d-flex align-items-center justify-content-between gap-1">

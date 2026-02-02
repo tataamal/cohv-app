@@ -1,5 +1,4 @@
 <x-layouts.app title="Buat Penugasan">
-
     @push('styles')
         <style>
             :root {
@@ -15,7 +14,6 @@
                 --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
                 --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
             }
-
             body { 
                 background-color: var(--bg-app) !important; 
                 color: var(--primary-dark); 
@@ -40,7 +38,7 @@
                 border-radius: 12px;
                 border: 1px solid var(--border-color);
                 box-shadow: var(--shadow-soft);
-                height: calc(100vh - 140px);
+                min-height: calc(100vh - 140px);
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
@@ -125,7 +123,7 @@
             .wc-body { padding: 12px 15px; }
             .wc-drop-zone {
                 min-height: 80px;
-                max-height: 300px;
+                max-height: 800px;
                 overflow-y: auto;
                 background-color: #f8fafc;
                 border: 2px dashed #cbd5e1;
@@ -168,25 +166,48 @@
                 background-color: #e2e8f0 !important;
                 border: 2px dashed var(--text-secondary) !important;
             }
-            .sortable-drag { opacity: 1 !important; background: transparent; }
-            .drag-preview-icon {
-                background: white;
-                padding: 10px 15px;
-                border-radius: 8px;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
-                border: 1px solid var(--primary-blue);
-                display: flex; align-items: center; gap: 10px;
-                width: max-content;
-                transform: rotate(2deg);
+
+            /* MIRROR / CLONE dari Sortable fallback */
+            .sortable-fallback {
+                position: fixed !important;
+                pointer-events: none !important;
+
+                width: 46px !important;
+                height: 46px !important;
+                padding: 0 !important;
+
+                border-radius: 12px !important;
+                background: #fff !important;
+                border: 1px solid var(--border-color) !important;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2) !important;
+
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+
+                overflow: hidden !important;
+                transform: translate(-50%, -50%) !important;
+            }
+
+            /* sembunyikan isi clone */
+            .sortable-fallback * {
+                display: none !important;
+            }
+
+            /* icon */
+            .sortable-fallback::before {
+                content: "\f15b";
+                font-family: "Font Awesome 6 Free";
+                font-weight: 900;
+                font-size: 20px;
+                color: var(--primary-blue);
             }
             .wc-drop-zone .pro-item-card .table-col,
             .wc-drop-zone .pro-item-card .drag-handle,
             .wc-drop-zone .pro-item-card .preview-container .original-content,
             .wc-drop-zone .pro-item-card .row-checkbox { display: none !important; }
-
             .wc-drop-zone .pro-item-card .card-view-content { display: block !important; }
             .wc-drop-zone .pro-item-card .drag-preview-icon { display: none !important; }
-
             .source-table .pro-item .card-view-content { display: none; }
             .source-table .pro-item .drag-preview-icon { display: none; }
             ::-webkit-scrollbar { width: 6px; }
@@ -214,8 +235,66 @@
                 font-size: 0.9rem;
             }
             
+            /* Machining Mode Styles */
+            #assignmentCardContainer.machining-mode-active .col-qty,
+            #assignmentCardContainer.machining-mode-active .col-time,
+            #assignmentCardContainer.machining-mode-active .btn-add-wrapper,
+            #assignmentCardContainer.machining-mode-active .qty-badge-vis {
+                display: none !important;
+            }
+            
+            #assignmentCardContainer.machining-mode-active .longshift-wrapper {
+                display: block !important;
+            }
+            #assignmentCardContainer.machining-mode-active .date-info-wrapper {
+                display: flex !important;
+            }
+            
+            #assignmentCardContainer.machining-mode-active .col-operator {
+                width: 50% !important; 
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+            #assignmentCardContainer.machining-mode-active .col-subwc {
+                width: 50% !important;
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+
             .table-scroll-area {
                 min-height: 150px;
+            }
+
+            .drag-icon-only{
+                position: fixed !important;
+                pointer-events: none !important;
+                width: 46px !important;
+                height: 46px !important;
+                padding: 0 !important;
+                border-radius: 12px !important;
+                background: #fff !important;
+                border: 1px solid var(--border-color) !important;
+                box-shadow: 0 10px 25px -5px rgba(0,0,0,.2) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                overflow: hidden !important;
+                transform: translate(-50%, -50%) !important;
+                z-index: 99999 !important;
+            }
+
+            /* sembunyikan semua isi clone */
+            .drag-icon-only *{
+                display: none !important;
+            }
+
+            /* tampilkan icon */
+            .drag-icon-only::before{
+                content: "\f15b"; /* fa-file */
+                font-family: "Font Awesome 6 Free";
+                font-weight: 900;
+                font-size: 20px;
+                color: var(--primary-blue);
             }
         </style>
     @endpush
@@ -241,7 +320,7 @@
                 <button onclick="saveAllocation(true)" class="btn btn-primary fw-bold text-white rounded-pill px-4 btn-sm shadow-sm">
                     <i class="fa-solid fa-floppy-disk me-2"></i>Cek Ulang & Simpan
                 </button>
-            </div>
+            </div> 
         </div>
 
         <div class="row g-4">
@@ -322,16 +401,10 @@
                                             <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advArbpl', 'WC List')" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-3">
                                         <div class="input-group input-group-sm">
-                                            <input type="text" id="advKdauf" class="form-control" placeholder="SO (KDAUF)">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO List', false)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <div class="input-group input-group-sm">
-                                            <input type="text" id="advKdpos" class="form-control" placeholder="Item">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdpos', 'Item List', false)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
+                                            <input type="text" id="advKdauf" class="form-control" placeholder="SO or SO-Item">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="openMultiInput('advKdauf', 'SO / SO-Item List', true)" title="Input Multiple"><i class="fa-solid fa-list-ul"></i></button>
                                         </div>
                                     </div>
                                      <div class="col-md-1">
@@ -344,7 +417,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="table-scroll-area custom-scrollbar" style="max-height: 700px; overflow-y: auto;">
+                    <div class="table-scroll-area custom-scrollbar" style="height: 650px; overflow-y: auto;">
                         <table class="table table-hover table-striped source-table mb-0 w-100" style="font-size: 0.8rem;">
                             <thead class="bg-light sticky-top" style="z-index: 5;">
                                 <tr class="align-middle">
@@ -421,26 +494,53 @@
                                 }
                                 $kapazMins = $totalMins;
                             } else {
-                                $k = floatval(str_replace(',', '.', $wc->kapaz ?? 0));
+                                // [UPDATED] Use operating_time as capacity source
+                                $k = floatval(str_replace(',', '.', $wc->operating_time ?? 0));
                                 if ($k == 0) $k = 9.5; // Fallback 570 mins
                                 $kapazMins = $k * 60;
                             }
+                            
+                            $formatTime = function($t) {
+                                if (!$t) return '-';
+                                $clean = str_replace(':', '', $t);
+                                // Assume HHMMSS or similar
+                                if (strlen($clean) >= 4) {
+                                    return substr($clean, 0, 2) . ':' . substr($clean, 2, 2);
+                                }
+                                return $t; 
+                            };
+                            
+                            $sTime = $formatTime($wc->start_time);
+                            $eTime = $formatTime($wc->end_time);
                         @endphp
 
                         {{-- @if (!$isUnknown) --}}
-                            <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-capacity-mins="{{ $kapazMins }}">
+                            <div class="wc-card-container" data-wc-id="{{ $wc->kode_wc }}" data-capacity-mins="{{ $kapazMins }}" 
+                                 data-start-time="{{ $wc->start_time }}" data-end-time="{{ $wc->end_time }}">
                                 {{-- Card Header --}}
-                                <div class="wc-header">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <h6 class="fw-bold text-dark mb-0">{{ $wc->kode_wc }}</h6>
-                                        <span class="badge bg-light text-dark border" id="label-cap-{{ $wc->kode_wc }}" style="font-size: 0.75rem;">0 / 0 Min</span>
-                                    </div>
-                                    <div class="text-muted text-xs text-truncate mb-2" title="{{ $wc->description }}">
-                                        {{ $wc->description }}
+                                <div class="wc-header" style="padding: 12px 15px; background: #fff; border-bottom: 1px solid #f1f5f9;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex flex-column" style="min-width: 0; max-width: 65%;">
+                                            <h6 class="fw-bold text-dark mb-0 text-truncate" style="font-size: 0.95rem;">
+                                                <i class="fa-solid fa-industry text-muted me-1 opacity-25" style="font-size: 0.8rem;"></i>{{ $wc->kode_wc }}
+                                            </h6>
+                                            <div class="text-muted text-truncate mt-1" title="{{ $wc->description }}" style="font-size: 0.7rem;">
+                                                {{ $wc->description }}
+                                            </div>
+                                        </div>
+                                        <div class="d-flex flex-column align-items-end ms-2">
+                                            <span class="badge bg-white text-dark border shadow-sm rounded-pill px-2 py-1 mb-1" id="label-cap-{{ $wc->kode_wc }}" style="font-size: 0.75rem;">
+                                                0 / 0 Min
+                                            </span>
+                                             <div class="d-flex align-items-center gap-1 text-secondary" style="font-size: 0.65rem; font-weight: 600; opacity: 0.8;">
+                                                <i class="fa-regular fa-clock text-primary"></i>
+                                                <span>{{ $sTime }} - {{ $eTime }}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                     
                                     {{-- Progress Bar --}}
-                                    <div class="progress bg-white border" style="height: 8px; border-radius: 4px;">
+                                    <div class="progress bg-light" style="height: 6px; border-radius: 6px;">
                                         <div id="progress-{{ $wc->kode_wc }}" class="progress-bar rounded-pill bg-success" role="progressbar" style="width: 0%"></div>
                                     </div>
                                 </div>
@@ -521,8 +621,20 @@
     <div class="modal fade" id="uniqueAssignmentModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-dark text-white border-0 py-3">
-                    <h6 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>Assign Operator</h6>
+                <div class="modal-header bg-dark text-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-4">
+                        <h6 class="modal-title fw-bold mb-0"><i class="fa-solid fa-user-pen me-2"></i>Assign Operator</h6>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="chkUnique1">
+                                <label class="form-check-label small text-white" for="chkUnique1">Machining</label>
+                            </div>
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="chkUnique2">
+                                <label class="form-check-label small text-white" for="chkUnique2">Auto Assign</label>
+                            </div>
+                        </div>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <select id="employeeTemplateSelect" class="d-none">
@@ -584,6 +696,8 @@
             const PARENT_WORKCENTERS = @json($parentWorkcenters);
             const PLANT_CODE = '{{ $kode }}';
 
+            let activeDraggedItem = null;
+            let lastDroppedItem = null;
             let draggedItemsCache = [];
             let targetContainerCache = null;
             let sourceContainerCache = null;
@@ -613,8 +727,10 @@
                 setupMismatchLogic(); 
                 setupTargetWcSearch(); 
                 document.getElementById('uniqueAssignmentModal').addEventListener('hide.bs.modal', function() {
-                    if(draggedItemsCache.length > 0 && tempSplits.length === 0) {
-                        cancelDrop();
+                    // Check if there are active items tracking, if so, cancel drop
+                    // Removed tempSplits check to ensure we always cleanup if variables are set
+                    if (draggedItemsCache.length > 0 || activeDraggedItem) {
+                        cancelDrop(false); 
                     }
                 });
             });
@@ -718,52 +834,43 @@
 
             function handleDropToWc(evt) {
                 const item = evt.item;
+                activeDraggedItem = evt.item;
+                lastDroppedItem = item;
                 const toList = evt.to;
                 const fromList = evt.from;
                 const wcContainer = toList.closest('.wc-card-container');
                 const targetWcId = wcContainer ? wcContainer.dataset.wcId : '';
                 const originWc = item.dataset.arbpl;
-
-                // --- CAPACITY PRE-CHECK START ---
                 if (wcContainer) {
-                    const kapazHours = parseFloat(wcContainer.dataset.kapazWc) || 0;
-                    const maxMins = kapazHours * 60;
-                    
-                    // Calc Current Load (excluding the newly dropped item and any cached dragged items if they are momentarily in the list)
-                    let currentLoad = 0;
+                    const maxMins = parseFloat(wcContainer.dataset.capacityMins || '0') || 0;
+                    let currentLoad = 0;    
                     wcContainer.querySelectorAll('.pro-item-card').forEach(card => {
-                        // Check if this card is part of the currently dragged set
                         const isDragged = (card === item) || (draggedItemsCache && draggedItemsCache.includes(card));
                         if (!isDragged) {
-                             // Force calculation to ensure accuracy (fix for potential stale dataset)
                              const mins = calculateItemMinutes(card);
                              currentLoad += mins;
                         }
                     });
-
-                    // Calc Incoming Load
                     let incomingLoad = 0;
-                    // If bulk drag
                     if (draggedItemsCache && draggedItemsCache.length > 0) {
                          draggedItemsCache.forEach(dItem => {
                              incomingLoad += parseFloat(dItem.dataset.calculatedMins) || 0;
                          });
                     } else {
-                         // Single item fallback
                          incomingLoad += parseFloat(item.dataset.calculatedMins) || 0;
                     }
-
                     if ((currentLoad + incomingLoad) > (maxMins + 0.1)) { 
                         console.warn("Capacity exceeded for " + targetWcId + ", but allowing drop.");
                     }
                 }
-                // --- CAPACITY PRE-CHECK END ---
+
+                // FIX: Sembunyikan placeholder segera agar tidak tumpang tindih visual
+                if (toList) checkEmptyPlaceholder(toList);
 
                 if (originWc && targetWcId && originWc !== targetWcId) {
                     pendingMismatchItem = item;
                     targetContainerCache = toList;
                     sourceContainerCache = fromList;
-                    
                     if (!draggedItemsCache || draggedItemsCache.length === 0) {
                         draggedItemsCache = [item]; 
                     }
@@ -781,10 +888,8 @@
                         document.getElementById('btnBulkRelease').classList.add('d-none');
                         document.getElementById('btnBulkRefresh').classList.add('d-none');
                     }
-                    
                     document.getElementById('mismatchCurrentWC').value = originWc;
                     document.getElementById('mismatchTargetWC').value = targetWcId;
-                    
                     mismatchModalInstance.show();
                     return;
                 }
@@ -794,26 +899,23 @@
 
             function processDrop(evt, item, toList, fromList, targetWcId) {
                 const proAufnr = item.dataset.aufnr;
-                
+                activeDraggedItem = item;
                 targetContainerCache = toList;
                 sourceContainerCache = fromList;
                 draggedItemsCache = [];
                 tempSplits = []; 
                 currentSisaQty = parseFloat(item.dataset.sisaQty) || 0;
-                
+                draggedItemsCache.push(item);
                 transformToCardView(item);
-                
                 const checkbox = item.querySelector('.row-checkbox');
                 if (checkbox && checkbox.checked) {
                     document.querySelectorAll('#source-list .pro-item .row-checkbox:checked').forEach(cb => {
-                         const row = cb.closest('.pro-item');
-                         if(row && !draggedItemsCache.includes(row)) draggedItemsCache.push(row);
+                        const row = cb.closest('.pro-item');
+                        if (row && row !== item && !draggedItemsCache.includes(row)) {
+                            draggedItemsCache.push(row);
+                        }
                     });
-                    if (!draggedItemsCache.includes(item)) draggedItemsCache.push(item);
-                } else {
-                    draggedItemsCache.push(item);
                 }
-
                 const proTitle = draggedItemsCache.length > 1 
                     ? `<span class="badge bg-primary">${draggedItemsCache.length} Items Selected</span>` 
                     : `<span class="badge bg-primary text-wrap">${proAufnr}</span>`;
@@ -851,13 +953,16 @@
                     capacityInfoHtml = `
                         <div class="card border-secondary bg-light border-opacity-25">
                             <div class="card-body p-2"> 
-                                <h6 class="text-uppercase fw-bold small text-muted mb-2">
-                                    <i class="fa-solid fa-network-wired me-1"></i> ${targetWcId} Capacity Distribution
-                                </h6>
-                                <div class="d-flex align-items-center gap-2 mb-2">
+                                <div class="d-flex justify-content-between align-items-center" role="button" onclick="toggleTopCapacity(this)" style="cursor: pointer;">
+                                    <h6 class="text-uppercase fw-bold small text-muted mb-0">
+                                        <i class="fa-solid fa-network-wired me-1"></i> ${targetWcId} Capacity Distribution
+                                    </h6>
+                                    <i class="fa-solid fa-chevron-down text-muted small transition-icon" style="transition: transform 0.2s; transform: rotate(-90deg);"></i>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mb-2 mt-2">
                                     <span class="badge bg-dark text-white pt-1 pb-1">Total Limit: ${(children.length * 570).toLocaleString()} Min</span>
                                 </div>
-                                <div class="row g-2" id="topCapacityContainer">
+                                <div class="row g-2 collapse" id="topCapacityContainer">
                                     <!-- Child Status Bars Injected Here Dynamically via updateCardSummary -->
                                     ${children.map(child => {
                                         let rawKapaz = parseFloat(String(child.kapaz).replace(',', '.')) || 0;
@@ -892,29 +997,23 @@
                 
                 draggedItemsCache.forEach((row, index) => {
                     const rAufnr = String(row.dataset.aufnr || '').trim();
-                    const rVornr = String(row.dataset.vornr || '').trim(); // [FIX] Add VORNR check
+                    const rVornr = String(row.dataset.vornr || '').trim();
                     const rMaktx = row.dataset.maktx || ''; 
                     const originalSisa = parseFloat(row.dataset.sisaQty) || 0;
                     
-                    // [NEW] Calculate effective sisa by checking drop boxes
                     let allocatedInDropBoxes = 0;
                     document.querySelectorAll('.wc-drop-zone .pro-item-card').forEach(c => {
                         const cAufnr = String(c.dataset.aufnr || '').trim();
                         const cVornr = String(c.dataset.vornr || '').trim();
-                        // Exclude the item currently being dragged (if it's already in DOM, though usually it's in list)
-                        if (cAufnr === rAufnr && cVornr === rVornr) { // [FIX] Match PRO + VORNR
+                        if (cAufnr === rAufnr && cVornr === rVornr) {
                              allocatedInDropBoxes += parseFloat(c.dataset.assignedQty) || 0;
                         }
                     });
                     
                     let rSisa = originalSisa - allocatedInDropBoxes;
                     if (rSisa < 0) rSisa = 0;
-                    
-                    // Cap at 0? Yes.
-
                     const rVgw01 = parseFloat(row.dataset.vgw01) || 0; 
                     const rVge01 = row.dataset.vge01 || ''; 
-
                     const card = document.createElement('div');
                     card.className = 'card mb-3 border-0 shadow-sm pro-card';
                     card.dataset.refAufnr = rAufnr;
@@ -923,41 +1022,50 @@
                     card.dataset.vge01 = rVge01; 
                     card.dataset.targetWc = targetWcId; 
                     card.dataset.hasChildren = hasChildren;
+                    card.dataset.meins = (row.dataset.meins || '').toUpperCase();
 
                     card.innerHTML = `
                         <div class="card-header bg-dark text-white py-2 px-3 d-flex justify-content-between align-items-center">
                             <span class="fw-bold small"><i class="fa-solid fa-box me-1"></i> ${rAufnr} - ${rMaktx}</span>
+                            
+                            <div class="form-check form-check-inline mb-0 ms-auto me-3 longshift-wrapper d-none">
+                                <input class="form-check-input" type="checkbox" id="ls-${rAufnr}" onchange="handleLongshiftChange('${rAufnr}', this)">
+                                <label class="form-check-label text-white small fw-bold" for="ls-${rAufnr}">Longshift</label>
+                            </div>
+
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-secondary border border-light">Max: ${rSisa.toLocaleString('id-ID')}</span>
+                                <span class="badge bg-secondary border border-light qty-badge-vis">Max: ${rSisa.toLocaleString('id-ID')}</span>
                                 <button type="button" class="btn btn-sm btn-outline-danger border-0 text-white p-0 ms-2" style="width: 20px; height: 20px; line-height: 1;" onclick="removeProFromModal(this)">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="card-body p-2 bg-light">
-                            <!-- Rows Container -->
+                             <div class="alert alert-warning p-1 mb-2 d-flex justify-content-between align-items-center date-info-wrapper d-none" style="font-size: 0.75rem;">
+                                 <div><i class="fa-regular fa-calendar me-1"></i><strong>Start:</strong> ${row.dataset.ssavd ? new Date(row.dataset.ssavd).toLocaleDateString('id-ID') : '-'}</div>
+                                 <div><i class="fa-regular fa-calendar-check me-1"></i><strong>Finish:</strong> ${row.dataset.sssld ? new Date(row.dataset.sssld).toLocaleDateString('id-ID') : '-'}</div>
+                             </div>
+
                             <div class="assignment-rows">
-                                <!-- Initial Row -->
                                 <div class="row g-2 align-items-end mb-2 assignment-row">
-                                    <div class="col-md-4">
+                                    <div class="col-md-4 col-operator">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Operator</label>
                                         <select class="form-select form-select-sm emp-select shadow-none border-secondary" required onchange="updateEmpOptions('${rAufnr}')">
                                             ${empOptions}
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-3 col-subwc">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Sub-WC</label>
                                         <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateEmpOptions('${rAufnr}'); updateCardSummary('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
                                             ${childOptionsHtml}
                                         </select>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-2 col-qty">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Qty</label>
                                         <input type="text" class="form-control form-control-sm qty-input shadow-none border-secondary fw-bold text-center" 
                                             value="${rSisa.toLocaleString('id-ID')}" oninput="updateCardSummary('${rAufnr}')" ${hasChildren ? 'disabled title="Pilih Sub-WC terlebih dahulu"' : ''}>
                                     </div>
-                                    <!-- NEW: Time Field (Auto Calc) -->
-                                    <div class="col-md-2">
+                                    <div class="col-md-2 col-time">
                                         <label class="small text-muted fw-bold mb-0 d-none d-md-block">Time (Min)</label>
                                         <input type="text" class="form-control form-control-sm time-input shadow-none border-secondary text-center bg-white text-dark fw-bold" value="0" readonly>
                                     </div>
@@ -969,8 +1077,7 @@
                                 </div>
                             </div>
                             
-                            <!-- Add Button / Summary -->
-                             <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                             <div class="d-flex justify-content-between align-items-center mt-2 px-1 btn-add-wrapper">
                                 <button class="btn btn-sm btn-outline-primary border-dashed fw-bold px-3 btn-add-split" type="button" onclick="addAssignmentRow('${rAufnr}')" ${hasChildren ? 'disabled' : ''}>
                                     <i class="fa-solid fa-plus-circle me-1"></i> Add Split
                                 </button>
@@ -986,35 +1093,175 @@
                     updateCardSummary(rAufnr); 
                 });
 
+                if(window.updateMachiningMode) window.updateMachiningMode();
                 assignmentModalInstance.show();
             }
+
+            window.updateMachiningMode = function() {
+                const chk = document.getElementById('chkUnique1');
+                const container = document.getElementById('assignmentCardContainer');
+                if (chk && container) {
+                    if (chk.checked) container.classList.add('machining-mode-active');
+                    else container.classList.remove('machining-mode-active');
+                }
+            };
+
+            window.handleLongshiftChange = function(aufnr, checkbox) {
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                if (!card) return;
+
+                const rowsContainer = card.querySelector('.assignment-rows');
+
+                if (checkbox.checked) {
+                    if (rowsContainer.querySelectorAll('.assignment-row').length < 2) {
+                        window.addAssignmentRow(aufnr); // jangan kirim arg true (fungsi gak nerima)
+                    }
+                    window.applyLongshiftMode(aufnr);
+                    window.autoSplitIfLongshiftReady(aufnr);
+                    updateEmpOptions(aufnr);
+                    updateCardSummary(aufnr);
+                    return;
+                }
+
+                const rows = rowsContainer.querySelectorAll('.assignment-row');
+                for (let i = 1; i < rows.length; i++) rows[i].remove();
+
+                window.clearLongshiftMode(aufnr);
+                updateEmpOptions(aufnr);
+                updateCardSummary(aufnr);
+            };
+
+            window.applyLongshiftMode = function(aufnr) {
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                if (!card) return;
+
+                const rowsContainer = card.querySelector('.assignment-rows');
+                while (rowsContainer.querySelectorAll('.assignment-row').length > 2) {
+                    rowsContainer.lastElementChild.remove();
+                }
+
+                const finalRows = Array.from(rowsContainer.querySelectorAll('.assignment-row'));
+                const row1 = finalRows[0];
+                const row2 = finalRows[1];
+
+                const addBtn = card.querySelector('.btn-add-split');
+                if (addBtn) {
+                    if (!row2) {
+                    addBtn.disabled = false;
+                    addBtn.classList.remove('disabled');
+                    addBtn.title = 'Tambah operator ke-2 (opsional)';
+                    } else {
+                    addBtn.disabled = true;
+                    addBtn.classList.add('disabled');
+                    addBtn.title = 'Longshift maksimal 2 operator';
+                    }
+                }
+
+                const child1 = row1 ? row1.querySelector('.child-select') : null;
+                const child2 = row2 ? row2.querySelector('.child-select') : null;
+                const syncSubWc = () => {
+                    if (!child1 || !child2) return;
+                    child2.value = child1.value;
+                    child2.disabled = true;
+                };
+                const onChild1Change = () => {
+                    syncSubWc();
+                    updateEmpOptions(aufnr);
+                    updateCardSummary(aufnr);
+                };
+
+                if (child1) {
+                    if (child1._lsSyncHandler) {
+                    child1.removeEventListener('change', child1._lsSyncHandler);
+                    }
+
+                    child1._lsSyncHandler = onChild1Change;
+                    child1.addEventListener('change', child1._lsSyncHandler);
+                }
+
+                if (child1 && child2) {
+                    syncSubWc();
+                    updateEmpOptions(aufnr);
+                    updateCardSummary(aufnr);
+                }
+
+                finalRows.forEach((r, idx) => {
+                    const rm = r.querySelector('.btn-remove-row');
+                    if (!rm) return;
+
+                    if (idx === 0) {
+                    rm.classList.add('d-none');
+                    rm.disabled = true;
+                    } else {
+                    rm.classList.remove('d-none');
+                    rm.disabled = false;
+                    rm.title = 'Hapus operator ke-2';
+                    }
+                });
+            };
+
+
+            window.clearLongshiftMode = function(aufnr) {
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                if (!card) return;
+                const rowsContainer = card.querySelector('.assignment-rows');
+                const rows = Array.from(rowsContainer.querySelectorAll('.assignment-row'));
+                const child1 = rows[0]?.querySelector('.child-select');
+                if (child1 && child1._lsSyncHandler) {
+                    child1.removeEventListener('change', child1._lsSyncHandler);
+                    delete child1._lsSyncHandler;
+                }
+                rows.forEach((r, idx) => {
+                    const child = r.querySelector('.child-select');
+                    if (child) child.disabled = false;
+                    const rm = r.querySelector('.btn-remove-row');
+                    if (rm) {
+                    if (idx === 0) rm.classList.add('d-none');
+                    else rm.classList.remove('d-none');
+                    rm.disabled = false;
+                    }
+                });
+                const addBtn = card.querySelector('.btn-add-split');
+                if (addBtn) {
+                    addBtn.classList.remove('disabled');
+                    addBtn.disabled = false;
+                    addBtn.title = '';
+                }
+                updateCardSummary(aufnr);
+            };
             window.addAssignmentRow = function(aufnr) {
                 const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
                 if (!card) return;
 
                 const rowsContainer = card.querySelector('.assignment-rows');
+                const currentCount = rowsContainer.querySelectorAll('.assignment-row').length;
+
+                const isLongshift = document.getElementById(`ls-${aufnr}`)?.checked || false;
+                if (isLongshift && currentCount >= 2) return;
+
                 const lastRow = rowsContainer.lastElementChild;
-                
                 const newRow = lastRow.cloneNode(true);
-                
+
                 const empSelect = newRow.querySelector('.emp-select');
                 empSelect.value = "";
-                empSelect.onchange = function() { updateEmpOptions(aufnr); };
-                
+                empSelect.onchange = function() {
+                    updateEmpOptions(aufnr);
+                    window.autoSplitIfLongshiftReady(aufnr);
+                    updateCardSummary(aufnr);
+                };
+
                 const childSelect = newRow.querySelector('.child-select');
                 childSelect.value = "";
                 childSelect.disabled = false;
-                childSelect.classList.remove('border-danger', 'text-danger');
-                childSelect.onchange = function() { updateEmpOptions(aufnr); updateCardSummary(aufnr); }; 
+                childSelect.onchange = function() { updateEmpOptions(aufnr); updateCardSummary(aufnr); };
 
                 const qtyInput = newRow.querySelector('.qty-input');
-                qtyInput.value = ""; 
+                qtyInput.value = "";
                 qtyInput.placeholder = "0";
-                qtyInput.classList.remove('is-invalid', 'text-danger');
                 qtyInput.oninput = function() { updateCardSummary(aufnr); };
-                
+
                 const hasChildren = card.dataset.hasChildren === 'true';
-                if(hasChildren) {
+                if (hasChildren) {
                     qtyInput.disabled = true;
                     qtyInput.title = "Pilih Sub-WC terlebih dahulu";
                 } else {
@@ -1022,45 +1269,137 @@
                     qtyInput.title = "";
                 }
 
-                const timeInput = newRow.querySelector('.time-input');
-                timeInput.value = "0 Min";
+                newRow.querySelector('.time-input').value = "0 Min";
 
                 const removeBtn = newRow.querySelector('.btn-remove-row');
                 removeBtn.classList.remove('d-none');
-                
+                removeBtn.disabled = false;
+
                 rowsContainer.appendChild(newRow);
-                
+
                 updateChildWCOptions(aufnr);
-                updateCardSummary(aufnr);
-                updateEmpOptions(aufnr); 
             };
 
             window.removeAssignmentRow = function(btn) {
                 const row = btn.closest('.assignment-row');
                 const card = row.closest('.pro-card');
                 const aufnr = card.dataset.refAufnr;
-                
+
+                const rowsContainer = card.querySelector('.assignment-rows');
+                const allRows = Array.from(rowsContainer.querySelectorAll('.assignment-row'));
+                const idx = allRows.indexOf(row);
+
+                // Guard: jangan sampai row pertama bisa dihapus
+                if (idx === 0) return;
+
                 row.remove();
-                
-                updateEmpOptions(aufnr);
-                updateCardSummary(aufnr);
+
+                const isLongshift = document.getElementById(`ls-${aufnr}`)?.checked;
+
+                if (isLongshift && typeof window.applyLongshiftMode === 'function') {
+                    // applyLongshiftMode akan set state tombol + lock subWC + re-sync + panggil update
+                    window.applyLongshiftMode(aufnr);
+                } else {
+                    updateEmpOptions(aufnr);
+                    updateCardSummary(aufnr);
+                }
             };
 
             window.parseLocaleNum = function(str) {
                 if (!str) return 0;
                 let stringVal = String(str).trim();
-                if (stringVal.includes(',')) {
-                    stringVal = stringVal.replace(/\./g, '').replace(/,/g, '.');
-                }
+                stringVal = stringVal.replace(/\./g, '');
+                stringVal = stringVal.replace(/,/g, '.');
                 return parseFloat(stringVal) || 0;
+            };
+
+            window.isIntegerMeins = function(meins) {
+                const m = (meins || '').toUpperCase();
+                return m === 'ST' || m === 'SET';
+            };
+
+            window.formatQtyByMeins = function(qty, meins) {
+                if (window.isIntegerMeins(meins)) return String(Math.trunc(qty));
+                return (+qty).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+            };
+
+            window.distributeLongshiftQty = function(aufnr) {
+                const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+                if (!card) return;
+
+                const ls = document.getElementById(`ls-${aufnr}`);
+                if (!ls || !ls.checked) return;
+
+                const meins = (card.dataset.meins || '').toUpperCase();
+                const maxQtyRaw = parseFloat(card.dataset.maxQty) || 0;
+
+                const rows = Array.from(card.querySelectorAll('.assignment-row'));
+                if (rows.length < 2) return;
+
+                const row1 = rows[0];
+                const row2 = rows[1];
+
+                const emp1 = row1.querySelector('.emp-select')?.value || '';
+                const emp2 = row2.querySelector('.emp-select')?.value || '';
+
+                const qty1Inp = row1.querySelector('.qty-input');
+                const qty2Inp = row2.querySelector('.qty-input');
+
+                if (!emp2) {
+                    if (qty2Inp) {
+                        qty2Inp.value = '';
+                        qty2Inp.disabled = true;
+                    }
+                    if (qty1Inp) {
+                        if (card.dataset.hasChildren !== 'true') qty1Inp.disabled = false;
+                    }
+                    window.updateCardSummary(aufnr);
+                    return;
+                }
+
+                if (!emp1) return;
+
+                let total = maxQtyRaw;
+                if (window.isIntegerMeins(meins)) total = Math.floor(total);
+
+                if (window.isIntegerMeins(meins) && total < 2) {
+                    Swal.fire('Tidak bisa Longshift', `Sisa qty (${total}) tidak cukup untuk 2 operator (MEINS ${meins}).`, 'warning');
+                    row2.querySelector('.emp-select').value = '';
+                    if (qty2Inp) { qty2Inp.value = ''; qty2Inp.disabled = true; }
+                    if (qty1Inp && card.dataset.hasChildren !== 'true') qty1Inp.disabled = false;
+                    window.updateCardSummary(aufnr);
+                    return;
+                }
+
+                let q1, q2;
+
+                if (window.isIntegerMeins(meins)) {
+                    q1 = Math.ceil(total / 2);
+                    q2 = total - q1;
+                } else {
+                    q1 = +(total / 2).toFixed(2);
+                    q2 = +(total - q1).toFixed(2);
+                }
+
+                if (qty1Inp) {
+                    qty1Inp.value = window.formatQtyByMeins(q1, meins);
+                    qty1Inp.disabled = true;
+                    qty1Inp.title = 'Qty otomatis dibagi (Longshift)';
+                }
+                if (qty2Inp) {
+                    qty2Inp.value = window.formatQtyByMeins(q2, meins);
+                    qty2Inp.disabled = true;
+                    qty2Inp.title = 'Qty otomatis dibagi (Longshift)';
+                }
+
+                window.updateCardSummary(aufnr);
             };
 
             window.updateCardSummary = function(TriggerAufnr) {
                 const allCards = document.querySelectorAll('#assignmentCardContainer .pro-card');
                 let globalChildUsage = {}; 
                 let targetWcId = null;
-
-                // 1. Determine Target WC (from first card in modal)
+                
                 if (allCards.length > 0) {
                     targetWcId = allCards[0].dataset.targetWc;
                 }
@@ -1220,7 +1559,6 @@
                      }
                 }
 
-                // 4. GLOBAL BUTTON STATE
                 validateGlobalAssignmentState();
             };
 
@@ -1344,9 +1682,29 @@
                         targetContainerCache,
                         sourceContainerCache,
                         targetWc
-                    );
+                    );  
                 });
             }
+
+            window.toggleTopCapacity = function(headerEl) {
+                const container = document.getElementById('topCapacityContainer');
+                const icon = headerEl.querySelector('.fa-chevron-down');
+                
+                if (container && typeof bootstrap !== 'undefined') {
+                    // Try to get existing instance or create new one
+                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(container, {
+                        toggle: false
+                    });
+                    bsCollapse.toggle();
+                    if (container.classList.contains('show')) {
+                        // It is currently showing, so it will hide
+                        if(icon) icon.style.transform = 'rotate(-90deg)';
+                    } else {
+                        // It is hidden, so it will show
+                        if(icon) icon.style.transform = 'rotate(0deg)';
+                    }
+                }
+            };
 
             function updateChildWCDropdown(normalizedTargetWcId, proAufnr) {
                 updateEmpOptions(proAufnr);
@@ -1385,13 +1743,9 @@
                 if (!card) return;
 
                 const hasChildren = card.dataset.hasChildren === 'true';
-                const parentTargetWc = card.dataset.targetWc; // WC Induk / Target Utama
-                
-                // Get fresh template options
+                const parentTargetWc = card.dataset.targetWc;
                 const templateSelect = document.getElementById('employeeTemplateSelect');
                 const templateOptions = Array.from(templateSelect.options);
-
-                // Collect selected NIKs across rows to disable duplicates
                 const allSelects = Array.from(card.querySelectorAll('.emp-select'));
                 const selectedNiks = allSelects
                     .map(sel => sel.value)
@@ -1403,38 +1757,37 @@
                     const currentVal = select.value;
                     
                     let requiredArbpl = null;
-
-                    // 1. Determine Filtering Criteria
                     if (hasChildren) {
                         const subWc = childSelect.value;
                         if (!subWc) {
-                            // Enforce Sub-WC selection first
                             select.innerHTML = '<option value="" selected disabled>Pilih Sub-WC terlebih dahulu...</option>';
                             select.disabled = true;
-                            return; // Stop processing for this select
+                            return; 
                         } else {
                             requiredArbpl = subWc;
                             select.disabled = false;
                         }
                     } else {
-                         // Single WC (No Children) -> Filter by Target WC
                          requiredArbpl = parentTargetWc;
                          select.disabled = false;
                     }
 
                     select.innerHTML = '<option value="" selected disabled>Pilih Operator...</option>';
+                    const chkMachining = document.getElementById('chkUnique1');
+                    const chkAutoAssign = document.getElementById('chkUnique2');
+                    const isBypassFilter = (chkMachining && chkMachining.checked) && (chkAutoAssign && chkAutoAssign.checked);
 
                     templateOptions.forEach(tmplOpt => {
                         if (tmplOpt.value === "") return;
-
-                        const empArbpl = tmplOpt.getAttribute('data-arbpl'); // Get from data attribute
+                        const empArbpl = tmplOpt.getAttribute('data-arbpl');
                         const newOpt = tmplOpt.cloneNode(true);
                         
-                        if (selectedNiks.includes(newOpt.value) && newOpt.value !== currentVal) {
-                            newOpt.disabled = true;
-                            newOpt.innerText += ' (Selected)';
+                        if (!isBypassFilter) {
+                            if (selectedNiks.includes(newOpt.value) && newOpt.value !== currentVal) {
+                                newOpt.disabled = true;
+                                newOpt.innerText += ' (Selected)';
+                            }
                         }
-                        
                         select.appendChild(newOpt);
                     });
                     let valid = false;
@@ -1448,6 +1801,27 @@
                         select.value = "";
                     }
                 });
+
+                if (typeof window.distributeLongshiftQty === 'function') {
+                    window.distributeLongshiftQty(aufnr);
+                }   
+            }
+
+            function isSecondLongshiftRowElement(el) {
+                const row = el.closest('.assignment-row');
+                const card = el.closest('.pro-card');
+                if (!row || !card) return false;
+
+                const aufnr = card.dataset.refAufnr;
+                const ls = document.getElementById(`ls-${aufnr}`);
+                if (!ls || !ls.checked) return false;
+
+                const rows = Array.from(card.querySelectorAll('.assignment-row'));
+                return rows.indexOf(row) === 1; // row ke-2
+            }
+
+            function filterAutoAssignTargets(nodeListOrArray) {
+                return Array.from(nodeListOrArray).filter(el => !isSecondLongshiftRowElement(el));
             }
 
             function setupModalLogic() {
@@ -1455,6 +1829,75 @@
                 const btnCancel = document.getElementById('btnCancelDrop');
                 if (btnConfirm) btnConfirm.onclick = confirmFinalAssignment;
                 if (btnCancel) btnCancel.onclick = cancelDrop;
+                const container = document.getElementById('assignmentCardContainer');
+                const chkPlant1000 = document.getElementById('chkUnique2'); // For All
+                const chkMachining = document.getElementById('chkUnique1'); // Machining
+
+                if (chkMachining) {
+                    chkMachining.addEventListener('change', function() {
+                        if(window.updateMachiningMode) window.updateMachiningMode();
+                    });
+                }
+
+                if (chkPlant1000 && container) {
+                    chkPlant1000.addEventListener('change', function() {
+                        if (this.checked) {
+                        const allEmpRaw = container.querySelectorAll('.emp-select');
+                        const allEmp = filterAutoAssignTargets(allEmpRaw);
+
+                        let sourceEmp = "";
+                        for (const el of allEmp) {
+                            if (el.value) { sourceEmp = el.value; break; }
+                        }
+                        if (sourceEmp) allEmp.forEach(el => el.value = sourceEmp);
+
+                        const allChildRaw = container.querySelectorAll('.child-select');
+                        const allChild = filterAutoAssignTargets(allChildRaw);
+
+                        let sourceChild = "";
+                        for (const el of allChild) {
+                            if (el.value) { sourceChild = el.value; break; }
+                        }
+                        if (sourceChild) {
+                            allChild.forEach(el => {
+                                if (el.value !== sourceChild) {
+                                    el.value = sourceChild;
+                                    el.dispatchEvent(new Event('change'));
+                                }
+                            });
+                        }
+                    }
+
+                    });
+                }
+
+                if(container) {
+                    container.addEventListener('change', function(e) {
+                         const isEmp = e.target.classList.contains('emp-select');
+                         const isChild = e.target.classList.contains('child-select');
+                         
+                        if ((isEmp || isChild) && chkPlant1000 && chkPlant1000.checked) {
+                            // Jika user mengubah row2 longshift, jangan menyebar ke mana-mana
+                            if (isSecondLongshiftRowElement(e.target)) return;
+
+                            const selector = isEmp ? '.emp-select' : '.child-select';
+                            const selectedVal = e.target.value;
+
+                            const allTargetsRaw = container.querySelectorAll(selector);
+                            const allTargets = filterAutoAssignTargets(allTargetsRaw); // skip longshift row2
+
+                            allTargets.forEach(el => {
+                                if (el !== e.target) {
+                                    if (el.value !== selectedVal) {
+                                        el.value = selectedVal;
+                                        if (isChild) el.dispatchEvent(new Event('change'));
+                                    }
+                                }
+                            });
+                        }
+
+                    });
+                }
             }
 
 
@@ -1464,10 +1907,16 @@
                 let assignments = [];
                 let validationErrors = [];
                 
+                const chkMachining = document.getElementById('chkUnique1');
+                const isMachining = chkMachining ? chkMachining.checked : false;
+
                 cards.forEach(card => {
                     const aufnr = card.dataset.refAufnr;
                     const maxQty = parseFloat(card.dataset.maxQty) || 0;
                     
+                    const lsCheckbox = card.querySelector(`#ls-${aufnr}`);
+                    const isLongshift = lsCheckbox ? lsCheckbox.checked : false;
+
                     const rows = card.querySelectorAll('.assignment-rows .assignment-row');
                     let currentSum = 0;
                     
@@ -1498,7 +1947,7 @@
                             const item = draggedItemsCache.find(i => i.dataset.aufnr == aufnr); 
                             
                             if (item) {
-                                assignments.push({ item, nik, name: name || rawText, childWc, qty });
+                                assignments.push({ item, nik, name: name || rawText, childWc, qty, isMachining, isLongshift });
                             }
                         }
                         
@@ -1537,6 +1986,7 @@
                          remainingRow.dataset.id = Date.now() + Math.random();
                          remainingRow.dataset.sisaQty = remainingQty;
                          remainingRow.dataset.assignedQty = 0;
+                         remainingRow.dataset.isSplit = '1';
                          
                          transformToTableView(remainingRow);
                          const sisaCell = remainingRow.querySelector('.col-sisa-qty');
@@ -1556,19 +2006,21 @@
                          
                          transformToCardView(targetItem);
                          targetContainerCache.appendChild(targetItem);
-                         
                          targetItem.dataset.sisaQty = assign.qty;
                          targetItem.dataset.assignedQty = assign.qty;
                          targetItem.dataset.employeeNik = assign.nik;
                          targetItem.dataset.employeeName = assign.name;
                          targetItem.dataset.childWc = assign.childWc || '';
-                         
+                         targetItem.dataset.isMachining = assign.isMachining ? 1 : 0;
+                         targetItem.dataset.isLongshift = assign.isLongshift ? 1 : 0;
                          updateRowUI(targetItem, assign.name, assign.qty, assign.childWc);
                      });
                 }
 
                 // Cleanup
                 draggedItemsCache = [];
+                tempSplits = []; // Reset splits
+                activeDraggedItem = null; // Clear active item so hide event doesn't trigger cancelDrop
                 document.getElementById('selectAll').checked = false;
                 updateCapacity(targetContainerCache.closest('.wc-card-container'));
                 checkEmptyPlaceholder(targetContainerCache);
@@ -1652,31 +2104,67 @@
             }
 
 
-            window.cancelDrop = function() { 
-                console.log("Assignment cancelled. Returning items to source and resetting splits.");
-                const qtyToReturn = tempSplits.reduce((sum, split) => sum + split.qty, 0);
-                currentSisaQty += qtyToReturn;
-                tempSplits = [];
-                const item = draggedItemsCache[0];
-                if (sourceContainerCache) sourceContainerCache.appendChild(item);
-                item.dataset.employeeNik = "";
-                item.dataset.employeeName = "";
-                item.dataset.childWc = "";
-                item.dataset.assignedQty = 0;
-                const originalQtyForModal = (parseFloat(item.dataset.sisaQty) || 0) + qtyToReturn;
-                item.dataset.sisaQty = originalQtyForModal;
-                const sisaCell = item.querySelector('.col-sisa-qty');
-                if (sisaCell) {
-                    sisaCell.innerText = originalQtyForModal.toLocaleString('id-ID');
-                    sisaCell.classList.remove('text-success');
-                    sisaCell.classList.add('text-danger');
-                }
+            window.cancelDrop = function(shouldHide = true) {
+                console.log("Assignment cancelled. Returning item to source.");
 
-                transformToTableView(item);
+                const item = activeDraggedItem || pendingMismatchItem || (draggedItemsCache.length > 0 ? draggedItemsCache[0] : null);
+                
+                // FORCE: Ambil source table
+                const sourceList = document.getElementById('source-list');
+                
+                if (item && sourceList) {
+                    // 1. Move Cleanly
+                    // Pastikan item dipindahkan kembali ke source list
+                    sourceList.appendChild(item);
+                    
+                    // 2. Restore Data
+                    const qtyToReturn = tempSplits.reduce((sum, split) => sum + (parseFloat(split.qty) || 0), 0);
+                    const originalQty = (parseFloat(item.dataset.sisaQty) || 0) + qtyToReturn;
+                    
+                    item.dataset.sisaQty = originalQty;
+                    item.dataset.employeeNik = "";
+                    item.dataset.employeeName = "";
+                    item.dataset.childWc = "";
+                    item.dataset.assignedQty = 0;
+                    
+                    const sisaCell = item.querySelector('.col-sisa-qty');
+                    if (sisaCell) {
+                        sisaCell.innerText = originalQty.toLocaleString('id-ID');
+                        sisaCell.classList.remove('text-success');
+                        sisaCell.classList.add('text-danger');
+                    }
+                    
+                    // 3. UI Reset
+                    transformToTableView(item);
+                }
+                if (targetContainerCache) {
+                    checkEmptyPlaceholder(targetContainerCache);
+                    // Update capacity too just in case
+                    updateCapacity(targetContainerCache.closest('.wc-card-container'));
+                } else {
+                    // Fallback check all containers if cache lost
+                    document.querySelectorAll('.wc-drop-zone').forEach(zone => {
+                        checkEmptyPlaceholder(zone);
+                        updateCapacity(zone.closest('.wc-card-container'));
+                    });
+                }
+                
+                // 5. Force Cleanup Source List Placeholder/State
+                checkEmptyPlaceholder(sourceList);
+
+                // 6. Reset Variables
                 draggedItemsCache = [];
+                tempSplits = [];
                 currentSisaQty = 0;
-                assignmentModalInstance.hide();
-            }
+                activeDraggedItem = null;
+                pendingMismatchItem = null;
+                targetContainerCache = null;
+                sourceContainerCache = null;
+
+                if (shouldHide && assignmentModalInstance) {
+                    assignmentModalInstance.hide();
+                }
+            };
 
             function resetAllAllocations() {
                 if (!confirm('Apakah Anda yakin ingin mereset semua PRO yang ditugaskan ke table?')) return;
@@ -1734,60 +2222,94 @@
                 });
             }
 
+            function resetAllocationPayload(row) {
+                row.dataset.employeeNik = "";
+                row.dataset.employeeName = "";
+                row.dataset.childWc = "";
+                row.dataset.assignedQty = 0;
+                row.dataset.isMachining = 0;
+                row.dataset.isLongshift = 0;
+
+                const nameEl = row.querySelector('.employee-name-text');
+                if (nameEl) nameEl.innerText = '';
+
+                const qtyBadge = row.querySelector('.assigned-qty-badge');
+                if (qtyBadge) qtyBadge.innerText = '';
+
+                const childDisp = row.querySelector('.child-wc-display');
+                if (childDisp) {
+                    childDisp.innerText = '';
+                    childDisp.classList.add('d-none');
+                }
+
+                const cb = row.querySelector('.row-checkbox');
+                if (cb) cb.checked = false;
+                row.classList.remove('selected-row');
+            }
+
             function handleReturnToTable(item, fromContainer) {
+                const sourceList = document.getElementById('source-list');
+                if (!sourceList || !item) return;
+
+                const aufnr = String(item.dataset.aufnr || '').trim();
+                const vornr = String(item.dataset.vornr || '').trim();
+                const key = ensureKey(item);
+
+                const assignedQty = parseFloat(item.dataset.assignedQty) || 0;
+                const carriedQty  = parseFloat(item.dataset.sisaQty) || 0;
+                const qtyBack = assignedQty > 0 ? assignedQty : carriedQty;
+                const returnedChildWc = item.dataset.childWc || '';
+                if (returnedChildWc) removeAssignedChildWC(aufnr, returnedChildWc);
+
+                // [FIX] Find ANY existing row with the same key/aufnr+vornr that is NOT the current item
+                // This handles cases where the item is dropped ABOVE the existing row
+                const candidates = sourceList.querySelectorAll(`tr.pro-item[data-aufnr="${aufnr}"][data-vornr="${vornr}"]`);
+                let existing = null;
                 
-                let wcId = 'Unknown';
-                if (fromContainer) {
-                    const container = fromContainer.closest('.wc-card-container');
-                    if (container) {
-                        wcId = container.dataset.wcId;
+                for (let i = 0; i < candidates.length; i++) {
+                    if (candidates[i] !== item) {
+                        existing = candidates[i];
+                        break; // Found the original/other row
                     }
                 }
-                const returnedChildWc = item.dataset.childWc;
-                const existingSourceItems = document.querySelectorAll(`#source-list .pro-item[data-aufnr="${item.dataset.aufnr}"]`);
-                let sourceItem = null;
-                existingSourceItems.forEach(el => {
-                    if(el !== item) sourceItem = el;
-                });
 
-                const returnedQty = parseFloat(item.dataset.assignedQty) || 0;
+                if (existing) {
+                    // [UPDATED FIX] Only add quantity if existing row is a LOCAL SPLIT (Partial)
+                    // If it is a Server Row (Total), we rely on calculateAllRows to restore visibility
+                    if (existing.dataset.isSplit === '1') {
+                         const cur = parseFloat(existing.dataset.sisaQty) || 0;
+                         existing.dataset.sisaQty = +(cur + qtyBack).toFixed(3);
+                    }
 
-                const targetItemToUpdate = sourceItem || item;
-                let sisaQtyOriginal = parseFloat(targetItemToUpdate.dataset.sisaQty) || 0;
-        
-                if (returnedQty > 0) {
-                     sisaQtyOriginal = parseFloat((sisaQtyOriginal + returnedQty).toFixed(3));
-                } else if (targetItemToUpdate === item && returnedQty === 0) {
+                    resetAllocationPayload(existing);
+                    transformToTableView(existing);
 
-                }
-
-                targetItemToUpdate.dataset.sisaQty = sisaQtyOriginal;
-
-                const sisaCell = targetItemToUpdate.querySelector('.col-sisa-qty');
-                if (sisaCell) {
-                    sisaCell.innerText = sisaQtyOriginal.toLocaleString('id-ID');
-                    sisaCell.classList.remove('text-success');
-                    sisaCell.classList.add('text-danger');
-                }
-
-                if (returnedChildWc) {
-                    removeAssignedChildWC(item.dataset.aufnr, returnedChildWc);
-                }
-
-                if (targetItemToUpdate !== item) {
                     item.remove();
                 } else {
-                    targetItemToUpdate.dataset.employeeNik = "";
-                    targetItemToUpdate.dataset.employeeName = "";
-                    targetItemToUpdate.dataset.childWc = "";
-                    targetItemToUpdate.dataset.assignedQty = 0;
-                    transformToTableView(targetItemToUpdate);
+                    resetAllocationPayload(item);
+                    const originSisa = parseFloat(item.dataset.originSisaQty) || 0;
+                    const restoredSisa = originSisa > 0 ? originSisa : qtyBack;
+                    item.dataset.sisaQty = +restoredSisa.toFixed(3);
+
+                    transformToTableView(item);
+                    if (!sourceList.contains(item)) {
+                         const originIndex = parseInt(item.dataset.originIndex, 10);
+                        if (Number.isFinite(originIndex) && originIndex >= 0 && originIndex < sourceList.children.length) {
+                            sourceList.insertBefore(item, sourceList.children[originIndex]);
+                        } else {
+                            sourceList.appendChild(item);
+                        }
+                    }
                 }
 
                 if (fromContainer) {
-                    updateCapacity(fromContainer.closest('.wc-card-container'));
+                    const wcCard = fromContainer.closest('.wc-card-container');
+                    if (wcCard) updateCapacity(wcCard);
                     checkEmptyPlaceholder(fromContainer);
                 }
+                checkEmptyPlaceholder(sourceList);
+
+                calculateAllRows();
             }
 
             function removeAssignedChildWC(aufnr, childWcToRemove) {
@@ -1859,18 +2381,14 @@
             }
 
             function calculateAllRows() {
-                // 1. Gather all assigned quantities from drop zones
                 const assignedMap = {}; 
-                // Map key: AUFNR|VORNR (assuming uniqueness per operation, or just AUFNR if PRO is unique enough)
-                // PRO Item Logic uses AUFNR as primary identifier in source list rows.
-                
                 document.querySelectorAll('.wc-drop-zone .pro-item-card').forEach(card => {
                     const aufnr = String(card.dataset.aufnr || '').trim();
-                    const vornr = String(card.dataset.vornr || '').trim(); // [FIX]
+                    const vornr = String(card.dataset.vornr || '').trim();
                     const assigned = parseFloat(card.dataset.assignedQty) || 0;
                     
                     if(aufnr) {
-                        const key = aufnr + '_' + vornr; // [FIX] Composite Key
+                        const key = aufnr + '_' + vornr;
                         if (!assignedMap[key]) assignedMap[key] = 0;
                         assignedMap[key] += assigned;
                     }
@@ -1878,33 +2396,26 @@
 
                document.querySelectorAll('#source-list tr.pro-item').forEach(row => {
                    const aufnr = String(row.dataset.aufnr || '').trim();
-                   const vornr = String(row.dataset.vornr || '').trim(); // [FIX]
-                   // Original Sisa from Server (Total - Confirmed - WI_Saved)
+                   const vornr = String(row.dataset.vornr || '').trim();
                    const serverSisa = parseFloat(row.dataset.sisaQty) || 0;
                    
-                   // Deduct locally assigned quantity
                    const key = aufnr + '_' + vornr;
                    const localAssigned = assignedMap[key] || 0;
                    let finalSisa = serverSisa - localAssigned;
                    
-                   // Round to handle float precision issues
                    finalSisa = Math.round(finalSisa * 1000) / 1000;
                    if (finalSisa < 0) finalSisa = 0;
 
-                   // Update UI Text for Sisa Qty
                    const cells = row.querySelectorAll('td.table-col');
-                   // cells[10] is Qty Sisa (Shifted by -1 due to Moved Date Column)
                    const sisaCell = cells[10];
-                   const timeCell = cells[11]; // Time Req
+                   const timeCell = cells[11];
 
                    if (sisaCell) {
-                       // Format number logic (locale ID)
                        const unit = (row.dataset.meins === 'ST' || row.dataset.meins === 'SET') ? 'PC' : row.dataset.meins;
                        const decimals = (unit === 'PC' || unit === 'ST' || unit === 'SET') ? 0 : 1;
                        
                        sisaCell.innerText = finalSisa.toLocaleString('id-ID', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + ' ' + unit;
                        
-                       // Visual cue if modified
                        if(localAssigned > 0) {
                            sisaCell.classList.add('text-success');
                            sisaCell.classList.remove('text-primary');
@@ -1914,10 +2425,8 @@
                        }
                    }
 
-                   // Store current effective sisa for drag logic
                    row.dataset.currentQty = finalSisa; 
 
-                   // Recalculate Time
                    const mins = calculateItemMinutes(row, finalSisa);
                    row.dataset.calculatedMins = mins;
 
@@ -1927,19 +2436,17 @@
                    
                    if (finalSisa <= 0) {
                        row.classList.add('d-none');
-                       // Uncheck if hidden to avoid phantom selection?
                        const cb = row.querySelector('.row-checkbox');
                        if(cb && cb.checked) {
                             cb.checked = false;
                             row.classList.remove('selected-row');
-                            // Trigger UI update? We can call updateSelectionUI later or here.
                        }
                    } else {
                        row.classList.remove('d-none');
                    }
                });
                
-               updateSelectionUI(); // Ensure counters update if we unchecked hidden items
+               updateSelectionUI();
                document.querySelectorAll('.wc-card-container').forEach(updateCapacity);
             }
 
@@ -1961,7 +2468,6 @@
                 if (lbl) lbl.innerText = `${Math.ceil(currentLoad)} / ${Math.ceil(maxMins)} Min`;
                 if (bar) {
                     bar.style.width = Math.min(pct, 100) + "%";
-                    // Change color logic: Green (<70%), Yellow (<100%), Red (>=100%)
                     let colorClass = 'bg-success';
                     if (pct >= 100) {
                         colorClass = 'bg-danger';
@@ -1986,7 +2492,6 @@
                 if (placeholder) placeholder.style.display = hasItems ? 'none' : 'block';
             }
 
-            // New: Multi Input Logic
             window.openMultiInput = function(targetId, title, isSo = false) {
                 const input = document.getElementById(targetId);
                 const textarea = document.getElementById('multiInputTextarea');
@@ -1994,10 +2499,8 @@
                 multiInputTargetId = targetId;
                 document.getElementById('multiInputTitle').innerText = 'Input List: ' + title;
                 
-                // Pre-fill textarea from current input (replace commas with newlines for editing)
                 let currentVal = input.value;
                 if(currentVal) {
-                    // Split by comma+space or just comma
                     let vals = currentVal.split(/\s*,\s*/);
                     textarea.value = vals.join('\n');
                 } else {
@@ -2019,21 +2522,78 @@
                 
                 if(!targetInput) return;
                 
-                // Split by newline or comma
                 let rawVal = textarea.value;
                 let lines = rawVal.split(/[\n,]+/);
                 
-                // Clean and Filter
                 let cleanVals = lines.map(l => l.trim()).filter(l => l.length > 0);
                 
-                // Join back with comma space
                 targetInput.value = cleanVals.join(', ');
                 
-                // Trigger Event for Search
                 targetInput.dispatchEvent(new Event('keyup'));
                 
                 multiInputModalInstance.hide();
             };
+
+            function applyMinimalDragPreview(count = 1) {
+                requestAnimationFrame(() => {
+                    const mirror = document.querySelector('.sortable-drag');
+                    if (!mirror) return;
+
+                    mirror.classList.add('drag-icon-only');
+                    mirror.setAttribute('data-drag-count', String(count));
+                });
+            }
+
+            function getPoint(e){
+                const t = e.touches?.[0] || e.changedTouches?.[0];
+                return t ? {x: t.clientX, y: t.clientY} : {x: e.clientX, y: e.clientY};
+            }
+
+            let __dragMove;
+
+            function enableDragFollowCursor(e) {
+                const move = (ev) => {
+                    const p = getPoint(ev);
+                    // Gunakan class yang sesuai dengan fallbackClass di Sortable config
+                    const mirror = document.querySelector('.drag-icon-only'); 
+                    if (!mirror) return;
+                    mirror.style.left = p.x + 'px';
+                    mirror.style.top  = p.y + 'px';
+                };
+                
+                move(e);
+                __dragMove = move;
+                document.addEventListener('mousemove', __dragMove, { passive: true });
+                document.addEventListener('touchmove', __dragMove, { passive: true });
+            }
+
+            function disableDragFollowCursor() {
+                if (!__dragMove) return;
+                document.removeEventListener('mousemove', __dragMove);
+                document.removeEventListener('touchmove', __dragMove);
+                __dragMove = null;
+            }
+
+            function ensureKey(row) {
+                const aufnr = String(row.dataset.aufnr || '').trim();
+                const vornr = String(row.dataset.vornr || '').trim();
+                row.dataset.key = row.dataset.key || `${aufnr}__${vornr}`;
+                return row.dataset.key;
+            }
+
+            function stashOriginalState(row) {
+                if (row.dataset.stashed === '1') return;
+
+                const parent = row.parentElement;
+                row.dataset.stashed = '1';
+                row.dataset.originParentId = parent ? parent.id : '';
+                row.dataset.originIndex = parent ? Array.from(parent.children).indexOf(row) : -1;
+
+                // penting: simpan qty sisa sebelum row “berubah jadi card”
+                row.dataset.originSisaQty = String(row.dataset.sisaQty || '0');
+
+                ensureKey(row);
+            }
 
             function setupDragAndDrop() {
                 const sourceList = document.getElementById('source-list');
@@ -2042,61 +2602,50 @@
                 new Sortable(sourceList, {
                     group: 'shared-pro',
                     animation: 150,
+                    fallbackClass: "drag-icon-only",
+                    fallbackOnBody: true,
                     forceFallback: true,
-                    fallbackClass: "sortable-drag",
-                    ghostClass: "sortable-ghost",
-                    sort: false,
-                    onStart: function(evt) { 
+                    onStart: function(evt) {    
                         document.body.classList.add('dragging-active');
-                        const checked = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
-                        const draggedIsChecked = evt.item.querySelector('.row-checkbox')?.checked;
-                        
-                        if (checked.length > 0 && draggedIsChecked) {
-                            draggedItemsCache = Array.from(checked).map(cb => cb.closest('.pro-item'));
-                        } else {
-                            draggedItemsCache = [evt.item];
-                        }
-                        
-                        if (checked.length > 1 && draggedIsChecked) {
-                            setTimeout(() => {
-                                const mirror = document.querySelector('.sortable-drag');
-                                if (mirror) {
-                                    const badge = document.createElement('div');
-                                    badge.innerText = checked.length + " Items";
-                                    badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white shadow-sm';
-                                    badge.style.zIndex = '9999';
-                                    badge.style.fontSize = '0.7rem';
-                                    
-                                    mirror.style.position = 'fixed'; 
-                                    mirror.style.overflow = 'visible'; 
-                                    mirror.appendChild(badge);
-                                }
-                            }, 10);
-                        }
+                        const oe = evt.originalEvent || evt;
+                        enableDragFollowCursor(oe);
+                    },
+                    onChoose: function(evt) {
+                        stashOriginalState(evt.item);
                     },
                     onAdd: function(evt) {
                         document.body.classList.remove('dragging-active');
-                        handleReturnToTable(evt.item, null);
+                        handleReturnToTable(evt.item, evt.from);
                     },
-                    onEnd: function(evt) { document.body.classList.remove('dragging-active'); }
+                    onEnd: function(evt) { 
+                        document.body.classList.remove('dragging-active');
+                        disableDragFollowCursor();
+                    }
                 });
 
                 wcZones.forEach(zone => {
                     new Sortable(zone, {
                         group: 'shared-pro',
                         animation: 150,
-                        forceFallback: true,
-                        onStart: function(evt) { document.body.classList.add('dragging-active'); },
+                        fallbackClass: "drag-icon-only",
+                        fallbackOnBody: true,
+                        forceFallback: true,    
+
+                        onStart: function(evt) {
+                        document.body.classList.add('dragging-active');
+                        enableDragFollowCursor(evt.originalEvent || evt);
+                        },
                         onAdd: function(evt) {
-                            document.body.classList.remove('dragging-active');
-                            handleDropToWc(evt);
+                        document.body.classList.remove('dragging-active');
+                        disableDragFollowCursor();
+                        handleDropToWc(evt);
                         },
                         onEnd: function(evt) {
-                            document.body.classList.remove('dragging-active');
-                            updateCapacity(zone.closest('.wc-card-container'));
+                        document.body.classList.remove('dragging-active');
+                        disableDragFollowCursor();
+                        updateCapacity(zone.closest('.wc-card-container'));
                         }
                     });
-                    checkEmptyPlaceholder(zone);
                 });
             }
 
@@ -2122,7 +2671,7 @@
                 });
 
                 // Advanced Search Listeners
-                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advKdauf', 'advKdpos'];
+                const advIds = ['advAufnr', 'advMatnr', 'advMaktx', 'advArbpl', 'advKdauf'];
                 advIds.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) {
@@ -2406,6 +2955,9 @@
                                 waerk: item.dataset.waerk || '-',
                                 stats: item.dataset.stats || '-', 
                                 calculated_tak_time: takTimeMins.toFixed(2),
+                                is_machining: parseInt(item.dataset.isMachining || 0),
+                                is_machining: parseInt(item.dataset.isMachining || 0),
+                                is_longshift: parseInt(item.dataset.isLongshift || 0),
                                 status_pro_wi: 'Created',
                                 workcenter_induk: item.dataset.arbpl || wcId,
                                 child_workcenter: item.dataset.childWc || null
@@ -2422,12 +2974,14 @@
                         if (labelElement) {
                             loadMinText = labelElement.innerText.split('/')[0].trim();
                         }
-                        const loadMins = Math.ceil(parseFloat(loadMinText));
+                        const loadMins = Math.ceil(window.parseLocaleNum(loadMinText));
+                        const capacityMins = parseFloat(card.dataset.capacityMins) || 0;
 
                         allocationData.push({
                             workcenter: wcId,
                             pro_items: items,
-                            load_mins: loadMins
+                            load_mins: loadMins,
+                            operating_time: capacityMins
                         });
                     }
                 });
@@ -2460,183 +3014,89 @@
             const confirmBtn = document.getElementById('confirmSaveBtn');
             if (confirmBtn) {
                 confirmBtn.addEventListener('click', function() {
-                    console.log('confirmSaveBtn clicked! Calling startWiCreationStream...');
                     startWiCreationStream();
                 });
-            } else {
-                console.error('confirmSaveBtn NOT FOUND in DOM!');
             }
-
-            // --- STREAMING FUNCTION ---
-            window.startWiCreationStream = async function() {
-                console.log('startWiCreationStream STARTING...');
-                // const previewContent = document.getElementById('previewContent'); // Unused
-                
+            window.startWiCreationStream = async function () {
                 const plantCode = '{{ $kode }}';
-                const dateInput = document.getElementById('wiDocumentDate').value; 
+                const dateInput = document.getElementById('wiDocumentDate').value;
                 const timeInput = document.getElementById('wiDocumentTime').value;
 
                 if (!window.latestAllocations || window.latestAllocations.length === 0) {
-                     Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning'); 
-                     return;
+                    Swal.fire('Perhatian!', 'Tidak ada alokasi yang dibuat.', 'warning');
+                    return;
                 }
 
-                // Close Preview Modal
+                // tutup preview modal
                 const previewModalEl = document.getElementById('previewModal');
                 const previewModal = bootstrap.Modal.getInstance(previewModalEl);
                 if (previewModal) previewModal.hide();
 
-                // Open Progress Modal
+                // tampilkan progress modal
                 const progressModalEl = document.getElementById('streamProgressModal');
                 const progressModal = new bootstrap.Modal(progressModalEl);
                 progressModal.show();
-                
-                // Reset Progress UI
+
                 const progressBar = document.getElementById('wiProgressBar');
                 const statusText = document.getElementById('wiStatusText');
                 const logArea = document.getElementById('wiLogArea');
-                
-                progressBar.style.width = '0%';
-                progressBar.innerText = '0%';
-                statusText.innerText = 'Checking items status...';
+
+                progressBar.classList.remove('bg-danger', 'bg-success');
+                progressBar.classList.add('bg-primary');
+                progressBar.style.width = '10%';
+                progressBar.innerText = '10%';
+
+                statusText.classList.remove('text-danger');
+                statusText.innerText = 'Saving document...';
+
                 logArea.innerHTML = '';
                 logArea.classList.remove('d-none');
 
-                // 1. Identify Items needing Release (CRTD / Not REL / Not DSP)
-                // We collect unique AUFNRs that need release
-                const releaseQueue = [];
-                const allProItems = []; 
-                const processedAufnrs = new Set();
-                
-                // Collect all involved PROs first
-                window.latestAllocations.forEach(alloc => {
-                    alloc.pro_items.forEach(item => {
-                        const aufnr = item.aufnr;
-                        if (!processedAufnrs.has(aufnr)) {
-                            processedAufnrs.add(aufnr);
-                            
-                            // Check Status via payload or DOM
-                            // If we added 'stats' to payload in saveAssignment (which we should for robustness), use it.
-                            // If item comes from latestAllocations, it should have it if we added it.
-                            
-                            const stats = item.stats || '';
-                            const needsRelease = stats.includes('CRTD') || !(stats.includes('REL') || stats.includes('DSP'));
-                            
-                            if (needsRelease) {
-                                releaseQueue.push({ aufnr: aufnr });
-                            }
-                            allProItems.push({ aufnr: aufnr });
-                        }
-                    });
-                });
+                const payload = {
+                    plant_code: plantCode,
+                    document_date: dateInput,
+                    document_end_date: document.getElementById('wiDocumentEndDate').value,
+                    document_time: timeInput,
+                    workcenter_allocations: window.latestAllocations,
+                };
 
+                console.log('WI SAVE payload:', payload);
                 try {
-                    // 2. Stream Release (Only if needed)
-                    if (releaseQueue.length > 0) {
-                        statusText.innerText = `Releasing ${releaseQueue.length} items...`;
-                        
-                        const response = await fetch('{{ route("create-wi.stream-release") }}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({
-                                plant_code: plantCode,
-                                items: releaseQueue
-                            })
-                        });
+                    progressBar.style.width = '30%';
+                    progressBar.innerText = '30%';
 
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(`Release Server Error (${response.status}): ${errorText}`);
-                        }
-
-                        const reader = response.body.getReader();
-                        const decoder = new TextDecoder();
-                        let buffer = '';
-
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split('\n\n');
-                            buffer = lines.pop(); 
-
-                            for (const line of lines) {
-                                if (line.startsWith('data: ')) {
-                                    const jsonStr = line.substring(6);
-                                    try {
-                                        const data = JSON.parse(jsonStr);
-                                        
-                                        if (data.progress !== undefined) {
-                                            progressBar.style.width = data.progress + '%';
-                                            progressBar.innerText = data.progress + '%';
-                                        }
-                                        if (data.message) {
-                                            statusText.innerText = data.message;
-                                            const logEntry = document.createElement('div');
-                                            logEntry.innerText = `> ${data.message}`;
-                                            if (data.status === 'error') {
-                                                logEntry.classList.add('text-danger');
-                                                throw new Error(data.message); // Abort on single failure
-                                            }
-                                            else if (data.status === 'success') logEntry.classList.add('text-success');
-                                            
-                                            logArea.appendChild(logEntry);
-                                            logArea.scrollTop = logArea.scrollHeight;
-                                        }
-                                    } catch (e) {
-                                        if (e.message.includes('Release Failed')) throw e; // Re-throw critical errors
-                                        console.error("Stream parse error", e);
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                         // No release needed
-                         statusText.innerText = "All items have valid status (REL/DSP). Proceeding...";
-                         progressBar.style.width = '100%';
-                    }
-
-                    // 3. Final Save (Create WI Document)
-                    statusText.innerText = "Finalizing Document...";
-                    
                     const saveResponse = await fetch('{{ route("wi.save") }}', {
-                         method: 'POST',
-                         headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                         },
-                         body: JSON.stringify({
-                            plant_code: plantCode,
-                            document_date: dateInput,
-                            document_time: timeInput,
-                            workcenter_allocations: window.latestAllocations
-                         })
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify(payload),
                     });
-                    
-                    const saveResult = await saveResponse.json();
-                    
-                    if (saveResponse.ok) {
-                         progressBar.classList.remove('bg-primary');
-                         progressBar.classList.add('bg-success');
-                         statusText.innerText = "Pembuatan Penugasan Berhasil!";
-                         
-                         setTimeout(() => {
-                            window.location.href = "{{ route('wi.history', $kode) }}";
-                         }, 1500);
-                    } else {
-                         throw new Error(saveResult.message || "Save failed.");
+
+                    const saveResult = await saveResponse.json().catch(() => ({}));
+
+                    if (!saveResponse.ok) {
+                    const detail = saveResult.error_detail ? ` (${saveResult.error_detail})` : '';
+                    throw new Error((saveResult.message || 'Save failed.') + detail);
                     }
 
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-success');
+                    progressBar.style.width = '100%';
+                    progressBar.innerText = '100%';
+                    statusText.innerText = 'Pembuatan Penugasan Berhasil!';
+
+                    setTimeout(() => {
+                    window.location.href = "{{ route('wi.history', $kode) }}";
+                    }, 1500);
                 } catch (error) {
                     console.error(error);
-                    statusText.innerText = "Error: " + error.message;
+                    statusText.innerText = 'Error: ' + error.message;
                     statusText.classList.add('text-danger');
+                    progressBar.classList.remove('bg-primary');
                     progressBar.classList.add('bg-danger');
-                    
+
                     const logEntry = document.createElement('div');
                     logEntry.innerText = `> PROCESS ABORTED: ${error.message}`;
                     logEntry.classList.add('text-danger', 'fw-bold');
@@ -2646,26 +3106,66 @@
 
             function showPreviewModal(data, totalWcCount) {
                 console.log('showPreviewModal called', data, totalWcCount);
-                // Save data globally for save function
                 window.latestAllocations = data;
 
                 const content = document.getElementById('previewContent');
                 const emptyWarning = document.getElementById('emptyPreviewWarning');
                 const dateInput = document.getElementById('wiDocumentDate');
+                const endDateInput = document.getElementById('wiDocumentEndDate');
                 const timeInput = document.getElementById('wiDocumentTime');
                 const btnSave = document.getElementById('confirmSaveBtn');
                 const btnRelease = document.getElementById('btnModalRelease');
-                
-                // Set default time logic (sama)
+                const colEndDate = document.getElementById('colEndDate');
+                const colWarning = document.getElementById('colWarning');
+                const colDocumentTime = document.getElementById('colDocumentTime');
+
                 const now = new Date();
-                dateInput.value = now.toISOString().split('T')[0];
+                let defaultDate = now.toISOString().split('T')[0];
+                let defaultEndDate = defaultDate; 
+
+                const chkMachining = document.getElementById('chkUnique1');
+                const isMachining = chkMachining && chkMachining.checked;
+
+                if (isMachining) {
+                    if(colEndDate) colEndDate.classList.remove('d-none');
+                    if(colWarning) colWarning.classList.add('d-none');
+                    if(colDocumentTime) colDocumentTime.classList.add('d-none');
+                    if(dateInput) dateInput.disabled = true;
+                    if(endDateInput) endDateInput.disabled = true;
+
+                    let minSSAVD = null;
+                    let maxSSSLD = null;
+                    
+                    data.forEach(wc => {
+                        wc.pro_items.forEach(item => {
+                            if (item.ssavd) {
+                                if (!minSSAVD || item.ssavd < minSSAVD) minSSAVD = item.ssavd;
+                            }
+                            if (item.sssld) {
+                                if (!maxSSSLD || item.sssld > maxSSSLD) maxSSSLD = item.sssld;
+                            }
+                        });
+                    });
+
+                    if (minSSAVD) defaultDate = minSSAVD.split('T')[0]; 
+                    if (maxSSSLD) defaultEndDate = maxSSSLD.split('T')[0];
+                } else {
+                    if(colEndDate) colEndDate.classList.add('d-none');
+                    if(colWarning) colWarning.classList.remove('d-none');
+                    if(colDocumentTime) colDocumentTime.classList.remove('d-none');
+                    if(dateInput) dateInput.disabled = false;
+                    if(endDateInput) endDateInput.disabled = false;
+                }
+
+                if(dateInput) dateInput.value = defaultDate;
+                if(endDateInput) endDateInput.value = defaultEndDate;
+
                 const hours = String(now.getHours()).padStart(2, '0');
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 if(timeInput) timeInput.value = `${hours}:${minutes}`;
 
                 content.innerHTML = '';
 
-                // --- 1. Empty Check ---
                 if (totalWcCount === 0 || data.length === 0) {
                     emptyWarning.classList.remove('d-none');
                     if(btnSave) btnSave.disabled = true;
@@ -2679,32 +3179,60 @@
 
                 emptyWarning.classList.add('d-none');
 
-                // --- 2. Validation Loop (CRTD Check) ---
                 let hasCapacityError = false;
                 let crtdCount = 0;
-                let crtdItems = []; 
+                let crtdItems = [];
+
+                const toNum = (v) => {
+                    if (v == null) return 0;
+                    const s = String(v).trim().replace(/\./g, '').replace(/,/g, '.');
+                    return parseFloat(s) || 0;
+                };
+
+                const computeCapacity = (wc, wcCard, isMachining) => {
+                    const loadMins = toNum(wc.load_mins);
+                    const baseMaxLoad = wcCard ? Math.ceil(toNum(wcCard.dataset.capacityMins)) : 0;
+
+                    if (!isMachining) {
+                        return { loadMins, maxLoad: baseMaxLoad, opPerDay: 0, daysNeeded: 0, daysBucket: 0 };
+                    }
+
+                    let opPerDay = toNum(wc.operating_time);
+                    if (opPerDay <= 0) opPerDay = baseMaxLoad; // Fallback
+
+                    if (opPerDay <= 0) {
+                        return { loadMins, maxLoad: baseMaxLoad, opPerDay: 0, daysNeeded: 0, daysBucket: 0 };
+                    }
+                    const daysNeeded = loadMins / opPerDay;
+                    const daysBucket = Math.max(1, Math.ceil(daysNeeded));
+
+                    return {
+                        loadMins,
+                        opPerDay,
+                        daysNeeded,
+                        daysBucket,
+                        maxLoad: opPerDay * daysBucket
+                    };
+                };
 
                 data.forEach(wc => {
                     const wcCard = document.querySelector(`[data-wc-id="${wc.workcenter}"]`);
-                    const maxLoad = wcCard ? Math.ceil(parseFloat(wcCard.dataset.kapazWc) * 60) : 0;
-                    if (wc.load_mins > (maxLoad + 0.1)) hasCapacityError = true;
-                    
+                    const cap = computeCapacity(wc, wcCard, isMachining);
+                    if (cap.maxLoad > 0 && cap.loadMins > (cap.maxLoad + 0.1)) hasCapacityError = true;
                     wc.pro_items.forEach(item => {
-                         if(item.stats && item.stats.includes('CRTD')) {
-                             crtdCount++;
-                             crtdItems.push(item);
-                         }
+                        if (item.stats && item.stats.includes('CRTD')) {
+                            crtdCount++;
+                            crtdItems.push(item);
+                        }
                     });
                 });
 
-                // Update Buttons State
                 if(btnSave) btnSave.disabled = (crtdCount > 0);
                 
                 if(btnRelease) {
                     if(crtdCount > 0) {
                         btnRelease.classList.remove('d-none');
                         btnRelease.innerHTML = `<i class="fa-solid fa-unlock me-2"></i>Release Orders (${crtdCount})`;
-                        // Store CRTD items for release action
                         window.crtdItemsForRelease = crtdItems;
                     } else {
                         btnRelease.classList.add('d-none');
@@ -2713,14 +3241,31 @@
 
                 let html = '';
                 
-                // --- 3. Render Items ---
                 data.forEach(wc => {
                     const wcCard = document.querySelector(`[data-wc-id="${wc.workcenter}"]`);
-                    const maxLoad = wcCard ? Math.ceil(parseFloat(wcCard.dataset.kapazWc) * 60) : 0;
-                    
-                    const isOverCapacity = wc.load_mins > (maxLoad + 0.1); 
-                    const badgeClass = isOverCapacity ? 'bg-danger text-white border-danger' : 'bg-light text-primary border-primary border-opacity-25';
-                    const loadText = `Load: ${wc.load_mins} / ${maxLoad} Min`;
+                    const cap = computeCapacity(wc, wcCard, isMachining);
+
+                    const isOverCapacity = cap.maxLoad > 0 ? (cap.loadMins > (cap.maxLoad + 0.1)) : (cap.loadMins > 0);
+                    const badgeClass = isOverCapacity
+                    ? 'bg-danger text-white border-danger'
+                    : 'bg-light text-primary border-primary border-opacity-25';
+
+                    let durationText = '';
+                    if (isMachining && cap.opPerDay > 0) {
+                         if (cap.loadMins < cap.opPerDay) {
+                             const h = cap.loadMins / 60;
+                             durationText = `(${parseFloat(h.toFixed(1)).toLocaleString('id-ID')} Jam)`;
+                         } else {
+                             const d = Math.floor(cap.daysNeeded);
+                             const rem = cap.loadMins - (d * cap.opPerDay);
+                             const h = rem / 60;
+                             durationText = `(${d} Hari, ${parseFloat(h.toFixed(1)).toLocaleString('id-ID')} Jam)`;
+                         }
+                    }
+
+                    const loadText = (isMachining && cap.opPerDay > 0)
+                    ? `Total : ${cap.loadMins.toLocaleString('id-ID')} / ${cap.maxLoad.toLocaleString('id-ID')} Menit ${durationText}`
+                    : `Total : ${cap.loadMins.toLocaleString('id-ID')} / ${cap.maxLoad.toLocaleString('id-ID')} Menit`;
 
                     html += `
                         <div class="col-lg-4 col-md-6 mb-3"> 
@@ -2729,7 +3274,7 @@
                                     <div class="d-flex justify-content-between align-items-center">
                                         <h6 class="mb-0 fw-bold text-dark">${wc.workcenter}</h6>
                                         <span class="badge ${badgeClass} border">
-                                            ${loadText} ${isOverCapacity ? '(Exceeded!)' : ''}
+                                            ${loadText} ${isOverCapacity ? '(Melebihi Kapasitas!)' : ''}
                                         </span>
                                     </div>
                                 </div>
@@ -2738,39 +3283,48 @@
                     `;
 
                     wc.pro_items.forEach(item => {
-                        const targetWcName = item.child_workcenter ? 
-                            `<i class="fa-solid fa-arrow-right-long mx-1 text-muted"></i> <span class="text-primary fw-bold">${item.child_workcenter}</span>` : '';
-                        
+                        const targetWcLine = item.child_workcenter
+                            ? `<div class="text-xs text-muted">
+                                <i class="fa-solid fa-arrow-right-long mx-1 text-muted"></i>
+                                <span class="text-primary fw-bold">${item.child_workcenter}</span>
+                            </div>`
+                            : '';
+
                         const isCrtd = item.stats && item.stats.includes('CRTD');
-                        const statusBadge = isCrtd 
-                            ? `<span class="badge bg-danger text-white ms-1">CRTD</span>` 
-                            : `<span class="badge bg-light text-muted border ms-1">${item.stats}</span>`;
+                        const statusBadge = isCrtd
+                            ? `<span class="badge bg-danger text-white ms-1">CRTD</span>`
+                            : `<span class="badge bg-light text-muted border ms-1">${item.stats || ''}</span>`;
 
                         html += `
                             <li class="list-group-item px-3 py-2 border-bottom-0 border-top position-relative group-hover-parent">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="d-flex align-items-center">
-                                         <!-- Remove Button -->
-                                         <button class="btn btn-link text-danger p-0 me-2 remove-item-btn" 
-                                            onclick="removeAllocatedItem('${item.aufnr}', '${item.vornr}', '${wc.workcenter}')" 
-                                            title="Hapus Item" style="text-decoration: none;">
-                                            <i class="fa-solid fa-xmark"></i>
-                                         </button>
-                                        
-                                        <div>
-                                            <div class="fw-bold text-dark">
-                                                ${item.aufnr} ${statusBadge}
-                                            </div>
-                                            <div class="text-xs text-muted">${targetWcName}</div>
-                                        </div>
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+
+                                <!-- LEFT -->
+                                <div class="d-flex align-items-start gap-2 flex-grow-1" style="min-width:0;">
+                                <button class="btn btn-link text-danger p-0 flex-shrink-0 remove-item-btn"
+                                    onclick="removeAllocatedItem('${item.aufnr}', '${item.vornr}', '${wc.workcenter}')"
+                                    title="Hapus Item" style="text-decoration:none;">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+
+                                <div style="min-width:0;">
+                                    <div class="fw-bold text-dark d-flex align-items-center flex-wrap gap-1">
+                                    <span>${item.aufnr}</span>
+                                    ${statusBadge}
                                     </div>
-                                    <div class="text-end">
-                                        <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10 mb-1">
-                                            ${item.assigned_qty.toLocaleString('id-ID')}
-                                        </div>
-                                        <div class="text-xs text-muted">${item.name}</div>
-                                    </div>
+                                    ${targetWcLine}
                                 </div>
+                                </div>
+
+                                <!-- RIGHT -->
+                                <div class="text-end flex-shrink-0">
+                                <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10 mb-1">
+                                    ${Number(item.assigned_qty || 0).toLocaleString('id-ID')}
+                                </div>
+                                <div class="text-xs text-muted">${item.name || ''}</div>
+                                </div>
+
+                            </div>
                             </li>
                         `;
                     });
@@ -2784,21 +3338,7 @@
                 });
 
                 content.innerHTML = html;
-
-                // Capacity Warning
-                if (hasCapacityError) {
-                    if(btnSave) btnSave.disabled = false; // User Override
-                    content.insertAdjacentHTML('afterbegin', `
-                        <div class="col-12 mb-3">
-                            <div class="alert alert-warning fw-bold shadow-sm border-warning text-dark">
-                                <i class="fa-solid fa-triangle-exclamation me-2 text-warning"></i> 
-                                PERINGATAN: Terdapat Workcenter yang melebihi kapasitas!
-                            </div>
-                        </div>
-                    `);
-                }
                 
-                // CRTD Warning
                 if (crtdCount > 0) {
                      content.insertAdjacentHTML('afterbegin', `
                         <div class="col-12 mb-3">
@@ -2815,36 +3355,26 @@
                 modal.show();
             }
 
-            // --- NEW: Handle Remove Item from Modal ---
             window.removeAllocatedItem = function(aufnr, vornr, wcId) {
                 if (!window.latestAllocations) return;
                 
-                // Remove item from data structure
                 window.latestAllocations.forEach(wc => {
                     if(wc.workcenter === wcId) {
                         const originalCount = wc.pro_items.length;
                         wc.pro_items = wc.pro_items.filter(item => !(item.aufnr === aufnr && item.vornr === vornr));
-                        
-                        // Recalculate Load (Approximate subtration)
-                        // Note: It's better to fetch Load from ITEM if stored, or just rely on backend/source table re-calc. 
-                        // Simplified: Recalc total PRO count
                     }
                 });
                 
-                // Remove empty WCs
                 window.latestAllocations = window.latestAllocations.filter(wc => wc.pro_items.length > 0);
                 
-                // Re-render Modal
                 const totalWc = window.latestAllocations.length; 
                 showPreviewModal(window.latestAllocations, totalWc);
             };
 
-            // --- NEW: Helper to refresh modal state via API ---
             async function refreshModalState() {
                 try {
                     console.log("refreshModalState: START");
                     
-                    // 1. Collect Items to Refresh
                     const itemsToFetch = [];
                     window.latestAllocations.forEach(wc => {
                         wc.pro_items.forEach(item => {
@@ -2856,7 +3386,6 @@
                     
                     if(itemsToFetch.length === 0) return;
 
-                    // 2. Fetch specific status updates
                     const response = await fetch("{{ route('create-wi.fetch-status') }}", {
                         method: 'POST',
                         headers: {
@@ -2874,15 +3403,12 @@
                     
                     console.log("refreshModalState: API Response", updatedData);
 
-                    // 3. Update Modal Data (stats)
                     let updatedCount = 0;
                     window.latestAllocations.forEach(wc => {
                         wc.pro_items.forEach(item => {
-                            // DEBUG MATCHING
                             const itemAufnr = String(item.aufnr).trim();
                             const itemVornr = item.vornr ? String(item.vornr).trim() : '';
 
-                            // Match strictly by AUFNR and VORNR first
                             const specificMatch = updatedData.find(u => {
                                 const uAufnr = String(u.AUFNR).trim();
                                 const uVornr = u.VORNR ? String(u.VORNR).trim() : '';
@@ -2894,7 +3420,6 @@
                                   item.stats = specificMatch.STATS;
                                   updatedCount++;
                              } else {
-                                 // Fallback: if VORNR missing or not matching, use first match for AUFNR
                                  const anyMatch = updatedData.find(u => String(u.AUFNR).trim() === itemAufnr);
                                  if (anyMatch) {
                                      console.log(`Match Found (Fallback): ${itemAufnr} | Old: ${item.stats} -> New: ${anyMatch.STATS}`);
@@ -2909,10 +3434,8 @@
 
                     console.log(`Updated stats via API for ${updatedCount} items.`);
 
-                    // 4. Update Background Table (Best Effort)
                     if (typeof setupSearch === 'function') setupSearch();
 
-                    // 5. Re-Open Modal
                     const totalWc = window.latestAllocations.length; 
                     showPreviewModal(window.latestAllocations, totalWc);
 
@@ -2922,10 +3445,8 @@
                 }
             }
 
-            // --- NEW: Handle Refresh in Modal ---
             window.handleModalRefresh = async function() {
                 const items = [];
-                // Collect unique AUFNRs from modal
                 const uniqueAufnrs = new Set();
                 window.latestAllocations.forEach(wc => {
                     wc.pro_items.forEach(i => uniqueAufnrs.add(i.aufnr));
@@ -2935,12 +3456,9 @@
                 
                 if(items.length === 0) return;
 
-                // Close Preview temporarily
                 const previewEl = document.getElementById('previewModal');
                 const previewModal = bootstrap.Modal.getInstance(previewEl);
                 previewModal.hide();
-
-                // Run Stream Refresh with Callback
                 await executeBulkStream(
                     '{{ route("create-wi.stream-refresh") }}', 
                     items, 
@@ -2949,17 +3467,14 @@
                 );
             };
 
-            // --- NEW: Handle Release in Modal ---
             window.handleModalRelease = async function() {
                 if (!window.crtdItemsForRelease || window.crtdItemsForRelease.length === 0) return;
-                 // Close Preview
                 const previewEl = document.getElementById('previewModal');
                 const previewModal = bootstrap.Modal.getInstance(previewEl);
                 previewModal.hide();
 
                 const items = window.crtdItemsForRelease.map(i => ({ aufnr: i.aufnr }));
                 
-                // Run Stream Release with Callback
                 await executeBulkStream(
                     '{{ route("create-wi.stream-release") }}', 
                     items, 
@@ -3056,10 +3571,8 @@
                 await executeBulkChangeStream(targetWc, window.selectedProsForChange);
             }
 
-            // CORE STREAMING LOGIC (Reusable)
             function executeBulkChangeStream(targetWc, prosList) {
                 return new Promise(async (resolve, reject) => {
-                    // Validasi data
                     if (!prosList || prosList.length === 0) {
                         Swal.fire('Error', 'Data PRO tidak valid.', 'error');
                         resolve(); return;
@@ -3259,22 +3772,25 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4 bg-light">
-                    <!-- Added Date/Time Inputs -->
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body p-3">
                             <div class="row g-3 align-items-end">
                                 <div class="col-md-3">
-                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Document</label>
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Mulai</label>
                                     <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-date" id="wiDocumentDate" required>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Waktu Mulai WI</label>
+                                <div class="col-md-3" id="colEndDate">
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Tanggal Selesai</label>
+                                    <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-date" id="wiDocumentEndDate" required>
+                                </div>
+                                <div class="col-md-2" id="colDocumentTime">
+                                    <label class="form-label text-xs fw-bold text-muted text-uppercase">Waktu</label>
                                     <input type="text" class="form-control form-control-sm fw-bold text-dark flatpickr-time" id="wiDocumentTime" required>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4" id="colWarning">
                                     <div class="d-flex align-items-center text-danger small bg-danger bg-opacity-10 p-2 rounded">
                                         <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i>
-                                        <div>Dokumen akan kadaluarsa <strong>12 Jam</strong> sesuai jadwal. Pastikan jadwal operator sudah benar.</div>
+                                        <div style="line-height: 1.2;">Dokumen akan kadaluarsa <strong>12 Jam</strong> sesuai jadwal.</div>
                                     </div>
                                 </div>
                             </div>
@@ -3317,13 +3833,13 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
                 <div class="modal-body p-4 text-center">
-                    <h5 class="fw-bold mb-3 text-dark">Processing Schedule...</h5>
+                    <h5 class="fw-bold mb-3 text-dark">Memproses Pembuatan WI</h5>
                     
                     <div class="progress mb-3" style="height: 20px; border-radius: 10px;">
                         <div id="wiProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%">0%</div>
                     </div>
                     
-                    <p id="wiStatusText" class="text-muted small mb-0">Initializing...</p>
+                    <p id="wiStatusText" class="text-muted small mb-0">Memproses>
                     
                     <div id="wiLogArea" class="mt-3 text-start small text-muted overflow-auto border rounded p-2 bg-light d-none" style="max-height: 100px; font-size: 0.75rem;">
                         {{-- Logs assigned here --}}
@@ -3428,7 +3944,6 @@
             });
         }
 
-        // BULK ACTION LOGIC
         window.handleBulkRelease = function() {
             const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
             if (checkboxes.length === 0) return;
@@ -3478,7 +3993,6 @@
         };
 
         async function executeBulkStream(url, items, title, onComplete = null) {
-            // Setup Modal Reuse (bulkProgressModal)
             const modalEl = document.getElementById('bulkProgressModal');
             const modalTitle = modalEl.querySelector('.modal-title');
             const progressBar = document.getElementById('streamProgressBar');
@@ -3654,6 +4168,49 @@
                 });
             });
         }
+
+        function isIntegerMeins(meins) {
+            const m = String(meins || '').toUpperCase();
+            return (m === 'SET' || m === 'ST');
+        }
+
+        window.autoSplitIfLongshiftReady = function(aufnr) {
+            const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
+            if (!card) return;
+
+            const isLongshift = document.getElementById(`ls-${aufnr}`)?.checked;
+            if (!isLongshift) return;
+
+            const rows = card.querySelectorAll('.assignment-row');
+            if (rows.length < 2) return;
+
+            const row1 = rows[0], row2 = rows[1];
+            const emp2 = row2.querySelector('.emp-select')?.value || '';
+            if (!emp2) return;
+
+            const maxQty = parseFloat(card.dataset.maxQty) || 0;
+            const q1El = row1.querySelector('.qty-input');
+            const q2El = row2.querySelector('.qty-input');
+            const q1 = window.parseLocaleNum(q1El.value);
+            const q2 = window.parseLocaleNum(q2El.value);
+
+            const looksAuto = (Math.abs(q1 - maxQty) < 0.0001) && (q2 < 0.0001);
+            if (!looksAuto) return;
+
+            const integerOnly = isIntegerMeins(card.dataset.meins);
+
+            let a, b;
+            if (integerOnly) {
+                a = Math.ceil(maxQty / 2);
+                b = maxQty - a;
+            } else {
+                a = +(maxQty / 2).toFixed(3);
+                b = +(maxQty - a).toFixed(3);
+            }
+
+            q1El.value = a.toLocaleString('id-ID');
+            q2El.value = b.toLocaleString('id-ID');
+        };
     </script>
     @endpush
 </x-layouts.app>

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HistoryWiItem extends Model
 {
@@ -32,12 +33,12 @@ class HistoryWiItem extends Model
         'material_desc',
         'qty_order',
         'assigned_qty',
-        'confirmed_qty',
-        'workcenter_induk',
-        'child_workcenter',
-        'status_item',
+        'parent_wc',
+        'child_wc',
+        'status',
+        'machining',
+        'longshift',
         'calculated_takt_time',
-        'item_json',
     ];
 
     protected $casts = [
@@ -47,12 +48,16 @@ class HistoryWiItem extends Model
         'vgw01' => 'decimal:2',
         'qty_order' => 'decimal:3',
         'assigned_qty' => 'decimal:3',
-        'confirmed_qty' => 'decimal:3',
         'calculated_takt_time' => 'decimal:2',
     ];
 
     public function wi(): BelongsTo
     {
         return $this->belongsTo(HistoryWi::class, 'history_wi_id');
+    }
+
+    public function pros()
+    {
+        return $this->hasMany(\App\Models\HistoryPro::class, 'history_wi_item_id');
     }
 }

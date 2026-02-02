@@ -103,7 +103,7 @@
 
     <table>
         <tr class="summary-header">
-            <td width="25%">Quantity WI</td>
+            <td width="25%">QTYTASK</td>
             <td width="25%">Quantity Terkonfirmasi</td>
             <td width="25%">Quantity Tidak Terkonfirmasi</td>
             <td width="25%">Rata-rata Keberhasilan</td>

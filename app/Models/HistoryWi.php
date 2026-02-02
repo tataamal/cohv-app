@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
+
 class HistoryWi extends Model
 {
     // use SoftDeletes; // Removed because table does not have deleted_at
@@ -19,26 +21,15 @@ class HistoryWi extends Model
      */
     protected $fillable = [
         'wi_document_code',
-        'workcenter_induk', // Renamed from workcenter_code
+        'workcenter',
         'plant_code',
         'document_date',
-        'sequence_number',
         'document_time',
-        'posted_at',
+        'expired_at',
+        'sequence_number',
         'status',
-        // 'payload_data' removed
-        // 'expired_at' removed from migration but controller uses it. Check migration again?
-        // Migration doesn't show expired_at. Controller relies on it.
-        // User said: "untuk mengganti penyimpanan payload datanya".
-        // Migration `history_wi`: id, wi_document_code, workcenter_induk, plant_code, document_date, document_time, posted_at, sequence_number, status, timestamps.
-        // MISSING: expired_at, year.
-        // I will trust the migration for table name and basic fields, but Controller logic DEPENDS heavily on expired_at.
-        // If expired_at is missing from DB, controller queries will fail.
-        // I should probably ASSUME expired_at is handled differently or I might be missing a migration part.
-        // Wait, user provided TWO migrations.
-        // If I assume migration is truth, I must remove expired_at from model too? But then controller logic `where('expired_at'...)` breaks.
-        // Maybe I should add payload_data accessor to mimic old behavior for backward compatibility if possible, or refactor controller completely.
-        // Let's refactor model to match TABLE first.
+        'machining',
+        'longshift',
     ];
 
     /**
@@ -46,30 +37,23 @@ class HistoryWi extends Model
      * @var array
      */
     protected $casts = [
-        'document_date' => 'date',
-        'sequence_number' => 'integer',
-        'posted_at' => 'datetime',
+        'document_date' => 'date:Y-m-d',
+        'expired_at'    => 'datetime',
+        'document_time' => 'string',
+        'machining'     => 'integer',
+        'longshift'     => 'integer',
     ];
 
-    /**
-     * Relationship to KodeLaravel model (Plant Code).
-     */
     public function kode()
     {
         return $this->belongsTo(\App\Models\KodeLaravel::class, 'plant_code', 'laravel_code');
     }
 
-    /**
-     * Relationship to Items.
-     */
     public function items()
     {
         return $this->hasMany(\App\Models\HistoryWiItem::class, 'history_wi_id');
     }
 
-    /**
-     * Accessor for Department Name (Bagian).
-     */
     public function getDepartmentAttribute()
     {
         return $this->kode ? $this->kode->description : 'UNKNOWN DEPT';
