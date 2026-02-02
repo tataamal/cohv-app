@@ -274,26 +274,42 @@
                         ['bg' => 'bg-success-subtle', 'text' => 'text-success-emphasis'],
                         ['bg' => 'bg-info-subtle', 'text' => 'text-info-emphasis'],
                     ];
+                    $globalIndex = 0;
                 @endphp
     
-                @forelse ($plants as $plant)
-                    @php
-                        $colors = $colorClasses[$loop->index % count($colorClasses)];
-                    @endphp
-                    
-                    <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
-                        <a href="{{ route('manufaktur.dashboard.show', [$plant->kode]) }}"
-                            onclick="event.preventDefault(); appLoader.show(); setTimeout(() => { window.location.href = this.href }, 150)"
-                            class="card w-100 text-decoration-none text-center p-3 rounded-4 shadow-sm plant-card">
-                            <div class="card-body">
-                                <div class="d-inline-flex align-items-center justify-content-center rounded-circle mx-auto mb-3 {{ $colors['bg'] }}" style="width: 56px; height: 56px;">
-                                    <svg class="{{ $colors['text'] }}" width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                </div>
-                                <h3 class="card-title h6 fw-bold text-dark">{{ $plant->nama_bagian }}</h3>
-                                <p class="card-text text-muted small">Kategori: {{ $plant->kategori }}</p>
-                            </div>
-                        </a>
+                @forelse ($groupedPlants as $groupKey => $plants)
+                    <div class="col-12 mt-4">
+                        <h3 class="h5 fw-bold text-secondary border-bottom pb-2 mb-3">
+                            @if($groupKey == '1001' || $groupKey == '1200')
+                                Kategori {{ $groupKey }}
+                            @elseif($groupKey == 'Lainnya')
+                                Lainnya
+                            @else
+                                Plant {{ $groupKey }}
+                            @endif
+                        </h3>
                     </div>
+
+                    @foreach ($plants as $plant)
+                        @php
+                            $colors = $colorClasses[$globalIndex % count($colorClasses)];
+                            $globalIndex++;
+                        @endphp
+                        
+                        <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
+                            <a href="{{ route('manufaktur.dashboard.show', [$plant->kode]) }}"
+                                onclick="event.preventDefault(); appLoader.show(); setTimeout(() => { window.location.href = this.href }, 150)"
+                                class="card w-100 text-decoration-none text-center p-3 rounded-4 shadow-sm plant-card">
+                                <div class="card-body">
+                                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mx-auto mb-3 {{ $colors['bg'] }}" style="width: 56px; height: 56px;">
+                                        <svg class="{{ $colors['text'] }}" width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                    </div>
+                                    <h3 class="card-title h6 fw-bold text-dark">{{ $plant->nama_bagian }}</h3>
+                                    <p class="card-text text-muted small">Kategori: {{ $plant->kategori }}</p>
+                                </div>
+                            </a>
+                        </div>
+                    @endforeach
                 @empty
                     <div class="col-12">
                         <div class="text-center py-5 bg-white rounded-4 border">

@@ -732,12 +732,23 @@ class adminController extends Controller
                 }
                 return null;
             })->filter()->unique('kode');
-            
-            $allUsers = UserSap::orderBy('name')->get();
+
+            // Grouping Logic
+            $groupedPlants = $plants->groupBy(function ($plant) {
+                $cat = trim($plant->kategori);
+                if ($cat == '1001' || $cat == '1200') {
+                    return $cat;
+                }
+                // Ambil digit pertama lalu tambah '000', misal 1050 -> 1000
+                if (strlen($cat) >= 1 && is_numeric($cat)) {
+                     return substr($cat, 0, 1) . '000';
+                }
+                return 'Lainnya';
+            })->sortKeys();
         }
         
         return view('dashboard', [
-            'plants' => $plants,
+            'groupedPlants' => $groupedPlants ?? collect(), // Use groupedPlants
             'allUsers' => $allUsers
         ]);
     }
