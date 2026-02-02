@@ -715,8 +715,6 @@ class adminController extends Controller
             if ($sapIdNormalized === 'auto_email') {
                 $mappings = MappingTable::with('kodeLaravel')->get(); 
             } elseif ($sapUser) {
-                $mappings = MappingTable::with('kodeLaravel')->get(); 
-            } elseif ($sapUser) {
                 $mappings = MappingTable::where('user_sap_id', $sapUser->id)
                     ->with('kodeLaravel')
                     ->get();
