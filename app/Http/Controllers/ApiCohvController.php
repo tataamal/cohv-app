@@ -31,9 +31,13 @@ class ApiCohvController extends Controller
         }
 
         // New mapping: read from MappingTable which links user_sap -> kode_laravel -> mrp
-        $mappings = MappingTable::with(['kodeLaravel', 'mrp'])
-            ->where('user_sap_id', $user->id)
-            ->get();
+        if (strtolower($sap_id) === 'auto_email') {
+            $mappings = MappingTable::with(['kodeLaravel', 'mrp'])->get();
+        } else {
+            $mappings = MappingTable::with(['kodeLaravel', 'mrp'])
+                ->where('user_sap_id', $user->id)
+                ->get();
+        }
 
         // Normalize into kode entries: kode, kategori (plant), nama_bagian (description), mrps
         $groupedKodes = $mappings->groupBy(function ($m) {
