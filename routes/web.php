@@ -27,9 +27,11 @@ Route::get('/', [LoginController::class, 'checkAuth']);
 // Routing untuk user yang belum melakukan register
 Route::middleware('guest')->group(function (){
     Route::get('/login', [LoginController::class, 'showLoginForm'])->middleware('clear.cookies')->name('login');
+    Route::post('/login/admin', [LoginController::class, 'loginAdmin'])->name('login.admin');
 });
 
 // Mapping Routes (Should be accessible to logged in users or public depending on auth setup of app, placing outside guest group)
+Route::put('/mapping-sementara/bulk-update', [MappingController::class, 'bulkUpdate'])->name('mapping.bulk_update');
 Route::resource('mapping-sementara', MappingController::class)->names('mapping');
 Route::delete('/mapping-sementara/bulk', [MappingController::class, 'bulkDestroy'])->name('mapping.bulk_destroy');
 Route::put('/mapping-sementara/{id}', [MappingController::class, 'update'])->name('mapping.update');

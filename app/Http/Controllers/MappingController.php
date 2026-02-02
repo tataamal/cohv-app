@@ -120,4 +120,29 @@ class MappingController extends Controller
 
         return redirect()->route('mapping.index')->with('success', 'Mapping updated successfully.');
     }
+    public function bulkUpdate(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:mapping_table,id',
+            'user_sap_id' => 'nullable|exists:user_sap,id',
+            'kode_laravel_id' => 'nullable|exists:kode_laravel,id',
+            'mrp_id' => 'nullable|exists:mrp,id',
+            'workcenter_id' => 'nullable|exists:workcenters,id',
+        ]);
+
+        $updateData = [];
+        if ($request->filled('user_sap_id')) $updateData['user_sap_id'] = $request->user_sap_id;
+        if ($request->filled('kode_laravel_id')) $updateData['kode_laravel_id'] = $request->kode_laravel_id;
+        if ($request->filled('mrp_id')) $updateData['mrp_id'] = $request->mrp_id;
+        if ($request->filled('workcenter_id')) $updateData['workcenter_id'] = $request->workcenter_id;
+
+        if (!empty($updateData)) {
+            MappingTable::whereIn('id', $request->ids)->update($updateData);
+            $count = count($request->ids);
+            return redirect()->route('mapping.index')->with('success', "$count Mapping(s) updated successfully.");
+        }
+
+        return redirect()->route('mapping.index')->with('success', "No changes made.");
+    }
 }

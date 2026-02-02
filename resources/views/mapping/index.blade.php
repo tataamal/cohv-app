@@ -155,6 +155,9 @@
                                 <button type="submit" class="btn btn-danger btn-sm d-none" id="btn-delete-selected">
                                     <i class="fa-solid fa-trash me-1"></i> Hapus Terpilih (<span id="selected-count">0</span>)
                                 </button>
+                                <button type="button" class="btn btn-warning btn-sm d-none ms-2" id="btn-edit-selected" data-bs-toggle="modal" data-bs-target="#bulkEditMappingModal">
+                                    <i class="fa-solid fa-pen-to-square me-1"></i> Edit Terpilih
+                                </button>
                             </div>
 
                             <div class="table-responsive">
@@ -349,6 +352,70 @@
         </div>
     </div>
 
+    {{-- Bulk Edit Modal --}}
+    <div class="modal fade" id="bulkEditMappingModal" tabindex="-1" aria-labelledby="bulkEditMappingModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="bulk-edit-mapping-form" action="{{ route('mapping.bulk_update') }}" method="POST">
+                    @csrf
+                    @method('PUT')
+                    <!-- IDs will be inserted dynamically -->
+                    
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="bulkEditMappingModalLabel">Bulk Edit Mapping</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info small">
+                            <i class="fa-solid fa-circle-info me-1"></i> Biarkan kosong jika tidak ingin mengubah field tertentu.
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="bulk_user_sap_id" class="form-label small fw-semibold">User SAP</label>
+                            <select class="form-select" id="bulk_user_sap_id" name="user_sap_id">
+                                <option value="">-- Tidak Berubah --</option>
+                                @foreach($userSaps as $item)
+                                    <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->user_sap }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bulk_kode_laravel_id" class="form-label small fw-semibold">Kode Laravel</label>
+                            <select class="form-select" id="bulk_kode_laravel_id" name="kode_laravel_id">
+                                <option value="">-- Tidak Berubah --</option>
+                                @foreach($kodeLaravels as $item)
+                                    <option value="{{ $item->id }}">{{ $item->laravel_code }} - {{ $item->description }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bulk_mrp_id" class="form-label small fw-semibold">MRP</label>
+                            <select class="form-select" id="bulk_mrp_id" name="mrp_id">
+                                <option value="">-- Tidak Berubah --</option>
+                                @foreach($mrps as $item)
+                                    <option value="{{ $item->id }}">{{ $item->mrp }} ({{ $item->plant }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bulk_workcenter_id" class="form-label small fw-semibold">Workcenter</label>
+                            <select class="form-select" id="bulk_workcenter_id" name="workcenter_id">
+                                <option value="">-- Tidak Berubah --</option>
+                                @foreach($workcenters as $item)
+                                    <option value="{{ $item->id }}">{{ $item->kode_wc }} - {{ $item->description }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-warning">Update Terpilih</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
     <script>
@@ -407,15 +474,41 @@
             const btnDeleteSelected = document.getElementById('btn-delete-selected');
             const selectedCountSpan = document.getElementById('selected-count');
 
+            const btnEditSelected = document.getElementById('btn-edit-selected');
+
             function updateDeleteButton() {
-                const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+                const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+                const checkedCount = checkedBoxes.length;
                 selectedCountSpan.textContent = checkedCount;
                 
                 if (checkedCount > 0) {
                     btnDeleteSelected.classList.remove('d-none');
+                    btnEditSelected.classList.remove('d-none');
                 } else {
                     btnDeleteSelected.classList.add('d-none');
+                    btnEditSelected.classList.add('d-none');
                 }
+            }
+            
+            // Handle Bulk Edit Click
+            if (btnEditSelected) {
+                btnEditSelected.addEventListener('click', function() {
+                    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+                    const ids = Array.from(checkedBoxes).map(cb => cb.value);
+
+                    const form = document.getElementById('bulk-edit-mapping-form');
+                    // Remove existing hidden id inputs
+                    form.querySelectorAll('input[name="ids[]"]').forEach(el => el.remove());
+                    
+                    // process IDs
+                    ids.forEach(id => {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'ids[]';
+                        input.value = id;
+                        form.appendChild(input);
+                    });
+                });
             }
 
             if (checkAll) {
