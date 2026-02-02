@@ -32,8 +32,8 @@ Route::middleware('guest')->group(function (){
 
 // Mapping Routes (Should be accessible to logged in users or public depending on auth setup of app, placing outside guest group)
 Route::put('/mapping-sementara/bulk-update', [MappingController::class, 'bulkUpdate'])->name('mapping.bulk_update');
-Route::resource('mapping-sementara', MappingController::class)->names('mapping');
 Route::delete('/mapping-sementara/bulk', [MappingController::class, 'bulkDestroy'])->name('mapping.bulk_destroy');
+Route::resource('mapping-sementara', MappingController::class)->names('mapping');
 Route::put('/mapping-sementara/{id}', [MappingController::class, 'update'])->name('mapping.update');
 
 // Wc Relation (Public/Loose Access)
