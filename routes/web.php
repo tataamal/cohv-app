@@ -45,6 +45,7 @@ Route::delete('/wc-relation/{id}', [App\Http\Controllers\WcRelationController::c
 // Workcenter Mappings Parent-Child (CRUD)
 Route::get('/workcenter-mappings', [App\Http\Controllers\WorkcenterMappingController::class, 'index'])->name('workcenter-mapping.index');
 Route::post('/workcenter-mappings', [App\Http\Controllers\WorkcenterMappingController::class, 'store'])->name('workcenter-mapping.store');
+Route::put('/workcenter-mappings/bulk-update', [App\Http\Controllers\WorkcenterMappingController::class, 'bulkUpdate'])->name('workcenter-mapping.bulk_update');
 Route::delete('/workcenter-mappings/bulk-delete', [App\Http\Controllers\WorkcenterMappingController::class, 'bulkDestroy'])->name('workcenter-mapping.bulk_destroy');
 Route::delete('/workcenter-mappings/{id}', [App\Http\Controllers\WorkcenterMappingController::class, 'destroy'])->name('workcenter-mapping.destroy');
 

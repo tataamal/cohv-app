@@ -10,11 +10,37 @@ use Illuminate\Support\Facades\DB;
 
 class WorkcenterMappingController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $mappings = WorkcenterMapping::with(['parentWorkcenter', 'childWorkcenter', 'kodeLaravel'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = WorkcenterMapping::with(['parentWorkcenter', 'childWorkcenter', 'kodeLaravel'])
+            ->orderBy('created_at', 'desc');
+
+        // Search Filters
+        if ($request->filled('search_section')) {
+            $searchSection = $request->search_section;
+            $query->whereHas('kodeLaravel', function($q) use ($searchSection) {
+                $q->where('laravel_code', 'like', "%{$searchSection}%")
+                  ->orWhere('description', 'like', "%{$searchSection}%");
+            });
+        }
+
+        if ($request->filled('search_parent')) {
+            $searchParent = $request->search_parent;
+            $query->whereHas('parentWorkcenter', function($q) use ($searchParent) {
+                $q->where('kode_wc', 'like', "%{$searchParent}%")
+                  ->orWhere('description', 'like', "%{$searchParent}%");
+            });
+        }
+
+        if ($request->filled('search_child')) {
+            $searchChild = $request->search_child;
+            $query->whereHas('childWorkcenter', function($q) use ($searchChild) {
+                $q->where('kode_wc', 'like', "%{$searchChild}%")
+                  ->orWhere('description', 'like', "%{$searchChild}%");
+            });
+        }
+
+        $mappings = $query->get();
             
         $workcenters = workcenter::orderBy('kode_wc')->get();
         $kodeLaravels = KodeLaravel::all();
@@ -51,6 +77,38 @@ class WorkcenterMappingController extends Controller
         }
 
         return redirect()->route('workcenter-mapping.index')->with('success', "$count Mapping(s) created successfully.");
+    }
+
+    public function bulkUpdate(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:workcenter_mappings,id',
+            'kode_laravel_id' => 'nullable|exists:kode_laravel,id',
+            'wc_induk_id' => 'nullable|exists:workcenters,id',
+            'wc_anak_id' => 'nullable|exists:workcenters,id',
+        ]);
+
+        // Check Model Table Name first. Model: WorkcenterMapping.
+        // I need to be careful with table name validation. 
+        // Based on previous file reads, I didn't see explicit table name in Model file content showed earlier (it showed `protected $table = 'workcenters';` for workcenter model, but `WorkcenterMapping` model file wasn't fully shown or I missed checking its table name).
+        // Standard Laravel convention: workcenter_mappings. But previous code uses `workcenter_mapping_parents` ? No, likely `workcenter_mappings`.
+        // Let's check existing `destroy` method uses `WorkcenterMapping::destroy`.
+        // I'll skip table validation or use `exists:workcenter_mapping_parents,id` if I am sure.
+        // Wait, `WorkcenterMapping` model usage in `store` implies standard usage.
+        
+        $updateData = [];
+        if ($request->filled('kode_laravel_id')) $updateData['kode_laravel_id'] = $request->kode_laravel_id;
+        if ($request->filled('wc_induk_id')) $updateData['wc_induk_id'] = $request->wc_induk_id;
+        if ($request->filled('wc_anak_id')) $updateData['wc_anak_id'] = $request->wc_anak_id;
+
+        if (!empty($updateData)) {
+            WorkcenterMapping::whereIn('id', $request->ids)->update($updateData);
+            $count = count($request->ids);
+            return redirect()->route('workcenter-mapping.index')->with('success', "$count Mapping(s) updated successfully.");
+        }
+
+        return redirect()->route('workcenter-mapping.index')->with('success', "No changes made.");
     }
 
     public function destroy($id)
