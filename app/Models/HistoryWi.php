@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HistoryWi extends Model
 {
-    // use SoftDeletes; // Removed because table does not have deleted_at
+    use SoftDeletes;
     /**
      * Nama tabel di database.
      * @var string
