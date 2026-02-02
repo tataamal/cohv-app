@@ -905,7 +905,7 @@ class CreateWiController extends Controller
                 $pros = $item->pros ?? collect();
                 $confirmedQty = (float)$pros->filter(function($p){
                     $s = strtolower((string)($p->status ?? ''));
-                    return $s === 'confirmation';
+                    return in_array($s, ['confirmation', 'confirmasi']);
                 })->sum('qty_pro');
 
                 $remarkQty = (float)$pros->filter(function($p){

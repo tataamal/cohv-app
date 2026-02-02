@@ -333,7 +333,7 @@ class WorkInstructionApiController extends Controller
 
             $assignedQty = (float) ($item->assigned_qty ?? 0);
             $confirmedTotal = (int) HistoryPro::where('history_wi_item_id', $item->id)
-                ->where('status', 'confirmation')
+                ->where('status', 'confirmasi')
                 ->sum('qty_pro');
 
             $remarkTotal = (int) HistoryPro::where('history_wi_item_id', $item->id)
@@ -362,7 +362,7 @@ class WorkInstructionApiController extends Controller
             HistoryPro::create([
                 'history_wi_item_id' => $item->id,
                 'qty_pro'            => $confQty,
-                'status'             => 'confirmation',
+                'status'             => 'confirmasi',
                 'remark_text'        => null,
                 'tag'                => null,
             ]);
@@ -500,7 +500,7 @@ class WorkInstructionApiController extends Controller
             $assignedQty = (float) ($wiItem->assigned_qty ?? 0);
             $confirmedQtyTotal = (int) HistoryPro::query()
                 ->where('history_wi_item_id', $wiItem->id)
-                ->where('status', 'confirmation')
+                ->where('status', 'confirmasi')
                 ->sum('qty_pro');
 
             $remarkQtyTotal = (int) HistoryPro::query()
