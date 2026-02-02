@@ -736,7 +736,7 @@ class adminController extends Controller
             // Grouping Logic
             $groupedPlants = $plants->groupBy(function ($plant) {
                 $cat = trim($plant->kategori);
-                if ($cat == '1001' || $cat == '1200') {
+                if ($cat == '1001' || $cat == '1201') {
                     return $cat;
                 }
                 // Ambil digit pertama lalu tambah '000', misal 1050 -> 1000
