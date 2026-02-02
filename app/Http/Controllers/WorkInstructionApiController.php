@@ -212,6 +212,17 @@ class WorkInstructionApiController extends Controller
             $historyWiItems = $pendingItems->map(function ($item) {
                 $arr = $item->toArray();
                 $arr['status_pro_wi'] = $item->status ?? null;
+
+                $confirmed = HistoryPro::where('history_wi_item_id', $item->id)
+                    ->whereIn('status', ['confirmasi', 'confirmation'])
+                    ->sum('qty_pro');
+                $remark = \App\Models\HistoryPro::where('history_wi_item_id', $item->id)
+                    ->where('status', 'remark')
+                    ->sum('qty_pro');
+
+                $arr['confirmed_qty'] = (int)$confirmed;
+                $arr['remark_qty']    = (int)$remark;
+
                 return $arr;
             })->toArray();
 
