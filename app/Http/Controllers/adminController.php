@@ -67,6 +67,8 @@ class adminController extends Controller
             ->orderBy('master_wc.kode_wc', 'asc')
             ->get();
 
+        Log::info('Stats Per WC Debug:', $statsPerWc->take(5)->toArray());
+
         $labels = $statsPerWc->pluck('wc_label')->all();
         $descriptions = $statsPerWc->pluck('wc_description')->all();
         $datasetPro = $statsPerWc->pluck('pro_count')->all();
