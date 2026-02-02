@@ -511,7 +511,7 @@
                                                             <div class="text-muted text-xs text-truncate ps-1">{{ $item['material'] ?? '' }}</div>
                                                         </div>
                                                         <div class="col-lg-4 text-end">
-                                                            <div class="fw-bold text-dark fs-6">{{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
+                                                            <div class="fw-bold text-dark fs-6">{{ (fmod($item['remaining_qty'] ?? $item['assigned_qty'], 1) != 0) ? number_format($item['remaining_qty'] ?? $item['assigned_qty'], 2, ',', '.') : number_format($item['remaining_qty'] ?? $item['assigned_qty'], 0, ',', '.') }} <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span></div>
                                                             <div class="d-flex gap-1 justify-content-end">
 
                                                                 @php
@@ -519,15 +519,11 @@
                                                                     $isLongshift = !empty($item['longshift']) || !empty($item['is_longshift']);
                                                                 @endphp
                                                                 
-                                                                @if(($item['confirmed_qty'] ?? 0) == 0)
+                                                                @if(($item['remaining_qty'] ?? $item['assigned_qty']) > 0)
                                                                     @if(!$isMachining)
                                                                         <button class="btn btn-sm btn-outline-primary btn-edit-qty ..." onclick="openEditQtyModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['description'] ?? $item['material_desc']) }}', '{{ $item['assigned_qty'] }}', '{{ $item['qty_order'] }}', '{{ addslashes($item['uom'] ?? '-') }}', '{{ $item['vgw01'] ?? 0 }}', '{{ addslashes($item['vge01'] ?? '') }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ $maxMins }}', '{{ $usedMins }}', '{{ $item['item_mins'] ?? 0 }}')">
                                                                             <i class="fa-solid fa-pen-to-square"></i>
                                                                         </button>
-                                                                        <!-- <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill small fw-bold" 
-                                                                                onclick="confirmRemoveItem('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ $item['vornr'] ?? '' }}', '{{ $item['nik'] ?? '' }}', '{{ $item['assigned_qty'] ?? 0 }}')">
-                                                                            <i class="fa-solid fa-trash"></i>
-                                                                        </button> -->
                                                                     @else
                                                                         <span class="badge bg-secondary text-white small">Fitur dikunci untuk mode Machining</span>
                                                                     @endif
@@ -560,7 +556,7 @@
                                                                 @foreach($item['remark_history'] as $h)
                                                                     <li class="mb-1">
                                                                          <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
-                                                                            <strong>Jumlah Item Gagal: {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}</strong> - {{ $h['remark'] ?? '-' }}
+                                                                            <strong>Jumlah Item Gagal: {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}</strong> - {{ $h['remark_text'] ?? $h['remark'] ?? '-' }}
                                                                          </span>
                                                                     </li>
                                                                 @endforeach

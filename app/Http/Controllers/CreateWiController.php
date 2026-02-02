@@ -912,11 +912,22 @@ class CreateWiController extends Controller
                     return strtolower((string)($p->status ?? '')) === 'remark';
                 })->sum('qty_pro');
 
-                $latestRemark = $pros->filter(function($p){
+                $allRemarks = $pros->filter(function($p){
                     return strtolower((string)($p->status ?? '')) === 'remark';
-                })->sortByDesc('id')->first();
+                })->sortByDesc('created_at'); // Newest first
+
+                $remarkHistory = $allRemarks->map(function($r){
+                    return [
+                        'qty' => $r->qty_pro,
+                        'remark_text' => $r->remark_text,
+                        'tag' => $r->tag,
+                        'created_at' => $r->created_at
+                    ];
+                })->values()->toArray();
 
                 $totalDone = $confirmedQty + $remarkQty;
+                $remainingQty = max(0, $assignedQty - $totalDone);
+
                 $auf = $item->aufnr ?? '';
                 $prodData = $prodDataMap1[$auf] ?? null;
                 if (!$prodData) $prodData = $prodDataMap3[$auf] ?? null;
@@ -950,6 +961,7 @@ class CreateWiController extends Controller
                     'vornr'         => $item->vornr ?? '-',
                     'description'   => $item->material_desc ?? '',
                     'assigned_qty'  => $assignedQty,
+                    'remaining_qty' => $remainingQty, // Added remaining_qty
                     'confirmed_qty' => $confirmedQty,
                     'qty_order'     => $qtyOrderRaw,
                     'uom'           => $item->uom ?? 'EA',
@@ -958,6 +970,7 @@ class CreateWiController extends Controller
                     'item_mins'     => $takTime,
                     'remark'        => $latestRemark->remark_text ?? null,
                     'remark_qty'    => $remarkQty,
+                    'remark_history'=> $remarkHistory, // Added remark_history
                     'vgw01'         => $item->vgw01 ?? 0,
                     'vge01'         => $item->vge01 ?? '',
                     'machining'     => (int)($item->machining ?? 0),
