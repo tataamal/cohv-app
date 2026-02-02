@@ -56,7 +56,7 @@ class adminController extends Controller
 
         $statsPerWc = DB::table(DB::raw("({$allWcQuery->toSql()}) as master_wc"))
             ->mergeBindings($allWcQuery)
-            ->leftJoin('production_t_data1 as trans_data', 'master_wc.kode_wc', '=', 'trans_data.ARBPL')
+            ->leftJoin('production_t_data3 as trans_data', 'master_wc.kode_wc', '=', 'trans_data.ARBPL')
             ->selectRaw("
                 master_wc.kode_wc AS wc_label,
                 master_wc.description AS wc_description,
