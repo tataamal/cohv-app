@@ -380,8 +380,8 @@
                         </td>
                         {{-- Merged Column --}}
                         <td class="text-center">
-                            <!-- <strong>{{ $row['workcenter'] }}</strong><br> -->
-                            {{ $row['description'] ?? '-' }}
+                            <strong>{{ $row['workcenter'] }}</strong><br>
+                            {{ $row['wc_description'] ?? '-' }}
                         </td>
                         
                         <td class="text-center">{{ $row['so_item'] }}</td>
