@@ -203,6 +203,15 @@
                                                          just use a standalone form outside loop? No, that's messy.
                                                          Best practice: Keep this form for bulk. Individual delete buttons should be BUTTON types that trigger a separate form submission via JS/hidden form.
                                                     --}}
+                                                    <button type="button" class="btn btn-sm btn-outline-primary btn-edit-single me-1" 
+                                                        data-id="{{ $map->id }}"
+                                                        data-user="{{ $map->user_sap_id }}"
+                                                        data-kode="{{ $map->kode_laravel_id }}"
+                                                        data-mrp="{{ $map->mrp_id }}"
+                                                        data-wc="{{ $map->workcenter_id }}"
+                                                        title="Edit">
+                                                        <i class="fa-solid fa-pen-to-square"></i>
+                                                    </button>
                                                     <button type="button" class="btn btn-sm btn-outline-danger btn-delete-single" data-id="{{ $map->id }}" title="Hapus">
                                                         <i class="fa-solid fa-trash"></i>
                                                     </button>
@@ -232,6 +241,114 @@
         </div>
     </div>
     
+    {{-- Edit Modal --}}
+    <div class="modal fade" id="editMappingModal" tabindex="-1" aria-labelledby="editMappingModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="edit-mapping-form" action="" method="POST">
+                    @csrf
+                    @method('PUT')
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editMappingModalLabel">Edit Mapping</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="edit_user_sap_id" class="form-label small fw-semibold">User SAP</label>
+                            <select class="form-select" id="edit_user_sap_id" name="user_sap_id" required>
+                                @foreach($userSaps as $item)
+                                    <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->user_sap }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_kode_laravel_id" class="form-label small fw-semibold">Kode Laravel</label>
+                            <select class="form-select" id="edit_kode_laravel_id" name="kode_laravel_id" required>
+                                @foreach($kodeLaravels as $item)
+                                    <option value="{{ $item->id }}">{{ $item->laravel_code }} - {{ $item->description }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_mrp_id" class="form-label small fw-semibold">MRP</label>
+                            <select class="form-select" id="edit_mrp_id" name="mrp_id" required>
+                                @foreach($mrps as $item)
+                                    <option value="{{ $item->id }}">{{ $item->mrp }} ({{ $item->plant }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_workcenter_id" class="form-label small fw-semibold">Workcenter</label>
+                            <select class="form-select" id="edit_workcenter_id" name="workcenter_id" required>
+                                @foreach($workcenters as $item)
+                                    <option value="{{ $item->id }}">{{ $item->kode_wc }} - {{ $item->description }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {{-- Edit Modal --}}
+    <div class="modal fade" id="editMappingModal" tabindex="-1" aria-labelledby="editMappingModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="edit-mapping-form" action="" method="POST">
+                    @csrf
+                    @method('PUT')
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editMappingModalLabel">Edit Mapping</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="edit_user_sap_id" class="form-label small fw-semibold">User SAP</label>
+                            <select class="form-select" id="edit_user_sap_id" name="user_sap_id" required>
+                                @foreach($userSaps as $item)
+                                    <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->user_sap }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_kode_laravel_id" class="form-label small fw-semibold">Kode Laravel</label>
+                            <select class="form-select" id="edit_kode_laravel_id" name="kode_laravel_id" required>
+                                @foreach($kodeLaravels as $item)
+                                    <option value="{{ $item->id }}">{{ $item->laravel_code }} - {{ $item->description }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_mrp_id" class="form-label small fw-semibold">MRP</label>
+                            <select class="form-select" id="edit_mrp_id" name="mrp_id" required>
+                                @foreach($mrps as $item)
+                                    <option value="{{ $item->id }}">{{ $item->mrp }} ({{ $item->plant }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_workcenter_id" class="form-label small fw-semibold">Workcenter</label>
+                            <select class="form-select" id="edit_workcenter_id" name="workcenter_id" required>
+                                @foreach($workcenters as $item)
+                                    <option value="{{ $item->id }}">{{ $item->kode_wc }} - {{ $item->description }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
     <script>
@@ -328,6 +445,41 @@
                         form.action = `/mapping-sementara/${id}`;
                         form.submit();
                     }
+                });
+            });
+
+            // Edit Logic
+            const editModalEl = document.getElementById('editMappingModal');
+            let editModal;
+            if (editModalEl) {
+                editModal = new bootstrap.Modal(editModalEl);
+            }
+
+            document.querySelectorAll('.btn-edit-single').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.dataset.id;
+                    const user = this.dataset.user;
+                    const kode = this.dataset.kode;
+                    const mrp = this.dataset.mrp;
+                    const wc = this.dataset.wc;
+
+                    // Set Form Action
+                    const form = document.getElementById('edit-mapping-form');
+                    form.action = `/mapping-sementara/${id}`;
+
+                    // Set Values
+                    const setSelectValue = (id, value) => {
+                        const select = document.getElementById(id);
+                        if(select) select.value = value;
+                    };
+
+                    setSelectValue('edit_user_sap_id', user);
+                    setSelectValue('edit_kode_laravel_id', kode);
+                    setSelectValue('edit_mrp_id', mrp);
+                    setSelectValue('edit_workcenter_id', wc);
+
+                    // Show Modal
+                    if(editModal) editModal.show();
                 });
             });
         });

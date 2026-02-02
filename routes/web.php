@@ -14,6 +14,9 @@ use App\Http\Controllers\MonitoringProController;
 use App\Http\Controllers\ProTransactionController;
 use App\Http\Controllers\CogiController;
 use App\Http\Controllers\CreateWiController;
+use App\Http\Controllers\MappingController;
+use App\Http\Controllers\WcRelationController;
+use App\Http\Controllers\WorkcenterMappingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,14 +27,12 @@ Route::get('/', [LoginController::class, 'checkAuth']);
 // Routing untuk user yang belum melakukan register
 Route::middleware('guest')->group(function (){
     Route::get('/login', [LoginController::class, 'showLoginForm'])->middleware('clear.cookies')->name('login');
-    Route::post('/login/admin', [LoginController::class, 'loginAdmin'])->name('login.admin');
 });
 
-// Mapping Sementera (Public/Loose Access)
-Route::get('/mapping-sementara', [App\Http\Controllers\MappingController::class, 'index'])->name('mapping.index');
-Route::post('/mapping-sementara', [App\Http\Controllers\MappingController::class, 'store'])->name('mapping.store');
-Route::delete('/mapping-sementara/bulk-delete', [App\Http\Controllers\MappingController::class, 'bulkDestroy'])->name('mapping.bulk_destroy');
-Route::delete('/mapping-sementara/{id}', [App\Http\Controllers\MappingController::class, 'destroy'])->name('mapping.destroy');
+// Mapping Routes (Should be accessible to logged in users or public depending on auth setup of app, placing outside guest group)
+Route::resource('mapping-sementara', MappingController::class)->names('mapping');
+Route::delete('/mapping-sementara/bulk', [MappingController::class, 'bulkDestroy'])->name('mapping.bulk_destroy');
+Route::put('/mapping-sementara/{id}', [MappingController::class, 'update'])->name('mapping.update');
 
 // Wc Relation (Public/Loose Access)
 Route::get('/wc-relation', [App\Http\Controllers\WcRelationController::class, 'index'])->name('wc-relation.index');

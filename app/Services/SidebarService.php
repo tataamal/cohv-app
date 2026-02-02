@@ -27,14 +27,21 @@ class SidebarService
 
         // Removing role restrictions ("semua user sama")
         $sapId = str_replace('@kmi.local', '', $user->email);
+        $sapIdNormalized = strtolower($sapId);
         $sapUser = UserSap::where('user_sap', $sapId)->first();
 
-        if ($sapUser) {
+        if ($sapIdNormalized === 'auto_email') {
+            $mappings = \App\Models\MappingTable::with('kodeLaravel')->get();
+        } elseif ($sapUser) {
             // Fetch mappings from MappingTable
             $mappings = \App\Models\MappingTable::where('user_sap_id', $sapUser->id)
                 ->with('kodeLaravel')
                 ->get();
-            
+        } else {
+            $mappings = collect();
+        }
+
+        if ($mappings->isNotEmpty()) {
             // Transform mappings to unique sections (plants/kodes)
             $uniqueKodes = $mappings->map(function($mapping) {
                 if ($mapping->kodeLaravel) {
@@ -65,6 +72,8 @@ class SidebarService
                 'icon' => 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
                 'submenu' => $submenuItems,
                 'is_active' => $isParentActive, // <-- Kunci 'is_active' ada di sini
+                'route_name' => null, // Fix for undefined array key
+                'route_params' => [],
             ]
         ];
         

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Models\UserSap;
 use App\Models\User;
+use App\Models\MappingTable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -45,22 +46,13 @@ class LoginController extends Controller
             'password' => 'required|string',
         ]);
 
-        // 1. Cek dulu di database lokal (UserSap) apakah user/nama terdaftar
         $userSapInput = $validated['sap_id'];
         $localUser = UserSap::where(function($query) use ($userSapInput) {
             $query->where('user_sap', $userSapInput)
-                  ->orWhere('name', 'like', $userSapInput); // Support partial name match or exact? Assuming exact strictly or 'like' for flexibility.
-                  // Let's use exact match or at least 'like' if user types 'NAME'. 
-                  // But standard usually expects User ID or Exact Name. 
-                  // Let's try exact match on Name first or 'user_sap' code.
+                  ->orWhere('name', 'like', $userSapInput);
         })->first();
         
-        // Let's refine strictness. If user types "DWI AGUSTINA", it should match.
         if (!$localUser) {
-             // Fallback: Try with 'like' query if exact match failed, for ease of use if requested, 
-             // but 'like' might be dangerous if multiple users have similar names. 
-             // For security, strict match on ID is best. But user mentioned "cek apakah namanya terdaftar".
-             // Let's assume strict check for now to avoid ambiguity.
              $localUser = UserSap::where('name', $userSapInput)->first();
         }
 
@@ -68,7 +60,6 @@ class LoginController extends Controller
             return back()->withErrors(['login' => 'User tidak terdaftar di database User SAP lokal.']);
         }
 
-        // Ambil ID SAP yang sebenarnya untuk dikirim ke Flask
         $actualSapId = $localUser->user_sap;
 
         try {
@@ -99,6 +90,31 @@ class LoginController extends Controller
             );
             
             Auth::login($user, true);
+            
+            // Aturan khusus: user auto_email mendapatkan semua mapping yang ada
+            if ($actualSapId === 'auto_email') {
+                $startSync = microtime(true);
+                // Ambil semua kombinasi mapping unik dari user lain
+                $existingMappings = MappingTable::select('kode_laravel_id', 'mrp_id', 'workcenter_id')
+                                                ->where('user_sap_id', '!=', $localUser->id)
+                                                ->distinct()
+                                                ->get();
+
+                foreach ($existingMappings as $map) {
+                    MappingTable::withTrashed()->updateOrCreate(
+                        [
+                            'user_sap_id' => $localUser->id,
+                            'kode_laravel_id' => $map->kode_laravel_id,
+                            'mrp_id' => $map->mrp_id,
+                            'workcenter_id' => $map->workcenter_id,
+                        ],
+                        [
+                            'deleted_at' => null
+                        ]
+                    );
+                }
+                Log::info('Auto Email Mapping Sync completed in ' . (microtime(true) - $startSync) . ' seconds.');
+            }
             
             // JIKA BERHASIL: Redirect ke dashboard admin
             return redirect()->route('dashboard-landing');

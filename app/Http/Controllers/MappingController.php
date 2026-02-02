@@ -101,4 +101,23 @@ class MappingController extends Controller
 
         return redirect()->route('mapping.index')->with('success', 'Mapping deleted successfully.');
     }
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'user_sap_id' => 'required|exists:user_sap,id',
+            'kode_laravel_id' => 'required|exists:kode_laravel,id',
+            'mrp_id' => 'required|exists:mrp,id',
+            'workcenter_id' => 'required|exists:workcenters,id',
+        ]);
+
+        $mapping = MappingTable::findOrFail($id);
+        $mapping->update([
+            'user_sap_id' => $request->user_sap_id,
+            'kode_laravel_id' => $request->kode_laravel_id,
+            'mrp_id' => $request->mrp_id,
+            'workcenter_id' => $request->workcenter_id,
+        ]);
+
+        return redirect()->route('mapping.index')->with('success', 'Mapping updated successfully.');
+    }
 }

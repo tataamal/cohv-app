@@ -39,9 +39,14 @@ class adminController extends Controller
             $allWcQuery = DB::table('workcenters')->whereRaw('1 = 0');
         } else {
              // 3. Ambil ID Workcenter dari MappingTable
-             $validWorkcenterIds = MappingTable::where('user_sap_id', $userSap->id)
-                ->where('kode_laravel_id', $kodeLaravel->id)
-                ->pluck('workcenter_id');
+             if (strtolower($sapId) === 'auto_email') {
+                 $validWorkcenterIds = MappingTable::where('kode_laravel_id', $kodeLaravel->id)
+                    ->pluck('workcenter_id');
+             } else {
+                 $validWorkcenterIds = MappingTable::where('user_sap_id', $userSap->id)
+                    ->where('kode_laravel_id', $kodeLaravel->id)
+                    ->pluck('workcenter_id');
+             }
 
              // 4. Query Workcenter berdasarkan ID yang valid dari mapping
              $allWcQuery = DB::table('workcenters')
@@ -701,26 +706,34 @@ class adminController extends Controller
 
         if (Auth::check()) {
             $user = Auth::user();
-            $sapUser = null;
             $sapId = str_replace('@kmi.local', '', $user->email);
+            // Ensure case-insensitive comparison
+            $sapIdNormalized = strtolower($sapId);
+            
             $sapUser = UserSap::where('user_sap', $sapId)->first();
 
-            if ($sapUser) {
+            if ($sapIdNormalized === 'auto_email') {
+                $mappings = MappingTable::with('kodeLaravel')->get(); 
+            } elseif ($sapUser) {
+                $mappings = MappingTable::with('kodeLaravel')->get(); 
+            } elseif ($sapUser) {
                 $mappings = MappingTable::where('user_sap_id', $sapUser->id)
                     ->with('kodeLaravel')
                     ->get();
-
-                $plants = $mappings->map(function($mapping) {
-                    if ($mapping->kodeLaravel) {
-                        return (object) [
-                            'kode' => $mapping->kodeLaravel->laravel_code,
-                            'nama_bagian' => $mapping->kodeLaravel->description,
-                            'kategori' => $mapping->kodeLaravel->plant,
-                        ];
-                    }
-                    return null;
-                })->filter()->unique('kode');
+            } else {
+                $mappings = collect();
             }
+
+            $plants = $mappings->map(function($mapping) {
+                if ($mapping->kodeLaravel) {
+                    return (object) [
+                        'kode' => $mapping->kodeLaravel->laravel_code,
+                        'nama_bagian' => $mapping->kodeLaravel->description,
+                        'kategori' => $mapping->kodeLaravel->plant,
+                    ];
+                }
+                return null;
+            })->filter()->unique('kode');
             
             $allUsers = UserSap::orderBy('name')->get();
         }

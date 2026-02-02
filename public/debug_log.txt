@@ -1,0 +1,5 @@
+Timestamp: 2026-02-02 10:19:55
+Email: AUTO_EMAIL@kmi.local
+SapId Parsed: 'AUTO_EMAIL'
+Is AutoEmail Match: NO
+SapUser Found: ID=1, Name=DEVELOPER
