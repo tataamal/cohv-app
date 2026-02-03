@@ -141,7 +141,8 @@ class WorkInstructionApiController extends Controller
             ->with(['items' => function ($q) use ($nik) {
                 $q->whereNotNull('aufnr')
                 ->whereNotNull('vornr')
-                ->whereNotNull('nik');
+                ->whereNotNull('nik')
+                ->with('pros'); // Eager load pros to avoid N+1
                 if ($nik) {
                     $q->where('nik', $nik);
                 }
@@ -213,10 +214,14 @@ class WorkInstructionApiController extends Controller
                 $arr = $item->toArray();
                 $arr['status_pro_wi'] = $item->status ?? null;
 
-                $confirmed = HistoryPro::where('history_wi_item_id', $item->id)
+                $arr['status_pro_wi'] = $item->status ?? null;
+
+                // Calculate sums from the loaded 'pros' collection instead of DB queries
+                $confirmed = $item->pros
                     ->whereIn('status', ['confirmasi', 'confirmation'])
                     ->sum('qty_pro');
-                $remark = \App\Models\HistoryPro::where('history_wi_item_id', $item->id)
+                
+                $remark = $item->pros
                     ->where('status', 'remark')
                     ->sum('qty_pro');
 
@@ -606,7 +611,10 @@ class WorkInstructionApiController extends Controller
         $today = $now->toDateString();
         $items = HistoryWiItem::query()
             ->where('aufnr', $aufnr)
-            ->with('wi')
+            ->with(['wi', 'pros' => function($q) {
+                // Eager load only remarks, ordered by created_at
+                $q->where('status', 'remark')->orderBy('created_at', 'asc');
+            }])
             ->get();
 
         $remarksData = [];
@@ -617,21 +625,22 @@ class WorkInstructionApiController extends Controller
             $operatorNik  = $item->nik ?? '-';
             $operatorName = $item->name1 ?? '-';
             $operatorInfo = "{$operatorNik} - {$operatorName}";
-            $history = HistoryPro::query()
-                ->where('history_wi_item_id', $item->id)
-                ->where('status', 'remark')
-                ->orderBy('created_at', 'asc')
-                ->get(['qty_pro', 'remark_text', 'tag', 'created_at'])
+            
+            // Use the eager-loaded 'pros' collection
+            $history = $item->pros
+                // No need to filter by status/order here as it's done in the eager load query
                 ->map(function ($r) use ($operatorInfo) {
                     return [
                         'qty'        => (int) $r->qty_pro,
                         'remark'     => $r->remark_text ?? '',
                         'tag'        => $r->tag ?? '',
                         'created_at' => Carbon::parse($r->created_at)->toDateTimeString(),
-                        'created_by' => $operatorInfo, // kalau nanti ada kolom created_by di history_pro, ganti dari sini
+                        'created_by' => $operatorInfo, 
                     ];
                 })
+                ->values() // Reset keys
                 ->toArray();
+
                 
             if (empty($history)) {
                 continue;

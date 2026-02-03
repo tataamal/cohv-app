@@ -123,7 +123,7 @@
         
         @php
             // Numeric standard value (time/value per unit)
-            $vgw01 = (float) ($item->VGW01 ?? $item->vgw01 ?? 0);
+            $vgw01 = ($item->VGW01 ?? $item->vgw01 ?? 0);
             $unitVge = strtoupper(trim($item->VGE01 ?? $item->vge01 ?? ''));
             $timeReq = $vgw01 * (float) $qtySisaDisplay;
 
@@ -131,7 +131,10 @@
                 $timeReq = $timeReq / 60;
             }
 
-            $taktTimeDisplay = str_replace('.', ',', number_format($timeReq, 2, '.', ''));
+            $taktTimeDisplay = number_format((float)$timeReq, 4, ',', '');
+            $taktTimeDisplay = rtrim($taktTimeDisplay, '0');
+            $taktTimeDisplay = rtrim($taktTimeDisplay, ',');
+            // Fixed Format
         @endphp
         <td class="text-center table-col">{{ $taktTimeDisplay }} Min</td>
         <td class="text-center table-col">

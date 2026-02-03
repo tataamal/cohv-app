@@ -544,9 +544,13 @@
                                                         $rQty = $item['remark_qty'] ?? 0;
                                                         $aQty = $item['assigned_qty'] > 0 ? $item['assigned_qty'] : 1;
                                                         $rPct = ($rQty / $aQty) * 100;
+                                                        
+                                                        // Explicitly calculate success percentage based on confirmed_qty
+                                                        $cQty = $item['confirmed_qty'] ?? 0;
+                                                        $cPct = ($cQty / $aQty) * 100;
                                                     @endphp
                                                     <div class="progress" style="height: 6px;">
-                                                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $item['progress_pct'] ?? 0 }}%"></div>
+                                                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $cPct }}%"></div>
                                                         <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
                                                     </div>
                                                     @if(!empty($item['remark_history']) && is_array($item['remark_history']))
@@ -871,7 +875,12 @@
                                                 </div>
 
                                                 <div class="progress" style="height: 6px;">
-                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $item['progress_pct'] ?? 0 }}%"></div>
+                                                    @php
+                                                        // Calculate Success Pct
+                                                        $cQty = $item['confirmed_qty'] ?? 0;
+                                                        $cPct = ($cQty / $aQty) * 100; 
+                                                    @endphp
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $cPct }}%"></div>
                                                     <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
                                                 </div>
 
@@ -1058,7 +1067,12 @@
                                                     </div>
 
                                                     <div class="progress" style="height: 6px;">
-                                                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $mainPct }}%"></div>
+                                                        @php
+                                                            // Calculate Success Pct explicitly
+                                                            $cQty = $item['confirmed_qty'] ?? 0;
+                                                            $cPct = ($cQty / $aQty) * 100;
+                                                        @endphp
+                                                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $cPct }}%"></div>
                                                         <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
                                                     </div>
 

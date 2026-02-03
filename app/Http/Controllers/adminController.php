@@ -29,16 +29,11 @@ class adminController extends Controller
         }
         $sapId = str_replace('@kmi.local', '', $user->email);
         $userSap = UserSap::where('user_sap', $sapId)->first();
-
-        // 2. Identifikasi Kode Laravel (Bagian)
         $kodeLaravel = KodeLaravel::where('laravel_code', $kode)->first();
 
         if (!$userSap || !$kodeLaravel) {
-            // Setup fallback jika user/kode tidak valid, atau return error page
-            // Untuk saat ini kita set query kosong agar tidak error
             $allWcQuery = DB::table('workcenters')->whereRaw('1 = 0');
         } else {
-             // 3. Ambil ID Workcenter dari MappingTable
              if (strtolower($sapId) === 'auto_email') {
                  $validWorkcenterIds = MappingTable::where('kode_laravel_id', $kodeLaravel->id)
                     ->pluck('workcenter_id');
@@ -47,24 +42,52 @@ class adminController extends Controller
                     ->where('kode_laravel_id', $kodeLaravel->id)
                     ->pluck('workcenter_id');
              }
-
-             // 4. Query Workcenter berdasarkan ID yang valid dari mapping
              $allWcQuery = DB::table('workcenters')
                 ->select('kode_wc', 'description')
                 ->whereIn('id', $validWorkcenterIds);
         }
+        
+        $isCategory30 = str_starts_with($kode, '30'); 
 
+        $baseQuery = DB::table(DB::raw("({$allWcQuery->toSql()}) as master_wc"))
+            ->mergeBindings($allWcQuery)
+            ->leftJoin('production_t_data3 as trans_data', 'master_wc.kode_wc', '=', 'trans_data.ARBPL');
+
+        if ($isCategory30) {
+            $statsPerWc = $baseQuery
+                ->leftJoin('workcenter_mappings as wm', function($join) {
+                });
+        }
+        
         $statsPerWc = DB::table(DB::raw("({$allWcQuery->toSql()}) as master_wc"))
             ->mergeBindings($allWcQuery)
-            ->leftJoin('production_t_data3 as trans_data', 'master_wc.kode_wc', '=', 'trans_data.ARBPL')
-            ->selectRaw("
-                master_wc.kode_wc AS wc_label,
-                master_wc.description AS wc_description,
-                COUNT(DISTINCT trans_data.AUFNR) AS pro_count,
-                SUM(trans_data.CPCTYX) AS total_capacity
-            ")
-            ->groupBy('master_wc.kode_wc', 'master_wc.description')
-            ->orderBy('master_wc.kode_wc', 'asc')
+            ->leftJoin('production_t_data3 as trans_data', 'master_wc.kode_wc', '=', 'trans_data.ARBPL');
+
+        if ($isCategory30) {
+            $statsPerWc = $statsPerWc
+                ->join('workcenters as wc_real', 'master_wc.kode_wc', '=', 'wc_real.kode_wc')
+                ->leftJoin('workcenter_mappings as wm', 'wc_real.id', '=', 'wm.wc_anak_id')
+                ->leftJoin('workcenters as wc_parent', 'wm.wc_induk_id', '=', 'wc_parent.id')
+                ->selectRaw("
+                    COALESCE(wc_parent.kode_wc, master_wc.kode_wc) AS wc_label,
+                    COALESCE(wc_parent.description, master_wc.description) AS wc_description,
+                    COUNT(DISTINCT trans_data.AUFNR) AS pro_count,
+                    SUM(trans_data.CPCTYX) AS total_capacity
+                ")
+                ->groupBy(DB::raw("COALESCE(wc_parent.kode_wc, master_wc.kode_wc)"), DB::raw("COALESCE(wc_parent.description, master_wc.description)"));
+        } else {
+             $statsPerWc = $statsPerWc
+                ->selectRaw("
+                    master_wc.kode_wc AS wc_label,
+                    master_wc.description AS wc_description,
+                    COUNT(DISTINCT trans_data.AUFNR) AS pro_count,
+                    SUM(trans_data.CPCTYX) AS total_capacity
+                ")
+                ->groupBy('master_wc.kode_wc', 'master_wc.description');
+        }
+
+        $statsPerWc = $statsPerWc
+            ->orderBy('wc_label', 'asc') // Order by the calculated label
             ->get();
 
         Log::info('Stats Per WC Debug:', $statsPerWc->take(5)->toArray());

@@ -1635,8 +1635,6 @@
                         oper: item.dataset.vornr || '0010',
                         pwwrk: item.dataset.pwwrk || ''
                     }));
-
-                    // --- Capacity Check before Bulk Move ---
                     const targetWcCard = document.querySelector(`.wc-card-container[data-wc-id="${targetWc}"]`);
                     if (targetWcCard) {
                         let currentUsed = parseFloat(targetWcCard.dataset.currentMins) || 0;
@@ -1646,24 +1644,9 @@
                         itemsToProcess.forEach(item => {
                             const qty = parseFloat(item.dataset.sisaQty) || 0;
                             const vgw01 = parseFloat(item.dataset.vgw01) || 0;
-                            additionalLoad += (qty * vgw01); // Assuming MIN
+                            additionalLoad += (qty * vgw01);
                         });
-
-                        /* DISABLED: Allow Over Capacity
-                        if (maxCap > 0 && (currentUsed + additionalLoad) > maxCap) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Kapasitas Penuh!',
-                                text: `Workcenter ${targetWc} tidak mencukupi. (Max: ${Math.round(maxCap)} min, Existing+New: ${Math.round(currentUsed + additionalLoad)} min)`,
-                            });
-                            // Re-open mismatch modal? Or just stop.
-                            // mismatchModalInstance.show(); // Maybe keep open?
-                            return; 
-                        }
-                        */
                     }
-
-                    // Preserve caches before cancelDrop wipes them
                     const preservedTargetContainer = targetContainerCache;
                     const preservedSourceContainer = sourceContainerCache;
 
@@ -2369,7 +2352,9 @@
             }
 
             function calculateItemMinutes(row, qtyOverride = null) {
-                const vgw01 = window.parseLocaleNum(row.dataset.vgw01);
+        // [FIX] Use parseFloat for server-side standard float (e.g., 106.875)
+        // parseLocaleNum was treating dot as thousands separator in ID locale
+        const vgw01 = parseFloat(row.dataset.vgw01) || 0;
                 const vge01 = (row.dataset.vge01 || '').toUpperCase();
                 let rawQty = (qtyOverride !== null) ? qtyOverride : row.dataset.sisaQty;
                 const qty = window.parseLocaleNum(rawQty);
@@ -2435,7 +2420,8 @@
                    row.dataset.calculatedMins = mins;
 
                    if (timeCell) {
-                       timeCell.innerText = mins.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Min';
+                       // Match PHP: No thousands separator, comma for decimal, max 4 digits, no trailing zeros
+                       timeCell.innerText = mins.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4, useGrouping: false }).replace('.', ',') + ' Min';
                    }
                    
                    if (finalSisa <= 0) {
