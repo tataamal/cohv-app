@@ -1549,7 +1549,7 @@ class CreateWiController extends Controller
             }
 
             $reportData = [
-                'report_title' => 'DAILY REPORT WI',
+                'report_title' => 'DAILY REPORT',
                 'items' => $sortedItems,
                 'summary' => [
                     'total_assigned' => $totalAssigned,

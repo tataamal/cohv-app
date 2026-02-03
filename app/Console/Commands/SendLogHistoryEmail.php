@@ -288,7 +288,7 @@ class SendLogHistoryEmail extends Command
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),
                 'filterInfo' => "DATE: " . $dateHistory,
-                'report_title' => 'DAILY REPORT WI'
+                'report_title' => 'DAILY REPORT'
             ];
             
             // Generate PDF
@@ -359,8 +359,8 @@ class SendLogHistoryEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No reports/files to send.");
         } else {
-            // $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com','kmi3.16.smg@gmail.com','kmi3.29.smg@gmail.com'];
-            $recipients = ['tataamal1128@gmail.com'];
+            $recipients = ['tataamal1128@gmail.com','finc.smg@pawindo.com','kmi356smg@gmail.com','adm.mkt5.smg@gmail.com','lily.smg@pawindo.com','kmi3.60.smg@gmail.com','kmi3.31.smg@gmail.com','kmi3.16.smg@gmail.com','kmi3.29.smg@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateHistory)->locale('id')->translatedFormat('d F Y');
 
             try {

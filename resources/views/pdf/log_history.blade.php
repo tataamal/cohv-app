@@ -181,7 +181,7 @@
                                 <div class="company-name">PT KAYU MEBEL INDONESIA</div>
                                 <!-- New Title Format -->
                                 @if($isEmail ?? false)
-                                    <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT WI' }} - {{ $report['nama_bagian'] }}</div>
+                                    <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT' }} - {{ $report['nama_bagian'] }}</div>
                                 @else
                                     @php
                                         $docStatus = strtoupper($report['doc_metadata']['status'] ?? '');
