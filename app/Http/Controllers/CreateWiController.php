@@ -904,16 +904,16 @@ class CreateWiController extends Controller
                 $assignedQty = (float)($item->assigned_qty ?? 0);
                 $pros = $item->pros ?? collect();
                 $confirmedQty = (float)$pros->filter(function($p){
-                    $s = strtolower((string)($p->status ?? ''));
-                    return in_array($s, ['confirmation', 'confirmasi']);
+                    $s = strtolower(trim($p->status ?? ''));
+                    return in_array($s, ['confirmation', 'confirm', 'confirmed', 'confirmasi', 'konfirmasi']);
                 })->sum('qty_pro');
 
                 $remarkQty = (float)$pros->filter(function($p){
-                    return strtolower((string)($p->status ?? '')) === 'remark';
+                    return str_contains(strtolower((string)($p->status ?? '')), 'remark');
                 })->sum('qty_pro');
 
                 $allRemarks = $pros->filter(function($p){
-                    return strtolower((string)($p->status ?? '')) === 'remark';
+                    return str_contains(strtolower((string)($p->status ?? '')), 'remark');
                 })->sortByDesc('created_at'); // Newest first
 
                 $remarkHistory = $allRemarks->map(function($r){
@@ -1316,9 +1316,9 @@ class CreateWiController extends Controller
                 
                 foreach ($item->pros as $pro) {
                     $st = strtolower($pro->status ?? '');
-                    if (in_array($st, ['confirmation', 'confirm', 'confirmed'])) {
+                    if (in_array($st, ['confirmation', 'confirm', 'confirmed', 'confirmasi', 'konfirmasi'])) {
                         $confirmed += $pro->qty_pro;
-                    } elseif ($st === 'remark') {
+                    } elseif (str_contains($st, 'remark')) {
                         $remarkQty += $pro->qty_pro;
                         if (!empty($pro->remark_text)) {
                             $remarkTexts[] = $pro->remark_text;

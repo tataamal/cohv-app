@@ -134,7 +134,8 @@ class SendLogWeeklyEmail extends Command
                 ->select('kode_wc', 'description', 'operating_time')
                 ->get()
                 ->mapWithKeys(function ($item) {
-                    return [strtoupper($item->kode_wc) => [
+                    // Try to match key format
+                    return [strtoupper(trim($item->kode_wc)) => [
                         'description' => $item->description,
                         'operating_time' => $item->operating_time
                     ]];
@@ -144,9 +145,10 @@ class SendLogWeeklyEmail extends Command
             $processedItems = [];
             
             foreach ($rawItems as $item) {
-                 // $item is HistoryWiItem Model
                  $wcCode = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
-                 $wcData = $wcMap[strtoupper($wcCode)] ?? ['description' => '-', 'operating_time' => 0];
+                 // Ensure wcCode is clean
+                 $wcCodeClean = strtoupper(trim($wcCode));
+                 $wcData = $wcMap[$wcCodeClean] ?? ['description' => '-', 'operating_time' => 0];
                  $wcDesc = $wcData['description'];
                  
                  $matnr = $item->material_number ?? '';
@@ -161,10 +163,12 @@ class SendLogWeeklyEmail extends Command
                  $remarkDetails = [];
 
                  foreach ($item->pros as $pro) {
-                    $st = strtolower($pro->status ?? '');
-                    if (in_array($st, ['confirmation', 'confirm', 'confirmed'])) {
+                    $st = strtolower(trim($pro->status ?? ''));
+                    // Add 'confirmasi' and 'konfirmasi' variations
+                    if (in_array($st, ['confirmation', 'confirm', 'confirmed', 'confirmasi', 'konfirmasi'])) {
                         $confirmed += $pro->qty_pro;
-                    } elseif ($st === 'remark') {
+                    } elseif (str_contains($st, 'remark')) {
+                        // Use str_contains for safer remark check or strict check
                         $remarkQty += $pro->qty_pro;
                         if (!empty($pro->remark_text)) {
                             $remarkTexts[] = $pro->remark_text;

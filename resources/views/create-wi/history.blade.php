@@ -555,8 +555,7 @@
                                                             <ul class="list-unstyled mb-0 ps-1 mt-1">
                                                                 @foreach($item['remark_history'] as $h)
                                                                     <li class="mb-1">
-                                                                         <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
-                                                                            <strong>Jumlah Item Gagal: {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}</strong> - {{ $h['remark_text'] ?? $h['remark'] ?? '-' }}
+                                                                            <strong>Jumlah Item Gagal: {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}</strong> - {{ $h['remark_text'] ?: ($h['tag'] ?? '-') }}
                                                                          </span>
                                                                     </li>
                                                                 @endforeach
@@ -1075,7 +1074,7 @@
                                                                                 Jumlah Item Gagal:
                                                                                 {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}
                                                                             </strong>
-                                                                            - {{ $h['remark'] ?? '-' }}
+                                                                            - {{ $h['remark_text'] ?: ($h['tag'] ?? '-') }}
                                                                         </span>
                                                                     </li>
                                                                 @endforeach
