@@ -166,6 +166,16 @@
 
 {{-- Main Loop Over Reports (One per Document) --}}
 @foreach($reports as $report)
+    @php
+        $itemsCheck = $report['items'] ?? [];
+        $hasPriceData = false;
+        if ($isEmail ?? false) {
+             $hasPriceData = collect($itemsCheck)->contains(function($i) {
+                 return ($i['confirmed_price'] ?? 0) > 0 || ($i['failed_price'] ?? 0) > 0;
+             });
+        }
+        $showPriceCols = ($isEmail ?? false) && $hasPriceData;
+    @endphp
     <div class="container-frame">
         {{-- 1. HEADER --}}
         {{-- 1. HEADER --}}
@@ -251,7 +261,7 @@
          {{-- 3. SUMMARY TABLE --}}
          <table>
             <tr class="summary-header">
-                @if($isEmail ?? false)
+                @if($showPriceCols)
                     <td width="16%">Quantity Task</td>
                     <td width="16%">Terkonfirmasi</td>
                     <td width="16%">Tidak Terkonfirmasi</td>
@@ -270,7 +280,7 @@
                 <td class="text-success">{{ number_format($report['summary']['total_confirmed'], 0) }}</td>
                 <td class="text-danger">{{ number_format($report['summary']['total_failed'], 0) }}</td>
                 <td>{{ $report['summary']['achievement_rate'] }}</td>
-                @if($isEmail ?? false)
+                @if($showPriceCols)
                     <td class="text-success">{{ $report['summary']['total_price_ok'] }}</td>
                     <td class="text-danger">{{ $report['summary']['total_price_fail'] }}</td>
                 @endif
@@ -289,12 +299,12 @@
                     <th width="8%">PRO</th>
                     <th width="10%">MATERIAL</th>
                     <th width="4%">QTY</th>
-                    <th width="4%">CONF</th>
-                    <th width="20%">REMARK</th>
-                    @if($isEmail ?? false)
+                    <th width="4%">CONF</th>    
+                    @if($showPriceCols)
                         <th width="8%">PRICE OK</th>
                         <th width="8%">PRICE FAIL</th>
                     @endif
+                    <th width="20%">REMARK</th>
                 </tr>
             </thead>
             <tbody>
@@ -347,15 +357,16 @@
 
                             $fmtOk = $pfx . number_format($gPriceOk, $dec, ',', '.');
                             $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
+                            $no = 1; // RESET NUMBERING
                         @endphp
                         <tr>
-                            <td colspan="13" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
+                            <td colspan="{{ $showPriceCols ? 12 : 10 }}" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
                                 <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
                                     @if($isEmail ?? false)
-                                        (Total Qty: {{ number_format($gAssigned, 0) }} | Working Hours: {{ $gTotalTimeHoursFmt }} | Konfirmasi: {{ number_format($gConfirmed, 0) }} ({{ number_format($pctOk, 1) }}%), Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} ({{ number_format($pctFail, 1) }}%) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }})
+                                        (Qty Order: {{ number_format($gAssigned, 0) }} | Total Waktu Pengerjaan: {{ $gTotalTimeHoursFmt }} | Konfirmasi: {{ number_format($gConfirmed, 0) }} ({{ number_format($pctOk, 1) }}%), Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} ({{ number_format($pctFail, 1) }}%) @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
                                     @else
-                                        (Total Qty: {{ number_format($gAssigned, 0) }} | Working Hours: {{ $gTotalTimeHoursFmt }})
+                                        (Qty Order: {{ number_format($gAssigned, 0) }} | Total Waktu Pengerjaan: {{ $gTotalTimeHoursFmt }})
                                     @endif
                                 </span>
                             </td>
@@ -398,8 +409,11 @@
                         </td>
                         <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
                         <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
+                        @if($showPriceCols)
+                            <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
+                            <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
+                        @endif
                         
-                        {{-- Remark --}}
                         {{-- Remark --}}
                         <td class="text-left" style="font-size: 7pt;">
                             @if(!empty($row['remark_details']) && count($row['remark_details']) > 0)
@@ -419,11 +433,6 @@
                                 <div style="text-align: center;">-</div>
                             @endif
                         </td>
-
-                        @if($isEmail ?? false)
-                            <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
-                            <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
-                        @endif
                     </tr>
                 @endforeach
                 

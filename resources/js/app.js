@@ -122,6 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // =================================================================
 
 // --- FUNGSI UNTUK APP LAYOUT (SIDEBAR & TOPBAR) ---
+// --- FUNGSI UNTUK APP LAYOUT (SIDEBAR & TOPBAR) ---
 function initAppLayout() {
     const body = document.body;
     const sidebar = document.getElementById('sidebar');
@@ -129,50 +130,84 @@ function initAppLayout() {
     const collapseToggle = document.getElementById('sidebar-collapse-toggle');
     const overlay = document.getElementById('sidebar-overlay');
     
-    if (!sidebar || !mobileToggle || !collapseToggle || !overlay) return;
+    // Safety check: Sidebar is mandatory, others are optional but recommended
+    if (!sidebar) return;
     
-    const checkScreenWidth = () => {
+    // 1. Logic State Awal
+    const setInitialState = () => {
         if (window.innerWidth < 992) {
-            body.classList.add('sidebar-collapsed');
+             body.classList.add('sidebar-collapsed');
         } else {
-            body.classList.remove('sidebar-collapsed');
+             const storedState = localStorage.getItem('sidebar-collapsed');
+             if (storedState === 'true') body.classList.add('sidebar-collapsed');
+             else body.classList.remove('sidebar-collapsed');
         }
     };
+    setInitialState();
+
+    // 2. Event Listeners
+    if (mobileToggle) {
+        mobileToggle.addEventListener('click', () => body.classList.toggle('sidebar-open'));
+    }
     
-    mobileToggle.addEventListener('click', () => body.classList.toggle('sidebar-open'));
-    
-    collapseToggle.addEventListener('click', () => {
+    if (collapseToggle) {
+        collapseToggle.addEventListener('click', () => {
         body.classList.toggle('sidebar-collapsed');
-        // Trigger event resize agar chart/calendar menyesuaikan diri
-        window.dispatchEvent(new Event('resize')); 
+        if (window.innerWidth >= 992) {
+            localStorage.setItem('sidebar-collapsed', body.classList.contains('sidebar-collapsed'));
+        }
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 50); 
     });
+    }
 
-    overlay.addEventListener('click', () => body.classList.remove('sidebar-open'));
-    window.addEventListener('resize', checkScreenWidth);
+    if (overlay) {
+        overlay.addEventListener('click', () => body.classList.remove('sidebar-open'));
+    }
 
-    // Dropdown toggle logic inside sidebar
+    // 3. Dropdown toggle logic inside sidebar
     const dropdownToggles = sidebar.querySelectorAll('[data-bs-toggle="collapse"]');
     dropdownToggles.forEach(toggle => {
         toggle.addEventListener('click', function(event) {
-            if (body.classList.contains('sidebar-collapsed')) {
+            if (body.classList.contains('sidebar-collapsed') && window.innerWidth >= 992) {
+                // Jika sedang collapsed & diklik, buka sidebar dulu
                 event.preventDefault();
                 body.classList.remove('sidebar-collapsed');
+                localStorage.setItem('sidebar-collapsed', 'false');
+                
+                // Lalu biarkan event bootstrap collapse berjalan (atau perlu trigger manual jika preventDefault mematikan semuanya)
+                // Untuk simplifikasi UX: Buka sidebar saja. User klik lagi untuk expand menu.
             }
         });
     });
 
-    // Nav Loader
+    // 4. Handle Resize Window (Responsive Logic)
+    window.addEventListener('resize', () => {
+        if (window.innerWidth < 992) {
+            if (!body.classList.contains('sidebar-collapsed')) body.classList.add('sidebar-collapsed');
+            body.classList.remove('sidebar-open'); 
+        } else {
+            // Saat kembali ke Desktop, pulihkan state dari localStorage?
+            // Atau biarkan state terakhir? 
+            // Opsional: Restore state untuk UX yang konsisten
+            /*
+            const storedState = localStorage.getItem('sidebar-collapsed');
+            if (storedState === 'true') body.classList.add('sidebar-collapsed');
+            else body.classList.remove('sidebar-collapsed');
+            */
+        }
+    });
+
+    // 5. Nav Loader
     const navLoaderLinks = document.querySelectorAll('.nav-loader-link');
     navLoaderLinks.forEach(link => {
         link.addEventListener('click', function(event) {
             if (!this.getAttribute('href') || this.getAttribute('href') === '#') return;
             event.preventDefault();
             const destination = this.href;
-            window.appLoader.show();
+            if (window.appLoader) window.appLoader.show();
             setTimeout(() => { window.location.href = destination; }, 150);
         });
     });
-    checkScreenWidth();
 }
 
 // --- FUNGSI ANIMASI ANGKA (DASHBOARD) ---

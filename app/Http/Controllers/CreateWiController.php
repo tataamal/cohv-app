@@ -157,7 +157,7 @@ class CreateWiController extends Controller
                 'wcNames'              => $wcNames, 
                 'wcDescriptions'       => $wcDescriptions,
                 'currentFilter'        => $filter,
-                'nextPage'             => $pagination->hasMorePages() ? 2 : null
+                'nextPage' => $pagination->hasMorePages() ? $pagination->currentPage() + 1 : null
             ]);
         } catch (\Exception $e) {
             Log::error("Create WI Index Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
@@ -1386,7 +1386,12 @@ class CreateWiController extends Controller
                 // Rest of Fields
                 $kdauf = $item->kdauf ?? '-';
                 $kdpos = $item->kdpos ? ltrim((string)$item->kdpos, '0') : '-';
-                $soItem = ($kdauf !== '-' && $kdpos !== '-') ? "{$kdauf}-{$kdpos}" : '-';
+                
+                if (trim(strtoupper($kdauf)) === 'MAKE STOCK') {
+                    $soItem = 'MAKE STOCK';
+                } else {
+                    $soItem = ($kdauf !== '-' && $kdpos !== '-') ? "{$kdauf}-{$kdpos}" : '-';
+                }
 
                 // Takt Time
                 // Takt Time
@@ -1683,7 +1688,12 @@ class CreateWiController extends Controller
                 $wc = !empty($item['child_workcenter']) ? $item['child_workcenter'] : ($item['workcenter_induk'] ?? '-');
                 $kdauf = $item['kdauf'] ?? '';
                 $kdpos = isset($item['kdpos']) ? ltrim($item['kdpos'], '0') : '';
-                $soItem = $kdauf . '-' . $kdpos;
+                
+                if (trim(strtoupper($kdauf)) === 'MAKE STOCK') {
+                    $soItem = 'MAKE STOCK';
+                } else {
+                    $soItem = $kdauf . '-' . $kdpos;
+                }
                 $matnr = $item['material_number'] ?? '';
                 if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
                 $assigned = isset($item['assigned_qty']) ? floatval($item['assigned_qty']) : 0;
@@ -2923,21 +2933,17 @@ class CreateWiController extends Controller
         $search = $request->query('search');
         $filter = $request->query('filter', 'dspt_rel');
         
+        // Gunakan $kode secara langsung sesuai struktur database kamu
         $query = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('CAST(MGVRG2 AS DECIMAL(20,3)) > CAST(COALESCE(LMNGA, 0) AS DECIMAL(20,3))');
 
+        // --- Search Utama (Global) ---
         if ($search) {
             if (preg_match('/^"(.*)"$/', trim($search), $matches)) {
                 $term = $matches[1];
                 $query->where(function($q) use ($term) {
-                    $q->where('AUFNR', '=', $term)
-                      ->orWhere('MATNR', '=', $term)
-                      ->orWhere('MAKTX', '=', $term)
-                      ->orWhere('KDAUF', '=', $term)
-                      ->orWhere('KDPOS', '=', $term)
-                      ->orWhere('ARBPL', '=', $term)
-                      ->orWhere('STEUS', '=', $term)
-                      ->orWhere('VORNR', '=', $term);
+                    $fields = ['AUFNR', 'MATNR', 'MAKTX', 'KDAUF', 'KDPOS', 'ARBPL', 'STEUS', 'VORNR'];
+                    foreach($fields as $f) $q->orWhere($f, '=', $term);
                 });
             } else {
                 $terms = array_filter(array_map('trim', explode(';', $search)));
@@ -2945,19 +2951,17 @@ class CreateWiController extends Controller
                     foreach ($terms as $term) {
                         $q->orWhere(function($subQ) use ($term) {
                             if (preg_match('/^(\d+)\s*-\s*(\d+)$/', $term, $matches)) {
-                                $so = $matches[1];
-                                $item = str_pad($matches[2], 6, '0', STR_PAD_LEFT);
-                                $subQ->where('KDAUF', '=', $so)
-                                     ->where('KDPOS', '=', $item);
+                                $subQ->where('KDAUF', '=', $matches[1])
+                                    ->where('KDPOS', '=', str_pad($matches[2], 6, '0', STR_PAD_LEFT));
                             } else {
                                 $subQ->where('AUFNR', 'like', "%{$term}%")
-                                     ->orWhere('MATNR', 'like', "%{$term}%")
-                                     ->orWhere('MAKTX', 'like', "%{$term}%")
-                                     ->orWhere('KDAUF', 'like', "%{$term}%")
-                                     ->orWhere('KDPOS', 'like', "%{$term}%")
-                                     ->orWhere('ARBPL', 'like', "%{$term}%")
-                                     ->orWhere('STEUS', 'like', "%{$term}%")
-                                     ->orWhere('VORNR', 'like', "%{$term}%");
+                                    ->orWhere('MATNR', 'like', "%{$term}%")
+                                    ->orWhere('MAKTX', 'like', "%{$term}%")
+                                    ->orWhere('KDAUF', 'like', "%{$term}%")
+                                    ->orWhere('KDPOS', 'like', "%{$term}%")
+                                    ->orWhere('ARBPL', 'like', "%{$term}%")
+                                    ->orWhere('STEUS', 'like', "%{$term}%")
+                                    ->orWhere('VORNR', 'like', "%{$term}%");
                             }
                         });
                     }
@@ -2965,88 +2969,73 @@ class CreateWiController extends Controller
             }
         }
 
-        // Advanced Search
-        if ($request->has('adv_aufnr') && $request->adv_aufnr) {
+        // --- Advanced Search (Spesifik Kolom) ---
+
+        // PRO (AUFNR)
+        if ($request->filled('adv_aufnr')) {
             $val = $request->adv_aufnr;
-            if(str_contains($val, ',')) {
-                $arr = array_map('trim', explode(',', $val));
-                $query->whereIn('AUFNR', $arr); 
-            } else {
-                $query->where('AUFNR', '=', $val);
-            }
+            $arr = array_map('trim', explode(',', $val));
+            str_contains($val, ',') ? $query->whereIn('AUFNR', $arr) : $query->where('AUFNR', $val);
         }
-        if ($request->has('adv_matnr') && $request->adv_matnr) {
+
+        // Material (MATNR)
+        if ($request->filled('adv_matnr')) {
             $val = $request->adv_matnr;
-            if(str_contains($val, ',')) {
-                 $arr = array_map('trim', explode(',', $val));
-                 $query->whereIn('MATNR', $arr);
-            } else {
-                 $query->where('MATNR', '=', $val);
-            }
+            $arr = array_map('trim', explode(',', $val));
+            str_contains($val, ',') ? $query->whereIn('MATNR', $arr) : $query->where('MATNR', $val);
         }
-        if ($request->has('adv_maktx') && $request->adv_maktx) {
-             $val = $request->adv_maktx;
-             if(str_contains($val, ',')) {
-                 $arr = array_map('trim', explode(',', $val));
-                 $query->where(function($q) use ($arr) {
-                     foreach($arr as $term) {
-                         $q->orWhere('MAKTX', '=', $term);
-                     }
-                 });
-             } else {
-                 $query->where('MAKTX', '=', $val);
-             }
+
+        // Description (MAKTX)
+        if ($request->filled('adv_maktx')) {
+            $val = $request->adv_maktx;
+            $arr = array_map('trim', explode(',', $val));
+            // Gunakan whereIn agar performa lebih ringan dibanding looping orWhere
+            $query->whereIn('MAKTX', $arr);
         }
-        if ($request->has('adv_arbpl') && $request->adv_arbpl) {
+
+        // Workcenter (ARBPL)
+        if ($request->filled('adv_arbpl')) {
             $val = $request->adv_arbpl;
-            if(str_contains($val, ',')) {
-                 $arr = array_map('trim', explode(',', $val));
-                 $query->whereIn('ARBPL', $arr);
-            } else {
-                 $query->where('ARBPL', '=', $val);
-            }
+            $arr = array_map('trim', explode(',', $val));
+            str_contains($val, ',') ? $query->whereIn('ARBPL', $arr) : $query->where('ARBPL', $val);
         }
         
-        // Revised SO (KDAUF) & Item Logic
-        if ($request->has('adv_kdauf') && $request->adv_kdauf) {
+        // SO & Item (KDAUF)
+        if ($request->filled('adv_kdauf')) {
             $val = $request->adv_kdauf;
-            $rawInputs = str_contains($val, ',') ? explode(',', $val) : [$val];
-            
+            $rawInputs = explode(',', $val);
             $soList = [];
             $soItemPairs = [];
 
             foreach ($rawInputs as $input) {
                 $input = trim($input);
                 if (empty($input)) continue;
-
                 if (preg_match('/^(\d+)\s*-\s*(\d+)$/', $input, $matches)) {
-                    // It is SO-Item
-                    $soItemPairs[] = [
-                        'so' => $matches[1],
-                        'item' => str_pad($matches[2], 6, '0', STR_PAD_LEFT)
-                    ];
+                    $soItemPairs[] = ['so' => $matches[1], 'item' => str_pad($matches[2], 6, '0', STR_PAD_LEFT)];
                 } else {
-                    // Assume it is just SO or maybe partial
-                     $soList[] = $input;
+                    $soList[] = $input;
                 }
             }
 
             $query->where(function($q) use ($soList, $soItemPairs) {
-                if (!empty($soList)) {
-                    $q->orWhereIn('KDAUF', $soList);
-                }
+                if (!empty($soList)) $q->orWhereIn('KDAUF', $soList);
                 foreach ($soItemPairs as $pair) {
                     $q->orWhere(function($sub) use ($pair) {
-                        $sub->where('KDAUF', '=', $pair['so'])
-                            ->where('KDPOS', '=', $pair['item']);
+                        $sub->where('KDAUF', '=', $pair['so'])->where('KDPOS', '=', $pair['item']);
                     });
                 }
             });
         }
-        if ($request->has('adv_vornr') && $request->adv_vornr) {
-            $query->where('VORNR', 'like', '%' . $request->adv_vornr . '%');
+
+        // Activity (VORNR)
+        if ($request->filled('adv_vornr')) {
+            $val = $request->adv_vornr;
+            str_contains($val, ',') 
+                ? $query->whereIn('VORNR', array_map('trim', explode(',', $val))) 
+                : $query->where('VORNR', 'like', "%{$val}%");
         }
 
+        // Filter DSPT REL
         if ($filter === 'dspt_rel') {
             $query->where('STATS', 'LIKE', '%DSP%');
         }

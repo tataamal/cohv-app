@@ -1232,18 +1232,48 @@
     
     @include('create-wi.partials.modal_edit_qty') 
 
-    <!-- Sticky Glass Footer for Remark Search -->
-    <div class="fixed-bottom p-3" style="z-index: 1040; margin-left: 260px; backdrop-filter: blur(10px); background: linear-gradient(to right, rgba(16, 185, 129, 0.8), rgba(5, 150, 105, 0.8)); border-top: 1px solid rgba(255,255,255,0.2); box-shadow: 0 -4px 20px rgba(0,0,0,0.1);">
-        <div class="container-fluid d-flex justify-content-center">
-            <div class="input-group shadow rounded-pill overflow-hidden" style="max-width: 600px; border: 1px solid rgba(255,255,255,0.3);">
-                <span class="input-group-text bg-white border-0 ps-3 text-success"><i class="fa-solid fa-magnifying-glass"></i></span>
-                <input type="text" id="searchRemarkAufnr" class="form-control border-0 shadow-none bg-white text-dark" placeholder="Cari Remark (Input AUFNR)..." style="font-size: 1rem;">
-                <button class="btn btn-light px-4 fw-bold text-success" type="button" id="btnSearchRemark">
-                    <i class="fa-solid fa-search me-1"></i> Cari
+    <!-- Floating Action Button for Remark Search -->
+    <div class="fixed-bottom p-4 d-flex justify-content-end" style="z-index: 1040;">
+        <div class="d-flex align-items-center gap-2">
+            <!-- Search Input (Initially Hidden) -->
+            <div id="searchRemarkContainer" class="bg-white shadow-lg rounded-pill p-1 d-none align-items-center border" style="width: 300px; transition: all 0.3s;">
+                <input type="text" id="searchRemarkAufnr" class="form-control border-0 shadow-none bg-transparent ps-3" placeholder="Cari Remark (Input AUFNR)..." style="font-size: 0.9rem;">
+                <button class="btn btn-success rounded-circle shadow-sm" type="button" id="btnSearchRemark" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-arrow-right"></i>
                 </button>
             </div>
+            
+            <!-- Toggle Button -->
+            <button class="btn btn-success shadow-lg rounded-circle d-flex align-items-center justify-content-center" 
+                    id="btnToggleRemarkSearch" 
+                    style="width: 50px; height: 50px; transition: transform 0.2s;"
+                    onclick="toggleRemarkSearch()">
+                <i class="fa-solid fa-magnifying-glass fs-5"></i>
+            </button>
         </div>
     </div>
+
+    @push('scripts')
+    <script>
+        function toggleRemarkSearch() {
+            const container = document.getElementById('searchRemarkContainer');
+            const btnIcon = document.querySelector('#btnToggleRemarkSearch i');
+            
+            if (container.classList.contains('d-none')) {
+                container.classList.remove('d-none');
+                container.classList.add('d-flex');
+                setTimeout(() => document.getElementById('searchRemarkAufnr').focus(), 100);
+                btnIcon.classList.remove('fa-magnifying-glass');
+                btnIcon.classList.add('fa-xmark');
+            } else {
+                container.classList.add('d-none');
+                container.classList.remove('d-flex');
+                btnIcon.classList.remove('fa-xmark');
+                btnIcon.classList.add('fa-magnifying-glass');
+            }
+        }
+    </script>
+    @endpush
 
     <!-- Modal Search Result -->
     <div class="modal fade" id="remarkSearchModal" tabindex="-1" aria-hidden="true" style="backdrop-filter: blur(5px);">

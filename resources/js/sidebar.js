@@ -3,7 +3,7 @@
 class Sidebar {
     constructor() {
         this.sidebar = document.getElementById('sidebar');
-        this.toggle = document.getElementById('sidebar-toggle');
+        this.toggle = document.getElementById('sidebar-collapse-toggle');
         this.overlay = document.getElementById('sidebar-overlay');
         this.mobileToggle = document.getElementById('mobile-sidebar-toggle'); // TAMBAHKAN INI
         this.storageKey = 'sidebarCollapsed';

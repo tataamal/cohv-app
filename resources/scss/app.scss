@@ -260,26 +260,45 @@ body.sidebar-collapsed {
     .sidebar {
         width: 80px;
         
-        .sidebar-brand-text,
         .nav-section-title,
-        .nav-text,
-        .nav-arrow,
-        .user-details,
         .btn-logout span {
             display: none;
         }
+
+        /* [MODIFIED] GLOBAL COLLAPSED STYLE (Mobile & Desktop) */
+        /* Show text stacked below icon with small font */
+        .nav-text {
+            display: block !important;
+            font-size: 0.65rem; /* Small font */
+            line-height: 1.2;
+            white-space: normal;
+            text-align: center;
+            margin-top: 2px;
+        }
         
-        .nav-link,
-        .user-info {
-            justify-content: center;
+        .nav-link {
+            flex-direction: column; /* Stack icon and text */
+            padding: 0.5rem 0.25rem;
+            text-align: center;
+            height: auto;
         }
         
         .nav-icon {
             margin-right: 0;
+            margin-bottom: 2px;
+            font-size: 1.2rem;
         }
         
-        .submenu {
-            display: none;
+        /* Hide elements that shouldn't show in collapsed mode */
+        .nav-arrow,
+        .user-details,
+        .sidebar-brand-text {
+            display: none !important;
+        }
+        
+        /* Center the brand logo */
+        .sidebar-brand a {
+            justify-content: center;
         }
     }
     
@@ -330,7 +349,7 @@ body.sidebar-open .sidebar-overlay {
 // Desktop
 @media (min-width: 992px) {
     #content-wrapper {
-        margin-left: 260px;
+        margin-left: 240px; /* MATCH SIDEBAR WIDTH */
         transition: margin-left 0.3s;
     }
 }
