@@ -131,8 +131,14 @@ class SendLogWeeklyEmail extends Command
 
             // Fetch WC Map
             $wcMap = \App\Models\workcenter::whereIn('plant', $uniqueCodes)
-                ->pluck('description', 'kode_wc')
-                ->mapWithKeys(fn($d, $k) => [strtoupper($k) => $d])
+                ->select('kode_wc', 'description', 'operating_time')
+                ->get()
+                ->mapWithKeys(function ($item) {
+                    return [strtoupper($item->kode_wc) => [
+                        'description' => $item->description,
+                        'operating_time' => $item->operating_time
+                    ]];
+                })
                 ->toArray();
 
             $processedItems = [];
@@ -140,7 +146,8 @@ class SendLogWeeklyEmail extends Command
             foreach ($rawItems as $item) {
                  // $item is HistoryWiItem Model
                  $wcCode = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
-                 $wcDesc = $wcMap[strtoupper($wcCode)] ?? '-';
+                 $wcData = $wcMap[strtoupper($wcCode)] ?? ['description' => '-', 'operating_time' => 0];
+                 $wcDesc = $wcData['description'];
                  
                  $matnr = $item->material_number ?? '';
                  if(ctype_digit($matnr)) { $matnr = ltrim($matnr, '0'); }
@@ -182,8 +189,36 @@ class SendLogWeeklyEmail extends Command
                  $failedPrice = $netpr * ($balance + $remarkQty);
 
                  // Takt Time Logic
-                 $taktFull = $item->calculated_takt_time ?? '-';
+                 $taktFull = $item->calculated_takt_time ?? 0;
                  $finalTime = floatval($taktFull);
+
+                 // Machining Logic Override
+                 if ($item->machining == 1 && $item->ssavd && $item->sssld) {
+                     // Calculate Days
+                     $startP = Carbon::parse($item->ssavd);
+                     $endP = Carbon::parse($item->sssld);
+                     $days = $startP->diffInDays($endP) + 1; // Inclusive
+                     $days = max(1, $days); // Prevent division by zero
+
+                     // Daily Qty (Rounded Up)
+                     $dailyQty = ceil($assigned / $days);
+
+                     // Recalculate Takt Time based on Daily Qty
+                     // Formula: VGW01 * Qty. Convert to Minutes.
+                     // Unit (VGE01) Check. 
+                     $unit = strtoupper(trim($item->vge01 ?? ''));
+                     $val = floatval($item->vgw01 ?? 0);
+                     $baseTotal = $val * $dailyQty;
+
+                     if ($unit === 'S' || $unit === 'SEC') {
+                         $finalTime = $baseTotal / 60; // Minutes
+                     } elseif ($unit === 'H' || $unit === 'HR') {
+                         $finalTime = $baseTotal * 60; // Minutes
+                     } else {
+                         // Default 'MIN' or unknown treated as minutes
+                         $finalTime = $baseTotal; 
+                     }
+                 }
                  
                  if ($finalTime > 0) {
                      $totSec = $finalTime * 60;
