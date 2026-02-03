@@ -1367,13 +1367,13 @@ class CreateWiController extends Controller
                 }
                 
                 if (!$statusFilter && !$request->has('wi_codes')) {
-                     // Standard Email Report Behavior: Exclude Active
-                     // EXCEPTION: If user filtered by DATE, show everything (including Active) to avoid "Empty Report" confusion
-                     $hasDateFilter = $request->filled('filter_date');
-                     
+                     // DISABLED: Implicit filtering for Manual Reports is confusing. 
+                     // Users clicking "Preview" or "Export" (Manual) expect to see the data they see on screen.
+                     /*
                      if (!$hasDateFilter && in_array($status, ['ACTIVE', 'INACTIVE'])) {
                          $keep = false;
                      }
+                     */
                 }
                 
                 if (!$keep && $request->has('wi_codes')) {
@@ -1583,7 +1583,7 @@ class CreateWiController extends Controller
         }
 
         if (empty($finalReports)) {
-             abort(404, 'Document Tidak Ditemukan');
+             return ['success' => false, 'message' => 'Document Tidak Ditemukan (Empty Result)'];
         }
 
         return [

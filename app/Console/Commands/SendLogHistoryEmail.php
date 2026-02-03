@@ -113,7 +113,14 @@ class SendLogHistoryEmail extends Command
             $this->info(">>> Processing Bagian: '{$namaBagian}' [Slug: {$slug}] (Items: " . count($rawItems) . ")");
             $this->info("    Plant Codes: " . implode(', ', $uniqueCodes));
 
-            $wcMap = \App\Models\workcenter::whereIn('plant', $uniqueCodes)
+            $wcCodesToFetch = [];
+            foreach ($rawItems as $item) {
+                 $w = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
+                 if ($w !== '-') $wcCodesToFetch[] = $w;
+            }
+            $wcCodesToFetch = array_unique($wcCodesToFetch);
+
+            $wcMap = \App\Models\workcenter::whereIn('kode_wc', $wcCodesToFetch)
                 ->select('kode_wc', 'description', 'operating_time')
                 ->get()
                 ->mapWithKeys(function ($item) {

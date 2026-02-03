@@ -130,7 +130,14 @@ class SendLogWeeklyEmail extends Command
             $this->info(">>> Processing Bagian: '{$namaBagian}'");
 
             // Fetch WC Map
-            $wcMap = \App\Models\workcenter::whereIn('plant', $uniqueCodes)
+            $wcCodesToFetch = [];
+            foreach ($rawItems as $item) {
+                 $w = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
+                 if ($w !== '-') $wcCodesToFetch[] = $w;
+            }
+            $wcCodesToFetch = array_unique($wcCodesToFetch);
+
+            $wcMap = \App\Models\workcenter::whereIn('kode_wc', $wcCodesToFetch)
                 ->select('kode_wc', 'description', 'operating_time')
                 ->get()
                 ->mapWithKeys(function ($item) {
