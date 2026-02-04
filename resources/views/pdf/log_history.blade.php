@@ -424,11 +424,13 @@
                         </td>
                         
                         {{-- MERGED TIME REQ COLUMN (Vertical) --}}
-                        @if($isFirstRowInGroup)
-                            <td rowspan="{{ $groupCount }}" class="text-center fw-bold" style="vertical-align: middle; background-color: #ffffff; width: 8%;">
+                        {{-- MERGED TIME REQ COLUMN (Simulated Rowspan for Page Break Safety) --}}
+                        @php $isLastRowInGroup = (($no - 1) == $groupCount); @endphp
+                        <td class="text-center fw-bold" style="vertical-align: middle; background-color: #ffffff; width: 8%; border-bottom: {{ $isLastRowInGroup ? '1px solid #000' : 'none' }}; border-top: {{ $isFirstRowInGroup ? '1px solid #000' : 'none' }};">
+                            @if($isFirstRowInGroup)
                                 {{ $gTotalTimeFmt }}
-                            </td>
-                        @endif
+                            @endif
+                        </td>
 
                         {{-- Merged Column --}}
                         <td class="text-center">
