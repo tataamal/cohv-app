@@ -152,6 +152,31 @@
         .sig-content {
             padding-top: 40px; text-align: center; font-size: 9pt;
         }
+        .time-meta{
+            font-size: 7pt;
+            font-weight: normal;
+        }
+
+        .page-split td{
+            border-top: 2px solid #000 !important;
+        }
+
+        /* chunk tidak boleh kepotong di tengah halaman */
+        tbody.page-chunk { 
+            page-break-inside: avoid; 
+            break-inside: avoid;
+        }
+
+        /* baris jangan dipecah di tengah */
+        tr.data-row { 
+            page-break-inside: avoid; 
+            break-inside: avoid;
+        }
+
+        /* opsional: jangan sampai header NIK “sendirian” di bawah halaman */
+        tr.nik-header { 
+            page-break-after: avoid; 
+        }
     </style>
 </head>
 <body>
@@ -217,6 +242,7 @@
                         </div>
                     @endif
                 </td>
+            </tr>
         </table>
 
         {{-- 2. INFO ROW (For Manual Print) --}}
@@ -317,93 +343,111 @@
                 </tr>
             </thead>
             <tbody>
-                @php 
-                    $no = 1; 
-                    $currentNik = null;
-                    // $items defined above
-                    $isActiveStatus = in_array(strtoupper($report['doc_metadata']['status'] ?? ''), ['ACTIVE', 'INACTIVE']);
+                @php
+                    // Jangan override $items lama kamu (biar bagian bawah template aman)
+                    $itemsArr = $report['items'] ?? [];
+                    $itemsCol = collect($itemsArr);
+
+                    $isReportMachining = $itemsCol->contains('is_machining', true);
+
+                    // Atur ukuran chunk (8 lebih aman kalau remark sering panjang)
+                    $chunkSize = 8;
+
+                    // Format waktu
+                    $fmtTime = function($mins) {
+                        $totalSeconds = $mins * 60;
+                        $hrs = floor($totalSeconds / 3600);
+                        $mns = floor(($totalSeconds % 3600) / 60);
+                        $secs = round($totalSeconds % 60);
+
+                        $parts = [];
+                        if ($hrs > 0) $parts[] = $hrs . ' Jam';
+                        if ($mns > 0) $parts[] = $mns . ' Menit';
+                        if ($secs > 0 || empty($parts)) $parts[] = $secs . ' Detik';
+                        return implode(', ', $parts);
+                    };
+
+                    // Smart number format (tanpa desimal kalau integer)
+                    $fmtNum = function($val, $decimals = 2) {
+                        if (fmod((float)$val, 1) == 0.0) {
+                            return number_format($val, 0, ',', '.');
+                        }
+                        return number_format($val, $decimals, ',', '.');
+                    };
+
+                    // Group per NIK
+                    $grouped = $itemsCol->groupBy('nik');
                 @endphp
 
-                @foreach($items as $row)
-                    {{-- GROUP HEADER ROW (NIK) --}}
-                    @if($currentNik !== $row['nik'])
-                        @php 
-                            $currentNik = $row['nik']; 
-                            $nikName = $row['name'] ?? '-';
-                            
-                            // Calculate Group Stats
-                            $groupItems = collect($items)->where('nik', $currentNik);
-                            $groupCount = $groupItems->count();
-                            
-                            $gAssigned = $groupItems->sum('assigned');
-                            $gConfirmed = $groupItems->sum('confirmed');
-                            $gRemark = $groupItems->sum(function($item) { return $item['remark_qty'] ?? 0; });
-                            $gUnconfirmed = $gAssigned - $gConfirmed; // "Tidak Terkonfirmasi"
-                            
-                            $gPriceOk = $groupItems->sum('confirmed_price');
-                            $gPriceFail = $groupItems->sum('failed_price');
-                            $pctOk = ($gAssigned > 0) ? ($gConfirmed / $gAssigned) * 100 : 0;
-                            $pctFail = ($gAssigned > 0) ? ($gUnconfirmed / $gAssigned) * 100 : 0;
-                            
-                            $gTotalTimeMin = $groupItems->sum('raw_total_time'); 
-                            $gConfirmTimeMin = $groupItems->sum('raw_confirmed_time'); 
-                            
-                            // Format Time Function
-                            $fmtTime = function($mins) {
-                                $totalSeconds = $mins * 60;
-                                $hrs = floor($totalSeconds / 3600);
-                                $mins = floor(($totalSeconds % 3600) / 60);
-                                $secs = round($totalSeconds % 60);
-                                $parts = [];
-                                if ($hrs > 0) $parts[] = $hrs . ' Jam';
-                                if ($mins > 0) $parts[] = $mins . ' Menit';
-                                if ($secs > 0 || empty($parts)) $parts[] = $secs . ' Detik';
-                                return implode(', ', $parts);
-                            };
+                @foreach($grouped as $nik => $groupItems)
+                    @php
+                        $row0 = $groupItems->first() ?? [];
+                        $nikName = $row0['name'] ?? '-';
 
-                            // Smart Number Format Function (No decimals if integer)
-                            $fmtNum = function($val, $decimals = 2) {
-                                if (fmod($val, 1) == 0) {
-                                    return number_format($val, 0, ',', '.');
-                                }
-                                return number_format($val, $decimals, ',', '.');
-                            };
+                        // Group stats
+                        $groupCount = $groupItems->count(); // jumlah task (baris)
+                        $wiCount = $groupItems->pluck('doc_no')->filter()->unique()->count(); // jumlah WI unik
+                        $timeMetaStr = "{$groupCount} Task / {$wiCount} WI";
 
-                            $gTotalTimeFmt = $fmtTime($gTotalTimeMin);
-                            $gConfirmTimeFmt = $fmtTime($gConfirmTimeMin);
-                            
-                            // OLD: $jamKerjaStr = "{$gConfirmTimeFmt} / {$gTotalTimeFmt}";
-                            // NEW: Only Confirmed
-                            $jamKerjaStr = $gConfirmTimeFmt;
+                        $gAssigned = $groupItems->sum('assigned');
+                        $gConfirmed = $groupItems->sum('confirmed');
+                        $gUnconfirmed = $gAssigned - $gConfirmed;
 
-                            $gCurr = $row['currency'] ?? 'IDR';
-                            $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
-                            $dec = (strtoupper($gCurr) === 'USD') ? 2 : 0;
-                            $fmtOk = $pfx . number_format($gPriceOk, $dec, ',', '.');
-                            $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
-                            
-                            // Check for Machining in this group
-                            $isMachiningGroup = collect($groupItems)->contains('is_machining', true);
+                        $pctOk = ($gAssigned > 0) ? ($gConfirmed / $gAssigned) * 100 : 0;
+                        $pctFail = ($gAssigned > 0) ? ($gUnconfirmed / $gAssigned) * 100 : 0;
 
-                            // Progress Calculation (Confirmed + Remark) / Assigned
-                            $gRemarkQty = $groupItems->sum('remark_qty');
-                            $numerator = $gConfirmed + $gRemarkQty;
-                            $progressPct = ($gAssigned > 0) ? ($numerator / $gAssigned) * 100 : 0;
+                        $gTotalTimeMin = $groupItems->sum('raw_total_time');
+                        $gConfirmTimeMin = $groupItems->sum('raw_confirmed_time');
 
-                            $no = 1; 
-                            $isFirstRowInGroup = true; // Flag for rowspan
-                        @endphp
-                        <tr>
-                            <td colspan="{{ $showPriceCols ? ($isReportMachining ? 13 : 12) : ($isReportMachining ? 11 : 10) }}" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
-                                <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
+                        $gTotalTimeFmt = $fmtTime($gTotalTimeMin);
+                        $gConfirmTimeFmt = $fmtTime($gConfirmTimeMin);
+
+                        // Jam Kerja: confirmed saja (sesuai code kamu)
+                        $jamKerjaStr = $gConfirmTimeFmt;
+
+                        // Price (kalau suatu saat showPriceCols = true)
+                        $gPriceOk = $groupItems->sum('confirmed_price');
+                        $gPriceFail = $groupItems->sum('failed_price');
+                        $gCurr = $row0['currency'] ?? 'IDR';
+                        $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
+                        $dec = (strtoupper($gCurr) === 'USD') ? 2 : 0;
+                        $fmtOk = $pfx . number_format($gPriceOk, $dec, ',', '.');
+                        $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
+
+                        // Machining flags
+                        $isMachiningGroup = $groupItems->contains('is_machining', true);
+
+                        // Progress (Confirmed + Remark) / Assigned
+                        $gRemarkQty = $groupItems->sum('remark_qty');
+                        $progressNumerator = $gConfirmed + $gRemarkQty;
+                        $progressPct = ($gAssigned > 0) ? ($progressNumerator / $gAssigned) * 100 : 0;
+
+                        // Chunks: dipindah natural ke page berikutnya kalau tidak cukup ruang
+                        $chunks = $groupItems->values()->chunk($chunkSize);
+
+                        // nomor urut reset per NIK (sesuai behaviour kamu sebelumnya)
+                        $no = 1;
+                    @endphp
+
+                    {{-- HEADER NIK: tetap nyambung (tidak paksa pindah halaman) --}}
+                    <tbody>
+                        <tr class="nik-header">
+                            <td colspan="{{ $showPriceCols ? ($isReportMachining ? 13 : 12) : ($isReportMachining ? 11 : 10) }}"
+                                style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
+                                <strong>NIK {{ $nik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
                                     @if($isMachiningGroup)
                                         {{-- Machining Format --}}
-                                        (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} | Konfirmasi: {{ $fmtNum($gConfirmed) }}/{{ $fmtNum($gAssigned) }}, Progress Pengerjaan PRO: {{ $fmtNum($progressPct) }}%)
+                                        (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} |
+                                        Konfirmasi: {{ $fmtNum($gConfirmed) }}/{{ $fmtNum($gAssigned) }},
+                                        Progress Pengerjaan PRO: {{ $fmtNum($progressPct) }}%)
                                     @else
                                         {{-- Standard Format --}}
                                         @if($isEmail ?? false)
-                                            (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} | Konfirmasi: {{ $fmtNum($gConfirmed) }} ({{ $fmtNum($pctOk, 1) }}%), Tidak Terkonfirmasi: {{ $fmtNum($gUnconfirmed) }} ({{ $fmtNum($pctFail, 1) }}%) @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
+                                            (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} |
+                                            Konfirmasi: {{ $fmtNum($gConfirmed) }} ({{ $fmtNum($pctOk, 1) }}%),
+                                            Tidak Terkonfirmasi: {{ $fmtNum($gUnconfirmed) }} ({{ $fmtNum($pctFail, 1) }}%)
+                                            @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
                                         @else
                                             (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }})
                                         @endif
@@ -411,129 +455,108 @@
                                 </span>
                             </td>
                         </tr>
-                    @endif
+                    </tbody>
 
-                    @php 
-                        // Logic moved before TR to control page break
-                        $currentNo = $no++; // Get current number and increment
-                        $idx0 = $currentNo - 1; 
-                        $chunkSize = 10; // Safer interval (10 rows fit comfortably)
-                        $isCheckpoint = ($idx0 % $chunkSize == 0); 
-                        $isEndOfChunk = ($idx0 % $chunkSize == ($chunkSize - 1)) || ($idx0 == $groupCount - 1);
-                        
-                        // Force Page Break at checkpoint (except start)
-                        $rowStyle = ($isCheckpoint && $idx0 > 0) ? 'page-break-before: always;' : '';
-                    @endphp
+                    {{-- DATA ROWS per chunk (chunk tidak boleh kepotong) --}}
+                    @foreach($chunks as $chunk)
+                        <tbody class="page-chunk">
+                            @foreach($chunk as $row)
+                                @php
+                                    $isChunkFirst = $loop->first;
+                                    $isChunkLast  = $loop->last;
+                                    $currentNo = $no++;
+                                @endphp
 
-                    <tr class="data-row" style="{{ $rowStyle }}">
-                        <td class="text-center">{{ $currentNo }}</td>
-                        <td class="text-center fw-bold">
-                            {{ $row['doc_no'] }}
-                            @if(str_contains($report['report_title'] ?? '', 'WEEKLY'))
-                                <br>
-                                <span style="font-size: 7pt; font-weight: normal;">{{ $row['doc_date'] ?? '' }}</span>
-                            @endif
-                        </td>
-                        
-                        {{-- MERGED TIME REQ COLUMN (Simulated Rowspan for Page Break Safety) --}}
-                        <td class="text-center fw-bold" style="vertical-align: top; background-color: #ffffff; width: 8%; border-bottom: {{ $isEndOfChunk ? '1px solid #000' : 'none' }}; border-top: {{ $isCheckpoint ? '1px solid #000' : 'none' }};">
-                            @if($isCheckpoint)
-                                {{ $gTotalTimeFmt }}
-                                <br>
-                                <span style="font-size: 8pt; font-weight: normal;">({{ $groupCount }} Tasks)</span>
-                            @endif
-                        </td>
+                                <tr class="data-row">
+                                    <td class="text-center">{{ $currentNo }}</td>
 
-                        {{-- Merged Column --}}
-                        <td class="text-center">
-                            <strong>{{ $row['workcenter'] }}</strong><br>
-                            {{ $row['wc_description'] ?? '-' }}
-                        </td>
-                        
-                        <td class="text-center">{{ $row['so_item'] }}</td>
-                        <td class="text-center fw-bold">
-                            {{ $row['aufnr'] }}
-                            @if(!empty($row['vornr']))
-                                <br>
-                                <span style="font-weight: normal; font-style: italic; font-size: 7pt;">({{ ltrim($row['vornr'], '0') }})</span>
-                            @endif
-                        </td>
-                        <td class="text-center">
-                            <strong>{{ $row['material'] }}</strong><br>
-                            {{ $row['description'] }}
-                        </td>
-                        <td class="text-center fw-bold">{{ floatval($row['assigned']) }}</td>
-                        <td class="text-center fw-bold text-success">{{ floatval($row['confirmed']) }}</td>
-                        @if($showPriceCols)
-                            <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
-                            <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
-                        @endif
-                        
-                        {{-- Remark --}}
-                        <td class="text-left" style="font-size: 7pt;">
-                            @if(!empty($row['remark_details']) && count($row['remark_details']) > 0)
-                                <ul style="padding-left: 15px; margin: 0; text-align: left;">
-                                @foreach($row['remark_details'] as $rem)
-                                    <li>Qty : {{ floatval($rem['qty']) }}, {{ $rem['text'] }}</li>
-                                @endforeach
-                                </ul>
-                            @elseif(floatval($row['remark_qty'] ?? 0) > 0)
-                                <div style="text-align: center;">
-                                    <strong>Qty: {{ floatval($row['remark_qty']) }}</strong><br>
-                                    {{ $row['remark_text'] ?? '-' }}
-                                </div>
-                            @elseif(!empty($row['remark_text']) && $row['remark_text'] !== '-')
-                                <div style="text-align: center;">{{ $row['remark_text'] }}</div>
-                            @else
-                                <div style="text-align: center;">-</div>
-                            @endif
-                        </td>
+                                    <td class="text-center fw-bold">
+                                        {{ $row['doc_no'] ?? '-' }}
+                                        @if(str_contains($report['report_title'] ?? '', 'WEEKLY'))
+                                            <br>
+                                            <span style="font-size: 7pt; font-weight: normal;">{{ $row['doc_date'] ?? '' }}</span>
+                                        @endif
+                                    </td>
 
-                        {{-- Task Progress (Machining Only) --}}
-                        @if($isReportMachining ?? false)
-                             <td class="text-center">
-                                @if($row['is_machining'] ?? false)
-                                <span style="font-size: 7pt;">({{ $fmtNum($row['item_progress_numerator'] ?? 0) }}/{{ $fmtNum($row['assigned']) }})</span>
-                                <strong>{{ $fmtNum($row['item_progress_pct'] ?? 0, 0) }}%</strong>
-                                    @if(($row['item_progress_pct'] ?? 0) >= 100 || ($row['status'] ?? 'ACTIVE') !== 'ACTIVE')
-                                        <br><span style="font-size: 6pt; font-style: italic;">{{ $row['status'] ?? '' }}</span>
+                                    {{-- TIME REQ: tampil di awal chunk, jadi kalau pindah halaman (natural) tetap muncul --}}
+                                    <td class="text-center fw-bold"
+                                        style="vertical-align: top; background-color: #ffffff; width: 8%;
+                                            border-top: {{ $isChunkFirst ? '1px solid #000' : 'none' }};
+                                            border-bottom: {{ $isChunkLast ? '1px solid #000' : 'none' }};">
+                                        @if($isChunkFirst)
+                                            {{ $gTotalTimeFmt }}
+                                            <br>
+                                            <span class="time-meta">({{ $timeMetaStr }})</span>
+                                        @endif
+                                    </td>
+
+                                    <td class="text-center">
+                                        <strong>{{ $row['workcenter'] ?? '-' }}</strong><br>
+                                        {{ $row['wc_description'] ?? '-' }}
+                                    </td>
+
+                                    <td class="text-center">{{ $row['so_item'] ?? '-' }}</td>
+
+                                    <td class="text-center fw-bold">
+                                        {{ $row['aufnr'] ?? '-' }}
+                                        @if(!empty($row['vornr']))
+                                            <br>
+                                            <span style="font-weight: normal; font-style: italic; font-size: 7pt;">({{ ltrim($row['vornr'], '0') }})</span>
+                                        @endif
+                                    </td>
+
+                                    <td class="text-center">
+                                        <strong>{{ $row['material'] ?? '-' }}</strong><br>
+                                        {{ $row['description'] ?? '-' }}
+                                    </td>
+
+                                    <td class="text-center fw-bold">{{ floatval($row['assigned'] ?? 0) }}</td>
+                                    <td class="text-center fw-bold text-success">{{ floatval($row['confirmed'] ?? 0) }}</td>
+
+                                    @if($showPriceCols)
+                                        <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
+                                        <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
                                     @endif
-                                @else
-                                    -
-                                @endif
-                            </td>
-                        @endif
-                    </tr>
-                    @php $isFirstRowInGroup = false; @endphp
-                @endforeach
-                
-                {{-- FILL EMPTY ROWS (For Active Documents Manual Print) --}}
-                @if(!($isEmail ?? false) && $isActiveStatus)
-                    @php
-                        // Estimate rows per page or fixed target. 
-                        // Assuming landscape A4, roughly 15-20 rows fit well.
-                        $minRows = 9;
-                        $rowCount = count($items); // Roughly count items
-                        $emptyRowsNeeded = max(0, $minRows - $rowCount);
-                    @endphp
 
-                    @for($i = 0; $i < $emptyRowsNeeded; $i++)
-                        <tr class="data-row">
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            <td style="border: 1px solid #000;">&nbsp;</td>
-                            {{-- Removed one td to match new column count (11) --}}
-                        </tr>
-                    @endfor
-                @endif
+                                    {{-- REMARK (pakai logic kamu yang lengkap) --}}
+                                    <td class="text-left" style="font-size: 7pt;">
+                                        @if(!empty($row['remark_details']) && is_array($row['remark_details']) && count($row['remark_details']) > 0)
+                                            <ul style="padding-left: 15px; margin: 0; text-align: left;">
+                                                @foreach($row['remark_details'] as $rem)
+                                                    <li>Qty : {{ floatval($rem['qty'] ?? 0) }}, {{ $rem['text'] ?? '' }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @elseif(floatval($row['remark_qty'] ?? 0) > 0)
+                                            <div style="text-align: center;">
+                                                <strong>Qty: {{ floatval($row['remark_qty'] ?? 0) }}</strong><br>
+                                                {{ $row['remark_text'] ?? '-' }}
+                                            </div>
+                                        @elseif(!empty($row['remark_text']) && ($row['remark_text'] ?? '-') !== '-')
+                                            <div style="text-align: center;">{{ $row['remark_text'] }}</div>
+                                        @else
+                                            <div style="text-align: center;">-</div>
+                                        @endif
+                                    </td>
+
+                                    {{-- PROGRESS (machining report only) --}}
+                                    @if($isReportMachining)
+                                        <td class="text-center">
+                                            @if($row['is_machining'] ?? false)
+                                                <span style="font-size: 7pt;">({{ $fmtNum($row['item_progress_numerator'] ?? 0) }}/{{ $fmtNum($row['assigned'] ?? 0) }})</span>
+                                                <strong>{{ $fmtNum($row['item_progress_pct'] ?? 0, 0) }}%</strong>
+                                                @if(($row['item_progress_pct'] ?? 0) >= 100 || (($row['status'] ?? 'ACTIVE') !== 'ACTIVE'))
+                                                    <br><span style="font-size: 6pt; font-style: italic;">{{ $row['status'] ?? '' }}</span>
+                                                @endif
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                    @endif
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    @endforeach
+                @endforeach
             </tbody>
         </table>
 
