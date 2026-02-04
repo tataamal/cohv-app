@@ -189,7 +189,7 @@
         </style>
     @endpush
 
-    <div class="container-fluid p-4" style="max-width: 1400px; margin: 0 auto;">
+    <div class="container-fluid p-4">
         
         {{-- Flash Messages --}}
         @if(session('success'))

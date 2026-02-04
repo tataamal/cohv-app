@@ -311,7 +311,7 @@
             </style>
         @endpush
 
-        <div class="container-fluid p-3 p-lg-4" style="max-width: 1600px;">
+        <div class="container-fluid p-3 p-lg-4">
             <div class="d-flex justify-content-between align-items-end mb-4">
                 <div>
                     <h1 class="h4 fw-bolder text-dark mb-1">Buat Penugasan</h1>

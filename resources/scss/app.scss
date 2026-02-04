@@ -350,7 +350,11 @@ body.sidebar-open .sidebar-overlay {
 @media (min-width: 992px) {
     #content-wrapper {
         margin-left: 240px; /* MATCH SIDEBAR WIDTH */
-        transition: margin-left 0.3s;
+        transition: margin-left 0.3s ease;
+    }
+
+    body.sidebar-collapsed #content-wrapper {
+        margin-left: 80px !important; /* Force override for collapsed state */
     }
 }
 
