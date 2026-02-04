@@ -235,6 +235,18 @@
                     font-size: 0.9rem;
                 }
                 
+                /* [NEW] Larger Checkbox */
+                .row-checkbox {
+                    width: 18px;
+                    height: 18px;
+                    border: 2px solid #cbd5e1; /* visible border */
+                    margin-top: 0.2rem;
+                }
+                .row-checkbox:checked {
+                    background-color: var(--primary-blue);
+                    border-color: var(--primary-blue);
+                }
+                
                 /* Machining Mode Styles */
                 #assignmentCardContainer.machining-mode-active .col-qty,
                 #assignmentCardContainer.machining-mode-active .col-time,
@@ -726,6 +738,7 @@
                     setupModalLogic();
                     setupMismatchLogic(); 
                     setupTargetWcSearch(); 
+                    setupRowDoubleClick(); // [NEW] Double click to toggle check 
                     document.getElementById('uniqueAssignmentModal').addEventListener('hide.bs.modal', function() {
                         // Check if there are active items tracking, if so, cancel drop
                         // Removed tempSplits check to ensure we always cleanup if variables are set
@@ -4440,6 +4453,35 @@
                 q1El.value = a.toLocaleString('id-ID');
                 q2El.value = b.toLocaleString('id-ID');
             };
+
+            function setupRowDoubleClick() {
+                const sourceList = document.getElementById('source-list');
+                if (!sourceList) return;
+
+                sourceList.addEventListener('dblclick', function(e) {
+                    const row = e.target.closest('.pro-item');
+                    if (row) {
+                        // Prevent double toggle if clicking directly on checkbox
+                        if (e.target.classList.contains('row-checkbox')) return; 
+
+                        const cb = row.querySelector('.row-checkbox');
+                        if (cb) {
+                            cb.checked = !cb.checked;
+                            cb.dispatchEvent(new Event('change'));
+                            
+                            // Basic visual toggle (safe to add)
+                            if (cb.checked) {
+                                row.classList.add('selected-row');
+                            } else {
+                                row.classList.remove('selected-row');
+                            }
+                            
+                            // Ensure UI updates (counters etc)
+                            updateSelectionUI();
+                        }
+                    }
+                });
+            }
         </script>
         @endpush
     </x-layouts.app>
