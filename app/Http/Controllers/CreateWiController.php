@@ -1367,13 +1367,6 @@ class CreateWiController extends Controller
                 }
                 
                 if (!$statusFilter && !$request->has('wi_codes')) {
-                     // DISABLED: Implicit filtering for Manual Reports is confusing. 
-                     // Users clicking "Preview" or "Export" (Manual) expect to see the data they see on screen.
-                     /*
-                     if (!$hasDateFilter && in_array($status, ['ACTIVE', 'INACTIVE'])) {
-                         $keep = false;
-                     }
-                     */
                 }
                 
                 if (!$keep && $request->has('wi_codes')) {
@@ -1394,9 +1387,19 @@ class CreateWiController extends Controller
                 }
 
                 // Takt Time
-                // Takt Time
-                $taktFull = $item->calculated_takt_time ?? '-';
-                $finalTime = floatval($taktFull); // Use calculated minutes for summation
+                // Takt Time (Recalculated based on Confirmed Qty)
+                $vgw01 = floatval($item->vgw01 ?? 0);
+                $vge01 = strtoupper(trim($item->vge01 ?? ''));
+                $baseMins = $vgw01 * $confirmed; 
+
+                if (in_array($vge01, ['S', 'SEC'])) {
+                    $baseMins = $baseMins / 60;
+                } elseif (in_array($vge01, ['H', 'HUR', 'HR'])) {
+                    $baseMins = $baseMins * 60;
+                }
+                
+                $finalTime = $baseMins;
+                $taktFull = $finalTime; // Placeholder for formatting below
 
                 // Format Individual Takt Time
                 if ($finalTime > 0) {

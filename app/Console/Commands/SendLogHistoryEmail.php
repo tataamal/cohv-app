@@ -177,9 +177,19 @@ class SendLogHistoryEmail extends Command
                  $balance = $assigned - ($confirmed + $remarkQty);
                  $failedPrice = $netpr * ($balance + $remarkQty);
 
-                 // Takt Time Logic
-                 $taktFull = $item->calculated_takt_time ?? 0;
-                 $finalTime = floatval($taktFull);
+                 // Takt Time Logic (Recalculated)
+                 $vgw01 = floatval($item->vgw01 ?? 0);
+                 $vge01 = strtoupper(trim($item->vge01 ?? ''));
+                 $baseMins = $vgw01 * $confirmed; // Uses confirmed qty
+
+                 if (in_array($vge01, ['S', 'SEC'])) {
+                     $baseMins = $baseMins / 60;
+                 } elseif (in_array($vge01, ['H', 'HUR', 'HR'])) {
+                     $baseMins = $baseMins * 60;
+                 }
+                 
+                 $finalTime = $baseMins;
+                 $taktFull = $finalTime;
 
                  // Machining Logic Override
                  if ($item->machining == 1 && $item->ssavd && $item->sssld) {

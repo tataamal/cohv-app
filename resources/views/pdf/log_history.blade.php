@@ -364,9 +364,9 @@
                                 <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
                                     @if($isEmail ?? false)
-                                        (Qty Order: {{ number_format($gAssigned, 0) }} | Total Waktu Pengerjaan: {{ $gTotalTimeHoursFmt }} | Konfirmasi: {{ number_format($gConfirmed, 0) }} ({{ number_format($pctOk, 1) }}%), Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} ({{ number_format($pctFail, 1) }}%) @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
+                                        (Qty Order: {{ number_format($gAssigned, 0) }} | Jam Kerja: {{ $gTotalTimeHoursFmt }} | Konfirmasi: {{ number_format($gConfirmed, 0) }} ({{ number_format($pctOk, 1) }}%), Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} ({{ number_format($pctFail, 1) }}%) @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
                                     @else
-                                        (Qty Order: {{ number_format($gAssigned, 0) }} | Total Waktu Pengerjaan: {{ $gTotalTimeHoursFmt }})
+                                        (Qty Order: {{ number_format($gAssigned, 0) }} | Jam Kerja: {{ $gTotalTimeHoursFmt }})
                                     @endif
                                 </span>
                             </td>
@@ -403,7 +403,7 @@
                                 <span style="font-weight: normal; font-style: italic; font-size: 7pt;">({{ ltrim($row['vornr'], '0') }})</span>
                             @endif
                         </td>
-                        <td>
+                        <td class="text-center">
                             <strong>{{ $row['material'] }}</strong><br>
                             {{ $row['description'] }}
                         </td>

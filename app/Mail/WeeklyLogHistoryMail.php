@@ -33,7 +33,7 @@ class WeeklyLogHistoryMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Weekly Report WI_' . $this->subjectDate,
+            subject: 'Weekly Report_' . $this->subjectDate,
         );
     }
 

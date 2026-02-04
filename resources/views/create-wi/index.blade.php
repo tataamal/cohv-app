@@ -905,17 +905,32 @@
                     draggedItemsCache = [];
                     tempSplits = []; 
                     currentSisaQty = parseFloat(item.dataset.sisaQty) || 0;
-                    draggedItemsCache.push(item);
+                    
+                    // [FIX] Deduplication using Map
+                    const uniqueItemsMap = new Map();
+                    const addItemToMap = (node) => {
+                        const aufnr = String(node.dataset.aufnr || '').trim();
+                        const vornr = String(node.dataset.vornr || '').trim();
+                        const key = `${aufnr}_${vornr}`;
+                        if (!uniqueItemsMap.has(key)) {
+                            uniqueItemsMap.set(key, node);
+                        }
+                    };
+
+                    // 1. Add Dragged Item
+                    addItemToMap(item); // Always prioritize dragged item
+
+                    // 2. Add Checked Items (if dragged item was checked)
                     transformToCardView(item);
                     const checkbox = item.querySelector('.row-checkbox');
                     if (checkbox && checkbox.checked) {
                         document.querySelectorAll('#source-list .pro-item .row-checkbox:checked').forEach(cb => {
                             const row = cb.closest('.pro-item');
-                            if (row && row !== item && !draggedItemsCache.includes(row)) {
-                                draggedItemsCache.push(row);
-                            }
+                            if (row) addItemToMap(row);
                         });
                     }
+                    
+                    draggedItemsCache = Array.from(uniqueItemsMap.values());
                     const proTitle = draggedItemsCache.length > 1 
                         ? `<span class="badge bg-primary">${draggedItemsCache.length} Items Selected</span>` 
                         : `<span class="badge bg-primary text-wrap">${proAufnr}</span>`;
@@ -1095,7 +1110,87 @@
 
                     if(window.updateMachiningMode) window.updateMachiningMode();
                     assignmentModalInstance.show();
+                    
+                    // [NEW] Refresh Card Data from Server to ensure latest Qty/Status
+                    setTimeout(() => {
+                        if(typeof window.refreshAssignmentModalCards === 'function') {
+                            window.refreshAssignmentModalCards();
+                        }
+                    }, 500);
                 }
+
+                window.refreshAssignmentModalCards = async function() {
+                    const container = document.getElementById('assignmentCardContainer');
+                    if (!container) return;
+                    
+                    const cards = container.querySelectorAll('.pro-card');
+                    if (cards.length === 0) return;
+                    
+                    const aufnrs = Array.from(cards).map(c => c.dataset.refAufnr);
+                    console.log('Refreshing Assignment Modal Cards for AUFNRs:', aufnrs);
+                    
+                    try {
+                        const response = await fetch("{{ route('create-wi.fetch-status') }}", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({ 
+                                plant_code: '{{ $kode }}',
+                                aufnrs: aufnrs 
+                            })
+                        });
+
+                        if (!response.ok) throw new Error('Network error');
+                        const data = await response.json();
+                        console.log('Assignment Modal Refresh Data:', data);
+                        
+                        // Update Cards
+                        cards.forEach(card => {
+                            const aufnr = card.dataset.refAufnr;
+                            const match = data.find(d => String(d.AUFNR) === String(aufnr));
+                            
+                            if (match) {
+                                // Update Sisa Qty if available in response
+                                const newSisa = parseFloat(match.SISA_QTY || match.BAL_QTY || card.dataset.maxQty); // Adjust field name based on API
+                                const sisaBadge = card.querySelector('.qty-remaining');
+                                const maxBadge = card.querySelector('.qty-badge-vis');
+                                
+                                if (match.SISA_QTY !== undefined || match.BAL_QTY !== undefined) {
+                                    card.dataset.maxQty = newSisa;
+                                    if (sisaBadge) sisaBadge.innerText = newSisa.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+                                    if (maxBadge) maxBadge.innerText = 'Max: ' + newSisa.toLocaleString('id-ID');
+                                    
+                                    // Also update input value if it matches max
+                                    const qtyInput = card.querySelector('.qty-input');
+                                    if (qtyInput && !qtyInput.disabled && qtyInput.value) {
+                                        // Optional: Update input? Maybe dangerous if user started typing. 
+                                        // Safe: Just update limits.
+                                    }
+                                }
+                                
+                                // Update Status visuals if needed
+                                if (match.STATS === 'CRTD') {
+                                    const header = card.querySelector('.card-header');
+                                    if (header) {
+                                        header.classList.remove('bg-dark');
+                                        header.classList.add('bg-danger');
+                                        header.title = 'Order Status: CRTD (Please Release)';
+                                    }
+                                }
+                            }
+                        });
+                        
+                        // Re-validate
+                        if(window.updateCardSummary) {
+                             cards.forEach(c => window.updateCardSummary(c.dataset.refAufnr));
+                        }
+                        
+                    } catch(e) {
+                        console.error('Failed to refresh assignment modal cards', e);
+                    }
+                };
 
                 window.updateMachiningMode = function() {
                     const chk = document.getElementById('chkUnique1');
@@ -2151,6 +2246,12 @@
                     if (shouldHide && assignmentModalInstance) {
                         assignmentModalInstance.hide();
                     }
+                    
+                    // [FIX] Force refresh to clean up any duplicates (e.g. Stale vs New WC)
+                    if(typeof window.triggerTableRefresh === 'function') {
+                         console.log("Triggering post-cancel refresh for consistency...");
+                         window.triggerTableRefresh();
+                    }
                 };
 
                 function resetAllAllocations() {
@@ -2249,15 +2350,20 @@
                     if (returnedChildWc) removeAssignedChildWC(aufnr, returnedChildWc);
 
                     // [FIX] Find ANY existing row with the same key/aufnr+vornr that is NOT the current item
-                    // This handles cases where the item is dropped ABOVE the existing row
-                    const candidates = sourceList.querySelectorAll(`tr.pro-item[data-aufnr="${aufnr}"][data-vornr="${vornr}"]`);
+                    // Manual loop is safer for whitespace issues than querySelectorAll string matching
+                    const candidates = sourceList.querySelectorAll('tr.pro-item');
                     let existing = null;
                     
                     for (let i = 0; i < candidates.length; i++) {
-                        if (candidates[i] !== item) {
-                            existing = candidates[i];
-                            break; // Found the original/other row
-                        }
+                         const r = candidates[i];
+                         if (r !== item) {
+                             const rAufnr = String(r.dataset.aufnr || '').trim();
+                             const rVornr = String(r.dataset.vornr || '').trim();
+                             if (rAufnr === aufnr && rVornr === vornr) {
+                                 existing = r;
+                                 break; 
+                             }
+                         }
                     }
 
                     if (existing) {
@@ -2719,6 +2825,20 @@
                         fetchData(1, currentSearch, true); 
                     };
 
+                    // Auto-Refresh Logic (60s)
+                    setInterval(() => {
+                        const isDragging = document.body.classList.contains('dragging-active') || document.querySelector('.sortable-drag');
+                        const isModalOpen = document.querySelector('.modal.show');
+                        const isTyping = document.activeElement && (document.activeElement.id === 'searchInput' || document.activeElement.classList.contains('advanced-search-input'));
+                        
+                        if (!isDragging && !isModalOpen && !isTyping) {
+                            console.log('Auto-refreshing table...');
+                            window.triggerTableRefresh();
+                        } else {
+                            console.log('Skipping auto-refresh due to user activity.');
+                        }
+                    }, 60000); // 60 seconds
+
                     scrollArea.addEventListener('scroll', function() {
                         if (isLoading || !nextPage) return;
                         
@@ -2759,6 +2879,9 @@
                             else url.searchParams.delete(key);
                         });
 
+                        // Add Cache-Buster
+                        url.searchParams.set('_', new Date().getTime());
+
                         // [NEW] Capture Selected Items before Reset (Sticky Logic)
                         let preservedRows = [];
                         if (isReset) {
@@ -2787,19 +2910,35 @@
                                 tbody.innerHTML = data.html;
                                 initSourceSortable();
                                 
-                                // [NEW] Prepend Selected Items (Sticky Logic)
+                                // [NEW] Prepend Selected Items (Sticky Logic) - FIXED to Prefer New Data
+                                // [FIX] Collect orphans to refresh them
+                                const orphanedRows = [];
+
                                 if (preservedRows.length > 0) {
                                     // Reverse loop to maintain order when prepending
                                     preservedRows.reverse().forEach(row => {
                                         const aufnr = row.dataset.aufnr;
-                                        const duplicate = tbody.querySelector(`.pro-item[data-aufnr="${aufnr}"]`);
-                                        if(duplicate) {
-                                            duplicate.remove();
-                                        }
+                                        const newVersion = tbody.querySelector(`.pro-item[data-aufnr="${aufnr}"]`);
                                         
-                                        // Prepend to top
-                                        tbody.prepend(row);
+                                        if (newVersion) {
+                                            // The item exists in the new data!
+                                            const cb = newVersion.querySelector('.row-checkbox');
+                                            if(cb) cb.checked = true;
+                                            newVersion.classList.add('selected-row');
+                                            tbody.prepend(newVersion);
+                                        } else {
+                                            // The item is NOT in the new data. Restore OLD row.
+                                            tbody.prepend(row);
+                                            orphanedRows.push(row);
+                                        }
                                     });
+                                }
+                                
+                                // Refresh Orphaned Rows (Stale Data)
+                                if (orphanedRows.length > 0) {
+                                    if(typeof window.refreshTableRows === 'function') {
+                                        window.refreshTableRows(orphanedRows);
+                                    }
                                 }
                             } else {
                                 tbody.insertAdjacentHTML('beforeend', data.html); // Append
@@ -3446,7 +3585,7 @@
 
                         console.log(`Updated stats via API for ${updatedCount} items.`);
 
-                        if (typeof setupSearch === 'function') setupSearch();
+                        if (typeof window.triggerTableRefresh === 'function') window.triggerTableRefresh();
 
                         const totalWc = window.latestAllocations.length; 
                         showPreviewModal(window.latestAllocations, totalWc);
@@ -3568,6 +3707,81 @@
                     modal.show();
                 }
 
+                window.refreshTableRows = async function(rows) {
+                    if (!rows || rows.length === 0) return;
+                    
+                    const aufnrs = rows.map(r => r.dataset.aufnr);
+                    console.log('Refreshing Orphaned Sticky Rows:', aufnrs);
+                    
+                    try {
+                        const response = await fetch("{{ route('create-wi.fetch-status') }}", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({ 
+                                plant_code: '{{ $kode }}',
+                                aufnrs: aufnrs 
+                            })
+                        });
+
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        
+                        rows.forEach(row => {
+                            const aufnr = row.dataset.aufnr;
+                            const match = data.find(d => String(d.AUFNR) === String(aufnr));
+                            
+                            if (match) {
+                                // Update Dataset
+                                if(match.SISA_QTY !== undefined) row.dataset.sisaQty = match.SISA_QTY;
+                                if(match.STATS) row.dataset.stats = match.STATS;
+
+                                // Update Columns (Indices based on Thead)
+                                const cells = row.querySelectorAll('td');
+                                if(cells.length > 10) {
+                                    // WC (Col 4)
+                                    if(match.ARBPL || match.WORKCENTER) {
+                                        cells[4].innerText = match.ARBPL || match.WORKCENTER;
+                                    }
+
+                                    // Status (Col Index 5 from Thead analysis: Checkbox(0), PRO(1), SO(2), Mat(3), WC(4), Status(5))
+                                    if(match.STATS) {
+                                        const statusCell = cells[5]; // Check index
+                                        let badgeClass = 'bg-secondary';
+                                        if(match.STATS === 'REL') badgeClass = 'bg-success';
+                                        else if(match.STATS === 'CRTD') badgeClass = 'bg-info text-dark'; // [FIX] bg-info
+                                        
+                                        // Preserve any other content if needed, but Status is usually just a badge
+                                        statusCell.innerHTML = `<span class="badge ${badgeClass}">${match.STATS}</span>`;
+                                    }
+                                    
+                                    // Qty Conf (Col 9)
+                                    if(match.QTY_CONF !== undefined) {
+                                        cells[9].innerText = parseFloat(match.QTY_CONF).toLocaleString('id-ID');
+                                    }
+                                    
+                                    // Qty Sisa (Col 10)
+                                    if(match.SISA_QTY !== undefined || match.BAL_QTY !== undefined) {
+                                        const bal = parseFloat(match.SISA_QTY || match.BAL_QTY || 0);
+                                        cells[10].innerText = bal.toLocaleString('id-ID');
+                                        
+                                        // Update color
+                                        cells[10].className = 'text-center ' + (bal > 0 ? 'text-success' : 'text-primary');
+                                    }
+                                }
+                            }
+                        });
+                        
+                        // Recalculate Totals Logic?
+                        // calculateAllRows(); // If needed for footer
+                        
+                    } catch(e) {
+                        console.error('Failed to refresh sticky rows', e);
+                    }
+                };
+
                 // 2. Tombol "Mulai Proses" diklik
                 async function startBulkChangeStream() {
                     const targetWc = document.getElementById('targetWcSelect').value;
@@ -3656,7 +3870,7 @@
                                 }
                             }
                             
-                            if (typeof setupSearch === 'function') setupSearch(); // Refresh Table in background
+                            if (typeof window.triggerTableRefresh === 'function') window.triggerTableRefresh(); // Refresh Table in background
 
                             let timer = 3; 
                             btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (Auto close ${timer}s)`;
@@ -3935,8 +4149,9 @@
                                     showConfirmButton: false
                                 }).then(() => {
                                     // Reload table
-                                    if (typeof setupSearch === 'function') {
-                                        setupSearch();
+                                    // Reload table
+                                    if (typeof window.triggerTableRefresh === 'function') {
+                                        window.triggerTableRefresh();
                                     } else {
                                         location.reload();
                                     }
@@ -4163,8 +4378,9 @@
                             showConfirmButton: false
                         }).then(() => {
                             // Reload data table
-                            if (typeof setupSearch === 'function') {
-                                setupSearch(); 
+                            // Reload data table
+                            if (typeof window.triggerTableRefresh === 'function') {
+                                window.triggerTableRefresh(); 
                             } else {
                                 location.reload(); 
                             }

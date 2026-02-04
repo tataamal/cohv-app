@@ -199,9 +199,19 @@ class SendLogWeeklyEmail extends Command
                  $balance = $assigned - ($confirmed + $remarkQty);
                  $failedPrice = $netpr * ($balance + $remarkQty);
 
-                 // Takt Time Logic
-                 $taktFull = $item->calculated_takt_time ?? 0;
-                 $finalTime = floatval($taktFull);
+                 // Takt Time Logic (Recalculated)
+                 $vgw01 = floatval($item->vgw01 ?? 0);
+                 $vge01 = strtoupper(trim($item->vge01 ?? ''));
+                 $baseMins = $vgw01 * $confirmed; // Uses confirmed qty
+
+                 if (in_array($vge01, ['S', 'SEC'])) {
+                     $baseMins = $baseMins / 60;
+                 } elseif (in_array($vge01, ['H', 'HUR', 'HR'])) {
+                     $baseMins = $baseMins * 60;
+                 }
+                 
+                 $finalTime = $baseMins;
+                 $taktFull = $finalTime;
 
                  // Machining Logic Override
                  if ($item->machining == 1 && $item->ssavd && $item->sssld) {
@@ -313,12 +323,12 @@ class SendLogWeeklyEmail extends Command
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),
                 'filterInfo' => "DATE: " . Carbon::parse($startDate)->format('d-m-Y') . " TO " . Carbon::parse($endDate)->format('d-m-Y'), // Range Info
-                'report_title' => 'WEEKLY REPORT WI'
+                'report_title' => 'WEEKLY REPORT'
             ];
             
             $safeName = preg_replace('/[^A-Za-z0-9]/', ' ', $namaBagian);
             $safeName = trim(preg_replace('/\s+/', ' ', $safeName));
-            $weeklyPdfName = "Weekly Report WI_{$safeName}_{$startDate}_{$endDate}.pdf";
+            $weeklyPdfName = "Weekly Report_{$safeName}_{$startDate}_{$endDate}.pdf";
             
             $pdfViewData = ['reports' => [$reportData], 'isEmail' => true];
             
@@ -351,7 +361,7 @@ class SendLogWeeklyEmail extends Command
             $recipients = ['tataamal1128@gmail.com'];
             
             $dateInfoFormatted = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
-            $subject = "Weekly Report WI_" . $dateInfoFormatted;
+            $subject = "Weekly Report_" . $dateInfoFormatted;
 
             try {
                 
