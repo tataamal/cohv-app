@@ -413,8 +413,20 @@
                         </tr>
                     @endif
 
-                    <tr class="data-row">
-                        <td class="text-center">{{ $no++ }}</td>
+                    @php 
+                        // Logic moved before TR to control page break
+                        $currentNo = $no++; // Get current number and increment
+                        $idx0 = $currentNo - 1; 
+                        $chunkSize = 10; // Safer interval (10 rows fit comfortably)
+                        $isCheckpoint = ($idx0 % $chunkSize == 0); 
+                        $isEndOfChunk = ($idx0 % $chunkSize == ($chunkSize - 1)) || ($idx0 == $groupCount - 1);
+                        
+                        // Force Page Break at checkpoint (except start)
+                        $rowStyle = ($isCheckpoint && $idx0 > 0) ? 'page-break-before: always;' : '';
+                    @endphp
+
+                    <tr class="data-row" style="{{ $rowStyle }}">
+                        <td class="text-center">{{ $currentNo }}</td>
                         <td class="text-center fw-bold">
                             {{ $row['doc_no'] }}
                             @if(str_contains($report['report_title'] ?? '', 'WEEKLY'))
@@ -423,16 +435,7 @@
                             @endif
                         </td>
                         
-                        {{-- MERGED TIME REQ COLUMN (Vertical) --}}
                         {{-- MERGED TIME REQ COLUMN (Simulated Rowspan for Page Break Safety) --}}
-                        @php 
-                            // 0-based index for logic ($no has already been incremented once)
-                            $idx0 = $no - 2; 
-                            $chunkSize = 12; // Repetition interval
-                            $isCheckpoint = ($idx0 % $chunkSize == 0); 
-                            $isEndOfChunk = ($idx0 % $chunkSize == ($chunkSize - 1)) || ($idx0 == $groupCount - 1);
-                        @endphp
-                        
                         <td class="text-center fw-bold" style="vertical-align: top; background-color: #ffffff; width: 8%; border-bottom: {{ $isEndOfChunk ? '1px solid #000' : 'none' }}; border-top: {{ $isCheckpoint ? '1px solid #000' : 'none' }};">
                             @if($isCheckpoint)
                                 {{ $gTotalTimeFmt }}
