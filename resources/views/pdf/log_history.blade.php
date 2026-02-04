@@ -293,25 +293,34 @@
                 <tr class="data-header">
                     <th width="3%">NO</th>
                     <th width="8%">DOC</th>
-                    <th width="6%">TIME</th>
+                    <th width="6%">TIME REQ</th>
                     <th width="10%">WORKCENTER</th>
-                    <th width="8%">SO-ITEM</th>
+                    <th width="10%">SO-ITEM</th>
                     <th width="8%">PRO</th>
-                    <th width="10%">MATERIAL</th>
+                    <th width="15%">MATERIAL</th>
                     <th width="4%">QTY</th>
                     <th width="4%">CONF</th>    
                     @if($showPriceCols)
                         <th width="8%">PRICE OK</th>
                         <th width="8%">PRICE FAIL</th>
                     @endif
-                    <th width="20%">REMARK</th>
+                    <th width="10%">REMARK</th>
+
+                    @php
+                        $items = $report['items'];
+                        $isReportMachining = collect($items)->contains('is_machining', true);
+                    @endphp
+
+                    @if($isReportMachining)
+                        <th width="10%">PROGRESS</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
                 @php 
                     $no = 1; 
                     $currentNik = null;
-                    $items = $report['items'];
+                    // $items defined above
                     $isActiveStatus = in_array(strtoupper($report['doc_metadata']['status'] ?? ''), ['ACTIVE', 'INACTIVE']);
                 @endphp
 
@@ -363,7 +372,9 @@
                             $gTotalTimeFmt = $fmtTime($gTotalTimeMin);
                             $gConfirmTimeFmt = $fmtTime($gConfirmTimeMin);
                             
-                            $jamKerjaStr = "{$gConfirmTimeFmt} / {$gTotalTimeFmt}";
+                            // OLD: $jamKerjaStr = "{$gConfirmTimeFmt} / {$gTotalTimeFmt}";
+                            // NEW: Only Confirmed
+                            $jamKerjaStr = $gConfirmTimeFmt;
 
                             $gCurr = $row['currency'] ?? 'IDR';
                             $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
@@ -380,9 +391,10 @@
                             $progressPct = ($gAssigned > 0) ? ($numerator / $gAssigned) * 100 : 0;
 
                             $no = 1; 
+                            $isFirstRowInGroup = true; // Flag for rowspan
                         @endphp
                         <tr>
-                            <td colspan="{{ $showPriceCols ? 12 : 10 }}" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
+                            <td colspan="{{ $showPriceCols ? ($isReportMachining ? 13 : 12) : ($isReportMachining ? 11 : 10) }}" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
                                 <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
                                     @if($isMachiningGroup)
@@ -410,13 +422,16 @@
                                 <span style="font-size: 7pt; font-weight: normal;">{{ $row['doc_date'] ?? '' }}</span>
                             @endif
                         </td>
-                        <td class="text-center fw-bold">
-                            @if(isset($row['takt_time']) && $row['takt_time'] !== '-')
-                                {{ $row['takt_time'] }}
-                            @else
-                                -
-                            @endif
-                        </td>
+                        
+                        {{-- MERGED TIME REQ COLUMN (Vertical) --}}
+                        @if($isFirstRowInGroup)
+                            <td rowspan="{{ $groupCount }}" class="text-center fw-bold" style="vertical-align: middle; background-color: #ffffff; width: 6%; height: 100px;">
+                                <div style="transform: rotate(-90deg); white-space: nowrap; width: 15px; margin: 0 auto; text-align: center; transform-origin: center center; display: inline-block;">
+                                    {{ $gTotalTimeFmt }}
+                                </div>
+                            </td>
+                        @endif
+
                         {{-- Merged Column --}}
                         <td class="text-center">
                             <strong>{{ $row['workcenter'] }}</strong><br>
@@ -461,7 +476,23 @@
                                 <div style="text-align: center;">-</div>
                             @endif
                         </td>
+
+                        {{-- Task Progress (Machining Only) --}}
+                        @if($isReportMachining ?? false)
+                             <td class="text-center">
+                                @if($row['is_machining'] ?? false)
+                                <span style="font-size: 7pt;">({{ $fmtNum($row['item_progress_numerator'] ?? 0) }}/{{ $fmtNum($row['assigned']) }})</span>
+                                <strong>{{ $fmtNum($row['item_progress_pct'] ?? 0, 0) }}%</strong>
+                                    @if(($row['item_progress_pct'] ?? 0) >= 100 || ($row['status'] ?? 'ACTIVE') !== 'ACTIVE')
+                                        <br><span style="font-size: 6pt; font-style: italic;">{{ $row['status'] ?? '' }}</span>
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
+                        @endif
                     </tr>
+                    @php $isFirstRowInGroup = false; @endphp
                 @endforeach
                 
                 {{-- FILL EMPTY ROWS (For Active Documents Manual Print) --}}

@@ -167,7 +167,7 @@ class CreateWiController extends Controller
 
     protected function getAssignedProQuantities(string $kodePlant)
     {
-        $histories = HistoryWi::with('items')
+        $histories = HistoryWi::with(['items.pros'])
                               ->where('plant_code', $kodePlant)
                               ->where(function ($query) {
                                   $query->where('document_date', '>=', Carbon::today())
@@ -180,44 +180,30 @@ class CreateWiController extends Controller
         foreach ($histories as $history) {
             $proItems = $history->items;
             
-            $isFullyCompleted = true;
-            if ($proItems->isNotEmpty()) {
-                foreach ($proItems as $item) {
-                    $assignedQty = (float) $item->assigned_qty;
-                    $confirmedQty = (float) $item->confirmed_qty;
-                    $rQty = (float) $item->remark_qty;
-                    
-                    if ($rQty > 0) {
-                         $totalDone = $confirmedQty + $rQty;
-                         // Floating point tolerance
-                         if (($assignedQty - $totalDone) > 0.001) {
-                             $isFullyCompleted = false;
-                             break; 
-                         }
-                    } else {
-                         if (($assignedQty - $confirmedQty) > 0.001) {
-                             $isFullyCompleted = false;
-                             break;
-                         }
-                    }
-                }
-            } else {
-                $isFullyCompleted = false;
-            }
-            
-            if ($isFullyCompleted) {
-                continue;
-            }
+            if ($proItems->isEmpty()) continue;
 
+            // Check completion per item
             foreach ($proItems as $item) {
-                $aufnr = $item->aufnr;
-                $vornr = $item->vornr ?? ''; 
-                $assignedQty = (float) $item->assigned_qty;
-                $remarkQty = (float) $item->remark_qty; 
-                $effectiveAssigned = max(0, $assignedQty - $remarkQty);
+                // Determine quantities from relations
+                $confirmedQty = $item->pros->whereIn('status', ['confirmasi', 'confirm', 'confirmed'])->sum('qty_pro');
+                $remarkQty    = $item->pros->where('status', 'remark')->sum('qty_pro');
+                $assignedQty  = (float) $item->assigned_qty;
 
-                if ($aufnr) {
-                    $key = $aufnr . '-' . $vornr;
+                // Check if item is completed (Balance <= 0)
+                $balance = $assignedQty - ($confirmedQty + $remarkQty);
+                if ($balance <= 0.001) {
+                    continue; // Skip completed items
+                }
+                
+                // If Item Status is literally COMPLETED, also skip
+                 if (str_contains(strtoupper($item->status ?? ''), 'COMPLETED')) {
+                    continue;
+                }
+                
+                $effectiveAssigned = max(0, $balance);
+
+                if ($item->aufnr) {
+                    $key = $item->aufnr . '-' . ($item->vornr ?? '');
                     $currentTotal = $assignedProQuantities[$key] ?? 0;
                     $assignedProQuantities[$key] = $currentTotal + $effectiveAssigned;
                 }
@@ -567,6 +553,22 @@ class CreateWiController extends Controller
                         $childWc  = $itemData['child_wc'] ?? ($itemData['child_workcenter'] ?? null);
                         $parentWc = $itemData['parent_wc'] ?? ($itemData['parent_workcenter'] ?? $headerWc);
 
+                        // Pre-calculate quantities to determine status
+                        $confirmedQty = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
+                        $remarkQty = (int)($itemData['remark_qty'] ?? 0);
+                        
+                        $rawStatus = $itemData['status'] ?? ($itemData['stats'] ?? 'Open');
+                        $dbStatus = $rawStatus;
+
+                        // Logic: If not explicitly Completed, check progress
+                        if (!str_contains(strtoupper($rawStatus), 'COMPLETED')) {
+                            if ($confirmedQty > 0 || $remarkQty > 0) {
+                                $dbStatus = 'PROGRESS';
+                            } else {
+                                $dbStatus = 'CREATED';
+                            }
+                        }
+
                         // create item (HistoryWiItem)
                         $wiItem = HistoryWiItem::create([
                             'history_wi_id' => $history->id,
@@ -593,7 +595,7 @@ class CreateWiController extends Controller
                             'assigned_qty'     => $itemData['assigned_qty'] ?? 0,
                             'parent_wc'        => $parentWc,
                             'child_wc'         => $childWc,
-                            'status'           => $itemData['status'] ?? ($itemData['stats'] ?? 'Open'),
+                            'status'           => $dbStatus, // Use calculated status
                             'machining'        => !empty($itemData['is_machining']),
                             'longshift'        => !empty($itemData['is_longshift']),
                             'calculated_takt_time' => $itemData['calculated_takt_time'] ?? 0,
@@ -1343,7 +1345,11 @@ class CreateWiController extends Controller
                 $expiredAt = $doc->expired_at ? Carbon::parse($doc->expired_at) : null;
                 $isDocExpired = $expiredAt && now()->gt($expiredAt);
                 
-                if ($balance <= 0) {
+                if (!empty($item->status)) {
+                    $status = strtoupper($item->status);
+                     // Optional: Map REL to ACTIVE for consistency if needed, but user asked for DB values.
+                     // We will stick to DB values. 
+                } elseif ($balance <= 0) {
                     $status = 'COMPLETED'; 
                 } elseif ($hasRemark) {
                     $status = 'NOT COMPLETED WITH REMARK';
@@ -1470,6 +1476,8 @@ class CreateWiController extends Controller
                     'raw_total_time'  => $finalTime,
                     'raw_confirmed_time' => $confBaseMins, // NEW FIELD
                     'is_machining'    => (int)($doc->machining ?? 0) === 1, // NEW FIELD
+                    'item_progress_numerator' => ($confirmed + $remarkQty),
+                    'item_progress_pct' => ($assigned > 0) ? round((($confirmed + $remarkQty) / $assigned) * 100) : 0,
                 ];
 
                 if ($groupByDoc) {
