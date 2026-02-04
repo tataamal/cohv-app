@@ -425,10 +425,19 @@
                         
                         {{-- MERGED TIME REQ COLUMN (Vertical) --}}
                         {{-- MERGED TIME REQ COLUMN (Simulated Rowspan for Page Break Safety) --}}
-                        @php $isLastRowInGroup = (($no - 1) == $groupCount); @endphp
-                        <td class="text-center fw-bold" style="vertical-align: middle; background-color: #ffffff; width: 8%; border-bottom: {{ $isLastRowInGroup ? '1px solid #000' : 'none' }}; border-top: {{ $isFirstRowInGroup ? '1px solid #000' : 'none' }};">
-                            @if($isFirstRowInGroup)
+                        @php 
+                            // 0-based index for logic ($no has already been incremented once)
+                            $idx0 = $no - 2; 
+                            $chunkSize = 12; // Repetition interval
+                            $isCheckpoint = ($idx0 % $chunkSize == 0); 
+                            $isEndOfChunk = ($idx0 % $chunkSize == ($chunkSize - 1)) || ($idx0 == $groupCount - 1);
+                        @endphp
+                        
+                        <td class="text-center fw-bold" style="vertical-align: top; background-color: #ffffff; width: 8%; border-bottom: {{ $isEndOfChunk ? '1px solid #000' : 'none' }}; border-top: {{ $isCheckpoint ? '1px solid #000' : 'none' }};">
+                            @if($isCheckpoint)
                                 {{ $gTotalTimeFmt }}
+                                <br>
+                                <span style="font-size: 8pt; font-weight: normal;">({{ $groupCount }} Tasks)</span>
                             @endif
                         </td>
 
