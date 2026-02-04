@@ -208,6 +208,12 @@ function initAppLayout() {
             setTimeout(() => { window.location.href = destination; }, 150);
         });
     });
+
+    // 6. [FIX] Mobile Topbar Dropdown Init
+    const topbarDropdown = document.getElementById('topbar-menu-mobile');
+    if (topbarDropdown) {
+        new bootstrap.Dropdown(topbarDropdown);
+    }
 }
 
 // --- FUNGSI ANIMASI ANGKA (DASHBOARD) ---

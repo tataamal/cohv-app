@@ -34,7 +34,7 @@
     
     {{-- Wrapper konten juga langsung di dalam body --}}
     <div id="content-wrapper" class="d-flex flex-column flex-grow-1">
-        <div class="sticky-top" style="z-index: 100;">
+        <div class="sticky-top" style="z-index: 1020;">
             <x-navigation.topbar />
         </div>
         <main class="flex-grow-1" style="overflow-y: auto;">
