@@ -293,7 +293,7 @@
                 <tr class="data-header">
                     <th width="3%">NO</th>
                     <th width="8%">DOC</th>
-                    <th width="6%">TIME REQ</th>
+                    <th width="8%">TIME REQ</th>
                     <th width="10%">WORKCENTER</th>
                     <th width="10%">SO-ITEM</th>
                     <th width="8%">PRO</th>
@@ -425,10 +425,8 @@
                         
                         {{-- MERGED TIME REQ COLUMN (Vertical) --}}
                         @if($isFirstRowInGroup)
-                            <td rowspan="{{ $groupCount }}" class="text-center fw-bold" style="vertical-align: middle; background-color: #ffffff; width: 6%; height: 100px;">
-                                <div style="transform: rotate(-90deg); white-space: nowrap; width: 15px; margin: 0 auto; text-align: center; transform-origin: center center; display: inline-block;">
-                                    {{ $gTotalTimeFmt }}
-                                </div>
+                            <td rowspan="{{ $groupCount }}" class="text-center fw-bold" style="vertical-align: middle; background-color: #ffffff; width: 8%;">
+                                {{ $gTotalTimeFmt }}
                             </td>
                         @endif
 
