@@ -177,45 +177,29 @@ class SendLogHistoryEmail extends Command
                  $balance = $assigned - ($confirmed + $remarkQty);
                  $failedPrice = $netpr * ($balance + $remarkQty);
 
-                 // Takt Time Logic (Recalculated)
+                 // Takt Time Logic (Updated to Assigned Qty)
                  $vgw01 = floatval($item->vgw01 ?? 0);
                  $vge01 = strtoupper(trim($item->vge01 ?? ''));
-                 $baseMins = $vgw01 * $confirmed; // Uses confirmed qty
-
+                 
+                 // 1. Planned (Assigned)
+                 $baseMins = $vgw01 * $assigned; 
                  if (in_array($vge01, ['S', 'SEC'])) {
                      $baseMins = $baseMins / 60;
                  } elseif (in_array($vge01, ['H', 'HUR', 'HR'])) {
                      $baseMins = $baseMins * 60;
                  }
-                 
-                 $finalTime = $baseMins;
-                 $taktFull = $finalTime;
 
-                 // Machining Logic Override
-                 if ($item->machining == 1 && $item->ssavd && $item->sssld) {
-                     // Calculate Days
-                     $startP = Carbon::parse($item->ssavd);
-                     $endP = Carbon::parse($item->sssld);
-                     $days = $startP->diffInDays($endP) + 1; // Inclusive
-                     $days = max(1, $days); // Prevent division by zero
-
-                     // Daily Qty (Rounded Up)
-                     $dailyQty = ceil($assigned / $days);
-
-                     // Recalculate Takt Time based on Daily Qty
-                     $unit = strtoupper(trim($item->vge01 ?? ''));
-                     $val = floatval($item->vgw01 ?? 0);
-                     $baseTotal = $val * $dailyQty;
-
-                     if ($unit === 'S' || $unit === 'SEC') {
-                         $finalTime = $baseTotal / 60; // Minutes
-                     } elseif ($unit === 'H' || $unit === 'HR') {
-                         $finalTime = $baseTotal * 60; // Minutes
-                     } else {
-                         // Default 'MIN' or unknown treated as minutes
-                         $finalTime = $baseTotal; 
-                     }
+                 // 2. Confirmed
+                 $confBaseMins = $vgw01 * $confirmed;
+                 if (in_array($vge01, ['S', 'SEC'])) {
+                     $confBaseMins = $confBaseMins / 60;
+                 } elseif (in_array($vge01, ['H', 'HUR', 'HR'])) {
+                     $confBaseMins = $confBaseMins * 60;
                  }
+
+                 $finalTime = $baseMins;
+                 // Machining Logic Override: Removed/Disabled as user requested strict "Assigned * VGW01"
+                 // If previous logic wanted Daily Load, this change overwrites it to Total Load as per instruction.
                  
                  if ($finalTime > 0) {
                      $totSec = $finalTime * 60;
@@ -265,7 +249,9 @@ class SendLogHistoryEmail extends Command
                     'confirmed_price' => $confirmedPrice, 
                     'failed_price'    => $failedPrice,
                     'currency'        => strtoupper($waerk),
-                    'raw_total_time'  => $finalTime
+                    'raw_total_time'  => $finalTime,
+                    'raw_confirmed_time' => $confBaseMins, // NEW
+                    'is_machining'    => (int)($item->machining ?? 0) === 1, // NEW
                  ];
             }
 

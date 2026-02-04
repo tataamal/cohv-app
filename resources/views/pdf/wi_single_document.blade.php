@@ -250,7 +250,14 @@
                     // --- LOGIC PER ITEM ---
                     $wc = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
                     
-                    $kdauf = $item->aufnr ?? ''; // Use aufnr as fallback if kdauf not available in item model? No, item model has aufnr.
+                    $kdaufRaw = $item->kdauf ?? '-';
+                    $kdposRaw = $item->kdpos ? ltrim((string)$item->kdpos, '0') : '-';
+                    
+                    if (trim(strtoupper($kdaufRaw)) === 'MAKE STOCK') {
+                        $soItem = 'MAKE STOCK';
+                    } else {
+                        $soItem = ($kdaufRaw !== '-' && $kdposRaw !== '-') ? "{$kdaufRaw}-{$kdposRaw}" : '-';
+                    }
                     // Wait, HistoryWiItem model vs payload_data keys.
                     // HistoryWiItem: nik, aufnr, vornr, material_number, material_desc, assigned_qty, ...
                     
@@ -302,7 +309,7 @@
                     <td class="text-center fw-bold">{{ $wc }}</td>
                     <td class="text-center">{{ $nik }}</td>
                     <td>{{ $empName }}</td>
-                    <td class="text-center">{{ $aufnr }}</td> {{-- Using AUFNR as SO-ITEM fallback --}}
+                    <td class="text-center">{{ $soItem }}</td>
                     <td class="text-center">{{ $aufnr }}</td>
                     <td class="text-center">{{ $matnr }}</td>
                     <td>{{ $item->material_desc ?? '-' }}</td>

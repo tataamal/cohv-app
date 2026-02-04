@@ -1228,8 +1228,7 @@ class CreateWiController extends Controller
         }
         if ($search) {
              $query->where(function($q) use ($search) {
-                $q->where('wi_document_code', 'like', "%$search%") 
-                ->orWhere('payload_data', 'like', "%$search%"); 
+                $q->where('wi_document_code', 'like', "%$search%");
             });
         }
         $documents = $query->orderBy('created_at', 'desc')->get();
@@ -1387,10 +1386,12 @@ class CreateWiController extends Controller
                 }
 
                 // Takt Time
-                // Takt Time (Recalculated based on Confirmed Qty)
+                // Takt Time (Changed to ASSIGNED Qty as requested)
                 $vgw01 = floatval($item->vgw01 ?? 0);
                 $vge01 = strtoupper(trim($item->vge01 ?? ''));
-                $baseMins = $vgw01 * $confirmed; 
+                
+                // 1. Planned Time (Assigned) - "Time" Column & "Jam Kerja" Denominator
+                $baseMins = $vgw01 * $assigned; 
 
                 if (in_array($vge01, ['S', 'SEC'])) {
                     $baseMins = $baseMins / 60;
@@ -1399,9 +1400,17 @@ class CreateWiController extends Controller
                 }
                 
                 $finalTime = $baseMins;
-                $taktFull = $finalTime; // Placeholder for formatting below
+                $taktFull = $finalTime;
 
-                // Format Individual Takt Time
+                 // 2. Confirmed Time - "Jam Kerja" Numerator
+                $confBaseMins = $vgw01 * $confirmed;
+                if (in_array($vge01, ['S', 'SEC'])) {
+                    $confBaseMins = $confBaseMins / 60;
+                } elseif (in_array($vge01, ['H', 'HUR', 'HR'])) {
+                    $confBaseMins = $confBaseMins * 60;
+                }
+
+                // Format Individual Takt Time (Planned)
                 if ($finalTime > 0) {
                      $totSec = $finalTime * 60;
                      $hrs = floor($totSec / 3600);
@@ -1458,7 +1467,9 @@ class CreateWiController extends Controller
                     'status'          => $status,
                     'so_item'         => $soItem,
                     'takt_time'       => $taktFull,
-                    'raw_total_time'  => $finalTime, 
+                    'raw_total_time'  => $finalTime,
+                    'raw_confirmed_time' => $confBaseMins, // NEW FIELD
+                    'is_machining'    => (int)($doc->machining ?? 0) === 1, // NEW FIELD
                 ];
 
                 if ($groupByDoc) {

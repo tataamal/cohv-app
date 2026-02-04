@@ -626,7 +626,7 @@
                             <h6 class="modal-title fw-bold mb-0"><i class="fa-solid fa-user-pen me-2"></i>Assign Operator</h6>
                             <div class="d-flex align-items-center gap-3">
                                 <div class="form-check mb-0">
-                                    <input class="form-check-input" type="checkbox" id="chkUnique1">
+                                    <input class="form-check-input" type="checkbox" id="chkUnique1" @if(in_array($kode ?? '', ['3012', '2001'])) checked @endif>
                                     <label class="form-check-label small text-white" for="chkUnique1">Machining</label>
                                 </div>
                                 <div class="form-check mb-0">

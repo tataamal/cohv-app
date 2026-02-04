@@ -174,7 +174,7 @@
                  return ($i['confirmed_price'] ?? 0) > 0 || ($i['failed_price'] ?? 0) > 0;
              });
         }
-        $showPriceCols = ($isEmail ?? false) && $hasPriceData;
+        $showPriceCols = false; // [REQ] Hide Price Cols
     @endphp
     <div class="container-frame">
         {{-- 1. HEADER --}}
@@ -336,37 +336,65 @@
                             $pctOk = ($gAssigned > 0) ? ($gConfirmed / $gAssigned) * 100 : 0;
                             $pctFail = ($gAssigned > 0) ? ($gUnconfirmed / $gAssigned) * 100 : 0;
                             
-                            $gTotalTimeMin = $groupItems->sum('raw_total_time');
+                            $gTotalTimeMin = $groupItems->sum('raw_total_time'); 
+                            $gConfirmTimeMin = $groupItems->sum('raw_confirmed_time'); 
                             
-                            $totalSeconds = $gTotalTimeMin * 60;
-                            $hrs = floor($totalSeconds / 3600);
-                            $mins = floor(($totalSeconds % 3600) / 60);
-                            $secs = round($totalSeconds % 60);
+                            // Format Time Function
+                            $fmtTime = function($mins) {
+                                $totalSeconds = $mins * 60;
+                                $hrs = floor($totalSeconds / 3600);
+                                $mins = floor(($totalSeconds % 3600) / 60);
+                                $secs = round($totalSeconds % 60);
+                                $parts = [];
+                                if ($hrs > 0) $parts[] = $hrs . ' Jam';
+                                if ($mins > 0) $parts[] = $mins . ' Menit';
+                                if ($secs > 0 || empty($parts)) $parts[] = $secs . ' Detik';
+                                return implode(', ', $parts);
+                            };
 
-                            $timeParts = [];
-                            if ($hrs > 0) $timeParts[] = $hrs . ' Jam';
-                            if ($mins > 0) $timeParts[] = $mins . ' Menit';
-                            if ($secs > 0 || empty($timeParts)) $timeParts[] = $secs . ' Detik';
+                            // Smart Number Format Function (No decimals if integer)
+                            $fmtNum = function($val, $decimals = 2) {
+                                if (fmod($val, 1) == 0) {
+                                    return number_format($val, 0, ',', '.');
+                                }
+                                return number_format($val, $decimals, ',', '.');
+                            };
+
+                            $gTotalTimeFmt = $fmtTime($gTotalTimeMin);
+                            $gConfirmTimeFmt = $fmtTime($gConfirmTimeMin);
                             
-                            $gTotalTimeHoursFmt = implode(', ', $timeParts);
-
+                            $jamKerjaStr = "{$gConfirmTimeFmt} / {$gTotalTimeFmt}";
 
                             $gCurr = $row['currency'] ?? 'IDR';
                             $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
                             $dec = (strtoupper($gCurr) === 'USD') ? 2 : 0;
-
                             $fmtOk = $pfx . number_format($gPriceOk, $dec, ',', '.');
                             $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
-                            $no = 1; // RESET NUMBERING
+                            
+                            // Check for Machining in this group
+                            $isMachiningGroup = collect($groupItems)->contains('is_machining', true);
+
+                            // Progress Calculation (Confirmed + Remark) / Assigned
+                            $gRemarkQty = $groupItems->sum('remark_qty');
+                            $numerator = $gConfirmed + $gRemarkQty;
+                            $progressPct = ($gAssigned > 0) ? ($numerator / $gAssigned) * 100 : 0;
+
+                            $no = 1; 
                         @endphp
                         <tr>
                             <td colspan="{{ $showPriceCols ? 12 : 10 }}" style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
                                 <strong>NIK {{ $currentNik }} {{ $nikName }}</strong>
                                 <span style="font-size: 8pt; margin-left: 10px;">
-                                    @if($isEmail ?? false)
-                                        (Qty Order: {{ number_format($gAssigned, 0) }} | Jam Kerja: {{ $gTotalTimeHoursFmt }} | Konfirmasi: {{ number_format($gConfirmed, 0) }} ({{ number_format($pctOk, 1) }}%), Tidak Terkonfirmasi: {{ number_format($gUnconfirmed, 0) }} ({{ number_format($pctFail, 1) }}%) @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
+                                    @if($isMachiningGroup)
+                                        {{-- Machining Format --}}
+                                        (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} | Konfirmasi: {{ $fmtNum($gConfirmed) }}/{{ $fmtNum($gAssigned) }}, Progress Pengerjaan PRO: {{ $fmtNum($progressPct) }}%)
                                     @else
-                                        (Qty Order: {{ number_format($gAssigned, 0) }} | Jam Kerja: {{ $gTotalTimeHoursFmt }})
+                                        {{-- Standard Format --}}
+                                        @if($isEmail ?? false)
+                                            (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} | Konfirmasi: {{ $fmtNum($gConfirmed) }} ({{ $fmtNum($pctOk, 1) }}%), Tidak Terkonfirmasi: {{ $fmtNum($gUnconfirmed) }} ({{ $fmtNum($pctFail, 1) }}%) @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
+                                        @else
+                                            (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }})
+                                        @endif
                                     @endif
                                 </span>
                             </td>
