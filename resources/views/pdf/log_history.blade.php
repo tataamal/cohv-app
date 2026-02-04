@@ -5,10 +5,10 @@
     <style>
         @page {
             size: A4 landscape;
-            margin: 5mm; 
+            margin: 5mm;
             margin-bottom: 15mm; /* Space for footer */
         }
-        
+
         body {
             font-family: 'Helvetica', 'Arial', sans-serif;
             font-size: 8pt;
@@ -28,159 +28,133 @@
             border-top: 1px solid #ccc;
             padding-top: 2px;
         }
-        .footer-content {
-            width: 100%;
-            display: table;
-        }
-        .footer-left {
-            display: table-cell;
-            text-align: left;
-            width: 50%;
-            font-style: italic;
-        }
-        .footer-right {
-            display: table-cell;
-            text-align: right;
-            width: 50%;
-        }
+        .footer-content { width: 100%; display: table; }
+        .footer-left { display: table-cell; text-align: left; width: 50%; font-style: italic; }
+        .footer-right { display: table-cell; text-align: right; width: 50%; }
         .page-number:after { content: counter(page); }
-
-        /* --- FRAMEWORK --- */
-        .container-frame {
-            width: 100%;
-            border: 2px solid #000;
-            display: block;
-            /* height: 98%; Removed to allow natural flow */
-            padding-bottom: 20px;
-        }
 
         /* --- PAGE BREAK UTILITY --- */
         .page-break {
             page-break-after: always;
+            height: 0;
+            margin: 0;
+            padding: 0;
         }
 
-        /* --- TABLE STYLING --- */
-        table { width: 100%; border-collapse: collapse; }
-        
+        /* --- TABLE GLOBAL --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            border: 1px solid #000; /* helps dompdf keep outer border consistent */
+        }
         td, th {
             border: 1px solid #000;
-            padding: 4px;
+            padding: 2px;
             vertical-align: middle;
         }
 
+        /* DOMPDF pagination stability */
+        thead { display: table-header-group; }
+        tbody { page-break-inside: auto; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+
         /* --- HEADER SECTION --- */
         .header-left {
-            width: 70%; 
+            width: 70%;
             padding: 5px 10px !important;
             border-bottom: 2px solid #000;
             border-right: none !important;
         }
-
         .header-right {
             width: 30%;
             padding: 0 !important;
             vertical-align: middle;
             text-align: center;
             border-bottom: 2px solid #000;
-            background-color: #f9f9f9; 
+            background-color: #f9f9f9;
             border-left: none !important;
         }
 
+        .branding-table { border: none !important; }
         .branding-table td { border: none !important; padding: 0; }
         .logo-img { width: 60px; vertical-align: middle; padding-right: 15px !important; }
-        
-        .company-name { 
-            font-size: 18pt; font-weight: 900; margin: 0; 
-            text-transform: uppercase; line-height: 1;
+
+        .company-name {
+            font-size: 18pt;
+            font-weight: 900;
+            margin: 0;
+            text-transform: uppercase;
+            line-height: 1;
         }
-        .doc-title { 
-            font-size: 11pt; margin-top: 5px; font-weight: bold;
-            letter-spacing: 3px; text-transform: uppercase; 
-        }
-        
-        /* Report Title Display */
-        .report-type-display {
-            font-size: 18pt; font-weight: 900;
-            color: #000080; letter-spacing: 1px;
+        .doc-title {
+            font-size: 11pt;
+            margin-top: 5px;
+            font-weight: bold;
+            letter-spacing: 3px;
             text-transform: uppercase;
         }
 
         /* --- INFO BAR --- */
         .info-bar td {
             background-color: #f2f2f2;
-            font-size: 8pt; font-weight: bold;
-            text-transform: uppercase; padding: 6px;
+            font-size: 8pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 6px;
             border-bottom: 2px solid #000;
         }
         .info-val { color: #000; margin-left: 5px; font-weight: normal; }
-        
-        /* --- SUMMARY SECTION (New Style) --- */
+
+        /* --- SUMMARY SECTION --- */
         .summary-header td {
-            background-color: #e9ecef; text-align: center; font-size: 7.5pt; font-weight: bold; text-transform: uppercase;
+            background-color: #e9ecef;
+            text-align: center;
+            font-size: 7.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
         }
         .summary-values td {
-            text-align: center; font-size: 9pt; font-weight: bold; padding: 6px; border-bottom: 2px solid #000;
+            text-align: center;
+            font-size: 9pt;
+            font-weight: bold;
+            padding: 6px;
+            border-bottom: 2px solid #000;
         }
         .text-success { color: #008000; }
         .text-danger { color: #d00; }
-        .text-warning { color: #E4A11B; } 
+        .text-warning { color: #E4A11B; }
 
         /* --- DATA TABLE --- */
         .data-header th {
-            background-color: #ccc; color: #000;
-            text-transform: uppercase; font-size: 8pt;
-            font-weight: 900; height: 25px;
+            background-color: #ccc;
+            color: #000;
+            text-transform: uppercase;
+            font-size: 8pt;
+            font-weight: 900;
+            height: 25px;
+            border: 1px solid #000;
             border-bottom: 2px solid #000;
         }
         .data-row td {
-            font-size: 8pt; height: 25px;
-            vertical-align: top; word-wrap: break-word;
+            min-height: 0;
+            line-height: 1.15;
+            vertical-align: top;
+            word-wrap: break-word;
         }
+
         .text-center { text-align: center; }
+        .text-left { text-align: left; }
         .fw-bold { font-weight: bold; }
 
-        /* --- FOOTER --- */
-        .footer-cell {
-            height: 80px; vertical-align: top !important;
-            padding: 0 !important; border-top: 2px solid #000;
-        }
-        .sig-title {
-            font-size: 7pt; font-weight: bold;
-            background-color: #dfdfdf; border-bottom: 1px solid #000;
-            padding: 3px; text-align: center;
-        }
-        .sig-content {
-            padding-top: 40px; text-align: center; font-size: 9pt;
-        }
-        .time-meta{
+        .time-meta {
             font-size: 7pt;
             font-weight: normal;
-        }
-
-        .page-split td{
-            border-top: 2px solid #000 !important;
-        }
-
-        /* chunk tidak boleh kepotong di tengah halaman */
-        tbody.page-chunk { 
-            page-break-inside: avoid; 
-            break-inside: avoid;
-        }
-
-        /* baris jangan dipecah di tengah */
-        tr.data-row { 
-            page-break-inside: avoid; 
-            break-inside: avoid;
-        }
-
-        /* opsional: jangan sampai header NIK “sendirian” di bawah halaman */
-        tr.nik-header { 
-            page-break-after: avoid; 
         }
     </style>
 </head>
 <body>
-    
+
     {{-- FOOTER GLOBAL --}}
     <div class="page-footer">
         <div class="footer-content">
@@ -193,397 +167,484 @@
 @foreach($reports as $report)
     @php
         $itemsCheck = $report['items'] ?? [];
+
         $hasPriceData = false;
         if ($isEmail ?? false) {
-             $hasPriceData = collect($itemsCheck)->contains(function($i) {
-                 return ($i['confirmed_price'] ?? 0) > 0 || ($i['failed_price'] ?? 0) > 0;
-             });
+            $hasPriceData = collect($itemsCheck)->contains(function($i) {
+                return ($i['confirmed_price'] ?? 0) > 0 || ($i['failed_price'] ?? 0) > 0;
+            });
         }
-        $showPriceCols = false; // [REQ] Hide Price Cols
+
+        // [REQ] Hide Price Cols
+        $showPriceCols = false;
     @endphp
-    <div class="container-frame">
-        {{-- 1. HEADER --}}
-        {{-- 1. HEADER --}}
-        <table style="width: 100%;">
-            <tr>
-                <td class="header-left" style="width: 70%; border-right: none !important;">
-                    <table class="branding-table">
-                        <tr>
-                            <td class="logo-img">
-                                <img src="{{ public_path('images/KMI.png') }}" style="max-height: 50px; width: auto;">
-                            </td>
-                            <td>
-                                <div class="company-name">PT KAYU MEBEL INDONESIA</div>
-                                <!-- New Title Format -->
-                                @if($isEmail ?? false)
-                                    <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT' }} - {{ $report['nama_bagian'] }}</div>
-                                @else
-                                    @php
-                                        $docStatus = strtoupper($report['doc_metadata']['status'] ?? '');
-                                        $headerTitle = 'TASK INSTRUCTION';
-                                        if (str_contains($docStatus, 'COMPLETED') && !str_contains($docStatus, 'NOT')) {
-                                            $headerTitle = 'COMPLETED TASK INSTRUCTION';
-                                        } elseif (str_contains($docStatus, 'EXPIRED') || str_contains($docStatus, 'NOT COMPLETED')) {
-                                            $headerTitle = 'EXPIRED TASK INSTRUCTION';
-                                        }
-                                    @endphp
-                                    <div class="doc-title" style="font-size: 14pt; color: #000;">{{ $headerTitle }}</div>
-                                @endif
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-                
-                {{-- RIGHT HEADER --}}
-                 <td class="header-right" style="width: 30%; border-left: none !important; background-color: #fff; vertical-align: middle; padding: 5px 10px !important; text-align: right;">
-                    @if(!empty($report['filterInfo']) && stripos($report['filterInfo'], 'all history') === false)
-                        <div style="font-size: 11pt; font-weight: bold; color: rgba(0, 0, 0, 0.7);">
-                            {{ $report['filterInfo'] }}
-                        </div>
-                    @endif
-                </td>
-            </tr>
-        </table>
 
-        {{-- 2. INFO ROW (For Manual Print) --}}
-        @if(!($isEmail ?? false))
-            <table class="info-bar" style="width: 100%; border: 2px solid #000; border-top: none; margin-bottom: 0px;">
-                <tr>
-                    <td style="width: 35%; border-right: 2px solid #000;">
-                        BAGIAN: <span class="info-val">{{ $report['nama_bagian'] }}</span>
-                    </td>
-                    <td style="width: 25%; border-right: 2px solid #000;">
-                        @php
-                            $rawStatus = $report['doc_metadata']['status'] ?? '-';
-                            $expStr = $report['doc_metadata']['expired'] ?? '';
-                            
-                            $isExpired = false;
-                            try {
-                                // Date format from controller usually 'd-M-Y H:i' or similar
-                                // If validation fails, fallback to raw status
-                                $expDate = \Carbon\Carbon::createFromFormat('d-M-Y H:i', $expStr);
-                                if ($expDate && $expDate->isPast()) {
-                                    $isExpired = true;
-                                }
-                            } catch (\Exception $e) {
-                                // If parsing fails, ignore expiration check (likely '-' or empty)
-                            }
-
-                            $finalStatus = ($isExpired || strtoupper($rawStatus) === 'INACTIVE') ? 'INACTIVE' : $rawStatus;
-                        @endphp
-                        STATUS: <span class="info-val">{{ $finalStatus }}</span>
-                    </td>
-                    <td style="width: 20%; border-right: 2px solid #000;">
-                        DATE: <span class="info-val">{{ $report['doc_metadata']['date'] ?? '-' }}</span>
-                    </td>
-                    <td style="width: 20%;">
-                        EXPIRED: <span class="info-val" style="color: #d00;">{{ $report['doc_metadata']['expired'] ?? '-' }}</span>
-                    </td>
-                </tr>
-            </table>
-        @endif
-
-         {{-- 3. SUMMARY TABLE (Inserted Here) --}}
-         {{-- 3. SUMMARY TABLE --}}
-         <table>
-            <tr class="summary-header">
-                @if($showPriceCols)
-                    <td width="16%">Quantity Task</td>
-                    <td width="16%">Terkonfirmasi</td>
-                    <td width="16%">Tidak Terkonfirmasi</td>
-                    <td width="20%">Rata-rata Keberhasilan</td>
-                    <td width="16%">Total Price OK</td>
-                    <td width="16%">Total Price Fail</td>
-                @else
-                    <td width="25%">QTY TASK</td>
-                    <td width="25%">Terkonfirmasi</td>
-                    <td width="25%">Tidak Terkonfirmasi</td>
-                    <td width="25%">Rata-rata Keberhasilan</td>
-                @endif
-            </tr>
-            <tr class="summary-values">
-                <td>{{ number_format($report['summary']['total_assigned'], 0) }}</td>
-                <td class="text-success">{{ number_format($report['summary']['total_confirmed'], 0) }}</td>
-                <td class="text-danger">{{ number_format($report['summary']['total_failed'], 0) }}</td>
-                <td>{{ $report['summary']['achievement_rate'] }}</td>
-                @if($showPriceCols)
-                    <td class="text-success">{{ $report['summary']['total_price_ok'] }}</td>
-                    <td class="text-danger">{{ $report['summary']['total_price_fail'] }}</td>
-                @endif
-            </tr>
-        </table>
-
-        {{-- 4. DATA TABLE --}}
-        <table style="table-layout: fixed;">
-            <thead>
-                <tr class="data-header">
-                    <th width="3%">NO</th>
-                    <th width="8%">DOC</th>
-                    <th width="8%">TIME REQ</th>
-                    <th width="10%">WORKCENTER</th>
-                    <th width="10%">SO-ITEM</th>
-                    <th width="8%">PRO</th>
-                    <th width="15%">MATERIAL</th>
-                    <th width="4%">QTY</th>
-                    <th width="4%">CONF</th>    
-                    @if($showPriceCols)
-                        <th width="8%">PRICE OK</th>
-                        <th width="8%">PRICE FAIL</th>
-                    @endif
-                    <th width="10%">REMARK</th>
-
-                    @php
-                        $items = $report['items'];
-                        $isReportMachining = collect($items)->contains('is_machining', true);
-                    @endphp
-
-                    @if($isReportMachining)
-                        <th width="10%">PROGRESS</th>
-                    @endif
-                </tr>
-            </thead>
-            <tbody>
-                @php
-                    // Jangan override $items lama kamu (biar bagian bawah template aman)
-                    $itemsArr = $report['items'] ?? [];
-                    $itemsCol = collect($itemsArr);
-
-                    $isReportMachining = $itemsCol->contains('is_machining', true);
-
-                    // Atur ukuran chunk (8 lebih aman kalau remark sering panjang)
-                    $chunkSize = 8;
-
-                    // Format waktu
-                    $fmtTime = function($mins) {
-                        $totalSeconds = $mins * 60;
-                        $hrs = floor($totalSeconds / 3600);
-                        $mns = floor(($totalSeconds % 3600) / 60);
-                        $secs = round($totalSeconds % 60);
-
-                        $parts = [];
-                        if ($hrs > 0) $parts[] = $hrs . ' Jam';
-                        if ($mns > 0) $parts[] = $mns . ' Menit';
-                        if ($secs > 0 || empty($parts)) $parts[] = $secs . ' Detik';
-                        return implode(', ', $parts);
-                    };
-
-                    // Smart number format (tanpa desimal kalau integer)
-                    $fmtNum = function($val, $decimals = 2) {
-                        if (fmod((float)$val, 1) == 0.0) {
-                            return number_format($val, 0, ',', '.');
-                        }
-                        return number_format($val, $decimals, ',', '.');
-                    };
-
-                    // Group per NIK
-                    $grouped = $itemsCol->groupBy('nik');
-                @endphp
-
-                @foreach($grouped as $nik => $groupItems)
-                    @php
-                        $row0 = $groupItems->first() ?? [];
-                        $nikName = $row0['name'] ?? '-';
-
-                        // Group stats
-                        $groupCount = $groupItems->count(); // jumlah task (baris)
-                        $wiCount = $groupItems->pluck('doc_no')->filter()->unique()->count(); // jumlah WI unik
-                        $timeMetaStr = "{$groupCount} Task / {$wiCount} WI";
-
-                        $gAssigned = $groupItems->sum('assigned');
-                        $gConfirmed = $groupItems->sum('confirmed');
-                        $gUnconfirmed = $gAssigned - $gConfirmed;
-
-                        $pctOk = ($gAssigned > 0) ? ($gConfirmed / $gAssigned) * 100 : 0;
-                        $pctFail = ($gAssigned > 0) ? ($gUnconfirmed / $gAssigned) * 100 : 0;
-
-                        $gTotalTimeMin = $groupItems->sum('raw_total_time');
-                        $gConfirmTimeMin = $groupItems->sum('raw_confirmed_time');
-
-                        $gTotalTimeFmt = $fmtTime($gTotalTimeMin);
-                        $gConfirmTimeFmt = $fmtTime($gConfirmTimeMin);
-
-                        // Jam Kerja: confirmed saja (sesuai code kamu)
-                        $jamKerjaStr = $gConfirmTimeFmt;
-
-                        // Price (kalau suatu saat showPriceCols = true)
-                        $gPriceOk = $groupItems->sum('confirmed_price');
-                        $gPriceFail = $groupItems->sum('failed_price');
-                        $gCurr = $row0['currency'] ?? 'IDR';
-                        $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
-                        $dec = (strtoupper($gCurr) === 'USD') ? 2 : 0;
-                        $fmtOk = $pfx . number_format($gPriceOk, $dec, ',', '.');
-                        $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
-
-                        // Machining flags
-                        $isMachiningGroup = $groupItems->contains('is_machining', true);
-
-                        // Progress (Confirmed + Remark) / Assigned
-                        $gRemarkQty = $groupItems->sum('remark_qty');
-                        $progressNumerator = $gConfirmed + $gRemarkQty;
-                        $progressPct = ($gAssigned > 0) ? ($progressNumerator / $gAssigned) * 100 : 0;
-
-                        // Chunks: dipindah natural ke page berikutnya kalau tidak cukup ruang
-                        $chunks = $groupItems->values()->chunk($chunkSize);
-
-                        // nomor urut reset per NIK (sesuai behaviour kamu sebelumnya)
-                        $no = 1;
-                    @endphp
-
-                    {{-- HEADER NIK: tetap nyambung (tidak paksa pindah halaman) --}}
-                    <tbody>
-                        <tr class="nik-header">
-                            <td colspan="{{ $showPriceCols ? ($isReportMachining ? 13 : 12) : ($isReportMachining ? 11 : 10) }}"
-                                style="background-color: #f0f0f0; padding: 5px; border: 1px solid #000;">
-                                <strong>NIK {{ $nik }} {{ $nikName }}</strong>
-                                <span style="font-size: 8pt; margin-left: 10px;">
-                                    @if($isMachiningGroup)
-                                        {{-- Machining Format --}}
-                                        (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} |
-                                        Konfirmasi: {{ $fmtNum($gConfirmed) }}/{{ $fmtNum($gAssigned) }},
-                                        Progress Pengerjaan PRO: {{ $fmtNum($progressPct) }}%)
-                                    @else
-                                        {{-- Standard Format --}}
-                                        @if($isEmail ?? false)
-                                            (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} |
-                                            Konfirmasi: {{ $fmtNum($gConfirmed) }} ({{ $fmtNum($pctOk, 1) }}%),
-                                            Tidak Terkonfirmasi: {{ $fmtNum($gUnconfirmed) }} ({{ $fmtNum($pctFail, 1) }}%)
-                                            @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
-                                        @else
-                                            (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }})
-                                        @endif
-                                    @endif
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-
-                    {{-- DATA ROWS per chunk (chunk tidak boleh kepotong) --}}
-                    @foreach($chunks as $chunk)
-                        <tbody class="page-chunk">
-                            @foreach($chunk as $row)
+    {{-- 1) HEADER --}}
+    <table style="border: none !important;">
+        <tr>
+            <td class="header-left" style="border-left: 2px solid #000; border-top: 2px solid #000;">
+                <table class="branding-table" style="border: none !important;">
+                    <tr>
+                        <td class="logo-img">
+                            <img src="{{ public_path('images/KMI.png') }}" style="max-height: 50px; width: auto;">
+                        </td>
+                        <td>
+                            <div class="company-name">PT KAYU MEBEL INDONESIA</div>
+                            @if($isEmail ?? false)
+                                <div class="doc-title">{{ $report['report_title'] ?? 'DAILY REPORT' }} - {{ $report['nama_bagian'] }}</div>
+                            @else
                                 @php
-                                    $isChunkFirst = $loop->first;
-                                    $isChunkLast  = $loop->last;
-                                    $currentNo = $no++;
+                                    $docStatus = strtoupper($report['doc_metadata']['status'] ?? '');
+                                    $headerTitle = 'TASK INSTRUCTION';
+                                    if (str_contains($docStatus, 'COMPLETED') && !str_contains($docStatus, 'NOT')) {
+                                        $headerTitle = 'COMPLETED TASK INSTRUCTION';
+                                    } elseif (str_contains($docStatus, 'EXPIRED') || str_contains($docStatus, 'NOT COMPLETED')) {
+                                        $headerTitle = 'EXPIRED TASK INSTRUCTION';
+                                    }
                                 @endphp
+                                <div class="doc-title" style="font-size: 14pt; color: #000;">{{ $headerTitle }}</div>
+                            @endif
+                        </td>
+                    </tr>
+                </table>
+            </td>
 
-                                <tr class="data-row">
-                                    <td class="text-center">{{ $currentNo }}</td>
+            <td class="header-right" style="border-right: 2px solid #000; border-top: 2px solid #000; background-color: #fff; padding: 5px 10px !important; text-align: right;">
+                @if(!empty($report['filterInfo']) && stripos($report['filterInfo'], 'all history') === false)
+                    <div style="font-size: 11pt; font-weight: bold; color: rgba(0, 0, 0, 0.7);">
+                        {{ $report['filterInfo'] }}
+                    </div>
+                @endif
+            </td>
+        </tr>
+    </table>
 
-                                    <td class="text-center fw-bold">
-                                        {{ $row['doc_no'] ?? '-' }}
-                                        @if(str_contains($report['report_title'] ?? '', 'WEEKLY'))
-                                            <br>
-                                            <span style="font-size: 7pt; font-weight: normal;">{{ $row['doc_date'] ?? '' }}</span>
-                                        @endif
-                                    </td>
+    {{-- 2) INFO ROW (For Manual Print) --}}
+    @if(!($isEmail ?? false))
+        <table class="info-bar" style="border-left: 2px solid #000; border-right: 2px solid #000; border-top: none; border-bottom: none;">
+            <tr>
+                <td style="width: 35%; border-right: 2px solid #000;">
+                    BAGIAN: <span class="info-val">{{ $report['nama_bagian'] }}</span>
+                </td>
+                <td style="width: 25%; border-right: 2px solid #000;">
+                    @php
+                        $rawStatus = $report['doc_metadata']['status'] ?? '-';
+                        $expStr = $report['doc_metadata']['expired'] ?? '';
 
-                                    {{-- TIME REQ: tampil di awal chunk, jadi kalau pindah halaman (natural) tetap muncul --}}
-                                    <td class="text-center fw-bold"
-                                        style="vertical-align: top; background-color: #ffffff; width: 8%;
-                                            border-top: {{ $isChunkFirst ? '1px solid #000' : 'none' }};
-                                            border-bottom: {{ $isChunkLast ? '1px solid #000' : 'none' }};">
-                                        @if($isChunkFirst)
-                                            {{ $gTotalTimeFmt }}
-                                            <br>
-                                            <span class="time-meta">({{ $timeMetaStr }})</span>
-                                        @endif
-                                    </td>
+                        $isExpired = false;
+                        try {
+                            $expDate = \Carbon\Carbon::createFromFormat('d-M-Y H:i', $expStr);
+                            if ($expDate && $expDate->isPast()) {
+                                $isExpired = true;
+                            }
+                        } catch (\Exception $e) {}
 
-                                    <td class="text-center">
-                                        <strong>{{ $row['workcenter'] ?? '-' }}</strong><br>
-                                        {{ $row['wc_description'] ?? '-' }}
-                                    </td>
-
-                                    <td class="text-center">{{ $row['so_item'] ?? '-' }}</td>
-
-                                    <td class="text-center fw-bold">
-                                        {{ $row['aufnr'] ?? '-' }}
-                                        @if(!empty($row['vornr']))
-                                            <br>
-                                            <span style="font-weight: normal; font-style: italic; font-size: 7pt;">({{ ltrim($row['vornr'], '0') }})</span>
-                                        @endif
-                                    </td>
-
-                                    <td class="text-center">
-                                        <strong>{{ $row['material'] ?? '-' }}</strong><br>
-                                        {{ $row['description'] ?? '-' }}
-                                    </td>
-
-                                    <td class="text-center fw-bold">{{ floatval($row['assigned'] ?? 0) }}</td>
-                                    <td class="text-center fw-bold text-success">{{ floatval($row['confirmed'] ?? 0) }}</td>
-
-                                    @if($showPriceCols)
-                                        <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
-                                        <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
-                                    @endif
-
-                                    {{-- REMARK (pakai logic kamu yang lengkap) --}}
-                                    <td class="text-left" style="font-size: 7pt;">
-                                        @if(!empty($row['remark_details']) && is_array($row['remark_details']) && count($row['remark_details']) > 0)
-                                            <ul style="padding-left: 15px; margin: 0; text-align: left;">
-                                                @foreach($row['remark_details'] as $rem)
-                                                    <li>Qty : {{ floatval($rem['qty'] ?? 0) }}, {{ $rem['text'] ?? '' }}</li>
-                                                @endforeach
-                                            </ul>
-                                        @elseif(floatval($row['remark_qty'] ?? 0) > 0)
-                                            <div style="text-align: center;">
-                                                <strong>Qty: {{ floatval($row['remark_qty'] ?? 0) }}</strong><br>
-                                                {{ $row['remark_text'] ?? '-' }}
-                                            </div>
-                                        @elseif(!empty($row['remark_text']) && ($row['remark_text'] ?? '-') !== '-')
-                                            <div style="text-align: center;">{{ $row['remark_text'] }}</div>
-                                        @else
-                                            <div style="text-align: center;">-</div>
-                                        @endif
-                                    </td>
-
-                                    {{-- PROGRESS (machining report only) --}}
-                                    @if($isReportMachining)
-                                        <td class="text-center">
-                                            @if($row['is_machining'] ?? false)
-                                                <span style="font-size: 7pt;">({{ $fmtNum($row['item_progress_numerator'] ?? 0) }}/{{ $fmtNum($row['assigned'] ?? 0) }})</span>
-                                                <strong>{{ $fmtNum($row['item_progress_pct'] ?? 0, 0) }}%</strong>
-                                                @if(($row['item_progress_pct'] ?? 0) >= 100 || (($row['status'] ?? 'ACTIVE') !== 'ACTIVE'))
-                                                    <br><span style="font-size: 6pt; font-style: italic;">{{ $row['status'] ?? '' }}</span>
-                                                @endif
-                                            @else
-                                                -
-                                            @endif
-                                        </td>
-                                    @endif
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    @endforeach
-                @endforeach
-            </tbody>
+                        $finalStatus = ($isExpired || strtoupper($rawStatus) === 'INACTIVE') ? 'INACTIVE' : $rawStatus;
+                    @endphp
+                    STATUS: <span class="info-val">{{ $finalStatus }}</span>
+                </td>
+                <td style="width: 20%; border-right: 2px solid #000;">
+                    DATE: <span class="info-val">{{ $report['doc_metadata']['date'] ?? '-' }}</span>
+                </td>
+                <td style="width: 20%;">
+                    EXPIRED: <span class="info-val" style="color: #d00;">{{ $report['doc_metadata']['expired'] ?? '-' }}</span>
+                </td>
+            </tr>
         </table>
+    @endif
 
-        {{--
-        @if(!($isEmail ?? false) && $isActiveStatus)
-            <table style="width: 100%; border: 1px solid #000; border-top: none; page-break-inside: avoid;">
-                <tr style="background-color: #ccc;">
-                    <th style="border-right: 1px solid #000; width: 33%; height: 20px; font-size: 8pt; text-align: center; border-bottom: 1px solid #000;">PREPARED BY</th>
-                    <th style="border-right: 1px solid #000; width: 33%; height: 20px; font-size: 8pt; text-align: center; border-bottom: 1px solid #000;">CHECKED BY</th>
-                    <th style="width: 33%; height: 20px; font-size: 8pt; text-align: center; border-bottom: 1px solid #000;">APPROVED BY</th>
-                </tr>
-                <tr>
-                    <td style="border-right: 1px solid #000; height: 80px;">&nbsp;</td>
-                    <td style="border-right: 1px solid #000; height: 80px;">&nbsp;</td>
-                    <td style="height: 80px;">&nbsp;</td>
-                </tr>
-                <tr>
-                    <td style="border-right: 1px solid #000; text-align: center; padding-bottom: 5px; font-size: 8pt;">(...........................................)</td>
-                    <td style="border-right: 1px solid #000; text-align: center; padding-bottom: 5px; font-size: 8pt;">(...........................................)</td>
-                    <td style="text-align: center; padding-bottom: 5px; font-size: 8pt;">(...........................................)</td>
-                </tr>
-            </table>
-        @endif
-        --}}
-    </div>
+    {{-- 3) SUMMARY TABLE --}}
+    <table style="border-left: 2px solid #000; border-right: 2px solid #000; border-bottom: 2px solid #000; border-top: none;">
+        <tr class="summary-header">
+            @if($showPriceCols)
+                <td width="16%">Quantity Task</td>
+                <td width="16%">Terkonfirmasi</td>
+                <td width="16%">Tidak Terkonfirmasi</td>
+                <td width="20%">Rata-rata Keberhasilan</td>
+                <td width="16%">Total Price OK</td>
+                <td width="16%">Total Price Fail</td>
+            @else
+                <td width="25%">QTY TASK</td>
+                <td width="25%">Terkonfirmasi</td>
+                <td width="25%">Tidak Terkonfirmasi</td>
+                <td width="25%">Rata-rata Keberhasilan</td>
+            @endif
+        </tr>
+        <tr class="summary-values">
+            <td>{{ number_format($report['summary']['total_assigned'], 0) }}</td>
+            <td class="text-success">{{ number_format($report['summary']['total_confirmed'], 0) }}</td>
+            <td class="text-danger">{{ number_format($report['summary']['total_failed'], 0) }}</td>
+            <td>{{ $report['summary']['achievement_rate'] }}</td>
+            @if($showPriceCols)
+                <td class="text-success">{{ $report['summary']['total_price_ok'] }}</td>
+                <td class="text-danger">{{ $report['summary']['total_price_fail'] }}</td>
+            @endif
+        </tr>
+    </table>
 
-    </div>
+    @php
+        // --- PREPARATION ---
+        $itemsArr = $report['items'] ?? [];
+        $itemsCol = collect($itemsArr);
+        $isReportMachining = $itemsCol->contains('is_machining', true);
+
+        // Formatters
+        $fmtTime = function($mins) {
+            $totalSeconds = $mins * 60;
+            $hrs = floor($totalSeconds / 3600);
+            $mns = floor(($totalSeconds % 3600) / 60);
+            $secs = round($totalSeconds % 60);
+            $parts = [];
+            if ($hrs > 0) $parts[] = $hrs . ' Jam';
+            if ($mns > 0) $parts[] = $mns . ' Menit';
+            if ($secs > 0 || empty($parts)) $parts[] = $secs . ' Detik';
+            return implode(', ', $parts);
+        };
+
+        $fmtNum = function($val, $decimals = 2) {
+            if (fmod((float)$val, 1) == 0.0) {
+                return number_format($val, 0, ',', '.');
+            }
+            return number_format($val, $decimals, ',', '.');
+        };
+
+        // Group by NIK
+        $grouped = $itemsCol->groupBy('nik');
+
+        // --- PAGE CONFIG ---
+        $maxLinesPerPage = 30;
+        $currentLines = 0;
+
+        // Helper to render Data Table Header
+        $renderHeader = function() use ($showPriceCols, $isReportMachining) {
+            $cols = '';
+            if ($showPriceCols) {
+                $cols .= '<th width="8%">PRICE OK</th><th width="8%">PRICE FAIL</th>';
+            }
+            $prog = '';
+            if ($isReportMachining) {
+                $prog = '<th width="10%">PROGRESS</th>';
+            }
+
+            return '
+            <table style="table-layout: fixed; width: 100%; border-collapse: collapse; margin:0; border:1px solid #000;">
+                <thead>
+                    <tr class="data-header">
+                        <th width="3%">NO</th>
+                        <th width="8%">DOC</th>
+                        <th width="8%">TIME REQ</th>
+                        <th width="10%">WORKCENTER</th>
+                        <th width="10%">SO-ITEM</th>
+                        <th width="8%">PRO</th>
+                        <th width="15%">MATERIAL</th>
+                        <th width="4%">QTY</th>
+                        <th width="4%">CONF</th>
+                        ' . $cols . '
+                        <th width="10%">REMARK</th>
+                        ' . $prog . '
+                    </tr>
+                </thead>
+                <tbody>';
+        };
+    @endphp
+
+    {{-- OPEN FIRST DATA TABLE --}}
+    {!! $renderHeader() !!}
+
+    @foreach($grouped as $nik => $groupItems)
+        @php
+            // --- GROUP STATS ---
+            $row0 = $groupItems->first() ?? [];
+            $nikName = $row0['name'] ?? '-';
+            $groupCount = $groupItems->count();
+            $wiCount = $groupItems->pluck('doc_no')->filter()->unique()->count();
+            $timeMetaStr = "{$groupCount} Task / {$wiCount} WI";
+
+            $gAssigned = $groupItems->sum('assigned');
+            $gConfirmed = $groupItems->sum('confirmed');
+            $gUnconfirmed = $gAssigned - $gConfirmed;
+
+            // For email format (keep same value/output as previous)
+            $pctOk = ($gAssigned > 0) ? ($gConfirmed / $gAssigned) * 100 : 0;
+            $pctFail = ($gAssigned > 0) ? ($gUnconfirmed / $gAssigned) * 100 : 0;
+
+            $gTotalTimeMin = $groupItems->sum('raw_total_time');
+            $gConfirmTimeMin = $groupItems->sum('raw_confirmed_time');
+            $gTotalTimeFmt = $fmtTime($gTotalTimeMin);
+            $jamKerjaStr = $fmtTime($gConfirmTimeMin);
+
+            // Price calc (kept, though columns hidden)
+            $gPriceOk = $groupItems->sum('confirmed_price');
+            $gPriceFail = $groupItems->sum('failed_price');
+            $gCurr = $row0['currency'] ?? 'IDR';
+            $pfx = (strtoupper($gCurr) === 'USD') ? '$ ' : 'Rp ';
+            $dec = (strtoupper($gCurr) === 'USD') ? 2 : 0;
+            $fmtOk = $pfx . number_format($gPriceOk, $dec, ',', '.');
+            $fmtFail = $pfx . number_format($gPriceFail, $dec, ',', '.');
+
+            $isMachiningGroup = $groupItems->contains('is_machining', true);
+
+            $gRemarkQty = $groupItems->sum('remark_qty');
+            $progressNumerator = $gConfirmed + $gRemarkQty;
+            $progressPct = ($gAssigned > 0) ? ($progressNumerator / $gAssigned) * 100 : 0;
+
+            $nikColspan = $showPriceCols
+                ? ($isReportMachining ? 13 : 12)
+                : ($isReportMachining ? 11 : 10);
+
+            $headerLines = 2;
+
+            // Flag: show TIME REQ again after forced page-break inside group
+            $forceShowTimeReq = false;
+
+            // --- BREAK BEFORE GROUP HEADER IF NOT ENOUGH SPACE ---
+            if (($currentLines + $headerLines + 1) > $maxLinesPerPage) {
+                echo '</tbody></table><div class="page-break"></div>';
+                echo $renderHeader();
+                $currentLines = 0;
+            }
+        @endphp
+
+        {{-- NIK HEADER --}}
+        <tr class="nik-header">
+            <td colspan="{{ $nikColspan }}" style="background-color:#f0f0f0; padding:5px; border:1px solid #000;">
+                <strong>NIK {{ $nik }} {{ $nikName }}</strong>
+                <span style="font-size: 8pt; margin-left: 10px;">
+                    @if($isMachiningGroup)
+                        (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} |
+                        Konfirmasi: {{ $fmtNum($gConfirmed) }}/{{ $fmtNum($gAssigned) }},
+                        Progress Pengerjaan PRO: {{ $fmtNum($progressPct) }}%)
+                    @else
+                        @if($isEmail ?? false)
+                            (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} |
+                            Konfirmasi: {{ $fmtNum($gConfirmed) }} ({{ $fmtNum($pctOk, 1) }}%),
+                            Tidak Terkonfirmasi: {{ $fmtNum($gUnconfirmed) }} ({{ $fmtNum($pctFail, 1) }}%)
+                            @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
+                        @else
+                            (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }})
+                        @endif
+                    @endif
+                </span>
+            </td>
+        </tr>
+        @php $currentLines += $headerLines; $no = 1; @endphp
+
+        {{-- LOOP ITEMS --}}
+        @foreach($groupItems as $index => $row)
+            @php
+                $isFirstItem = ($index === 0);
+                $isLastItem = ($index === ($groupCount - 1));
+
+                // Estimate Item Height (line-based)
+                $linesRemark = 0;
+                $linesDesc = 0;
+                $linesWc = 0;
+
+                if(!empty($row['remark_details']) && is_array($row['remark_details'])) {
+                    $linesRemark = count($row['remark_details']);
+                } elseif (!empty($row['remark_text'])) {
+                    $linesRemark = ceil(strlen($row['remark_text']) / 12);
+                }
+
+                if (!empty($row['description'])) {
+                    $linesDesc = ceil(strlen($row['description']) / 20);
+                }
+
+                if (!empty($row['wc_description'])) {
+                    $linesWc = 2;
+                }
+
+                $estHeight = max(1, $linesRemark, $linesDesc, $linesWc);
+                if ($estHeight > 6) $estHeight = 6;
+
+                $itemLines = $estHeight;
+
+                $forcedBreak = (($currentLines + $itemLines) > $maxLinesPerPage);
+            @endphp
+
+            {{-- FORCED PAGE BREAK INSIDE GROUP --}}
+            @if($forcedBreak)
+                </tbody></table>
+                <div class="page-break"></div>
+
+                {!! $renderHeader() !!}
+
+                {{-- REPEAT NIK HEADER ON NEW PAGE --}}
+                <tr class="nik-header">
+                    <td colspan="{{ $nikColspan }}" style="background-color:#f0f0f0; padding:5px; border:1px solid #000;">
+                        <strong>NIK {{ $nik }} {{ $nikName }}</strong>
+                        <span style="font-size: 8pt; margin-left: 10px;">
+                            @if($isMachiningGroup)
+                                (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} |
+                                Konfirmasi: {{ $fmtNum($gConfirmed) }}/{{ $fmtNum($gAssigned) }},
+                                Progress Pengerjaan PRO: {{ $fmtNum($progressPct) }}%)
+                            @else
+                                @if($isEmail ?? false)
+                                    (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }} |
+                                    Konfirmasi: {{ $fmtNum($gConfirmed) }} ({{ $fmtNum($pctOk, 1) }}%),
+                                    Tidak Terkonfirmasi: {{ $fmtNum($gUnconfirmed) }} ({{ $fmtNum($pctFail, 1) }}%)
+                                    @if($showPriceCols) | OK : {{ $fmtOk }}, Fail : {{ $fmtFail }} @endif)
+                                @else
+                                    (Qty Order: {{ $fmtNum($gAssigned) }} | Jam Kerja: {{ $jamKerjaStr }})
+                                @endif
+                            @endif
+                        </span>
+                    </td>
+                </tr>
+
+                @php
+                    $currentLines = $headerLines;  // because NIK header already rendered on the new page
+                    $forceShowTimeReq = true;      // show TIME REQ again on first row of new page
+                @endphp
+            @endif
+
+            @php
+                // TIME COLUMN VISIBILITY & BORDER LOGIC
+                $showTimeText = ($isFirstItem || $forceShowTimeReq);
+                $borderTop = ($isFirstItem || $forceShowTimeReq) ? '1px solid #000' : 'none';
+
+                // Predict next row for bottom border closure (TIME REQ cell)
+                $nextItemLines = 1;
+                if (isset($groupItems[$index+1])) {
+                    $nextRow = $groupItems[$index+1];
+
+                    $nlRemark = 0;
+                    $nlDesc = 0;
+                    $nlWc = 0;
+
+                    if(!empty($nextRow['remark_details']) && is_array($nextRow['remark_details'])) {
+                        $nlRemark = count($nextRow['remark_details']);
+                    } elseif (!empty($nextRow['remark_text'])) {
+                        $nlRemark = ceil(strlen($nextRow['remark_text']) / 12);
+                    }
+
+                    if (!empty($nextRow['description'])) {
+                        $nlDesc = ceil(strlen($nextRow['description']) / 20);
+                    }
+
+                    if (!empty($nextRow['wc_description'])) {
+                        $nlWc = 2;
+                    }
+
+                    $nextItemLines = max(1, $nlRemark, $nlDesc, $nlWc);
+                    if ($nextItemLines > 6) $nextItemLines = 6;
+                }
+
+                $willBreakNext = (($currentLines + $itemLines + $nextItemLines) > $maxLinesPerPage);
+                $borderBottom = ($isLastItem || $willBreakNext) ? '1px solid #000' : 'none';
+            @endphp
+
+            <tr class="data-row">
+                {{-- NO --}}
+                <td class="text-center">{{ $no++ }}</td>
+
+                {{-- DOC --}}
+                <td class="text-center fw-bold">
+                    {{ $row['doc_no'] ?? '-' }}
+                    @if(str_contains($report['report_title'] ?? '', 'WEEKLY'))
+                        <br><span style="font-size: 7pt; font-weight: normal;">{{ $row['doc_date'] ?? '' }}</span>
+                    @endif
+                </td>
+
+                {{-- TIME REQ --}}
+                <td class="text-center fw-bold"
+                    style="background-color:#fff; width:8%;
+                        border-left: 1px solid #000;
+                        border-right: 1px solid #000;
+                        border-top: {{ $borderTop }};
+                        border-bottom: {{ $borderBottom }};">
+                    @if($showTimeText)
+                        {{ $gTotalTimeFmt }}
+                        <br>
+                        <span class="time-meta">({{ $timeMetaStr }})</span>
+                    @else
+                        &nbsp;
+                    @endif
+                </td>
+
+                {{-- WORKCENTER --}}
+                <td class="text-center">
+                    <strong>{{ $row['workcenter'] ?? '-' }}</strong><br>
+                    {{ $row['wc_description'] ?? '-' }}
+                </td>
+
+                {{-- SO-ITEM --}}
+                <td class="text-center">{{ $row['so_item'] ?? '-' }}</td>
+
+                {{-- PRO --}}
+                <td class="text-center fw-bold">
+                    {{ $row['aufnr'] ?? '-' }}
+                    @if(!empty($row['vornr']))
+                        <br><span style="font-weight: normal; font-style: italic; font-size: 7pt;">({{ ltrim($row['vornr'], '0') }})</span>
+                    @endif
+                </td>
+
+                {{-- MATERIAL --}}
+                <td class="text-center">
+                    <strong>{{ $row['material'] ?? '-' }}</strong><br>
+                    {{ $row['description'] ?? '-' }}
+                </td>
+
+                {{-- QTY --}}
+                <td class="text-center fw-bold">{{ floatval($row['assigned'] ?? 0) }}</td>
+
+                {{-- CONF --}}
+                <td class="text-center fw-bold text-success">{{ floatval($row['confirmed'] ?? 0) }}</td>
+
+                {{-- PRICE COLS (hidden by request) --}}
+                @if($showPriceCols)
+                    <td class="text-center text-success" style="font-size: 7pt;">{{ $row['price_ok_fmt'] ?? '-' }}</td>
+                    <td class="text-center text-danger" style="font-size: 7pt;">{{ $row['price_fail_fmt'] ?? '-' }}</td>
+                @endif
+
+                {{-- REMARK --}}
+                <td class="text-left" style="font-size: 7pt;">
+                    @if(!empty($row['remark_details']) && is_array($row['remark_details']) && count($row['remark_details']) > 0)
+                        <ul style="padding-left: 15px; margin: 0; text-align: left;">
+                            @foreach($row['remark_details'] as $rem)
+                                <li>Qty : {{ floatval($rem['qty'] ?? 0) }}, {{ $rem['text'] ?? '' }}</li>
+                            @endforeach
+                        </ul>
+                    @elseif(floatval($row['remark_qty'] ?? 0) > 0)
+                        <div style="text-align: center;">
+                            <strong>Qty: {{ floatval($row['remark_qty'] ?? 0) }}</strong><br>
+                            {{ $row['remark_text'] ?? '-' }}
+                        </div>
+                    @elseif(!empty($row['remark_text']) && ($row['remark_text'] ?? '-') !== '-')
+                        <div style="text-align: center;">{{ $row['remark_text'] }}</div>
+                    @else
+                        <div style="text-align: center;">-</div>
+                    @endif
+                </td>
+
+                {{-- PROGRESS --}}
+                @if($isReportMachining)
+                    <td class="text-center">
+                        @if($row['is_machining'] ?? false)
+                            <span style="font-size: 7pt;">({{ $fmtNum($row['item_progress_numerator'] ?? 0) }}/{{ $fmtNum($row['assigned'] ?? 0) }})</span>
+                            <strong>{{ $fmtNum($row['item_progress_pct'] ?? 0, 0) }}%</strong>
+                            @if(($row['item_progress_pct'] ?? 0) >= 100 || (($row['status'] ?? 'ACTIVE') !== 'ACTIVE'))
+                                <br><span style="font-size: 6pt; font-style: italic;">{{ $row['status'] ?? '' }}</span>
+                            @endif
+                        @else
+                            -
+                        @endif
+                    </td>
+                @endif
+            </tr>
+
+            @php
+                // reset the one-time flag (so only the first row after page-break prints TIME REQ again)
+                if ($forceShowTimeReq) $forceShowTimeReq = false;
+
+                // advance "virtual lines"
+                $currentLines += $itemLines;
+            @endphp
+        @endforeach
+    @endforeach
+
+    </tbody>
+    </table>
 
     @if(!$loop->last)
         <div class="page-break"></div>
