@@ -19,13 +19,13 @@ class WorkInstructionApiController extends Controller
         $baseHeaderQuery = HistoryWi::query()
             ->whereNull('deleted_at') // opsional (SoftDeletes biasanya sudah otomatis)
             ->whereDate('document_date', '<=', $today)
+            ->whereNotIn('status', ['COMPLETED', 'EXPIRED', 'COMPLETED WITH REMARK', 'INACTIVE']) // Exclude completed/expired
             ->where(function ($q) use ($today) {
                 $q->whereNull('expired_at')
                 ->orWhereDate('expired_at', '>=', $today);
             });
 
-        $machiningHistories = (clone $baseHeaderQuery)
-            ->where('machining', 1)
+        $histories = $baseHeaderQuery
             ->with(['items' => function ($q) {
                 $q->where('status', '!=', 'Completed')
                 ->whereNotNull('aufnr')
@@ -33,24 +33,8 @@ class WorkInstructionApiController extends Controller
                 ->whereNotNull('nik');
             }])
             ->get();
-
-        // Ambil non-machining headers
-        $nonMachiningHistories = (clone $baseHeaderQuery)
-            ->where(function ($q) {
-                $q->whereNull('machining')->orWhere('machining', '!=', 1);
-            })
-            ->with(['items' => function ($q) {
-                $q->where('status', '!=', 'Completed')
-                ->whereNotNull('aufnr')
-                ->whereNotNull('vornr')
-                ->whereNotNull('nik');
-            }])
-            ->get();
-
-        $histories = $machiningHistories->concat($nonMachiningHistories);
 
         $grouped = [];
-        $seen = [];
 
         foreach ($histories as $history) {
             $wiCode = $history->wi_document_code;
@@ -71,30 +55,12 @@ class WorkInstructionApiController extends Controller
                 if (!$aufnr || !$vornr || !$nik) continue;
                 if ($status === 'Completed') continue;
 
-                if ($isMachining) {
-                    // ambil SSAVD/SSSLD dengan cara paling aman (case mismatch)
-                    $attrs = $item->getAttributes();
-                    $ssavdRaw = $attrs['SSAVD'] ?? $attrs['ssavd'] ?? null;
-                    $sssldRaw = $attrs['SSSLD'] ?? $attrs['sssld'] ?? null;
+                // Machining validation removed
+                // Global unique check removed to allow per-WI listing
 
-                    if (!$ssavdRaw || !$sssldRaw) continue;
-
-                    try {
-                        $ssavd = Carbon::parse($ssavdRaw);
-                        $sssld = Carbon::parse($sssldRaw);
-
-                        // kalau value-nya date-only, anggap full-day
-                        if (is_string($ssavdRaw) && strlen($ssavdRaw) <= 10) $ssavd = $ssavd->startOfDay();
-                        if (is_string($sssldRaw) && strlen($sssldRaw) <= 10) $sssld = $sssld->endOfDay();
-                    } catch (\Throwable $e) {
-                        continue;
-                    }
-
-                    if (!$now->between($ssavd, $sssld, true)) continue;
+                if (!isset($grouped[$wiCode])) {
+                    $grouped[$wiCode] = [];
                 }
-
-                $uniqueKey = $aufnr . '_' . $vornr . '_' . $nik;
-                if (isset($seen[$uniqueKey])) continue;
 
                 $grouped[$wiCode][] = [
                     'aufnr' => $aufnr,
@@ -102,14 +68,14 @@ class WorkInstructionApiController extends Controller
                     'nik'   => $nik,
                 ];
 
-                $seen[$uniqueKey] = true;
+                // $seen[$uniqueKey] = true; // Removed
             }
         }
 
         return response()->json([
             'status' => 'success',
             'data'   => $grouped,
-            'count'  => count($seen),
+            'count'  => collect($grouped)->flatten(1)->count(),
         ]);
     }
 

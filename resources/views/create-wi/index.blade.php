@@ -642,7 +642,9 @@
                                     <label class="form-check-label small text-white" for="chkUnique1">Machining</label>
                                 </div>
                                 <div class="form-check mb-0">
-                                    <input class="form-check-input" type="checkbox" id="chkUnique2">
+                                    <input class="form-check-input" type="checkbox" id="chkUnique2" @if(in_array($kode ?? '', [
+                                            '1003', '1001','1015','1002','1004','1005','1014','1006','1007','1008','1009','1012','1013',
+                                        ])) checked @endif>
                                     <label class="form-check-label small text-white" for="chkUnique2">Auto Assign</label>
                                 </div>
                             </div>
