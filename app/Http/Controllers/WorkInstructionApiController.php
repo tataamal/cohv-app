@@ -325,27 +325,14 @@ class WorkInstructionApiController extends Controller
                 ], 404);
             }
 
+            // User request: Machining mode no longer needs SSAVD/SSSLD check, 
+            // relying only on Document Active status (checked above).
+            /* 
             $isMachining = ((int) $document->machining === 1);
             if ($isMachining) {
-                $ssavd = $item->ssavd ? Carbon::parse($item->ssavd)->startOfDay() : null;
-                $sssld = $item->sssld ? Carbon::parse($item->sssld)->endOfDay() : null;
-
-                if (!$ssavd || !$sssld) {
-                    DB::rollBack();
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => 'SSAVD/SSSLD tidak ditemukan pada item machining.'
-                    ], 400);
-                }
-
-                if (!$now->between($ssavd, $sssld, true)) {
-                    DB::rollBack();
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => 'Item machining sudah di luar range SSAVD/SSSLD.'
-                    ], 400);
-                }
+                // validation removed...
             }
+            */
 
             $assignedQty = (float) ($item->assigned_qty ?? 0);
             $confirmedTotal = (int) HistoryPro::where('history_wi_item_id', $item->id)
@@ -394,7 +381,11 @@ class WorkInstructionApiController extends Controller
             }
 
             $item->status = $newStatus;
+
             $item->save();
+
+            // UPDATE DOCUMENT STATUS
+            $this->updateDocumentStatus($document->id); 
 
             DB::commit();
 
@@ -477,41 +468,13 @@ class WorkInstructionApiController extends Controller
                 ], 404);
             }
 
+            // User request: Machining mode no longer needs SSAVD/SSSLD check.
+            /*
             $isMachining = ((int) $document->machining === 1);
             if ($isMachining) {
-                $attrs = $wiItem->getAttributes();
-
-                // prioritas pakai property cast, fallback ke uppercase/lowercase attribute
-                $ssavdRaw = $wiItem->ssavd ?? ($attrs['SSAVD'] ?? $attrs['ssavd'] ?? null);
-                $sssldRaw = $wiItem->sssld ?? ($attrs['SSSLD'] ?? $attrs['sssld'] ?? null);
-
-                if (!$ssavdRaw || !$sssldRaw) {
-                    DB::rollBack();
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => 'SSAVD/SSSLD tidak ditemukan pada item machining.'
-                    ], 400);
-                }
-
-                try {
-                    $ssavd = Carbon::parse($ssavdRaw)->startOfDay();
-                    $sssld = Carbon::parse($sssldRaw)->endOfDay();
-                } catch (\Throwable $e) {
-                    DB::rollBack();
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => 'Format SSAVD/SSSLD tidak valid.'
-                    ], 400);
-                }
-
-                if (!$now->between($ssavd, $sssld, true)) {
-                    DB::rollBack();
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => 'Item machining sudah di luar range SSAVD/SSSLD.'
-                    ], 400);
-                }
+                // validation removed...
             }
+            */
 
             $assignedQty = (float) ($wiItem->assigned_qty ?? 0);
             $confirmedQtyTotal = (int) HistoryPro::query()
@@ -566,6 +529,11 @@ class WorkInstructionApiController extends Controller
 
             $wiItem->status = $newStatus;
             $wiItem->save();
+            $wiItem->save();
+            
+            // UPDATE DOCUMENT STATUS
+            $this->updateDocumentStatus($document->id);
+            
             $remarkHistory = HistoryPro::query()
                 ->where('history_wi_item_id', $wiItem->id)
                 ->where('status', 'remark')
@@ -640,7 +608,6 @@ class WorkInstructionApiController extends Controller
                 })
                 ->values() // Reset keys
                 ->toArray();
-
                 
             if (empty($history)) {
                 continue;
@@ -663,5 +630,48 @@ class WorkInstructionApiController extends Controller
             'aufnr'  => $aufnr,
             'data'   => $remarksData,
         ]);
+    }
+
+    private function updateDocumentStatus($historyWiId)
+    {
+        $document = HistoryWi::find($historyWiId);
+        if (!$document) return;
+
+        $items = HistoryWiItem::where('history_wi_id', $historyWiId)->get();
+        if ($items->isEmpty()) return;
+
+        $allCompleted = true;
+        $hasRemark    = false;
+
+        foreach ($items as $item) {
+            $st = strtoupper($item->status ?? '');
+            
+            // Check if item is completed
+            if (!str_contains($st, 'COMPLETED')) {
+                $allCompleted = false;
+            }
+
+            // Check if any remark exists on item (status includes REMARK or check history_pro if needed)
+            // Simpler: check if status contains 'REMARK' or check remarkQty > 0
+            if (str_contains($st, 'REMARK')) {
+                $hasRemark = true;
+            }
+        }
+
+        $newHeaderStatus = 'PROCESSED';
+
+        if ($allCompleted) {
+            $newHeaderStatus = $hasRemark ? 'COMPLETED WITH REMARK' : 'COMPLETED';
+        }
+
+        // Only update if changed
+        // NOTE: if document is already expired? User says: "If exceeded expired... change status to EXPIRED".
+        // That usually happens via schedule. But if we complete it LATE?
+        // Usually Completed overrides Expired.
+        
+        if ($document->status !== $newHeaderStatus) {
+            $document->status = $newHeaderStatus;
+            $document->save();
+        }
     }
 }

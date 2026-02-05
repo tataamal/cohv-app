@@ -521,6 +521,9 @@ class CreateWiController extends Controller
 
                     $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
 
+                    $todayStr = \Carbon\Carbon::now()->toDateString();
+                    $initialStatus = ($dateForDb === $todayStr) ? 'ACTIVE' : 'INACTIVE';
+
                     // create header (HistoryWi)
                     $history = HistoryWi::create([
                         'wi_document_code' => $documentCode,
@@ -530,7 +533,7 @@ class CreateWiController extends Controller
                         'document_time'    => $timeForDb,       // null saat machining
                         'expired_at'       => $expiredAt,
                         'sequence_number'  => $nextNumber,
-                        'status'           => 'Open',
+                        'status'           => $initialStatus,
                         'machining'        => $headerMachining ? 1 : 0,
                         'longshift'        => $headerLongshift ? 1 : 0,
                     ]);
@@ -1079,6 +1082,10 @@ class CreateWiController extends Controller
                 'kmi3.16.smg@gmail.com',
                 'kmi3.29.smg@gmail.com',
                 'tataamal1128@gmail.com',
+                'kmi3.58.smg@gmail.com',
+                'kmi3.57.smg@gmail.com',
+                'kmi3.2.smg@gmail.com',
+                'kmi3.1.smg@gmail.com'
             ]
         ]);
     }
@@ -1321,12 +1328,30 @@ class CreateWiController extends Controller
                         $confirmed += $pro->qty_pro;
                     } elseif (str_contains($st, 'remark')) {
                         $remarkQty += $pro->qty_pro;
-                        if (!empty($pro->remark_text)) {
-                            $remarkTexts[] = $pro->remark_text;
+                        $rText = $pro->remark_text;
+                        $rTag = $pro->tag;
+                        
+                        // Effective Remark: Text -> Tag -> '-'
+                        $effectiveRemark = $rText;
+                        if (empty($effectiveRemark)) {
+                            $effectiveRemark = $rTag;
                         }
+                        if (empty($effectiveRemark)) {
+                            $effectiveRemark = '-';
+                        }
+                        
+                        // Populate Texts array for top-level summary if needed
+                        if (!empty($rText)) {
+                            $remarkTexts[] = $rText;
+                        } elseif (!empty($rTag)) {
+                             $remarkTexts[] = $rTag; // Include tag in summary if text missing? Optional, but safer.
+                        }
+                        
                         $remarkDetails[] = [
                             'qty' => $pro->qty_pro,
-                            'text' => $pro->remark_text ?? '-'
+                            'remark' => $effectiveRemark, // For Expired Tab
+                            'remark_text' => $rText,      // For Active Tab
+                            'tag' => $rTag
                         ];
                     }
                 }
@@ -1460,7 +1485,9 @@ class CreateWiController extends Controller
                     'balance'       => $balance,
                     'remark_qty'    => $remarkQty,
                     'remark_text'   => $remarkText,
-                    'remark_details'=> $remarkDetails, // NEW FIELD
+                    'remark_text'   => $remarkText,
+                    'remark_history'=> $remarkDetails, // Mapped for Blade Loop
+                    'remark_details'=> $remarkDetails, // Backup/Duplicate just in case
                     'price_formatted' => $priceFormatted,
                     'confirmed_price' => $confirmedPrice, 
                     'failed_price'    => $failedPrice,
@@ -3120,3 +3147,4 @@ class CreateWiController extends Controller
         return $pdf->stream('Work_Instruction_Inactive.pdf');
     }
 }
+    

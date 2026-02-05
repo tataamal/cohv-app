@@ -338,7 +338,11 @@ class SendLogWeeklyEmail extends Command
                 'kmi3.60.smg@gmail.com',
                 'kmi3.31.smg@gmail.com',
                 'kmi3.16.smg@gmail.com',
-                'kmi3.29.smg@gmail.com'
+                'kmi3.29.smg@gmail.com',
+                'kmi3.58.smg@gmail.com',
+                'kmi3.57.smg@gmail.com',
+                'kmi3.2.smg@gmail.com',
+                'kmi3.1.smg@gmail.com'
             ];
 
             // $recipients = ['tataamal1128@gmail.com'];

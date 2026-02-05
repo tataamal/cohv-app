@@ -26,14 +26,41 @@ class CalculateDailyTimeWi extends Command
      */
     public function handle()
     {
+        // 1. Run Expiration Check (Point 4)
+        // Update status for documents that have expired and are not completed
+        $now = \Carbon\Carbon::now();
+        $affected = \Illuminate\Support\Facades\DB::table('history_wi')
+            ->whereNull('deleted_at')
+            ->where('expired_at', '<', $now)
+            ->where('status', '!=', 'EXPIRED')
+            ->where('status', 'NOT LIKE', '%COMPLETED%')
+            ->update(['status' => 'EXPIRED', 'updated_at' => $now]);
+            
+        if ($affected > 0) {
+            $this->info("Updated {$affected} documents to EXPIRED status.");
+        }
+
         $date = $this->argument('date');
         $endDate = $this->option('end');
+
+        // Normalize d-m-Y to Y-m-d if detected
+        if ($date && preg_match('/^\d{2}-\d{2}-\d{4}$/', $date)) {
+             try {
+                 $date = \Carbon\Carbon::createFromFormat('d-m-Y', $date)->format('Y-m-d');
+             } catch (\Exception $e) { /* fallback */ }
+        }
+        if ($endDate && preg_match('/^\d{2}-\d{2}-\d{4}$/', $endDate)) {
+             try {
+                 $endDate = \Carbon\Carbon::createFromFormat('d-m-Y', $endDate)->format('Y-m-d');
+             } catch (\Exception $e) { /* fallback */ }
+        }
 
         $this->info("Starting Daily Time Calculation...");
         if ($date) {
             $this->info("Target Date: $date" . ($endDate ? " to $endDate" : ""));
         } else {
              $this->info("Target Date: Yesterday (Default)");
+             $date = \Carbon\Carbon::yesterday()->format('Y-m-d');
         }
 
         try {

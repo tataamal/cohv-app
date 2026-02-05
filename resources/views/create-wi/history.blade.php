@@ -444,10 +444,16 @@
                                                         onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'active')">
                                                         <i class="fa-solid fa-print me-1"></i> Cetak
                                                     </button>
-                                                    <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
-                                                        onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'
-                                                        <i class="fa-solid fa-plus me-1"></i> Tambah Item
-                                                    </button>
+                                                    @if(empty($document->machining))
+                                                        <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
+                                                            onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'>
+                                                            <i class="fa-solid fa-plus me-1"></i> Tambah Item
+                                                        </button>
+                                                    @else
+                                                        <button class="btn btn-sm btn-secondary text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" disabled title="Dikunci saat Active (Mode Machining)">
+                                                            <i class="fa-solid fa-lock me-1"></i> Tambah Item
+                                                        </button>
+                                                    @endif
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-light text-dark border">{{ $docItemsCount }} PRO</span>
@@ -559,7 +565,8 @@
                                                             <ul class="list-unstyled mb-0 ps-1 mt-1">
                                                                 @foreach($item['remark_history'] as $h)
                                                                     <li class="mb-1">
-                                                                            <strong>Jumlah Item Gagal: {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}</strong> - {{ $h['remark_text'] ?: ($h['tag'] ?? '-') }}
+                                                                        <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                             <strong>Jumlah Item Gagal: {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}</strong> - {{ $h['remark_text'] ?: ($h['tag'] ?? '-') }}
                                                                          </span>
                                                                     </li>
                                                                 @endforeach
@@ -656,7 +663,7 @@
                                                 <div>
                                                     <h6 class="fw-bold mb-1 d-inline-block align-middle me-2">{{ $document->wi_document_code }}</h6>
                                                     <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
-                                                        onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'
+                                                        onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'>
                                                         <i class="fa-solid fa-plus me-1"></i> Tambah Item
                                                     </button>
                                                 </div>
@@ -830,8 +837,15 @@
 
                                                 // Progress
                                                 $rQty = $item['remark_qty'] ?? 0;
+                                                $cQty = $item['confirmed_qty'] ?? 0;
                                                 $aQty = ($item['assigned_qty'] ?? 0) > 0 ? $item['assigned_qty'] : 1;
+                                                
+                                                // Missing Logic
+                                                $missingQty = max(0, $item['assigned_qty'] - ($cQty + $rQty));
+                                                $missingPct = ($missingQty / $aQty) * 100;
+
                                                 $rPct = ($rQty / $aQty) * 100;
+                                                $cPct = ($cQty / $aQty) * 100;
                                             @endphp
 
                                             <div class="pro-item-row p-3 mb-2 border rounded-3 bg-light">
@@ -861,7 +875,7 @@
                                                     </div>
                                                 </div>
 
-                                                {{-- FULL WIDTH PROGRESS BAR (selaras Active) --}}
+                                                {{-- FULL WIDTH PROGRESS BAR (selaras Active + Logic NO REASON) --}}
                                                 <div class="d-flex justify-content-end mb-1">
                                                     <span class="text-xs fw-bold text-muted">
                                                         {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }}
@@ -870,36 +884,53 @@
                                                                 + {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }} (Remark)
                                                             </span>
                                                         @endif
+                                                        @if($missingQty > 0)
+                                                            <span class="text-dark">
+                                                                + {{ (fmod($missingQty, 1) != 0) ? number_format($missingQty, 2, ',', '.') : number_format($missingQty, 0, ',', '.') }} (No Reason)
+                                                            </span>
+                                                        @endif
                                                         / {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }} Quantity
                                                     </span>
                                                 </div>
 
                                                 <div class="progress" style="height: 6px;">
-                                                    @php
-                                                        // Calculate Success Pct
-                                                        $cQty = $item['confirmed_qty'] ?? 0;
-                                                        $cPct = ($cQty / $aQty) * 100; 
-                                                    @endphp
                                                     <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $cPct }}%"></div>
                                                     <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
+                                                    @if($missingQty > 0)
+                                                        <div class="progress-bar bg-dark" role="progressbar" style="width: {{ $missingPct }}%" title="NO REASON"></div>
+                                                    @endif
                                                 </div>
 
-                                                {{-- Remark Area (selaras Active) --}}
-                                                @if(!empty($item['remark_history']) && is_array($item['remark_history']))
+                                                {{-- Remark Area (selaras Active + NO REASON) --}}
+                                                @if((!empty($item['remark_history']) && is_array($item['remark_history'])) || $missingQty > 0)
                                                     <div class="mt-2">
                                                         <div class="fw-bold text-danger" style="font-size: 0.75rem;">Riwayat Remark:</div>
                                                         <ul class="list-unstyled mb-0 ps-1 mt-1">
-                                                            @foreach($item['remark_history'] as $h)
+                                                            @if(!empty($item['remark_history']) && is_array($item['remark_history']))
+                                                                @foreach($item['remark_history'] as $h)
+                                                                    <li class="mb-1">
+                                                                        <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                            <strong>
+                                                                                Jumlah Item Gagal:
+                                                                                {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}
+                                                                            </strong>
+                                                                            - {{ $h['remark_text'] ?: ($h['tag'] ?? '-') }}
+                                                                        </span>
+                                                                    </li>
+                                                                @endforeach
+                                                            @endif
+                                                            
+                                                            @if($missingQty > 0)
                                                                 <li class="mb-1">
-                                                                    <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                    <span class="badge bg-dark text-wrap text-start" style="font-size: 0.7rem;">
                                                                         <strong>
                                                                             Jumlah Item Gagal:
-                                                                            {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}
+                                                                            {{ (fmod($missingQty, 1) != 0) ? number_format($missingQty, 2, ',', '.') : number_format($missingQty, 0, ',', '.') }}
                                                                         </strong>
-                                                                        - {{ $h['remark'] ?? '-' }}
+                                                                        - NO REASON
                                                                     </span>
                                                                 </li>
-                                                            @endforeach
+                                                            @endif
                                                         </ul>
                                                     </div>
                                                 @elseif(!empty($item['remark']))
@@ -3405,3 +3436,4 @@
 </div>
 
 </x-layouts.app>
+

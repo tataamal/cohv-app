@@ -30,7 +30,9 @@ class DailyTimeWi extends Model
         'nik',
         'nama',
         'total_time_wi',
-        'kode_laravel' // diambil dari plant_code
+        'kode_laravel', // diambil dari plant_code
+        'tag',
+        'plant',
     ];
 
     /**
