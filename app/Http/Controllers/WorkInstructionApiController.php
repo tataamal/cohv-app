@@ -7,6 +7,7 @@ use App\Models\HistoryWiItem;
 
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -126,6 +127,23 @@ class WorkInstructionApiController extends Controller
 
         $documents = $query->get();
 
+        foreach ($documents as $doc) {
+            if ($doc->status === 'INACTIVE') {
+                 [$start, $end] = $this->wiStartEnd($doc);
+                 
+                 if ($now->greaterThanOrEqualTo($start)) {
+                     $doc->status = 'ACTIVE';
+                     $doc->save();
+                     
+                     HistoryWiItem::where('history_wi_id', $doc->id)->update(['status' => 'ACTIVE']);
+                     
+                     foreach($doc->items as $item) {
+                         $item->status = 'ACTIVE';
+                     }
+                 }
+            }
+        }
+
         if ($documents->isEmpty()) {
             return response()->json([
                 'status'  => 'error',
@@ -217,7 +235,7 @@ class WorkInstructionApiController extends Controller
             if ($hasAssignableItems && $allCompleted) {
                 return response()->json([
                     'status'  => 'error',
-                    'message' => 'Semua dokumen yang ditugaskan telah terselesaikan'
+                    'message' => 'Semua dokumen yang ditugaskan belum aktif atau telah terselesaikan'
                 ], 404);
             }
 
@@ -639,5 +657,31 @@ class WorkInstructionApiController extends Controller
             $document->status = $newHeaderStatus;
             $document->save();
         }
+    }
+
+    private function wiStartEnd($doc): array
+    {
+        $date = $doc->document_date instanceof CarbonInterface
+            ? $doc->document_date->format('Y-m-d')
+            : Carbon::parse($doc->document_date)->format('Y-m-d');
+
+        if ((int)$doc->machining === 1) {
+            $start = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
+            $end   = $doc->expired_at ? Carbon::parse($doc->expired_at) : $start->copy()->endOfDay();
+            $end   = $end->endOfDay();
+            return [$start, $end];
+        }
+
+        $time = $doc->document_time instanceof CarbonInterface
+            ? $doc->document_time->format('H:i:s')
+            : trim((string)($doc->document_time ?? ''));
+
+        if ($time === '') $time = '00:00:00';
+        if (preg_match('/^\d{2}:\d{2}$/', $time)) $time .= ':00';
+
+        $start = Carbon::createFromFormat('Y-m-d H:i:s', "{$date} {$time}");
+        $end   = $doc->expired_at ? Carbon::parse($doc->expired_at) : $start->copy()->addHours(24);
+
+        return [$start, $end];
     }
 }

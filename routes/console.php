@@ -20,7 +20,7 @@ Schedule::command('wi:send-weekly-email')
 
 // --- Scheduler Hitung Total Time WI Harian (23:45) ---
 Schedule::command('wi:calculate-daily-time')
-    ->dailyAt('23:45')
+    ->dailyAt('01:00')
     ->timezone('Asia/Jakarta');
 
 Artisan::command('inspire', function () {

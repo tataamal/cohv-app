@@ -35,7 +35,16 @@ class CreateWiController extends Controller
         }
         try {
             DB::beginTransaction();
-            HistoryWi::whereIn('wi_document_code', $ids)->delete();
+
+            $documents = HistoryWi::whereIn('wi_document_code', $ids)->get();
+            
+            if ($documents->isNotEmpty()) {
+                $docIds = $documents->pluck('id');
+                HistoryWiItem::whereIn('history_wi_id', $docIds)->update(['status' => 'DELETED']);
+                HistoryWi::whereIn('id', $docIds)->update(['status' => 'DELETED']);
+                HistoryWi::whereIn('id', $docIds)->delete();
+            }
+
             DB::commit();
             return response()->json(['message' => 'Documents deleted successfully.', 'count' => count($ids)]);
         } catch (\Exception $e) {
@@ -705,6 +714,20 @@ class CreateWiController extends Controller
         $now   = Carbon::now();
         $today = Carbon::today();
         $query = HistoryWi::where('plant_code', $plantCode);
+
+        // Cek Dokumen INACTIVE -> ACTIVE
+        $inactives = HistoryWi::where('plant_code', $plantCode)
+            ->where('status', 'INACTIVE')
+            ->get();
+
+        foreach ($inactives as $doc) {
+            [$start, $end] = $this->wiStartEnd($doc);
+            
+            if ($now->greaterThanOrEqualTo($start)) {
+                $doc->update(['status' => 'ACTIVE']);
+                HistoryWiItem::where('history_wi_id', $doc->id)->update(['status' => 'ACTIVE']);
+            }
+        }
 
         if ($request->filled('date')) {
             $dateInput = $request->date;
@@ -2981,12 +3004,11 @@ class CreateWiController extends Controller
     {
         $search = $request->query('search');
         $filter = $request->query('filter', 'dspt_rel');
-        
-        // Gunakan $kode secara langsung sesuai struktur database kamu
         $query = ProductionTData1::where('WERKSX', $kode)
+            ->whereNotNull('NETPR2')
+            ->where('NETPR2', '!=', 0)
             ->whereRaw('CAST(MGVRG2 AS DECIMAL(20,3)) > CAST(COALESCE(LMNGA, 0) AS DECIMAL(20,3))');
 
-        // --- Search Utama (Global) ---
         if ($search) {
             if (preg_match('/^"(.*)"$/', trim($search), $matches)) {
                 $term = $matches[1];
