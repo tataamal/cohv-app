@@ -6,8 +6,6 @@ use App\Services\SidebarService;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
-use Laravel\Sanctum\PersonalAccessToken;
-use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -47,9 +45,5 @@ class AppServiceProvider extends ServiceProvider
 
             $view->with('menuItems', $menuItems);
         });
-
-        Sanctum::authenticateThrough(function ($request) {
-            return PersonalAccessToken::findToken($request->bearerToken());
-        }); 
     }
 }
