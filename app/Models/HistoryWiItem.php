@@ -33,6 +33,8 @@ class HistoryWiItem extends Model
         'material_desc',
         'qty_order',
         'assigned_qty',
+        'confirmed_qty_total',
+        'remark_qty_total',
         'parent_wc',
         'child_wc',
         'status',
@@ -48,6 +50,8 @@ class HistoryWiItem extends Model
         'vgw01' => 'decimal:2',
         'qty_order' => 'decimal:3',
         'assigned_qty' => 'decimal:3',
+        'confirmed_qty_total' => 'decimal:3',
+        'remark_qty_total'    => 'decimal:3',
         'calculated_takt_time' => 'decimal:2',
     ];
 

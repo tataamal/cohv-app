@@ -19,7 +19,7 @@ class HistoryPro extends Model
     ];
 
     protected $casts = [
-        'qty_pro' => 'integer',
+        'qty_pro' => 'decimal:3',
     ];
 
     public function wiItem(): BelongsTo

@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\QueryException;
 
 class WorkInstructionApiController extends Controller
 {
@@ -23,7 +24,7 @@ class WorkInstructionApiController extends Controller
             ->whereNotIn('status', ['COMPLETED', 'EXPIRED', 'COMPLETED WITH REMARK', 'INACTIVE']) // Exclude completed/expired
             ->where(function ($q) use ($today) {
                 $q->whereNull('expired_at')
-                ->orWhereDate('expired_at', '>=', $today);
+                ->orWhereDate('expired_at', '>', $today);
             });
 
         $histories = $baseHeaderQuery
@@ -99,17 +100,18 @@ class WorkInstructionApiController extends Controller
 
         $now   = Carbon::now();
         $today = $now->toDateString();
+
         $query = HistoryWi::query()
             ->whereDate('document_date', '<=', $today)
             ->where(function ($q) use ($today) {
                 $q->whereNull('expired_at')
-                ->orWhereDate('expired_at', '>=', $today);
+                ->orWhereDate('expired_at', '>', $today);
             })
             ->with(['items' => function ($q) use ($nik) {
                 $q->whereNotNull('aufnr')
                 ->whereNotNull('vornr')
-                ->whereNotNull('nik')
-                ->with('pros'); // Eager load pros to avoid N+1
+                ->whereNotNull('nik');
+
                 if ($nik) {
                     $q->where('nik', $nik);
                 }
@@ -127,20 +129,21 @@ class WorkInstructionApiController extends Controller
 
         $documents = $query->get();
 
+        // Auto-activate WI INACTIVE jika sudah masuk start time
         foreach ($documents as $doc) {
             if ($doc->status === 'INACTIVE') {
-                 [$start, $end] = $this->wiStartEnd($doc);
-                 
-                 if ($now->greaterThanOrEqualTo($start)) {
-                     $doc->status = 'ACTIVE';
-                     $doc->save();
-                     
-                     HistoryWiItem::where('history_wi_id', $doc->id)->update(['status' => 'ACTIVE']);
-                     
-                     foreach($doc->items as $item) {
-                         $item->status = 'ACTIVE';
-                     }
-                 }
+                [$start, $end] = $this->wiStartEnd($doc);
+
+                if ($now->greaterThanOrEqualTo($start)) {
+                    $doc->status = 'ACTIVE';
+                    $doc->save();
+
+                    HistoryWiItem::where('history_wi_id', $doc->id)->update(['status' => 'ACTIVE']);
+
+                    foreach ($doc->items as $item) {
+                        $item->status = 'ACTIVE';
+                    }
+                }
             }
         }
 
@@ -154,10 +157,11 @@ class WorkInstructionApiController extends Controller
         $hasAssignableItems = false;
         $allCompleted       = false;
 
-        $mappedDocuments = $documents->map(function ($doc) use ($nik, $now, &$hasAssignableItems, &$allCompleted) {
+        $mappedDocuments = $documents->map(function ($doc) use ($now, &$hasAssignableItems, &$allCompleted) {
             $isMachining = ((int) $doc->machining === 1);
-            $rawItems = $doc->items;
+            $rawItems    = $doc->items;
 
+            // Filter machining window (kalau masih dipakai di read)
             if ($isMachining) {
                 $rawItems = $rawItems->filter(function ($item) use ($now) {
                     $attrs = $item->getAttributes();
@@ -186,7 +190,7 @@ class WorkInstructionApiController extends Controller
             }
 
             $pendingItems = $rawItems->filter(function ($item) {
-                $status = $item->status ?? '';
+                $status = (string) ($item->status ?? '');
                 return !in_array($status, ['Completed', 'Completed With Remark'], true);
             })->values();
 
@@ -194,36 +198,32 @@ class WorkInstructionApiController extends Controller
                 $allCompleted = true;
             }
 
+            // Map items memakai COUNTER, bukan pros->sum
             $historyWiItems = $pendingItems->map(function ($item) {
                 $arr = $item->toArray();
-                $arr['status_pro_wi'] = $item->status ?? null;
 
-                $arr['status_pro_wi'] = $item->status ?? null;
+                $arr['status_pro_wi']  = $item->status ?? null;
+                $arr['confirmed_qty']  = (float) ($item->confirmed_qty_total ?? 0);
+                $arr['remark_qty']     = (float) ($item->remark_qty_total ?? 0);
 
-                // Calculate sums from the loaded 'pros' collection instead of DB queries
-                $confirmed = $item->pros
-                    ->whereIn('status', ['confirmasi', 'confirmation'])
-                    ->sum('qty_pro');
-                
-                $remark = $item->pros
-                    ->where('status', 'remark')
-                    ->sum('qty_pro');
-
-                $arr['confirmed_qty'] = (int)$confirmed;
-                $arr['remark_qty']    = (int)$remark;
+                // Optional tambahan kalau mau: processed & remaining
+                $assigned = (float) ($item->assigned_qty ?? 0);
+                $processed = $arr['confirmed_qty'] + $arr['remark_qty'];
+                $arr['processed_total'] = $processed;
+                $arr['remaining_qty']   = max(0, $assigned - $processed);
 
                 return $arr;
             })->toArray();
 
             return [
-                'wi_code'        => $doc->wi_document_code,
-                'plant_code'     => $doc->plant_code,
-                'workcenter'     => $doc->workcenter,
-                'document_date'  => $doc->document_date,
-                'document_time'  => $doc->document_time,
-                'expired_at'     => $doc->expired_at,
-                'machining'      => (int) $doc->machining,
-                'history_wi_item'=> $historyWiItems,
+                'wi_code'         => $doc->wi_document_code,
+                'plant_code'      => $doc->plant_code,
+                'workcenter'      => $doc->workcenter,
+                'document_date'   => $doc->document_date,
+                'document_time'   => $doc->document_time,
+                'expired_at'      => $doc->expired_at,
+                'machining'       => (int) $doc->machining,
+                'history_wi_item' => $historyWiItems,
             ];
         });
 
@@ -256,7 +256,7 @@ class WorkInstructionApiController extends Controller
         $request->validate([
             'wi_code'        => 'required|string',
             'aufnr'          => 'required|string',
-            'confirmed_qty'  => 'required|integer|min:1', // qty_pro int
+            'confirmed_qty'  => 'required|numeric|min:0.001',
             'nik'            => 'required|string',
             'vornr'          => 'required|string',
         ]);
@@ -265,133 +265,138 @@ class WorkInstructionApiController extends Controller
         $aufnr   = $request->input('aufnr');
         $nik     = $request->input('nik');
         $vornr   = $request->input('vornr');
-        $confQty = (int) $request->input('confirmed_qty');
-
-        $now   = Carbon::now();
-        $today = $now->toDateString();
+        $confQty = (float) $request->input('confirmed_qty');
+        $today   = Carbon::now()->toDateString();
 
         try {
-            DB::beginTransaction();
+            $result = $this->runTransactionWithDeadlockRetry(function () use ($wiCode, $aufnr, $nik, $vornr, $confQty, $today) {
 
-            // Header aktif
-            $document = HistoryWi::query()
-                ->where('wi_document_code', $wiCode)
-                ->whereDate('document_date', '<=', $today)
-                ->where(function ($q) use ($today) {
-                    $q->whereNull('expired_at')
-                    ->orWhereDate('expired_at', '>=', $today);
-                })
-                ->lockForUpdate()
-                ->first();
+                $document = HistoryWi::query()
+                    ->where('wi_document_code', $wiCode)
+                    ->whereDate('document_date', '<=', $today)
+                    ->where(function ($q) use ($today) {
+                        $q->whereNull('expired_at')
+                        ->orWhereDate('expired_at', '>=', $today);
+                    })
+                    ->first();
 
-            if (!$document) {
-                DB::rollBack();
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Dokumen WI tidak ditemukan atau WI Inactive.'
-                ], 404);
+                if (!$document) {
+                    return ['http' => 404, 'payload' => [
+                        'status'  => 'error',
+                        'message' => 'Dokumen WI tidak ditemukan atau WI Inactive.'
+                    ]];
+                }
+
+                $item = HistoryWiItem::query()
+                    ->where('history_wi_id', $document->id)
+                    ->where('aufnr', $aufnr)
+                    ->where('vornr', $vornr)
+                    ->where('nik', $nik)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$item) {
+                    return ['http' => 404, 'payload' => [
+                        'status'  => 'error',
+                        'message' => 'Kombinasi AUFNR, VORNR dan NIK tidak ditemukan di dokumen ini.'
+                    ]];
+                }
+
+                $assignedQty = (float) ($item->assigned_qty ?? 0);
+                $confirmed   = (float) ($item->confirmed_qty_total ?? 0);
+                $remark      = (float) ($item->remark_qty_total ?? 0);
+
+                $processed = $confirmed + $remark;
+                $remaining = $assignedQty - $processed;
+
+                if ($confQty > $remaining) {
+                    return ['http' => 400, 'payload' => [
+                        'status'  => 'error',
+                        'message' => "Qty konfirmasi melebihi sisa kuota. Remaining allow: {$remaining}.",
+                        'meta'    => [
+                            'assigned_qty'        => $assignedQty,
+                            'confirmed_qty_total' => $confirmed,
+                            'remark_qty_total'    => $remark,
+                            'processed_total'     => $processed,
+                            'remaining_qty'       => max(0, $remaining),
+                        ],
+                    ]];
+                }
+
+                // untuk decimal aman: jangan tempel float mentah ke SQL
+                $confQtyStr = number_format($confQty, 3, '.', '');
+
+                // atomic increment + guard (walau sudah lockForUpdate, ini menambah safety)
+                $affected = HistoryWiItem::where('id', $item->id)
+                    ->whereRaw('(confirmed_qty_total + remark_qty_total + ?) <= assigned_qty', [$confQty])
+                    ->update([
+                        'confirmed_qty_total' => DB::raw("confirmed_qty_total + {$confQtyStr}"),
+                        'updated_at'          => now(),
+                    ]);
+
+                if ($affected === 0) {
+                    return ['http' => 400, 'payload' => [
+                        'status'  => 'error',
+                        'message' => 'Qty konfirmasi melebihi sisa kuota (race protected).'
+                    ]];
+                }
+
+                HistoryPro::create([
+                    'history_wi_item_id' => $item->id,
+                    'qty_pro'            => $confQty,
+                    'status'             => 'confirmasi',
+                    'remark_text'        => null,
+                    'tag'                => null,
+                ]);
+
+                $item->refresh();
+
+                $confirmedNew = (float) ($item->confirmed_qty_total ?? 0);
+                $remarkNew    = (float) ($item->remark_qty_total ?? 0);
+                $processedNew = $confirmedNew + $remarkNew;
+
+                if ($assignedQty > 0 && $processedNew >= $assignedQty) {
+                    $newStatus = ($remarkNew > 0) ? 'Completed With Remark' : 'Completed';
+                } else {
+                    if ($remarkNew > 0) $newStatus = 'Progress With Remark';
+                    elseif ($confirmedNew > 0) $newStatus = 'Progress';
+                    else $newStatus = 'Created';
+                }
+
+                $item->status = $newStatus;
+                $item->save();
+
+                return ['http' => 200, 'payload' => [
+                    'status'              => 'success',
+                    'message'             => "Konfirmasi berhasil disimpan untuk {$aufnr} ({$wiCode}).",
+                    'new_status'          => $newStatus,
+                    'assigned_qty'        => $assignedQty,
+                    'confirmed_qty_total' => $confirmedNew,
+                    'remark_qty_total'    => $remarkNew,
+                    'processed_total'     => $processedNew,
+                    'remaining_qty'       => max(0, $assignedQty - $processedNew),
+                ], 'document_id' => $document->id, 'new_status' => $newStatus];
+
+            }, 3, 1); // retry 3x, delay 1 detik
+
+            // post-commit: update header (opsional) - aman dilakukan di luar transaksi
+            if (($result['http'] ?? 500) === 200) {
+                $st = $result['new_status'] ?? null;
+                if (in_array($st, ['Completed', 'Completed With Remark'], true)) {
+                    $this->updateDocumentStatusFast($result['document_id']);
+                }
             }
 
-            // Item unik
-            $item = HistoryWiItem::query()
-                ->where('history_wi_id', $document->id)
-                ->where('aufnr', $aufnr)
-                ->where('vornr', $vornr)
-                ->where('nik', $nik)
-                ->lockForUpdate()
-                ->first();
+            return response()->json($result['payload'], $result['http']);
 
-            if (!$item) {
-                DB::rollBack();
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Kombinasi AUFNR, VORNR dan NIK tidak ditemukan di dokumen ini.'
-                ], 404);
-            }
-
-            // User request: Machining mode no longer needs SSAVD/SSSLD check, 
-            // relying only on Document Active status (checked above).
-            /* 
-            $isMachining = ((int) $document->machining === 1);
-            if ($isMachining) {
-                // validation removed...
-            }
-            */
-
-            $assignedQty = (float) ($item->assigned_qty ?? 0);
-            $confirmedTotal = (int) HistoryPro::where('history_wi_item_id', $item->id)
-                ->where('status', 'confirmasi')
-                ->sum('qty_pro');
-
-            $remarkTotal = (int) HistoryPro::where('history_wi_item_id', $item->id)
-                ->where('status', 'remark')
-                ->sum('qty_pro');
-
-            $processed = $confirmedTotal + $remarkTotal;
-            $remaining = $assignedQty - $processed;
-
-            if ($confQty > $remaining) {
-                DB::rollBack();
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => "Qty konfirmasi melebihi sisa kuota. Remaining allow: {$remaining}.",
-                    'meta'    => [
-                        'assigned_qty'        => $assignedQty,
-                        'confirmed_qty_total' => $confirmedTotal,
-                        'remark_qty_total'    => $remarkTotal,
-                        'processed_total'     => $processed,
-                        'remaining_qty'       => max(0, $remaining),
-                    ],
-                ], 400);
-            }
-
-            // Insert confirmation row
-            HistoryPro::create([
-                'history_wi_item_id' => $item->id,
-                'qty_pro'            => $confQty,
-                'status'             => 'confirmasi',
-                'remark_text'        => null,
-                'tag'                => null,
-            ]);
-            $confirmedTotalNew = $confirmedTotal + $confQty;
-            $processedNew = $confirmedTotalNew + $remarkTotal;
-
-            if ($assignedQty > 0 && $processedNew >= $assignedQty) {
-                $newStatus = ($remarkTotal > 0) ? 'Completed With Remark' : 'Completed';
-            } else {
-                if ($remarkTotal > 0) $newStatus = 'Progress With Remark';
-                elseif ($confirmedTotalNew > 0) $newStatus = 'Progress';
-                else $newStatus = 'Created';
-            }
-
-            $item->status = $newStatus;
-
-            $item->save();
-
-            // UPDATE DOCUMENT STATUS
-            $this->updateDocumentStatus($document->id); 
-
-            DB::commit();
-
-            return response()->json([
-                'status'              => 'success',
-                'message'             => "Konfirmasi berhasil disimpan untuk {$aufnr} ({$wiCode}).",
-                'new_status'          => $newStatus,
-                'assigned_qty'        => $assignedQty,
-                'confirmed_qty_total' => $confirmedTotalNew,
-                'remark_qty_total'    => $remarkTotal,
-                'processed_total'     => $processedNew,
-                'remaining_qty'       => max(0, $assignedQty - $processedNew),
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (\Throwable $e) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Gagal mengubah status PRO: ' . $e->getMessage(),
             ], 500);
         }
     }
+
 
     public function completeWithRemark(Request $request)
     {
@@ -401,7 +406,7 @@ class WorkInstructionApiController extends Controller
             'nik'         => 'required|string',
             'vornr'       => 'required|string',
             'remark'      => 'nullable|string',
-            'remark_qty'  => 'required|integer|min:1', // qty_pro int
+            'remark_qty'  => 'required|numeric|min:0.001',
             'tag'         => 'nullable|string',
         ]);
 
@@ -410,142 +415,209 @@ class WorkInstructionApiController extends Controller
         $nik       = $request->input('nik');
         $vornr     = $request->input('vornr');
         $remark    = $request->input('remark') ?? '';
-        $remarkQty = (int) $request->input('remark_qty');
+        $remarkQty = (float) $request->input('remark_qty');
         $tag       = $request->input('tag') ?? '';
-
-        $now   = Carbon::now();
-        $today = $now->toDateString();
+        $today     = Carbon::now()->toDateString();
 
         try {
-            DB::beginTransaction();
-            $document = HistoryWi::query()
-                ->where('wi_document_code', $wiCode)
-                ->whereDate('document_date', '<=', $today)
-                ->where(function ($q) use ($today) {
-                    $q->whereNull('expired_at')
-                    ->orWhereDate('expired_at', '>=', $today);
-                })
-                ->lockForUpdate()
-                ->first();
+            $result = $this->runTransactionWithDeadlockRetry(function () use (
+                $wiCode, $aufnr, $nik, $vornr, $remark, $remarkQty, $tag, $today
+            ) {
+                // header aktif (tanpa lock)
+                $document = HistoryWi::query()
+                    ->where('wi_document_code', $wiCode)
+                    ->whereDate('document_date', '<=', $today)
+                    ->where(function ($q) use ($today) {
+                        $q->whereNull('expired_at')
+                        ->orWhereDate('expired_at', '>=', $today);
+                    })
+                    ->first();
 
-            if (!$document) {
-                DB::rollBack();
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Dokumen WI tidak ditemukan atau WI Inactive.'
-                ], 404);
-            }
-
-            $wiItem = HistoryWiItem::query()
-                ->where('history_wi_id', $document->id)
-                ->where('aufnr', $aufnr)
-                ->where('vornr', $vornr)
-                ->where('nik', $nik)
-                ->lockForUpdate()
-                ->first();
-
-            if (!$wiItem) {
-                DB::rollBack();
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Item tidak ditemukan pada dokumen WI ini.'
-                ], 404);
-            }
-
-            // User request: Machining mode no longer needs SSAVD/SSSLD check.
-            /*
-            $isMachining = ((int) $document->machining === 1);
-            if ($isMachining) {
-                // validation removed...
-            }
-            */
-
-            $assignedQty = (float) ($wiItem->assigned_qty ?? 0);
-            $confirmedQtyTotal = (int) HistoryPro::query()
-                ->where('history_wi_item_id', $wiItem->id)
-                ->where('status', 'confirmasi')
-                ->sum('qty_pro');
-
-            $remarkQtyTotal = (int) HistoryPro::query()
-                ->where('history_wi_item_id', $wiItem->id)
-                ->where('status', 'remark')
-                ->sum('qty_pro');
-
-            $processedTotal = (float) ($confirmedQtyTotal + $remarkQtyTotal);
-            $remaining = (float) ($assignedQty - $processedTotal);
-            $eps = 0.000001;
-
-            if (($remarkQty - $remaining) > $eps) {
-                DB::rollBack();
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => "Remark quantity melebihi sisa kuota. Remaining allow: {$remaining}.",
-                    'meta'    => [
-                        'assigned_qty'        => $assignedQty,
-                        'confirmed_qty_total' => $confirmedQtyTotal,
-                        'remark_qty_total'    => $remarkQtyTotal,
-                        'processed_total'     => $processedTotal,
-                        'remaining_qty'       => max(0, $remaining),
-                    ],
-                ], 400);
-            }
-            HistoryPro::create([
-                'history_wi_item_id' => $wiItem->id,
-                'qty_pro'            => $remarkQty,
-                'status'             => 'remark',
-                'remark_text'        => $remark,
-                'tag'                => $tag,
-            ]);
-            $remarkQtyTotalNew = $remarkQtyTotal + $remarkQty;
-            $processedTotalNew = (float) ($confirmedQtyTotal + $remarkQtyTotalNew);
-
-            if ($assignedQty > 0 && ($processedTotalNew + $eps) >= $assignedQty) {
-                $newStatus = ($remarkQtyTotalNew > 0) ? 'Completed With Remark' : 'Completed';
-            } else {
-                if ($remarkQtyTotalNew > 0) {
-                    $newStatus = 'Progress With Remark';
-                } elseif ($confirmedQtyTotal > 0) {
-                    $newStatus = 'Progress';
-                } else {
-                    $newStatus = 'Created';
+                if (!$document) {
+                    return ['http' => 404, 'payload' => [
+                        'status'  => 'error',
+                        'message' => 'Dokumen WI tidak ditemukan atau WI Inactive.'
+                    ]];
                 }
+
+                // lock item (row-level)
+                $wiItem = HistoryWiItem::query()
+                    ->where('history_wi_id', $document->id)
+                    ->where('aufnr', $aufnr)
+                    ->where('vornr', $vornr)
+                    ->where('nik', $nik)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$wiItem) {
+                    return ['http' => 404, 'payload' => [
+                        'status'  => 'error',
+                        'message' => 'Item tidak ditemukan pada dokumen WI ini.'
+                    ]];
+                }
+
+                $assignedQty = (float) ($wiItem->assigned_qty ?? 0);
+
+                // pakai counter (tanpa SUM)
+                $confirmed = (float) ($wiItem->confirmed_qty_total ?? 0);
+                $remarkTot = (float) ($wiItem->remark_qty_total ?? 0);
+
+                $processed = $confirmed + $remarkTot;
+                $remaining = $assignedQty - $processed;
+
+                if ($remarkQty > $remaining) {
+                    return ['http' => 400, 'payload' => [
+                        'status'  => 'error',
+                        'message' => "Remark quantity melebihi sisa kuota. Remaining allow: {$remaining}.",
+                        'meta'    => [
+                            'assigned_qty'        => $assignedQty,
+                            'confirmed_qty_total' => $confirmed,
+                            'remark_qty_total'    => $remarkTot,
+                            'processed_total'     => $processed,
+                            'remaining_qty'       => max(0, $remaining),
+                        ],
+                    ]];
+                }
+
+                // decimal aman untuk SQL
+                $remarkQtyStr = number_format($remarkQty, 3, '.', '');
+
+                // atomic increment + guard
+                $affected = HistoryWiItem::where('id', $wiItem->id)
+                    ->whereRaw('(confirmed_qty_total + remark_qty_total + ?) <= assigned_qty', [$remarkQty])
+                    ->update([
+                        'remark_qty_total' => DB::raw("remark_qty_total + {$remarkQtyStr}"),
+                        'updated_at'       => now(),
+                    ]);
+
+                if ($affected === 0) {
+                    return ['http' => 400, 'payload' => [
+                        'status'  => 'error',
+                        'message' => 'Remark quantity melebihi sisa kuota (race protected).'
+                    ]];
+                }
+
+                // audit trail
+                HistoryPro::create([
+                    'history_wi_item_id' => $wiItem->id,
+                    'qty_pro'            => $remarkQty,
+                    'status'             => 'remark',
+                    'remark_text'        => $remark,
+                    'tag'                => $tag,
+                ]);
+
+                // refresh counter terbaru
+                $wiItem->refresh();
+
+                $confirmedNew = (float) ($wiItem->confirmed_qty_total ?? 0);
+                $remarkNew    = (float) ($wiItem->remark_qty_total ?? 0);
+                $processedNew = $confirmedNew + $remarkNew;
+
+                // hitung status
+                if ($assignedQty > 0 && $processedNew >= $assignedQty) {
+                    $newStatus = ($remarkNew > 0) ? 'Completed With Remark' : 'Completed';
+                } else {
+                    if ($remarkNew > 0) $newStatus = 'Progress With Remark';
+                    elseif ($confirmedNew > 0) $newStatus = 'Progress';
+                    else $newStatus = 'Created';
+                }
+
+                $wiItem->status = $newStatus;
+                $wiItem->save();
+
+                return [
+                    'http'       => 200,
+                    'payload'    => [
+                        'status'              => 'success',
+                        'message'             => 'Remark Added Successfully.',
+                        'new_status'          => $newStatus,
+                        'assigned_qty'        => $assignedQty,
+                        'confirmed_qty_total' => $confirmedNew,
+                        'remark_qty_total'    => $remarkNew,
+                        'processed_total'     => $processedNew,
+                        'remaining_qty'       => max(0, $assignedQty - $processedNew),
+                    ],
+                    'document_id' => $document->id,
+                    'wi_item_id'  => $wiItem->id,
+                    'new_status'  => $newStatus,
+                ];
+            }, 3, 1); // retry 3x, delay 1 detik
+
+            // post-commit: update header hanya saat completed
+            if (($result['http'] ?? 500) === 200) {
+                $st = $result['new_status'] ?? null;
+                if (in_array($st, ['Completed', 'Completed With Remark'], true)) {
+                    $this->updateDocumentStatusFast($result['document_id']);
+                }
+
+                // ambil remark history di luar transaksi (lebih ringan)
+                $remarkHistory = HistoryPro::query()
+                    ->where('history_wi_item_id', $result['wi_item_id'])
+                    ->where('status', 'remark')
+                    ->orderBy('created_at', 'asc')
+                    ->get(['qty_pro', 'remark_text', 'tag', 'created_at'])
+                    ->toArray();
+
+                $result['payload']['remark_history'] = $remarkHistory;
             }
 
-            $wiItem->status = $newStatus;
-            $wiItem->save();
-            $wiItem->save();
-            
-            // UPDATE DOCUMENT STATUS
-            $this->updateDocumentStatus($document->id);
-            
-            $remarkHistory = HistoryPro::query()
-                ->where('history_wi_item_id', $wiItem->id)
-                ->where('status', 'remark')
-                ->orderBy('created_at', 'asc')
-                ->get(['qty_pro', 'remark_text', 'tag', 'created_at'])
-                ->toArray();
+            return response()->json($result['payload'], $result['http']);
 
-            DB::commit();
-
-            return response()->json([
-                'status'              => 'success',
-                'message'             => 'Remark Added Successfully.',
-                'new_status'          => $newStatus,
-                'assigned_qty'        => $assignedQty,
-                'confirmed_qty_total' => $confirmedQtyTotal,
-                'remark_qty_total'    => $remarkQtyTotalNew,
-                'processed_total'     => $processedTotalNew,
-                'remaining_qty'       => max(0, $assignedQty - $processedTotalNew),
-                'remark_history'      => $remarkHistory,
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (\Throwable $e) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function runTransactionWithDeadlockRetry(callable $callback, int $attempts = 3, int $sleepSeconds = 1)
+    {
+        for ($i = 1; $i <= $attempts; $i++) {
+            try {
+                return DB::transaction($callback); // 1 attempt per loop
+            } catch (QueryException $e) {
+                $driverCode = $e->errorInfo[1] ?? null;
+
+                // MySQL InnoDB:
+                // 1213 = Deadlock found when trying to get lock
+                // 1205 = Lock wait timeout exceeded
+                $isRetryable = in_array($driverCode, [1213, 1205], true);
+
+                if ($isRetryable && $i < $attempts) {
+                    sleep($sleepSeconds); // jarak antar retry = 1 detik
+                    continue;
+                }
+
+                throw $e;
+            }
+        }
+
+        // harusnya tidak pernah sampai sini
+        return DB::transaction($callback);
+    }
+
+    private function updateDocumentStatusFast($historyWiId)
+    {
+        // masih ada item yang belum completed?
+        $notCompleted = HistoryWiItem::where('history_wi_id', $historyWiId)
+            ->whereNotIn('status', ['Completed', 'Completed With Remark'])
+            ->count();
+
+        if ($notCompleted > 0) {
+            HistoryWi::where('id', $historyWiId)
+                ->update(['status' => 'PROCESSED']);
+            return;
+        }
+
+        $hasRemark = HistoryWiItem::where('history_wi_id', $historyWiId)
+            ->where('status', 'Completed With Remark')
+            ->exists();
+
+        $newHeaderStatus = $hasRemark ? 'COMPLETED WITH REMARK' : 'COMPLETED';
+
+        HistoryWi::where('id', $historyWiId)
+            ->update(['status' => $newHeaderStatus]);
     }
 
     public function getRemarksByAufnr(Request $request)
