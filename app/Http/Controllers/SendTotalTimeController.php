@@ -142,7 +142,8 @@ class SendTotalTimeController extends Controller
                          $q->whereDate('history_wi.document_date', '<=', $currentDate)
                            ->where(function($q2) use ($currentDate) {
                                $q2->whereNull('history_wi.expired_at')
-                                  ->orWhereDate('history_wi.expired_at', '>=', $currentDate);
+                                  // Update: Use strict comparison for expired_at to avoid counting documents failing on 00:00:00 of the current date
+                                  ->orWhere('history_wi.expired_at', '>', $currentDate . ' 00:00:00');
                            });
                     })
                     // Filter item NIK relevant? Yes.
@@ -217,7 +218,15 @@ class SendTotalTimeController extends Controller
                         // Start: document_date
                         // End: expired_at
                         $sDate = Carbon::parse($ctx['start'])->startOfDay();
-                        $eDate = $ctx['end'] ? Carbon::parse($ctx['end'])->startOfDay() : $sDate->copy()->endOfDay();
+                        
+                        // Fix for Duration: If expired_at is exactly 00:00:00, it shouldn't count as an extra day
+                        $endC = $ctx['end'] ? Carbon::parse($ctx['end']) : null;
+                        if ($endC && $endC->format('H:i:s') === '00:00:00') {
+                            // If ends at 00:00:00, count it as ending on previous day for duration purposes
+                            $eDate = $endC->copy()->subSecond()->startOfDay();
+                        } else {
+                            $eDate = $endC ? $endC->startOfDay() : $sDate->copy()->endOfDay();
+                        }
                         
                          // Duration in days (inclusive)
                          // e.g., 2nd to 5th. 2,3,4,5 = 4 days.
