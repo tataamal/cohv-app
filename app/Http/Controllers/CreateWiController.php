@@ -499,6 +499,9 @@ class CreateWiController extends Controller
                     }
 
                     $timeForDb = null;
+                } elseif ($headerLongshift) {
+                    // User Request: Longshift H-1 expired same as WIH (24 hours from doc date+time)
+                    $expiredAt = $baseDateTime->copy()->addHours(24);
                 }
 
                 DB::transaction(function () use (

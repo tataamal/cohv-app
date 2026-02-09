@@ -647,6 +647,10 @@
                                         ])) checked @endif>
                                     <label class="form-check-label small text-white" for="chkUnique2">Auto Assign</label>
                                 </div>
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="chkLongshift">
+                                    <label class="form-check-label small text-white" for="chkLongshift">Longshift (H-1)</label>
+                                </div>
                             </div>
                         </div>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -2007,12 +2011,16 @@
                     const chkMachining = document.getElementById('chkUnique1');
                     const isMachining = chkMachining ? chkMachining.checked : false;
 
+                    const chkLongshiftGlobal = document.getElementById('chkLongshift');
+                    const isLongshiftGlobal = chkLongshiftGlobal ? chkLongshiftGlobal.checked : false;
+
                     cards.forEach(card => {
                         const aufnr = card.dataset.refAufnr;
                         const maxQty = parseFloat(card.dataset.maxQty) || 0;
                         
                         const lsCheckbox = card.querySelector(`#ls-${aufnr}`);
-                        const isLongshift = lsCheckbox ? lsCheckbox.checked : false;
+                        // Merge Local + Global
+                        const isLongshift = (lsCheckbox && lsCheckbox.checked) || isLongshiftGlobal;
 
                         const rows = card.querySelectorAll('.assignment-rows .assignment-row');
                         let currentSum = 0;

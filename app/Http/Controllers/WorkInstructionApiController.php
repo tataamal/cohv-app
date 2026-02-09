@@ -223,6 +223,7 @@ class WorkInstructionApiController extends Controller
                 'document_time'   => $doc->document_time,
                 'expired_at'      => $doc->expired_at,
                 'machining'       => (int) $doc->machining,
+                'longshift'       => (int) $doc->longshift,
                 'history_wi_item' => $historyWiItems,
             ];
         });
