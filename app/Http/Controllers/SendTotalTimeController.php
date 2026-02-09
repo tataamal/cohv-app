@@ -37,7 +37,7 @@ class SendTotalTimeController extends Controller
                 // =========================================================================================
                 // PART 1: NORMAL WI (Non-Machining)
                 // Filter: Status COMPLETED, COMPLETED WITH REMARK, EXPIRED
-                // Date: updated_at (completion date) OR expired_at (if expired) matches $currentDate
+                // Date: document_date matches $currentDate
                 // =========================================================================================
                 
                 $normalRows = HistoryWiItem::query()
@@ -47,18 +47,10 @@ class SendTotalTimeController extends Controller
                         $q->whereNull('history_wi.machining')
                           ->orWhere('history_wi.machining', '=', 0);
                     })
-                    ->where(function($q) use ($currentDate) {
-                        // Case A: Completed Docs (check updated_at for completion time)
-                        $q->where(function($sub) use ($currentDate) {
-                            $sub->where('history_wi.status', 'LIKE', '%COMPLETED%')
-                                ->whereDate('history_wi.updated_at', $currentDate);
-                        })
-                        // Case B: Expired Docs (check expired_at matches Calculation Date)
-                        // Note: If expired yesterday, we report it today as yesterday's data.
-                        ->orWhere(function($sub) use ($currentDate) {
-                            $sub->where('history_wi.status', 'EXPIRED')
-                                ->whereDate('history_wi.expired_at', $currentDate);
-                        });
+                    ->whereDate('history_wi.document_date', $currentDate)
+                    ->where(function($q) {
+                        $q->where('history_wi.status', 'LIKE', '%COMPLETED%')
+                          ->orWhere('history_wi.status', 'EXPIRED');
                     })
                     ->whereNotNull('history_wi_item.nik')
                     ->select([
