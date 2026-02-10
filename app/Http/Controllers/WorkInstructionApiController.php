@@ -103,22 +103,27 @@ class WorkInstructionApiController extends Controller
 
         $query = HistoryWi::query()
             ->where(function ($grouped) use ($today) {
-                // 1. Dokumen BIASA (Non-Longshift) -> Kena filter tanggal & expired
+                // 1. Dokumen BIASA & MACHINING (Non-Longshift & Non-WIW) -> Kena filter tanggal & expired
                 $grouped->where(function ($q) use ($today) {
                     $q->where(function ($sub) {
-                        $sub->where('longshift', '!=', 1)
-                            ->orWhereNull('longshift');
+                        $sub->where(function ($s) {
+                                $s->where('longshift', '!=', 1)
+                                  ->orWhereNull('longshift');
+                            })
+                            ->where('wi_document_code', 'not like', 'WIW%');
                     })
-                    ->whereDate('document_date', '<=', $today)
                     ->where(function ($sub2) use ($today) {
                         $sub2->whereNull('expired_at')
                              ->orWhereDate('expired_at', '>', $today);
                     });
                 })
-                // 2. Dokumen LONGSHIFT -> Hanya cek status ACTIVE (abaikan tanggal)
+                // 2. Dokumen LONGSHIFT atau WIW -> Hanya cek status ACTIVE (abaikan tanggal)
                 ->orWhere(function ($q) {
-                    $q->where('longshift', 1)
-                      ->where('status', 'ACTIVE');
+                    $q->where(function ($sub) {
+                        $sub->where('longshift', 1)
+                            ->orWhere('wi_document_code', 'like', 'WIW%');
+                    })
+                    ->where('status', 'ACTIVE');
                 });
             })
             ->with(['items' => function ($q) use ($nik) {
