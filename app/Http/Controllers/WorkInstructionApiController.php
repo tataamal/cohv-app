@@ -107,6 +107,17 @@ class WorkInstructionApiController extends Controller
                 $q->whereNull('expired_at')
                 ->orWhereDate('expired_at', '>', $today);
             })
+            ->where(function ($q) {
+                // Filter khusus: jika longshift=1, status wajib ACTIVE
+                $q->where(function ($sub) {
+                    $sub->where('longshift', '!=', 1)
+                        ->orWhereNull('longshift');
+                })
+                ->orWhere(function ($sub) {
+                    $sub->where('longshift', 1)
+                        ->where('status', 'ACTIVE');
+                });
+            })
             ->with(['items' => function ($q) use ($nik) {
                 $q->whereNotNull('aufnr')
                 ->whereNotNull('vornr')
