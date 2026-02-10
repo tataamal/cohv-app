@@ -102,20 +102,23 @@ class WorkInstructionApiController extends Controller
         $today = $now->toDateString();
 
         $query = HistoryWi::query()
-            ->whereDate('document_date', '<=', $today)
-            ->where(function ($q) use ($today) {
-                $q->whereNull('expired_at')
-                ->orWhereDate('expired_at', '>', $today);
-            })
-            ->where(function ($q) {
-                // Filter khusus: jika longshift=1, status wajib ACTIVE
-                $q->where(function ($sub) {
-                    $sub->where('longshift', '!=', 1)
-                        ->orWhereNull('longshift');
+            ->where(function ($grouped) use ($today) {
+                // 1. Dokumen BIASA (Non-Longshift) -> Kena filter tanggal & expired
+                $grouped->where(function ($q) use ($today) {
+                    $q->where(function ($sub) {
+                        $sub->where('longshift', '!=', 1)
+                            ->orWhereNull('longshift');
+                    })
+                    ->whereDate('document_date', '<=', $today)
+                    ->where(function ($sub2) use ($today) {
+                        $sub2->whereNull('expired_at')
+                             ->orWhereDate('expired_at', '>', $today);
+                    });
                 })
-                ->orWhere(function ($sub) {
-                    $sub->where('longshift', 1)
-                        ->where('status', 'ACTIVE');
+                // 2. Dokumen LONGSHIFT -> Hanya cek status ACTIVE (abaikan tanggal)
+                ->orWhere(function ($q) {
+                    $q->where('longshift', 1)
+                      ->where('status', 'ACTIVE');
                 });
             })
             ->with(['items' => function ($q) use ($nik) {
