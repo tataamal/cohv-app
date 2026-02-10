@@ -41,6 +41,7 @@ class HistoryWiItem extends Model
         'machining',
         'longshift',
         'calculated_takt_time',
+        'stats',
     ];
 
     protected $casts = [

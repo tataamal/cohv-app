@@ -356,7 +356,6 @@ class SendLogHistoryEmail extends Command
             $this->info("   No reports/files to send.");
         } else {
             $recipients = [
-                'tataamal1128@gmail.com',
                 'finc.smg@pawindo.com',
                 'kmi356smg@gmail.com',
                 'adm.mkt5.smg@gmail.com',
@@ -368,7 +367,8 @@ class SendLogHistoryEmail extends Command
                 'kmi3.58.smg@gmail.com',
                 'kmi3.57.smg@gmail.com',
                 'kmi3.2.smg@gmail.com',
-                'kmi3.1.smg@gmail.com'
+                'kmi3.1.smg@gmail.com',
+                'tataamal1128@gmail.com'
             ];
             // $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateHistory)->locale('id')->translatedFormat('d F Y');

@@ -614,6 +614,7 @@ class CreateWiController extends Controller
                             'machining'        => !empty($itemData['is_machining']),
                             'longshift'        => !empty($itemData['is_longshift']),
                             'calculated_takt_time' => $itemData['calculated_takt_time'] ?? 0,
+                            'stats'            => $itemData['stats'] ?? null,
                         ]);
 
                         $proEntries = $itemData['history_pro'] ?? ($itemData['pro_entries'] ?? null);
@@ -632,7 +633,7 @@ class CreateWiController extends Controller
                             // fallback field tunggal
                             $tag = $itemData['tag'] ?? null;
 
-                            $confirmedQty = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
+                             $confirmedQty = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
                             if ($confirmedQty > 0) {
                                 HistoryPro::create([
                                     'history_wi_item_id' => $wiItem->id,
