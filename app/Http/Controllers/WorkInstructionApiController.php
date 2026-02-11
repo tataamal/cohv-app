@@ -24,7 +24,8 @@ class WorkInstructionApiController extends Controller
             ->whereNotIn('status', ['COMPLETED', 'EXPIRED', 'COMPLETED WITH REMARK', 'INACTIVE']) // Exclude completed/expired
             ->where(function ($q) use ($today) {
                 $q->whereNull('expired_at')
-                ->orWhereDate('expired_at', '>', $today);
+                ->orWhereDate('expired_at', '>', $today)
+                ->orWhereDate('document_date', '2026-02-10'); // Special case: Force include 2026-02-10
             });
 
         $histories = $baseHeaderQuery
@@ -129,6 +130,11 @@ class WorkInstructionApiController extends Controller
                             ->orWhere('wi_document_code', 'like', 'WIW%');
                     })
                     ->whereIn('status', ['ACTIVE', 'PROCESSED']);
+                })
+                // 3. KHUSUS TANGGAL 2026-02-10 (Tampilkan semua tipe asal status valid)
+                ->orWhere(function ($q) {
+                    $q->whereDate('document_date', '2026-02-10')
+                      ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
                 });
             })
             ->with(['items' => function ($q) use ($nik) {
