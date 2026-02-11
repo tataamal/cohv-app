@@ -689,9 +689,12 @@
         @push('scripts')
         <script>
             document.addEventListener("DOMContentLoaded", function() {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+
                 flatpickr(".flatpickr-date", {
                     dateFormat: "Y-m-d",
-                    minDate: "today",
+                    minDate: yesterday,
                     defaultDate: "today"
                 });
                 flatpickr(".flatpickr-time", {
