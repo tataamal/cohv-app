@@ -421,6 +421,9 @@ class CreateWiController extends Controller
                     ], 400);
                 }
 
+                // =========================
+                // Merge items by aufnr+vornr+nik
+                // =========================
                 $merged = [];
                 foreach ($rawItems as $it) {
                     $aufnr = trim($it['aufnr'] ?? '');
@@ -464,6 +467,10 @@ class CreateWiController extends Controller
                 }
 
                 $items = array_values($merged);
+
+                // =========================
+                // Header flags
+                // =========================
                 $headerMachining = !empty($wcAllocation['is_machining']);
                 $headerLongshift = !empty($wcAllocation['is_longshift']);
                 foreach ($items as $itm) {
@@ -471,6 +478,9 @@ class CreateWiController extends Controller
                     if (!empty($itm['is_longshift'])) $headerLongshift = true;
                 }
 
+                // =========================
+                // Determine dates/times/expired_at
+                // =========================
                 $dateForDb = $defaultDateForDb;
                 $timeForDb = $defaultTimeForDb;
                 $expiredAt = $defaultExpiredAt;
@@ -500,169 +510,203 @@ class CreateWiController extends Controller
 
                     $timeForDb = null;
                 } elseif ($headerLongshift) {
-                    // User Request: Longshift H-1 expired same as WIH (24 hours from doc date+time)
                     $expiredAt = $baseDateTime->copy()->addHours(24);
                 }
 
-                DB::transaction(function () use (
-                    $docPrefix,
-                    $plantCode,
-                    $headerWc,
-                    $dateForDb,
-                    $timeForDb,
-                    $expiredAt,
-                    $headerMachining,
-                    $headerLongshift,
-                    $items,
-                    &$wiDocuments
-                ) {
-                    // generate next doc code (lock)
-                    $latestHistory = HistoryWi::withTrashed()
-                        ->where('wi_document_code', 'LIKE', $docPrefix . '%')
-                        ->orderByRaw('LENGTH(wi_document_code) DESC')
-                        ->orderBy('wi_document_code', 'desc')
-                        ->lockForUpdate()
-                        ->first();
+                // =========================================================
+                // A) TRANSAKSI KECIL: generate code + create header
+                // =========================================================
+                $maxRetry = 5;
+                $history = null;
+                $documentCode = null;
 
-                    $nextNumber = 1;
-                    if ($latestHistory) {
-                        $currentCode = $latestHistory->wi_document_code;
-                        $numberPart = substr($currentCode, 3);
-                        $nextNumber = intval($numberPart) + 1;
-                    }
+                for ($attempt = 1; $attempt <= $maxRetry; $attempt++) {
+                    try {
+                        [$history, $documentCode] = DB::transaction(function () use (
+                            $docPrefix,
+                            $plantCode,
+                            $headerWc,
+                            $dateForDb,
+                            $timeForDb,
+                            $expiredAt,
+                            $headerMachining,
+                            $headerLongshift
+                        ) {
+                            $latestHistory = HistoryWi::withTrashed()
+                                ->where('doc_prefix', $docPrefix)
+                                ->orderByDesc('sequence_number')
+                                ->lockForUpdate()
+                                ->first(['id', 'sequence_number']);
 
-                    $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
+                            $nextNumber   = ($latestHistory?->sequence_number ?? 0) + 1;
+                            $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
 
-                    $todayStr = \Carbon\Carbon::now()->toDateString();
-                    $initialStatus = ($dateForDb === $todayStr) ? 'ACTIVE' : 'INACTIVE';
+                            $todayStr = Carbon::now()->toDateString();
+                            $initialStatus = ($dateForDb === $todayStr) ? 'ACTIVE' : 'INACTIVE';
 
-                    // create header (HistoryWi)
-                    $history = HistoryWi::create([
-                        'wi_document_code' => $documentCode,
-                        'workcenter'       => $headerWc,        // <-- parent_wc / wc_induk disimpan di sini
-                        'plant_code'       => $plantCode,
-                        'document_date'    => $dateForDb,
-                        'document_time'    => $timeForDb,       // null saat machining
-                        'expired_at'       => $expiredAt,
-                        'sequence_number'  => $nextNumber,
-                        'status'           => $initialStatus,
-                        'machining'        => $headerMachining ? 1 : 0,
-                        'longshift'        => $headerLongshift ? 1 : 0,
-                    ]);
+                            $history = HistoryWi::create([
+                                'wi_document_code' => $documentCode,
+                                'doc_prefix'       => $docPrefix,  // <--- pastikan fillable sudah ditambah
+                                'workcenter'       => $headerWc,
+                                'plant_code'       => $plantCode,
+                                'document_date'    => $dateForDb,
+                                'document_time'    => $timeForDb,
+                                'expired_at'       => $expiredAt,
+                                'sequence_number'  => $nextNumber,
+                                'status'           => $initialStatus,
+                                'machining'        => $headerMachining ? 1 : 0,
+                                'longshift'        => $headerLongshift ? 1 : 0,
+                            ]);
 
-                    $seen = [];
+                            return [$history, $documentCode];
+                        }, 3);
 
-                    foreach ($items as $itemData) {
-                        $nik   = $itemData['nik'] ?? null;
-                        $aufnr = $itemData['aufnr'] ?? null;
-                        $vornr = $itemData['vornr'] ?? null;
+                        break;
 
-                        $k = trim((string)$aufnr) . '_' . trim((string)$vornr) . '_' . trim((string)$nik);
-                        if (isset($seen[$k])) {
-                            Log::warning("Duplicate item in same document (skipped): $k");
+                    } catch (\Illuminate\Database\QueryException $qe) {
+                        $sqlState = $qe->errorInfo[0] ?? null;
+                        $errCode  = (int)($qe->errorInfo[1] ?? 0);
+
+                        // 1062 duplicate, 1205 lock wait, 1213 deadlock
+                        $isRetryable =
+                            ($sqlState === '23000' && $errCode === 1062) ||
+                            ($sqlState === 'HY000' && in_array($errCode, [1205, 1213], true));
+
+                        if ($isRetryable && $attempt < $maxRetry) {
+                            usleep(150000);
                             continue;
                         }
-                        $seen[$k] = true;
 
-                        // normalisasi child/parent key (kalau payload masih pakai nama lama)
-                        $childWc  = $itemData['child_wc'] ?? ($itemData['child_workcenter'] ?? null);
-                        $parentWc = $itemData['parent_wc'] ?? ($itemData['parent_workcenter'] ?? $headerWc);
-
-                        // Pre-calculate quantities to determine status
-                        $confirmedQty = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
-                        $remarkQty = (int)($itemData['remark_qty'] ?? 0);
-                        
-                        $rawStatus = $itemData['status'] ?? ($itemData['stats'] ?? 'Open');
-                        $dbStatus = $rawStatus;
-
-                        // Logic: If not explicitly Completed, check progress
-                        if (!str_contains(strtoupper($rawStatus), 'COMPLETED')) {
-                            if ($confirmedQty > 0 || $remarkQty > 0) {
-                                $dbStatus = 'PROGRESS';
-                            } else {
-                                $dbStatus = 'CREATED';
-                            }
-                        }
-
-                        // create item (HistoryWiItem)
-                        $wiItem = HistoryWiItem::create([
-                            'history_wi_id' => $history->id,
-                            'nik'           => $nik,
-                            'aufnr'         => $aufnr,
-                            'vornr'         => $vornr,
-                            'uom'           => $itemData['uom'] ?? null,
-                            'operator_name' => $itemData['operator_name'] ?? ($itemData['name'] ?? null),
-                            'dispo'         => $itemData['dispo'] ?? null,
-                            'kapaz'         => $itemData['kapaz'] ?? null,
-                            'kdauf'         => $itemData['kdauf'] ?? null,
-                            'kdpos'         => $itemData['kdpos'] ?? null,
-                            'name1'         => $itemData['name1'] ?? null,
-                            'netpr'         => $itemData['netpr'] ?? 0,
-                            'waerk'         => $itemData['waerk'] ?? null,
-                            'ssavd'         => ($itemData['ssavd'] ?? '-') !== '-' ? $itemData['ssavd'] : null,
-                            'sssld'         => ($itemData['sssld'] ?? '-') !== '-' ? $itemData['sssld'] : null,
-                            'steus'         => $itemData['steus'] ?? null,
-                            'vge01'         => $itemData['vge01'] ?? null,
-                            'vgw01'         => $itemData['vgw01'] ?? 0,
-                            'material_number' => $itemData['material_number'] ?? null,
-                            'material_desc'   => $itemData['material_desc'] ?? null,
-                            'qty_order'        => $itemData['qty_order'] ?? 0,
-                            'assigned_qty'     => $itemData['assigned_qty'] ?? 0,
-                            'parent_wc'        => $parentWc,
-                            'child_wc'         => $childWc,
-                            'status'           => $dbStatus, // Use calculated status
-                            'machining'        => !empty($itemData['is_machining']),
-                            'longshift'        => !empty($itemData['is_longshift']),
-                            'calculated_takt_time' => $itemData['calculated_takt_time'] ?? 0,
-                            'stats'            => $itemData['stats'] ?? null,
-                        ]);
-
-                        $proEntries = $itemData['history_pro'] ?? ($itemData['pro_entries'] ?? null);
-
-                        if (is_array($proEntries) && count($proEntries) > 0) {
-                            foreach ($proEntries as $p) {
-                                HistoryPro::create([
-                                    'history_wi_item_id' => $wiItem->id,
-                                    'qty_pro'     => (int)($p['qty_pro'] ?? 0),
-                                    'status'      => $p['status'] ?? null, // confirmasi / remark
-                                    'remark_text' => $p['remark_text'] ?? null,
-                                    'tag'         => $p['tag'] ?? null,
-                                ]);
-                            }
-                        } else {
-                            // fallback field tunggal
-                            $tag = $itemData['tag'] ?? null;
-
-                             $confirmedQty = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
-                            if ($confirmedQty > 0) {
-                                HistoryPro::create([
-                                    'history_wi_item_id' => $wiItem->id,
-                                    'qty_pro'     => $confirmedQty,
-                                    'status'      => 'confirmasi',
-                                    'remark_text' => null,
-                                    'tag'         => $tag,
-                                ]);
-                            }
-
-                            $remarkText = $itemData['remark_text'] ?? ($itemData['remark'] ?? null);
-                            if ($remarkText) {
-                                $remarkQty = (int)($itemData['remark_qty'] ?? 0);
-                                HistoryPro::create([
-                                    'history_wi_item_id' => $wiItem->id,
-                                    'qty_pro'     => $remarkQty,
-                                    'status'      => 'remark',
-                                    'remark_text' => $remarkText,
-                                    'tag'         => $tag,
-                                ]);
-                            }
-                        }
+                        throw $qe;
                     }
+                }
 
-                    $wiDocuments[] = [
-                        'workcenter'     => $headerWc,
-                        'document_code'  => $documentCode,
-                    ];
-                });
+                if (!$history || !$documentCode) {
+                    throw new \RuntimeException("Gagal membuat WI header setelah {$maxRetry} percobaan.");
+                }
+
+                // =========================================================
+                // B) TRANSAKSI TERPISAH: insert items + pro
+                // =========================================================
+                try {
+                    DB::transaction(function () use ($history, $items, $headerWc) {
+                        $seen = [];
+
+                        foreach ($items as $itemData) {
+                            $nik   = $itemData['nik'] ?? null;
+                            $aufnr = $itemData['aufnr'] ?? null;
+                            $vornr = $itemData['vornr'] ?? null;
+
+                            $k = trim((string)$aufnr) . '_' . trim((string)$vornr) . '_' . trim((string)$nik);
+                            if (isset($seen[$k])) {
+                                Log::warning("Duplicate item in same document (skipped): $k");
+                                continue;
+                            }
+                            $seen[$k] = true;
+
+                            $childWc  = $itemData['child_wc'] ?? ($itemData['child_workcenter'] ?? null);
+                            $parentWc = $itemData['parent_wc'] ?? ($itemData['parent_workcenter'] ?? $headerWc);
+
+                            $confirmedQty = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
+                            $remarkQty    = (int)($itemData['remark_qty'] ?? 0);
+
+                            $rawStatus = $itemData['status'] ?? ($itemData['stats'] ?? 'Open');
+                            $dbStatus = $rawStatus;
+
+                            if (!str_contains(strtoupper($rawStatus), 'COMPLETED')) {
+                                if ($confirmedQty > 0 || $remarkQty > 0) {
+                                    $dbStatus = 'PROGRESS';
+                                } else {
+                                    $dbStatus = 'CREATED';
+                                }
+                            }
+
+                            $wiItem = HistoryWiItem::create([
+                                'history_wi_id' => $history->id,
+                                'nik'           => $nik,
+                                'aufnr'         => $aufnr,
+                                'vornr'         => $vornr,
+                                'uom'           => $itemData['uom'] ?? null,
+                                'operator_name' => $itemData['operator_name'] ?? ($itemData['name'] ?? null),
+                                'dispo'         => $itemData['dispo'] ?? null,
+                                'kapaz'         => $itemData['kapaz'] ?? null,
+                                'kdauf'         => $itemData['kdauf'] ?? null,
+                                'kdpos'         => $itemData['kdpos'] ?? null,
+                                'name1'         => $itemData['name1'] ?? null,
+                                'netpr'         => $itemData['netpr'] ?? 0,
+                                'waerk'         => $itemData['waerk'] ?? null,
+                                'ssavd'         => ($itemData['ssavd'] ?? '-') !== '-' ? $itemData['ssavd'] : null,
+                                'sssld'         => ($itemData['sssld'] ?? '-') !== '-' ? $itemData['sssld'] : null,
+                                'steus'         => $itemData['steus'] ?? null,
+                                'vge01'         => $itemData['vge01'] ?? null,
+                                'vgw01'         => $itemData['vgw01'] ?? 0,
+                                'material_number' => $itemData['material_number'] ?? null,
+                                'material_desc'   => $itemData['material_desc'] ?? null,
+                                'qty_order'        => $itemData['qty_order'] ?? 0,
+                                'assigned_qty'     => $itemData['assigned_qty'] ?? 0,
+                                'parent_wc'        => $parentWc,
+                                'child_wc'         => $childWc,
+                                'status'           => $dbStatus,
+                                'machining'        => !empty($itemData['is_machining']),
+                                'longshift'        => !empty($itemData['is_longshift']),
+                                'calculated_takt_time' => $itemData['calculated_takt_time'] ?? 0,
+                                'stats'            => $itemData['stats'] ?? null,
+                            ]);
+
+                            $proEntries = $itemData['history_pro'] ?? ($itemData['pro_entries'] ?? null);
+
+                            if (is_array($proEntries) && count($proEntries) > 0) {
+                                foreach ($proEntries as $p) {
+                                    HistoryPro::create([
+                                        'history_wi_item_id' => $wiItem->id,
+                                        'qty_pro'     => (int)($p['qty_pro'] ?? 0),
+                                        'status'      => $p['status'] ?? null,
+                                        'remark_text' => $p['remark_text'] ?? null,
+                                        'tag'         => $p['tag'] ?? null,
+                                    ]);
+                                }
+                            } else {
+                                $tag = $itemData['tag'] ?? null;
+
+                                $confirmedQty2 = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
+                                if ($confirmedQty2 > 0) {
+                                    HistoryPro::create([
+                                        'history_wi_item_id' => $wiItem->id,
+                                        'qty_pro'     => $confirmedQty2,
+                                        'status'      => 'confirmasi',
+                                        'remark_text' => null,
+                                        'tag'         => $tag,
+                                    ]);
+                                }
+
+                                $remarkText = $itemData['remark_text'] ?? ($itemData['remark'] ?? null);
+                                if ($remarkText) {
+                                    $remarkQty2 = (int)($itemData['remark_qty'] ?? 0);
+                                    HistoryPro::create([
+                                        'history_wi_item_id' => $wiItem->id,
+                                        'qty_pro'     => $remarkQty2,
+                                        'status'      => 'remark',
+                                        'remark_text' => $remarkText,
+                                        'tag'         => $tag,
+                                    ]);
+                                }
+                            }
+                        }
+                    }, 3);
+
+                } catch (\Throwable $inner) {
+                    // optional: tandai header jika insert detail gagal
+                    try {
+                        HistoryWi::where('id', $history->id)->update(['status' => 'FAILED']);
+                    } catch (\Throwable $ignored) {}
+
+                    throw $inner;
+                }
+
+                $wiDocuments[] = [
+                    'workcenter'    => $headerWc,
+                    'document_code' => $documentCode,
+                ];
             }
 
             return response()->json([
@@ -670,7 +714,7 @@ class CreateWiController extends Controller
                 'documents' => $wiDocuments,
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error saat menyimpan WI:', [
                 'message' => $e->getMessage(),
                 'file'    => $e->getFile(),
@@ -684,6 +728,7 @@ class CreateWiController extends Controller
             ], 500);
         }
     }
+
 
     private function wiStartEnd($doc): array
     {

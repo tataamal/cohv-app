@@ -21,6 +21,7 @@ class HistoryWi extends Model
      */
     protected $fillable = [
         'wi_document_code',
+        'doc_prefix',
         'workcenter',
         'plant_code',
         'document_date',
