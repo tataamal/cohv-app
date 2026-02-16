@@ -140,6 +140,12 @@ class WorkInstructionApiController extends Controller
                 }
             }]);
 
+        // [TEMPORARY FEATURE] Filter: Hanya tampilkan yang belum EXPIRED dan belum COMPLETED
+        // Comment bagian ini jika ingin menonaktifkan filter
+        $query->where('expired_at', '>', $now)
+              ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
+        // [END TEMPORARY FEATURE]
+
         if ($code) {
             $query->where('wi_document_code', $code);
         }
@@ -305,6 +311,11 @@ class WorkInstructionApiController extends Controller
                     $q->whereNull('expired_at')
                     ->orWhere('expired_at', '>=', $todayStart); // hindari whereDate()
                 })
+                // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
+                // Comment bagian ini jika ingin menonaktifkan filter
+                ->where('expired_at', '>', Carbon::now())
+                ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
+                // [END TEMPORARY FEATURE]
                 ->first(['id']);
 
             if (!$document) {
@@ -473,6 +484,11 @@ class WorkInstructionApiController extends Controller
                     $q->whereNull('expired_at')
                     ->orWhere('expired_at', '>=', $todayStart);
                 })
+                // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
+                // Comment bagian ini jika ingin menonaktifkan filter
+                ->where('expired_at', '>', Carbon::now())
+                ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
+                // [END TEMPORARY FEATURE]
                 ->first(['id']);
 
             if (!$document) {
