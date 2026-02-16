@@ -305,11 +305,11 @@ class WorkInstructionApiController extends Controller
             // 1) Cari dokumen aktif (tanpa lock, query ringan)
             $document = HistoryWi::query()
                 ->where('wi_document_code', $wiCode)
-                ->where('document_date', '<=', $todayDate) // hindari whereDate()
-                ->where(function ($q) use ($todayStart) {
-                    $q->whereNull('expired_at')
-                    ->orWhere('expired_at', '>=', $todayStart); // hindari whereDate()
-                })
+                // ->where('document_date', '<=', $todayDate) // hindari whereDate()
+                // ->where(function ($q) use ($todayStart) {
+                //     $q->whereNull('expired_at')
+                //     ->orWhere('expired_at', '>=', $todayStart); // hindari whereDate()
+                // })
                 // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
                 // Comment bagian ini jika ingin menonaktifkan filter
                 ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
@@ -477,11 +477,11 @@ class WorkInstructionApiController extends Controller
             // 1) Dokumen aktif
             $document = HistoryWi::query()
                 ->where('wi_document_code', $wiCode)
-                ->where('document_date', '<=', $todayDate)
-                ->where(function ($q) use ($todayStart) {
-                    $q->whereNull('expired_at')
-                    ->orWhere('expired_at', '>=', $todayStart);
-                })
+                // ->where('document_date', '<=', $todayDate)
+                // ->where(function ($q) use ($todayStart) {
+                //     $q->whereNull('expired_at')
+                //     ->orWhere('expired_at', '>=', $todayStart);
+                // })
                 // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
                 // Comment bagian ini jika ingin menonaktifkan filter
                 ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
