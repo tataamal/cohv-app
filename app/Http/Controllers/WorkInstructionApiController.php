@@ -361,8 +361,8 @@ class WorkInstructionApiController extends Controller
                 $affected = HistoryWiItem::where('id', $item->id)
                     ->whereRaw('(confirmed_qty_total + remark_qty_total + ?) <= assigned_qty', [$confQty])
                     ->update([
-                        'confirmed_qty_total' => DB::raw("confirmed_qty_total + {$confQtyStr}"),
                         'status'              => DB::raw($statusCase),
+                        'confirmed_qty_total' => DB::raw("confirmed_qty_total + {$confQtyStr}"),
                         'updated_at'          => now(),
                     ]);
 
@@ -528,8 +528,8 @@ class WorkInstructionApiController extends Controller
                 $affected = HistoryWiItem::where('id', $item->id)
                     ->whereRaw('(confirmed_qty_total + remark_qty_total + ?) <= assigned_qty', [$remarkQty])
                     ->update([
-                        'remark_qty_total' => DB::raw("remark_qty_total + {$remarkQtyStr}"),
                         'status'           => DB::raw($statusCase),
+                        'remark_qty_total' => DB::raw("remark_qty_total + {$remarkQtyStr}"),
                         'updated_at'       => now(),
                     ]);
 
