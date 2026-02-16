@@ -116,6 +116,7 @@ class ProTransaction extends Controller
                     $item['SSAVZ'] = $item['SSAVZ'] ?? null;
                     $item['SSSLZ'] = $item['SSSLZ'] ?? null;
                     $item['SPLIM'] = $item['SPLIM'] ?? null;
+                    $item['CHARG'] = $item['CHARG'] ?? null;
                     
                     
                     return $item; 

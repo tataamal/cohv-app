@@ -481,6 +481,7 @@ class Data1Controller extends Controller
                 $row['SSAVZ'] = $row['SSAVZ'] ?? null;
                 $row['SSSLZ'] = $row['SSSLZ'] ?? null;
                 $row['SPLIM'] = $row['SPLIM'] ?? null;
+                $row['CHARG'] = $row['CHARG'] ?? null;
 
                 $row['WERKSX'] = $plant;
                 $mapped_t1[] = $row;

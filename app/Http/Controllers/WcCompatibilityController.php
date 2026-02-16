@@ -270,6 +270,7 @@ class WcCompatibilityController extends Controller
                         unset($row['ARBPL1'], $row['ARBPL2'], $row['ARBPL3']);
                         unset($row['SSSLDPV1'], $row['SSSLDPV2'], $row['SSSLDPV3'], $row['WERKS']);
                         
+                        $row['CHARG'] = $row['CHARG'] ?? null;
                         $row['WERKSX'] = $plant;
                         return $row;
                     }, $t_data1);
