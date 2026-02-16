@@ -301,7 +301,7 @@ def save_data_to_mysql():
         T_DATA3_COLS = ['MANDT', 'ARBPL', 'ORDERX', 'PWWRK', 'KTEXT', 'ARBID', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'NAME1', 'KUNNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENGE2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'GLTRP', 'GSTRP', 'MATFG', 'MAKFG', 'CATEGORY', 'WERKSX', 'STATS2']
         
         # 46 Kolom
-        T_DATA1_COLS = ['MANDT', 'ARBPL', 'PWWRK', 'KTEXT', 'WERKSX', 'ARBID', 'KAPID', 'KAPAZ', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENGE2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'MATFG', 'MAKFG', 'CATEGORY', 'ORDERX', 'STATS2', 'PV1', 'PV2', 'PV3', 'SSAVZ', 'SSSLZ', 'SPLIM']
+        T_DATA1_COLS = ['MANDT', 'ARBPL', 'PWWRK', 'KTEXT', 'WERKSX', 'ARBID', 'KAPID', 'KAPAZ', 'VERID', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MTART', 'MAKTX', 'VORNR', 'CHARG', 'STEUS', 'AUART', 'MEINS', 'MATKL', 'PSMNG', 'WEMNG', 'MGVRG2', 'LMNGA', 'P1', 'MENGE2', 'VGW01', 'VGE01', 'CPCTYX', 'DTIME', 'DDAY', 'SSSLD', 'SSAVD', 'MATFG', 'MAKFG', 'CATEGORY', 'ORDERX', 'STATS2', 'PV1', 'PV2', 'PV3', 'SSAVZ', 'SSSLZ', 'SPLIM']
         
         # 23 Kolom
         T_DATA4_COLS = ['MANDT', 'RSNUM', 'RSPOS', 'VORNR', 'KDAUF', 'KDPOS', 'AUFNR', 'PLNUM', 'STATS', 'DISPO', 'MATNR', 'MAKTX', 'MEINS', 'BAUGR', 'WERKSX', 'BDMNG', 'KALAB', 'VMENG', 'SOBSL', 'BESKZ', 'LTEXT', 'LGORT', 'OUTSREQ']
@@ -402,27 +402,23 @@ def save_data_to_mysql():
                         mapped_row = {
                             'MANDT': safe_get_value(t1_row, 'MANDT'), 'ARBPL': safe_get_value(t1_row, 'ARBPL'),
                             'PWWRK': safe_get_value(t1_row, 'PWWRK'), 'KTEXT': safe_get_value(t1_row, 'KTEXT'),
-                            'WERKSX': plant_kode, 'ARBID': safe_get_value(t1_row, 'ARBID'),
-                            'KAPID': safe_get_value(t1_row, 'KAPID'), 'KAPAZ': safe_get_value(t1_row, 'KAPAZ'),
-                            'VERID': safe_get_value(t1_row, 'VERID'), 'KDAUF': safe_get_value(t1_row, 'KDAUF'),
-                            'KDPOS': safe_get_value(t1_row, 'KDPOS'), 'AUFNR': aufnr_t3,
-                            'PLNUM': safe_get_value(t1_row, 'PLNUM'), 'STATS': safe_get_value(t1_row, 'STATS'),
+                            'WERKSX': plant_kode, 'ARBID': safe_get_value(t1_row, 'ARBID'), 'KAPID': safe_get_value(t1_row, 'KAPID'),
+                            'KAPAZ': safe_get_value(t1_row, 'KAPAZ'), 'VERID': safe_get_value(t1_row, 'VERID'),
+                            'KDAUF': safe_get_value(t1_row, 'KDAUF'), 'KDPOS': safe_get_value(t1_row, 'KDPOS'),
+                            'AUFNR': aufnr_t3, 'PLNUM': safe_get_value(t1_row, 'PLNUM'), 'STATS': safe_get_value(t1_row, 'STATS'),
                             'DISPO': safe_get_value(t1_row, 'DISPO'), 'MATNR': safe_get_value(t1_row, 'MATNR'),
                             'MTART': safe_get_value(t1_row, 'MTART'), 'MAKTX': safe_get_value(t1_row, 'MAKTX'),
-                            'VORNR': safe_get_value(t1_row, 'VORNR'), 'STEUS': safe_get_value(t1_row, 'STEUS'),
+                            'VORNR': safe_get_value(t1_row, 'VORNR'), 'CHARG': t1_row.get('CHARG'),  'STEUS': safe_get_value(t1_row, 'STEUS'),
                             'AUART': safe_get_value(t1_row, 'AUART'), 'MEINS': safe_get_value(t1_row, 'MEINS'),
                             'MATKL': safe_get_value(t1_row, 'MATKL'), 'PSMNG': t1_row.get('PSMNG'),
-                            'WEMNG': t1_row.get('WEMNG'), 'MGVRG2': t1_row.get('MGVRG2'),
-                            'LMNGA': t1_row.get('LMNGA'), 'P1': t1_row.get('P1'), 'MENGE2': t1_row.get('MENGE2'),
-                            'VGW01': t1_row.get('VGW01'), 'VGE01': t1_row.get('VGE01'),
-                            'CPCTYX': safe_get_value(t1_row, 'CPCTYX'), 'DTIME': t1_row.get('DTIME'),
+                            'WEMNG': t1_row.get('WEMNG'), 'MGVRG2': t1_row.get('MGVRG2'), 'LMNGA': t1_row.get('LMNGA'),
+                            'P1': t1_row.get('P1'), 'MENGE2': t1_row.get('MENGE2'), 'VGW01': t1_row.get('VGW01'),
+                            'VGE01': t1_row.get('VGE01'), 'CPCTYX': safe_get_value(t1_row, 'CPCTYX'), 'DTIME': t1_row.get('DTIME'),
                             'DDAY': t1_row.get('DDAY'), 'SSSLD': format_sap_date_for_db(t1_row.get('SSSLD')),
                             'SSAVD': format_sap_date_for_db(t1_row.get('SSAVD')), 'MATFG': safe_get_value(t1_row, 'MATFG'),
                             'MAKFG': safe_get_value(t1_row, 'MAKFG'), 'CATEGORY': safe_get_value(t1_row, 'CATEGORY'),
                             'ORDERX': safe_get_value(t1_row, 'ORDERX'), 'STATS2': safe_get_value(t1_row, 'STATS2'),
-                            'PV1': pv1, 'PV2': pv2, 'PV3': pv3,
-                            'SSAVZ': t1_row.get('SSAVZ'), 'SSSLZ': t1_row.get('SSSLZ'),
-                            'SPLIM': t1_row.get('SPLIM')
+                            'PV1': pv1, 'PV2': pv2, 'PV3': pv3, 'SSAVZ': t1_row.get('SSAVZ'), 'SSSLZ': t1_row.get('SSSLZ'), 'SPLIM': t1_row.get('SPLIM')
                         }
                         tdata1_to_insert.append(tuple(mapped_row.get(col) for col in T_DATA1_COLS))
 

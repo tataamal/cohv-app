@@ -4017,6 +4017,11 @@
                     <div class="modal-header bg-dark text-white">
                         <h5 class="modal-title fw-bold">
                             <i class="fa-solid fa-file-contract me-2"></i>Cek & Simpan Penugasan
+                            @if(in_array($kode ?? '', ['3014'])) 
+                                <button onclick="generateSerialNumber()" class="btn btn-sm btn-info ms-3 text-white fw-bold shadow-sm">
+                                    <i class="fa-solid fa-barcode me-2"></i>Generate Serial Number
+                                </button>
+                            @endif
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
@@ -4464,6 +4469,121 @@
                 q2El.value = b.toLocaleString('id-ID');
             };
 
+            window.generateSerialNumber = async function () {
+                if (!window.latestAllocations || window.latestAllocations.length === 0) {
+                    Swal.fire('Error', 'Tidak ada data alokasi untuk diproses.', 'error');
+                    return;
+                }
+
+                // collect (so,item,pro)
+                let collectedItems = [];
+                window.latestAllocations.forEach(wc => {
+                    if (wc.pro_items && Array.isArray(wc.pro_items)) {
+                    wc.pro_items.forEach(item => {
+                        collectedItems.push({
+                        so: item.kdauf,
+                        item: item.kdpos ? String(item.kdpos).replace(/^0+/, '') : '',
+                        pro: item.aufnr
+                        });
+                    });
+                    }
+                });
+
+                if (collectedItems.length === 0) {
+                    Swal.fire('Info', 'Tidak ada item yang ditemukan dalam alokasi.', 'info');
+                    return;
+                }
+
+                // group by pro
+                const byPro = new Map();
+                for (const it of collectedItems) {
+                    const pro = (it.pro || '').trim();
+                    const so  = (it.so  || '').trim();
+                    const item = (it.item || '').trim();
+
+                    if (!pro || !so) continue;
+
+                    if (!byPro.has(pro)) byPro.set(pro, []);
+                    byPro.get(pro).push({ so, item });
+                }
+
+                const pros = Array.from(byPro.keys());
+                if (pros.length === 0) {
+                    Swal.fire('Info', 'Tidak ada PRO yang valid.', 'info');
+                    return;
+                }
+
+                // CSRF token (karena endpoint ada di web.php supaya session jalan)
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+
+                // progress modal
+                Swal.fire({
+                    title: 'Generate Serial Number',
+                    html: `<div id="sn-progress">Mulai...</div>`,
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                const results = [];
+
+                for (let i = 0; i < pros.length; i++) {
+                    const pro = pros[i];
+                    const pairs = byPro.get(pro) || [];
+
+                    document.getElementById('sn-progress').innerText =
+                    `Processing PRO ${i + 1}/${pros.length}: ${pro}`;
+
+                    const resp = await fetch('/api/serial-numbers/generate-pro', {
+                    method: 'POST',
+                    credentials: 'same-origin', // <-- penting agar session cookie terkirim
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                    },
+                    body: JSON.stringify({ pro, pairs })
+                    });
+
+                    // Parse JSON response safely
+                    let json = {};
+                    try {
+                        json = await resp.json();
+                    } catch (e) {
+                        console.error('Failed to parse JSON response', e);
+                    }
+
+                    if (!resp.ok) {
+                        console.error(`Error for PRO ${pro}:`, json);
+                        const msg = json.message || `HTTP Error ${resp.status}`;
+                        document.getElementById('sn-progress').innerHTML += `<div class="text-danger small">Error: ${msg}</div>`;
+                        results.push({ pro, status: 'error', httpStatus: resp.status, message: msg });
+                        continue; 
+                    }
+
+                    results.push({ pro, httpStatus: resp.status, ...json });
+
+                    const c = (json && json.counts) ? json.counts : {};
+                    document.getElementById('sn-progress').innerText =
+                    `PRO ${pro} => status=${json.status || 'unknown'}, saved=${c.saved || 0}, dup=${c.duplicates || 0}, recv=${c.received || 0}`;
+                }
+
+                const ok = results.filter(r => r.status === 'success').length;
+                const pending = results.filter(r => r.status === 'pending').length;
+                const err = results.filter(r => r.status === 'error' || (r.httpStatus && r.httpStatus >= 400)).length;
+
+                Swal.fire({
+                    icon: err ? 'warning' : 'success',
+                    title: 'Selesai',
+                    html: `
+                    <div>Success: ${ok}</div>
+                    <div>Pending (serial belum keluar): ${pending}</div>
+                    <div>Error: ${err}</div>
+                    `,
+                });
+            };
+
+
+            
             function setupRowDoubleClick() {
                 const sourceList = document.getElementById('source-list');
                 if (!sourceList) return;

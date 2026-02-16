@@ -17,6 +17,8 @@ use App\Http\Controllers\CreateWiController;
 use App\Http\Controllers\MappingController;
 use App\Http\Controllers\WcRelationController;
 use App\Http\Controllers\WorkcenterMappingController;
+use App\Http\Controllers\SerialNumberController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -164,7 +166,8 @@ Route::middleware('auth')->group(function (){
     Route::post('/work-instruction/remove-item', [CreateWiController::class, 'removeItem'])->name('wi.remove-item');
     Route::get('/work-instruction/fetch-all-ids/{kode}', [CreateWiController::class, 'fetchAllIds'])->name('wi.fetch-all-ids');
     
-    // Outstanding Reservasi Route
-    // Route::get('/outstanding-reservasi/{kode}', [OutstandingReservasiController::class, 'index'])->name('outstanding.reservasi');
+    Route::prefix('api')->group(function () {
+        Route::post('/serial-numbers/generate-pro', [SerialNumberController::class, 'generateForPro']);
+    });
 
 });

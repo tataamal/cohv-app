@@ -114,11 +114,11 @@ class WorkInstructionApiController extends Controller
                                   ->orWhereNull('machining');
                             })
                             ->where('wi_document_code', 'not like', 'WIW%');
+                    }) // Semicolon removed to allow chaining
+                    ->where(function ($sub2) use ($today) {
+                        $sub2->whereNull('expired_at')
+                             ->orWhereDate('expired_at', '>', $today);
                     });
-                    // ->where(function ($sub2) use ($today) {
-                    //     $sub2->whereNull('expired_at')
-                    //          ->orWhereDate('expired_at', '>', $today);
-                    // });
                 })
                 // 2. Dokumen LONGSHIFT, WIW, atau MACHINING -> Hanya cek status ACTIVE/PROCESSED (abaikan tanggal)
                 ->orWhere(function ($q) {
@@ -142,7 +142,7 @@ class WorkInstructionApiController extends Controller
 
         // [TEMPORARY FEATURE] Filter: Hanya tampilkan yang belum EXPIRED dan belum COMPLETED
         // Comment bagian ini jika ingin menonaktifkan filter
-        $query->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
+        // $query->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
         // [END TEMPORARY FEATURE]
 
         if ($code) {
@@ -305,14 +305,14 @@ class WorkInstructionApiController extends Controller
             // 1) Cari dokumen aktif (tanpa lock, query ringan)
             $document = HistoryWi::query()
                 ->where('wi_document_code', $wiCode)
-                // ->where('document_date', '<=', $todayDate) // hindari whereDate()
-                // ->where(function ($q) use ($todayStart) {
-                //     $q->whereNull('expired_at')
-                //     ->orWhere('expired_at', '>=', $todayStart); // hindari whereDate()
-                // })
+                ->where('document_date', '<=', $todayDate) // hindari whereDate()
+                ->where(function ($q) use ($todayStart) {
+                    $q->whereNull('expired_at')
+                    ->orWhere('expired_at', '>=', $todayStart); // hindari whereDate()
+                })
                 // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
                 // Comment bagian ini jika ingin menonaktifkan filter
-                ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
+                // ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
                 // [END TEMPORARY FEATURE]
                 ->first(['id']);
 
@@ -477,14 +477,14 @@ class WorkInstructionApiController extends Controller
             // 1) Dokumen aktif
             $document = HistoryWi::query()
                 ->where('wi_document_code', $wiCode)
-                // ->where('document_date', '<=', $todayDate)
-                // ->where(function ($q) use ($todayStart) {
-                //     $q->whereNull('expired_at')
-                //     ->orWhere('expired_at', '>=', $todayStart);
-                // })
+                ->where('document_date', '<=', $todayDate)
+                ->where(function ($q) use ($todayStart) {
+                    $q->whereNull('expired_at')
+                    ->orWhere('expired_at', '>=', $todayStart);
+                })
                 // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
                 // Comment bagian ini jika ingin menonaktifkan filter
-                ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
+                // ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
                 // [END TEMPORARY FEATURE]
                 ->first(['id']);
 

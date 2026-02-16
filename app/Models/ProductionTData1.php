@@ -26,6 +26,7 @@ class ProductionTData1 extends Model
             'MTART', 
             'MAKTX',
             'VORNR',
+            'CHARG',
             'STEUS',
             'AUART',
             'MEINS',

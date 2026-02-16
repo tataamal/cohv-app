@@ -2009,12 +2009,14 @@ def generate_serial_number():
         conn = connect_sap(username, password)
 
         data = request.get_json(silent=True) or {}
+        logger.info(f"[generate_serial_number] Received payload: {data}")
 
         # Terima beberapa kemungkinan key supaya fleksibel
         aufnr_raw = (data.get('AUFNR') or data.get('aufnr') or data.get('IV_AUFNR') or '').strip()
         serialno_in = (data.get('SERIALNO') or data.get('serialno') or '').strip()
 
         if not aufnr_raw and not serialno_in:
+            logger.error("[generate_serial_number] 400 Error: Missing AUFNR and SERIALNO")
             return jsonify({
                 "success": False,
                 "error": "Minimal salah satu harus diisi: AUFNR atau SERIALNO"
@@ -2082,6 +2084,7 @@ def generate_serial_number():
 
         # Kalau SAP mengembalikan error type
         if r_type in ('E', 'A', 'X'):
+            logger.error(f"[generate_serial_number] SAP Error: {r_type} - {r_msg}")
             return jsonify({
                 "success": False,
                 "attempts": attempt,
