@@ -602,7 +602,7 @@
                     @if(!empty($row['remark_details']) && is_array($row['remark_details']) && count($row['remark_details']) > 0)
                         <ul style="padding-left: 15px; margin: 0; text-align: left;">
                             @foreach($row['remark_details'] as $rem)
-                                <li>Qty : {{ floatval($rem['qty'] ?? 0) }}, {{ $rem['text'] ?? '' }}</li>
+                                <li>Qty : {{ floatval($rem['qty'] ?? 0) }}, {{ $rem['remark'] ?? '' }}</li>
                             @endforeach
                         </ul>
                     @elseif(floatval($row['remark_qty'] ?? 0) > 0)

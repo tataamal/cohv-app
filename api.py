@@ -275,12 +275,15 @@ def sap_combined():
         logger.info(
             f"Calling RFC Z_FM_YPPR074Z for plant={plant}, aufnr={aufnr} (timeout={SAP_TIMEOUT_SEC}s)"
         )
+
         result = conn.call(
             'Z_FM_YPPR074Z',
             options={'timeout': SAP_TIMEOUT_SEC},
             P_WERKS=plant,
             P_AUFNR=aufnr if aufnr else ''
         )
+
+        # Ambil tabel
         t_data  = result.get('T_DATA',  []) or []
         t1      = result.get('T_DATA1', []) or []
         t2      = result.get('T_DATA2', []) or []
@@ -483,10 +486,6 @@ def change_prod_version():
 
         logger.info(f"AUFNR: {aufnr} -> target PROD_VERSION: {verid}")
 
-        before_detail = conn.call('BAPI_PRODORD_GET_DETAIL', NUMBER=aufnr)
-        before_version = before_detail.get('ORDER_GENERAL_DETAIL', {}).get('PROD_VERSION', 'unknown')
-
-        logger.info(f"Before update: PROD_VERSION = {before_version}")
         result_change = conn.call(
             'BAPI_PRODORD_CHANGE',
             NUMBER=aufnr,
@@ -507,12 +506,8 @@ def change_prod_version():
         logger.info("BAPI_TRANSACTION_COMMIT...")
         conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
         time.sleep(10)
-        after_detail = conn.call('BAPI_PRODORD_GET_DETAIL', NUMBER=aufnr)
-        after_version = after_detail.get('ORDER_GENERAL_DETAIL', {}).get('PROD_VERSION', 'unknown')
 
         return jsonify({
-            'before_version': before_version,
-            'after_version': after_version,
             'sap_return': sap_return_list
         })
 
@@ -584,26 +579,16 @@ def schedule_order():
     
 @app.route('/api/add_component', methods=['POST'])
 def add_component():
+    conn = None
     try:
         username, password = get_credentials()
         conn = connect_sap(username, password)
-        data = request.get_json()
+        data = request.get_json() or {}
 
         required_fields = ['IV_AUFNR', 'IV_MATNR', 'IV_BDMNG', 'IV_MEINS', 'IV_WERKS', 'IV_LGORT', 'IV_VORNR']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({'error': f'{field} is required'}), 400
-
-        params = {
-            'IV_ORDER_NUMBER': data.get('IV_AUFNR'),
-            'IV_MATERIAL': data.get('IV_MATNR'),
-            'IV_QUANTITY': str(data.get('IV_BDMNG')),
-            'IV_UOM': data.get('IV_MEINS'),
-            'IV_LGORT': data.get('IV_LGORT'),
-            'IV_PLANT': data.get('IV_WERKS'),
-            'IV_POSITIONNO': data.get('IV_VORNR'),
-            'IV_BATCH': '',
-        }
+        missing = [f for f in required_fields if not data.get(f)]
+        if missing:
+            return jsonify({'success': False, 'error': f'{missing[0]} is required'}), 400
 
         params = {
             'IV_ORDER_NUMBER': data.get('IV_AUFNR'),
@@ -619,31 +604,24 @@ def add_component():
         logger.info(f"Calling RFC for add component on AUFNR: {params['IV_ORDER_NUMBER']}")
         result = conn.call('Z_RFC_PRODORD_COMPONENT_ADD2', **params)
 
-        sap_return_structure = result.get('ES_RETURN', {})
-        sap_message_type = sap_return_structure.get('TYPE')
-        sap_message_text = sap_return_structure.get('MESSAGE')
-        if sap_message_type not in ['E', 'A']:
-            logger.info("Operation successful, committing...")
-            conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
-            return jsonify({
-                'success': True,
-                'message': sap_message_text or 'Komponen berhasil ditambahkan.',
-                'sap_response': result
-            }), 200
-        else:
-            logger.warning("Operation failed, rolling back...")
-            conn.call('BAPI_TRANSACTION_ROLLBACK')
-            return jsonify({
-                'success': False,
-                'message': sap_message_text or 'Data yang dikirim tidak valid menurut SAP.',
-                'sap_response': result
-            }), 400
+        sap_return = (result or {}).get('ES_RETURN') or {}
+        sap_type = sap_return.get('TYPE')
+        sap_msg = sap_return.get('MESSAGE')
+        is_error = sap_type in ('E', 'A')
+
+        payload = {
+            'success': not is_error,
+            'message': sap_msg or ('Komponen berhasil ditambahkan.' if not is_error else 'Data yang dikirim tidak valid menurut SAP.'),
+            'sap_response': result,
+            'sap_type': sap_type,
+        }
+        return jsonify(payload), (400 if is_error else 200)
 
     except ValueError as ve:
-        return jsonify({'error': str(ve)}), 401
+        return jsonify({'success': False, 'error': str(ve)}), 401
     except Exception as e:
-        logger.error(f"Exception in add component: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Exception in add_component: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
     finally:
         if conn:
             logger.info("Closing SAP connection for add_component...")
@@ -1565,10 +1543,15 @@ def search_material_by_desc():
     """
     conn = None
     try:
+        # 1. Otentikasi dan Koneksi SAP (sama seperti contoh)
         username, password = get_credentials()
         conn = connect_sap(username, password)
+
+        # 2. Ambil parameter 'maktx' dari URL
+        # Sesuai dengan yang dikirim oleh Controller Laravel Anda
         description = request.args.get('maktx')
 
+        # Validasi parameter
         if not description:
             return jsonify({'error': 'Missing required parameter: maktx'}), 400
             
@@ -1580,19 +1563,26 @@ def search_material_by_desc():
 
         material_data = result.get('ET_MATERIAL', [])
         
+        # (Opsional) Anda juga bisa log pesan sukses dari SAP
         ev_msg = result.get('EV_RETURN_MSG', '')
+        # logger.info(f"Pesan balasan SAP: {ev_msg}")
 
+        # 5. Kembalikan data sebagai JSON
         return jsonify(material_data), 200
 
     except ValueError as ve:
+        # Error otentikasi dari get_credentials()
         return jsonify({'error': str(ve)}), 401
     except (CommunicationError, ABAPApplicationError) as e:
+        # Error spesifik dari SAP/RFC
         logger.error(f"SAP Error: {e}")
         return jsonify({'error': f"SAP Error: {str(e)}"}), 500
     except Exception as e:
+        # Error umum lainnya
         logger.error(f"An unexpected error occurred: {e}")
         return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
     finally:
+        # 6. Tutup koneksi (sama seperti contoh)
         if conn:
             logger.info("Closing SAP connection for search_material_by_desc...")
             conn.close()
@@ -1603,6 +1593,7 @@ def search_material_by_desc():
 def change_quantity():
     import time
     
+    # 1. Inisialisasi koneksi sebagai None di luar blok try
     conn = None
     try:
         username, password = get_credentials()
@@ -1903,7 +1894,7 @@ def delete_data_to_mysql():
             except Exception as e:
                 # Jika gagal tutup (misal sudah tertutup duluan), abaikan saja
                 logger.warning(f"Warning saat menutup koneksi: {e}")
-
+				
 @app.route('/api/release_order', methods=['POST'])
 def release_order():
     conn = None
@@ -2004,7 +1995,8 @@ def release_order():
                 conn.close()
             except Exception:
                 pass
+                pass
 
-if __name__ == '__main__':
-    # os.environ['PYTHONHASHSEED'] = '0'
-    app.run(host='0.0.0.0', port=5001, debug=True)
+if __name__ == "__main__":
+    # Tambahkan use_reloader=False
+    app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
