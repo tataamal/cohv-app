@@ -24,6 +24,7 @@ use App\Models\ProductionTData4;
 use App\Services\Release;
 use App\Services\YPPR074Z;
 use App\Services\ChangeWc;
+use App\Services\WorkcenterConsumeService;
 use Carbon\CarbonInterface;
 
 class CreateWiController extends Controller
@@ -374,11 +375,11 @@ class CreateWiController extends Controller
         return $parentHierarchy;
     }
 
-    public function saveWorkInstruction(Request $request)
+    public function saveWorkInstruction(Request $request, WorkcenterConsumeService $consumeService)
     {
         $requestData = $request->json()->all();
 
-        $plantCode  = $requestData['plant_code'] ?? null;
+        $plantCode  = $requestData['plant_code'] ?? null; // INI KODE/VALUE (mis. "3021"), BUKAN ID
         $inputDate  = $requestData['document_date'] ?? null;
         $inputTime  = $requestData['document_time'] ?? null;
         $payload    = $requestData['workcenter_allocations'] ?? [];
@@ -388,19 +389,41 @@ class CreateWiController extends Controller
                 'message' => 'Data tidak lengkap. Tanggal/Plant/alokasi kosong.'
             ], 400);
         }
+        $kodeLaravel = null;
 
-        $docPrefix = str_starts_with($plantCode, '3') ? 'WIH' : 'WIW';
+        // fallback 1: kalau plantCode numeric, coba as ID dulu
+        $kodeLaravel = \App\Models\KodeLaravel::query()
+            ->where('laravel_code', (string)$plantCode)   // plantCode = VALUE
+            ->first(['id']);
+
+        if (!$kodeLaravel && ctype_digit((string)$plantCode)) {
+            // fallback kalau ternyata plantCode adalah ID
+            $kodeLaravel = \App\Models\KodeLaravel::query()
+                ->where('id', (int)$plantCode)
+                ->first(['id']);
+        }
+
+        if (!$kodeLaravel) {
+            return response()->json([
+                'message' => "plant_code '{$plantCode}' tidak ditemukan di master KodeLaravel."
+            ], 400);
+        }
+
+        $kodeLaravelId = (int)$kodeLaravel->id;
+
+        // prefix masih mengikuti pola kamu (kalau plant_code value diawali '3' => WIH)
+        $docPrefix = str_starts_with((string)$plantCode, '3') ? 'WIH' : 'WIW';
+
         $baseDateTime = Carbon::parse(trim($inputDate . ' ' . ($inputTime ?: '00:00')));
 
-        if ($docPrefix === 'WIH') {
-            $defaultExpiredAt = $baseDateTime->copy()->addDay()->startOfDay();
-        } else {
-            $defaultExpiredAt = $baseDateTime->copy()->addHours(24);
-        }
+        $defaultExpiredAt = ($docPrefix === 'WIH')
+            ? $baseDateTime->copy()->addDay()->startOfDay()
+            : $baseDateTime->copy()->addHours(24);
 
         $defaultDateForDb = $baseDateTime->toDateString();
         $defaultTimeForDb = $baseDateTime->format('H:i:s');
 
+        $todayStr = Carbon::now()->toDateString();
         $wiDocuments = [];
 
         try {
@@ -430,9 +453,7 @@ class CreateWiController extends Controller
                     $vornr = trim($it['vornr'] ?? '');
                     $nik   = trim($it['nik'] ?? '');
 
-                    if ($aufnr === '' || $vornr === '' || $nik === '') {
-                        continue;
-                    }
+                    if ($aufnr === '' || $vornr === '' || $nik === '') continue;
 
                     $key = "{$aufnr}_{$vornr}_{$nik}";
                     $assignedQty = (float)($it['assigned_qty'] ?? 0);
@@ -500,21 +521,73 @@ class CreateWiController extends Controller
                         if ($e && (!$maxSssld || $e->gt($maxSssld))) $maxSssld = $e;
                     }
 
-                    if ($minSsavd) {
-                        $dateForDb = $minSsavd->toDateString();
-                    }
-
-                    if ($maxSssld) {
-                        $expiredAt = $maxSssld->copy()->endOfDay();
-                    }
+                    if ($minSsavd) $dateForDb = $minSsavd->toDateString();
+                    if ($maxSssld) $expiredAt = $maxSssld->copy()->endOfDay();
 
                     $timeForDb = null;
                 } elseif ($headerLongshift) {
                     $expiredAt = $baseDateTime->copy()->addHours(24);
                 }
 
+                // =========================
+                // [CAPACITY] booking hanya kalau ACTIVE (tanggal == hari ini)
+                // resolve workcenter via mapping_table menggunakan kode_laravel_id (ID)
+                // =========================
+                $shouldConsume = ($dateForDb === $todayStr);
+
+                $needsByWcId  = [];
+                $totalsByWcId = [];
+
+                if ($shouldConsume) {
+                    $needsByWcCode = [];
+
+                    foreach ($items as $itm) {
+                        $mins = (float)($itm['calculated_takt_time'] ?? 0);
+                        $needSec = (int)ceil($mins * 60);
+                        if ($needSec <= 0) continue;
+
+                        $childCode = $itm['child_wc'] ?? ($itm['child_workcenter'] ?? null);
+                        $actualWcCode = trim((string)($childCode ?: $headerWc));
+                        if ($actualWcCode === '') continue;
+
+                        $needsByWcCode[$actualWcCode] = ($needsByWcCode[$actualWcCode] ?? 0) + $needSec;
+                    }
+
+                    $wcCodes = array_keys($needsByWcCode);
+
+                    // IMPORTANT: kodeLaravelId yang dikirim ke service adalah ID (FK), bukan value plantCode
+                    $resolved = $consumeService->resolveWorkcentersByKodeLaravel($kodeLaravelId, $wcCodes);
+
+                    foreach ($wcCodes as $code) {
+                        if (!isset($resolved[$code])) {
+                            $wcId = \App\Models\workcenter::query()
+                                ->where('kode_wc', $code)
+                                ->value('id');
+
+                            $wcIdText = $wcId ? (string)$wcId : '<workcenter_id>';
+
+                            throw new \InvalidArgumentException(
+                                "Workcenter {$code} (workcenter_id={$wcIdText}) belum dimapping ke kode_laravel_id={$kodeLaravelId} (plant_code='{$plantCode}'). " .
+                                "Tambahkan row di mapping_table: INSERT INTO mapping_table (kode_laravel_id, workcenter_id, created_at, updated_at) " .
+                                "VALUES ({$kodeLaravelId}, {$wcIdText}, NOW(), NOW());"
+                            );
+                        }
+
+                        $wcId = (int)$resolved[$code]['id'];
+
+                        // INI YANG BENAR: total detik kapasitas sudah dihitung dari operating_time di SERVICE
+                        $totalSec = (int)($resolved[$code]['capacity_total_sec'] ?? WorkcenterConsumeService::MIN_CAPACITY_SEC);
+
+                        $needsByWcId[$wcId]  = ($needsByWcId[$wcId] ?? 0) + (int)$needsByWcCode[$code];
+                        $totalsByWcId[$wcId] = $totalSec;
+                    }
+
+                    ksort($needsByWcId);
+                    ksort($totalsByWcId);
+                }
+
                 // =========================================================
-                // A) TRANSAKSI KECIL: generate code + create header
+                // A) TRANSAKSI KECIL: lock sequence + (optional) consume + create header
                 // =========================================================
                 $maxRetry = 5;
                 $history = null;
@@ -530,7 +603,12 @@ class CreateWiController extends Controller
                             $timeForDb,
                             $expiredAt,
                             $headerMachining,
-                            $headerLongshift
+                            $headerLongshift,
+                            $todayStr,
+                            $shouldConsume,
+                            $needsByWcId,
+                            $totalsByWcId,
+                            $consumeService
                         ) {
                             $latestHistory = HistoryWi::withTrashed()
                                 ->where('doc_prefix', $docPrefix)
@@ -541,12 +619,15 @@ class CreateWiController extends Controller
                             $nextNumber   = ($latestHistory?->sequence_number ?? 0) + 1;
                             $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
 
-                            $todayStr = Carbon::now()->toDateString();
                             $initialStatus = ($dateForDb === $todayStr) ? 'ACTIVE' : 'INACTIVE';
+
+                            if ($shouldConsume && $initialStatus === 'ACTIVE' && !empty($needsByWcId)) {
+                                $consumeService->consumeManyOrFail($dateForDb, $needsByWcId, $totalsByWcId);
+                            }
 
                             $history = HistoryWi::create([
                                 'wi_document_code' => $documentCode,
-                                'doc_prefix'       => $docPrefix,  // <--- pastikan fillable sudah ditambah
+                                'doc_prefix'       => $docPrefix,
                                 'workcenter'       => $headerWc,
                                 'plant_code'       => $plantCode,
                                 'document_date'    => $dateForDb,
@@ -562,12 +643,10 @@ class CreateWiController extends Controller
                         }, 3);
 
                         break;
-
                     } catch (\Illuminate\Database\QueryException $qe) {
                         $sqlState = $qe->errorInfo[0] ?? null;
                         $errCode  = (int)($qe->errorInfo[1] ?? 0);
 
-                        // 1062 duplicate, 1205 lock wait, 1213 deadlock
                         $isRetryable =
                             ($sqlState === '23000' && $errCode === 1062) ||
                             ($sqlState === 'HY000' && in_array($errCode, [1205, 1213], true));
@@ -614,11 +693,7 @@ class CreateWiController extends Controller
                             $dbStatus = $rawStatus;
 
                             if (!str_contains(strtoupper($rawStatus), 'COMPLETED')) {
-                                if ($confirmedQty > 0 || $remarkQty > 0) {
-                                    $dbStatus = 'PROGRESS';
-                                } else {
-                                    $dbStatus = 'CREATED';
-                                }
+                                $dbStatus = ($confirmedQty > 0 || $remarkQty > 0) ? 'PROGRESS' : 'CREATED';
                             }
 
                             $wiItem = HistoryWiItem::create([
@@ -695,10 +770,17 @@ class CreateWiController extends Controller
                     }, 3);
 
                 } catch (\Throwable $inner) {
-                    // optional: tandai header jika insert detail gagal
                     try {
                         HistoryWi::where('id', $history->id)->update(['status' => 'FAILED']);
                     } catch (\Throwable $ignored) {}
+
+                    if ($shouldConsume && !empty($needsByWcId)) {
+                        try {
+                            DB::transaction(function () use ($consumeService, $dateForDb, $needsByWcId) {
+                                $consumeService->releaseMany($dateForDb, $needsByWcId);
+                            }, 3);
+                        } catch (\Throwable $ignored2) {}
+                    }
 
                     throw $inner;
                 }
@@ -713,6 +795,12 @@ class CreateWiController extends Controller
                 'message'   => 'Work Instructions berhasil disimpan.',
                 'documents' => $wiDocuments,
             ], 201);
+
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
+
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
 
         } catch (\Throwable $e) {
             Log::error('Error saat menyimpan WI:', [

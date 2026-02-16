@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 
 class WorkInstructionApiController extends Controller
@@ -159,8 +158,7 @@ class WorkInstructionApiController extends Controller
                 [$start, $end] = $this->wiStartEnd($doc);
 
                 if ($now->greaterThanOrEqualTo($start)) {
-                    $doc->status = 'ACTIVE';
-                    $doc->save();
+                    HistoryWi::where('id', $doc->id)->update(['status' => 'ACTIVE']);
 
                     HistoryWiItem::where('history_wi_id', $doc->id)->update(['status' => 'ACTIVE']);
 
