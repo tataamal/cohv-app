@@ -142,8 +142,7 @@ class WorkInstructionApiController extends Controller
 
         // [TEMPORARY FEATURE] Filter: Hanya tampilkan yang belum EXPIRED dan belum COMPLETED
         // Comment bagian ini jika ingin menonaktifkan filter
-        $query->where('expired_at', '>', $now)
-              ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
+        $query->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
         // [END TEMPORARY FEATURE]
 
         if ($code) {
@@ -313,7 +312,6 @@ class WorkInstructionApiController extends Controller
                 })
                 // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
                 // Comment bagian ini jika ingin menonaktifkan filter
-                ->where('expired_at', '>', Carbon::now())
                 ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
                 // [END TEMPORARY FEATURE]
                 ->first(['id']);
@@ -486,7 +484,6 @@ class WorkInstructionApiController extends Controller
                 })
                 // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
                 // Comment bagian ini jika ingin menonaktifkan filter
-                ->where('expired_at', '>', Carbon::now())
                 ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
                 // [END TEMPORARY FEATURE]
                 ->first(['id']);
