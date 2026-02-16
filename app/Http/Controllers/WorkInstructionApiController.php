@@ -114,11 +114,11 @@ class WorkInstructionApiController extends Controller
                                   ->orWhereNull('machining');
                             })
                             ->where('wi_document_code', 'not like', 'WIW%');
-                    })
-                    ->where(function ($sub2) use ($today) {
-                        $sub2->whereNull('expired_at')
-                             ->orWhereDate('expired_at', '>', $today);
                     });
+                    // ->where(function ($sub2) use ($today) {
+                    //     $sub2->whereNull('expired_at')
+                    //          ->orWhereDate('expired_at', '>', $today);
+                    // });
                 })
                 // 2. Dokumen LONGSHIFT, WIW, atau MACHINING -> Hanya cek status ACTIVE/PROCESSED (abaikan tanggal)
                 ->orWhere(function ($q) {

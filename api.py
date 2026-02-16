@@ -1997,6 +1997,147 @@ def release_order():
                 pass
                 pass
 
+@app.route('/api/generate_serial_number', methods=['POST'])
+def generate_serial_number():
+    """
+    Generate / fetch serial number via RFC Z_RFC_INPUT_SERNUM.
+    Retry max 3x jika RETURN = S & NUMBER=000 (Serial Number Found) tapi T_DATA1 kosong.
+    """
+    conn = None
+    try:
+        username, password = get_credentials()
+        conn = connect_sap(username, password)
+
+        data = request.get_json(silent=True) or {}
+
+        # Terima beberapa kemungkinan key supaya fleksibel
+        aufnr_raw = (data.get('AUFNR') or data.get('aufnr') or data.get('IV_AUFNR') or '').strip()
+        serialno_in = (data.get('SERIALNO') or data.get('serialno') or '').strip()
+
+        if not aufnr_raw and not serialno_in:
+            return jsonify({
+                "success": False,
+                "error": "Minimal salah satu harus diisi: AUFNR atau SERIALNO"
+            }), 400
+
+        # Samakan behaviour: AUFNR dipaksa 12 digit
+        aufnr = pad12(aufnr_raw) if aufnr_raw else ''
+        serialno = serialno_in or ''
+
+        MAX_ATTEMPTS = 3
+        SLEEP_BETWEEN_ATTEMPTS_SEC = 0.6  # bisa kamu ubah (0.3 - 1.0 detik biasanya cukup)
+
+        import time as pytime
+
+        last_result = None
+        last_return = {}
+        last_tdata1 = []
+        attempt = 0
+
+        def normalize_table(x):
+            """Pastikan hasil tabel selalu list[dict]."""
+            if not x:
+                return []
+            if isinstance(x, list):
+                return x
+            if isinstance(x, dict):
+                return [x]
+            return []
+
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            logger.info(f"[generate_serial_number] attempt={attempt} AUFNR={aufnr!r} SERIALNO={serialno!r}")
+
+            # Call RFC
+            result = conn.call(
+                'Z_RFC_INPUT_SERNUM',
+                AUFNR=aufnr,
+                SERIALNO=serialno
+            )
+
+            last_result = result or {}
+            last_return = (last_result.get('RETURN') or {}) if isinstance(last_result, dict) else {}
+            last_tdata1 = normalize_table(last_result.get('T_DATA1'))
+
+            r_type = (last_return.get('TYPE') or '').strip()
+            r_num  = str(last_return.get('NUMBER') or '').strip()
+            r_msg  = str(last_return.get('MESSAGE') or '').strip()
+
+            # Kondisi retry: S + 000 + "Serial Number Found" tapi T_DATA1 kosong
+            msg_match = ('Serial Number Found' in r_msg) and (r_num == '000' or '000' in r_msg)
+            need_retry = (r_type == 'S') and msg_match and (len(last_tdata1) == 0)
+
+            if need_retry and attempt < MAX_ATTEMPTS:
+                logger.warning(
+                    "[generate_serial_number] RETURN=S/000 Serial Number Found but T_DATA1 empty -> retry"
+                )
+                pytime.sleep(SLEEP_BETWEEN_ATTEMPTS_SEC)
+                continue
+
+            # selain kondisi di atas, stop loop (sukses / error / atau sudah ada data)
+            break
+
+        # Evaluasi hasil akhir
+        r_type = (last_return.get('TYPE') or '').strip()
+        r_msg  = str(last_return.get('MESSAGE') or '').strip()
+
+        # Kalau SAP mengembalikan error type
+        if r_type in ('E', 'A', 'X'):
+            return jsonify({
+                "success": False,
+                "attempts": attempt,
+                "AUFNR": aufnr,
+                "SERIALNO": serialno,
+                "return": last_return,
+                "T_DATA1": last_tdata1,
+                "error": r_msg or "SAP returned error"
+            }), 400
+
+        # Kalau 3x retry tapi tetap kosong dalam kondisi S/000 Serial Number Found
+        msg_match = ('Serial Number Found' in r_msg) and (
+            str(last_return.get('NUMBER') or '').strip() == '000' or '000' in r_msg
+        )
+        if r_type == 'S' and msg_match and len(last_tdata1) == 0:
+            return jsonify({
+                "success": False,
+                "attempts": attempt,
+                "AUFNR": aufnr,
+                "SERIALNO": serialno,
+                "return": last_return,
+                "T_DATA1": last_tdata1,
+                "error": "Serial Number belum dikembalikan oleh SAP (T_DATA1 masih kosong) setelah 3 kali percobaan."
+            }), 404
+
+        # Normal success (data ada, atau S tapi memang tidak ada data sesuai logika RFC)
+        return jsonify({
+            "success": True,
+            "attempts": attempt,
+            "AUFNR": aufnr,
+            "SERIALNO": serialno,
+            "return": last_return,
+            "T_DATA1": last_tdata1
+        }), 200
+
+    except ValueError as ve:
+        return jsonify({"success": False, "error": str(ve)}), 401
+
+    except RFCError as re:
+        key = getattr(re, "key", "")
+        msg = getattr(re, "message", str(re))
+        logger.error(f"[generate_serial_number] RFCError key={key} msg={msg}")
+        return jsonify({"success": False, "error": "SAP RFC error", "detail": msg}), 502
+
+    except Exception as e:
+        logger.error(f"[generate_serial_number] Exception: {repr(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    
+
 if __name__ == "__main__":
     # Tambahkan use_reloader=False
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
