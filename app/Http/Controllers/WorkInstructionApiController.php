@@ -101,33 +101,48 @@ class WorkInstructionApiController extends Controller
         $today = $now->toDateString();
 
         $query = HistoryWi::query()
-            ->where(function ($grouped) use ($today) {
-                // 1. Dokumen BIASA (Non-Longshift, Non-WIW, Non-Machining) -> Kena filter tanggal & expired
-                $grouped->where(function ($q) use ($today) {
-                    $q->where(function ($sub) {
-                        $sub->where(function ($s) {
-                                $s->where('longshift', '!=', 1)
-                                  ->orWhereNull('longshift');
-                            })
-                            ->where(function ($m) {
-                                $m->where('machining', '!=', 1)
-                                  ->orWhereNull('machining');
-                            })
-                            ->where('wi_document_code', 'not like', 'WIW%');
-                    }) // Semicolon removed to allow chaining
-                    ->where(function ($sub2) use ($today) {
-                        $sub2->whereNull('expired_at')
-                             ->orWhereDate('expired_at', '>', $today);
-                    });
+            ->where(function ($query) use ($today, $now) {
+                // 1. Mode Machining
+                // is_machining == true
+                // document date <= today <= expired_at
+                $query->where(function ($q) use ($today) {
+                    $q->where('machining', 1)
+                      ->whereDate('document_date', '<=', $today)
+                      ->whereNotNull('expired_at') // Assumption: machining requires expired_at
+                      ->whereDate('expired_at', '>=', $today);
                 })
-                // 2. Dokumen LONGSHIFT, WIW, atau MACHINING -> Hanya cek status ACTIVE/PROCESSED (abaikan tanggal)
-                ->orWhere(function ($q) {
-                    $q->where(function ($sub) {
-                        $sub->where('longshift', 1)
-                            ->orWhere('machining', 1)
-                            ->orWhere('wi_document_code', 'like', 'WIW%');
-                    })
-                    ->whereIn('status', ['ACTIVE', 'PROCESSED']);
+                // 2. Mode Longshift
+                ->orWhere(function ($q) use ($today) {
+                    $yesterday = Carbon::parse($today)->subDay()->toDateString();
+                    $q->where('longshift', 1)
+                      ->where(function($sub) {
+                          $sub->where('machining', '!=', 1)
+                              ->orWhereNull('machining');
+                      })
+                      ->where(function ($sub2) use ($today, $yesterday) {
+                          $sub2->whereIn('document_date', [$today, $yesterday])
+                               ->orWhereDate('expired_at', '>=', $today);
+                      });
+                })
+                // 3. Mode Biasa (Normal)
+                // document hanya dikirim apabila statusnya belum EXpited (date < today)
+                // dan Statusnya bukan INACTIVE, COMPLETED, COMPLETED WITH REMARK, EXPIRED
+                ->orWhere(function ($q) use ($today) {
+                    $q->where(function($sub) {
+                            $sub->where('longshift', '!=', 1)
+                                ->orWhereNull('longshift');
+                        })
+                        ->where(function($sub) {
+                            $sub->where('machining', '!=', 1)
+                                ->orWhereNull('machining');
+                        })
+                        // Check expiry: valid if expired_at >= today OR null
+                        ->where(function ($sub) use ($today) {
+                            $sub->whereNull('expired_at')
+                                ->orWhereDate('expired_at', '>=', $today);
+                        })
+                        // Check Status
+                        ->whereNotIn('status', ['INACTIVE', 'COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
                 });
             })
             ->with(['items' => function ($q) use ($nik) {
@@ -189,28 +204,7 @@ class WorkInstructionApiController extends Controller
             $rawItems    = $doc->items;
 
             // Filter machining window (kalau masih dipakai di read)
-            if ($isMachining) {
-                $rawItems = $rawItems->filter(function ($item) use ($now) {
-                    $attrs = $item->getAttributes();
 
-                    $ssavdRaw = $attrs['SSAVD'] ?? $attrs['ssavd'] ?? null;
-                    $sssldRaw = $attrs['SSSLD'] ?? $attrs['sssld'] ?? null;
-
-                    if (!$ssavdRaw || !$sssldRaw) return false;
-
-                    try {
-                        $ssavd = Carbon::parse($ssavdRaw);
-                        $sssld = Carbon::parse($sssldRaw);
-
-                        if (is_string($ssavdRaw) && strlen($ssavdRaw) <= 10) $ssavd = $ssavd->startOfDay();
-                        if (is_string($sssldRaw) && strlen($sssldRaw) <= 10) $sssld = $sssld->endOfDay();
-                    } catch (\Throwable $e) {
-                        return false;
-                    }
-
-                    return $now->between($ssavd, $sssld, true);
-                })->values();
-            }
 
             if ($rawItems->isNotEmpty()) {
                 $hasAssignableItems = true;
@@ -305,15 +299,31 @@ class WorkInstructionApiController extends Controller
             // 1) Cari dokumen aktif (tanpa lock, query ringan)
             $document = HistoryWi::query()
                 ->where('wi_document_code', $wiCode)
-                ->where('document_date', '<=', $todayDate) // hindari whereDate()
-                ->where(function ($q) use ($todayStart) {
-                    $q->whereNull('expired_at')
-                    ->orWhere('expired_at', '>=', $todayStart); // hindari whereDate()
+                ->where(function ($query) use ($todayDate) {
+                    // 1. Machining
+                    $query->where(function ($q) use ($todayDate) {
+                        $q->where('machining', 1)
+                          ->whereDate('document_date', '<=', $todayDate)
+                          ->whereDate('expired_at', '>=', $todayDate);
+                    })
+                    // 2. Longshift
+                    ->orWhere(function ($q) use ($todayDate) {
+                        $yesterday = Carbon::parse($todayDate)->subDay()->toDateString();
+                        $q->where('longshift', 1)
+                          ->where(function($s) { $s->where('machining', '!=', 1)->orWhereNull('machining'); })
+                          ->whereIn('document_date', [$todayDate, $yesterday]);
+                    })
+                    // 3. Normal
+                    ->orWhere(function ($q) use ($todayDate) {
+                        $q->where(function($s) { $s->where('longshift', '!=', 1)->orWhereNull('longshift'); })
+                          ->where(function($s) { $s->where('machining', '!=', 1)->orWhereNull('machining'); })
+                          ->where(function ($sub) use ($todayDate) {
+                               $sub->whereNull('expired_at')
+                                   ->orWhereDate('expired_at', '>=', $todayDate); // Reverted to >= as per logic
+                           })
+                          ->whereNotIn('status', ['INACTIVE', 'COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
+                    });
                 })
-                // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
-                // Comment bagian ini jika ingin menonaktifkan filter
-                // ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
-                // [END TEMPORARY FEATURE]
                 ->first(['id']);
 
             if (!$document) {
@@ -477,15 +487,31 @@ class WorkInstructionApiController extends Controller
             // 1) Dokumen aktif
             $document = HistoryWi::query()
                 ->where('wi_document_code', $wiCode)
-                ->where('document_date', '<=', $todayDate)
-                ->where(function ($q) use ($todayStart) {
-                    $q->whereNull('expired_at')
-                    ->orWhere('expired_at', '>=', $todayStart);
+                ->where(function ($query) use ($todayDate) {
+                    // 1. Machining
+                    $query->where(function ($q) use ($todayDate) {
+                        $q->where('machining', 1)
+                          ->whereDate('document_date', '<=', $todayDate)
+                          ->whereDate('expired_at', '>=', $todayDate);
+                    })
+                    // 2. Longshift
+                    ->orWhere(function ($q) use ($todayDate) {
+                        $yesterday = Carbon::parse($todayDate)->subDay()->toDateString();
+                        $q->where('longshift', 1)
+                          ->where(function($s) { $s->where('machining', '!=', 1)->orWhereNull('machining'); })
+                          ->whereIn('document_date', [$todayDate, $yesterday]);
+                    })
+                    // 3. Normal
+                    ->orWhere(function ($q) use ($todayDate) {
+                        $q->where(function($s) { $s->where('longshift', '!=', 1)->orWhereNull('longshift'); })
+                          ->where(function($s) { $s->where('machining', '!=', 1)->orWhereNull('machining'); })
+                          ->where(function ($sub) use ($todayDate) {
+                               $sub->whereNull('expired_at')
+                                   ->orWhereDate('expired_at', '>=', $todayDate);
+                           })
+                          ->whereNotIn('status', ['INACTIVE', 'COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED']);
+                    });
                 })
-                // [TEMPORARY FEATURE] Filter: Block update jika sudah EXPIRED atau COMPLETED
-                // Comment bagian ini jika ingin menonaktifkan filter
-                // ->whereNotIn('status', ['COMPLETED', 'COMPLETED WITH REMARK', 'EXPIRED'])
-                // [END TEMPORARY FEATURE]
                 ->first(['id']);
 
             if (!$document) {

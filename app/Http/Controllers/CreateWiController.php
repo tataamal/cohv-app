@@ -829,13 +829,25 @@ class CreateWiController extends Controller
             ? $doc->document_date->format('Y-m-d')
             : Carbon::parse($doc->document_date)->format('Y-m-d');
 
+        // 1. MACHINING (Expired At is mandatory or covers ranges)
         if ((int)$doc->machining === 1) {
             $start = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
-            $end   = $doc->expired_at ? Carbon::parse($doc->expired_at) : $start->copy()->endOfDay();
-            $end   = $end->endOfDay();
+            $end   = $doc->expired_at ? Carbon::parse($doc->expired_at)->endOfDay() : $start->copy()->endOfDay();
             return [$start, $end];
         }
 
+        // 2. LONGSHIFT
+        if ((int)$doc->longshift === 1) {
+            $start = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
+            // Valid for 2 days (Today & Tomorrow) OR until expired_at
+            // If expired_at is set, use it. Else default to start + 1 day end (approx 48h from date 00:00)
+            $end = $doc->expired_at 
+                ? Carbon::parse($doc->expired_at)->endOfDay() 
+                : $start->copy()->addDay()->endOfDay();
+            return [$start, $end];
+        }
+
+        // 3. NORMAL
         $time = $doc->document_time instanceof CarbonInterface
             ? $doc->document_time->format('H:i:s')
             : trim((string)($doc->document_time ?? ''));
@@ -844,7 +856,9 @@ class CreateWiController extends Controller
         if (preg_match('/^\d{2}:\d{2}$/', $time)) $time .= ':00';
 
         $start = Carbon::createFromFormat('Y-m-d H:i:s', "{$date} {$time}");
-        $end   = $doc->expired_at ? Carbon::parse($doc->expired_at) : $start->copy()->addHours(24);
+        $end   = $doc->expired_at 
+            ? Carbon::parse($doc->expired_at) 
+            : $start->copy()->addHours(24);
 
         return [$start, $end];
     }
@@ -892,18 +906,45 @@ class CreateWiController extends Controller
 
             if ($start && $end) {
                 $query->where(function($q) use ($start, $end) {
+                    // 1. Has Expired At (Includes Machining & Explicit Normal/Longshift)
+                    // Valid if ANY overlap between [DocDate, ExpiredAt] and [FilStart, FilEnd]
+                    // Overlap: (DocStart <= FilEnd) AND (DocEnd >= FilStart)
+                    // Using dates:
                     $q->where(function($sub) use ($start, $end) {
                         $sub->whereNotNull('expired_at')
-                            ->where('document_date', '<=', $end)
-                            ->where('expired_at', '>=', $start);
-                    })->orWhere(function($sub) use ($start, $end) {
+                            ->whereDate('document_date', '<=', $end)
+                            ->whereDate('expired_at', '>=', $start);
+                    })
+                    // 2. Longshift (No Expired At -> Implied 2 Days: Document Date & Next Day)
+                    // Valid if DocDate is in [Start-1, End] (Since DocDate+1 is valid on Start)
+                    ->orWhere(function($sub) use ($start, $end) {
                         $sub->whereNull('expired_at')
+                            ->where('longshift', 1)
+                            ->whereDate('document_date', '>=', $start->copy()->subDay())
+                            ->whereDate('document_date', '<=', $end);
+                    })
+                    // 3. Normal (No Expired At -> Implied 24 Hours from DocDate+Time)
+                    // Effectively treated as "Active on Document Date" for simpler filtering
+                    // OR strictly overlap logic if needed, but usually DocDate match is enough for list view
+                    ->orWhere(function($sub) use ($start, $end) {
+                        $sub->whereNull('expired_at')
+                            ->where(function($n) {
+                                $n->where('longshift', '!=', 1)
+                                  ->orWhereNull('longshift');
+                            })
+                            // For normal docs without expiry, we assume they are relevant on their document_date
                             ->whereBetween('document_date', [$start, $end]);
                     });
                 });
             }
         } else {
-            $query->where('document_date', '>=', Carbon::today()->subDays(7));
+            // Default View: Recent Docs OR Currently Active/Future Docs (like Machining/Longshift)
+            $query->where(function($q) use ($today) {
+                // 1. Created recently (last 7 days)
+                $q->whereDate('document_date', '>=', $today->copy()->subDays(7))
+                // 2. OR still active/valid today (or in future)
+                  ->orWhereDate('expired_at', '>=', $today);
+            });
         }
 
         if ($request->filled('search_nik')) {
