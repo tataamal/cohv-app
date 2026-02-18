@@ -14,6 +14,7 @@ use App\Models\WorkcenterMapping;
 use App\Models\HistoryWi;
 use App\Models\HistoryWiItem;
 use App\Models\HistoryPro;
+use App\Models\WorkcenterConsume; // [NEW]
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\KodeLaravel;
@@ -161,6 +162,39 @@ class CreateWiController extends Controller
                     'END_TIME'   => $wc->end_time
                 ];
             });
+
+            // [NEW] Fetch consumption for today
+            $today = Carbon::now()->toDateString();
+            $wcIds = $allWorkcenters->pluck('id')->toArray();
+            
+            $consumedMap = [];
+            if (!empty($wcIds)) {
+                $consumes = WorkcenterConsume::whereIn('workcenter_id', $wcIds)
+                    ->where('work_date', $today)
+                    ->get();
+                
+                // 1. Direct consumption
+                foreach ($consumes as $c) {
+                    $wc = $allWorkcenters->firstWhere('id', $c->workcenter_id);
+                    if ($wc) {
+                        $code = strtoupper($wc->kode_wc);
+                        $consumedMap[$code] = (int)$c->capacity_used_sec;
+                    }
+                }
+
+                // 2. Aggregate to Parents (using $workcenterMappings available in scope)
+                foreach ($workcenterMappings as $m) {
+                    if ($m->childWorkcenter && $m->parentWorkcenter) {
+                        $childCode = strtoupper($m->childWorkcenter->kode_wc);
+                        $parentCode = strtoupper($m->parentWorkcenter->kode_wc);
+
+                        if (isset($consumedMap[$childCode])) {
+                            $consumedMap[$parentCode] = ($consumedMap[$parentCode] ?? 0) + $consumedMap[$childCode];
+                        }
+                    }
+                }
+            }
+
             $capacityMap = $capacityData->pluck('KAPAZ', 'ARBPL')->toArray();
             return view('create-wi.index', [
                 'kode'                 => $kode,
@@ -169,6 +203,7 @@ class CreateWiController extends Controller
                 'workcenters'          => $workcenters,
                 'parentWorkcenters'    => $parentWorkcenters,
                 'capacityMap'          => $capacityMap,
+                'consumedMap'          => $consumedMap, // [NEW]
                 'wcTimeInfo'           => $capacityData,
                 'wcNames'              => $wcNames, 
                 'wcDescriptions'       => $wcDescriptions,
@@ -537,15 +572,13 @@ class CreateWiController extends Controller
                 }
 
                 // =========================
-                // [CAPACITY] booking hanya kalau ACTIVE (tanggal == hari ini)
+                // [CAPACITY] booking untuk SEMUA TANGGAL (Active maupun Inactive/Future)
                 // resolve workcenter via mapping_table menggunakan kode_laravel_id (ID)
                 // =========================
-                $shouldConsume = ($dateForDb === $todayStr);
+                $shouldConsume = true; // Always consume
 
                 $needsByWcId  = [];
                 $totalsByWcId = [];
-
-
 
                 if ($shouldConsume) {
                     $needsByWcCode = [];
@@ -632,7 +665,8 @@ class CreateWiController extends Controller
 
                             $initialStatus = ($dateForDb === $todayStr) ? 'ACTIVE' : 'INACTIVE';
 
-                            if ($shouldConsume && $initialStatus === 'ACTIVE' && !empty($needsByWcId)) {
+                            // Always consume if needed, ignoring status
+                            if ($shouldConsume && !empty($needsByWcId)) {
                                 $consumeService->consumeManyOrFail($dateForDb, $needsByWcId, $totalsByWcId);
                             }
 
@@ -3360,6 +3394,62 @@ class CreateWiController extends Controller
             ->setPaper('a4', 'landscape');
 
         return $pdf->stream('Work_Instruction_Inactive.pdf');
+    }
+    public function getDailyCapacity(Request $request)
+    {
+        $date = $request->input('date'); 
+        if (!$date) return response()->json(['success' => false, 'message' => 'Date is required']);
+
+        try {
+            $consumes = WorkcenterConsume::where('work_date', $date)->get();
+            
+            // 1. Map Direct Consumption (Child IDs)
+            $childConsumptionMap = []; // wc_id => seconds
+            foreach ($consumes as $c) {
+                $childConsumptionMap[$c->workcenter_id] = (int) $c->capacity_used_sec;
+            }
+
+            $wcIds = array_keys($childConsumptionMap);
+
+            // 2. Find Mappings where these WCs are children
+            $mappings = WorkcenterMapping::whereIn('wc_anak_id', $wcIds)->get(); // distinct parents
+
+            // 3. Get All Involved WC IDs (Children + Parents)
+            $parentIds = $mappings->pluck('wc_induk_id')->unique()->toArray();
+            $allWcIds = array_unique(array_merge($wcIds, $parentIds));
+
+            // 4. Map IDs to Codes
+            $wcs = workcenter::whereIn('id', $allWcIds)->pluck('kode_wc', 'id');
+
+            $data = [];
+
+            // A. Fill Direct Consumption (Children & Independent WCs)
+            foreach ($childConsumptionMap as $wcId => $sec) {
+                if (isset($wcs[$wcId])) {
+                    $code = strtoupper(trim($wcs[$wcId]));
+                    $data[$code] = ($data[$code] ?? 0) + $sec;
+                }
+            }
+
+            // B. Aggregate to Parents
+            foreach ($mappings as $m) {
+                $childId = $m->wc_anak_id;
+                $parentId = $m->wc_induk_id;
+
+                if (isset($childConsumptionMap[$childId]) && isset($wcs[$parentId])) {
+                    $parentCode = strtoupper(trim($wcs[$parentId]));
+                    $childSec = $childConsumptionMap[$childId];
+                    
+                    // Add child consumption to parent
+                    // Start with 0 if not set, or add to existing if parent has own consumption
+                    $data[$parentCode] = ($data[$parentCode] ?? 0) + $childSec;
+                }
+            }
+
+            return response()->json(['success' => true, 'data' => $data]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
     }
 }
     
