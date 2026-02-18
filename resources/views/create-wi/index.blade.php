@@ -1090,7 +1090,7 @@
                                         </div>
                                         <div class="col-md-3 col-subwc">
                                             <label class="small text-muted fw-bold mb-0 d-none d-md-block">Sub-WC</label>
-                                            <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateEmpOptions('${rAufnr}'); updateCardSummary('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
+                                            <select class="form-select form-select-sm child-select shadow-none border-secondary" onchange="updateEmpOptions('${rAufnr}', true); updateCardSummary('${rAufnr}')" ${!hasChildren ? 'disabled' : ''}>
                                                 ${childOptionsHtml}
                                             </select>
                                         </div>
@@ -1098,6 +1098,7 @@
                                             <label class="small text-muted fw-bold mb-0 d-none d-md-block">Qty</label>
                                             <input type="text" class="form-control form-control-sm qty-input shadow-none border-secondary fw-bold text-center" 
                                                 value="${rSisa.toLocaleString('id-ID')}" oninput="updateCardSummary('${rAufnr}')" ${hasChildren ? 'disabled title="Pilih Sub-WC terlebih dahulu"' : ''}>
+
                                         </div>
                                         <div class="col-md-2 col-time">
                                             <label class="small text-muted fw-bold mb-0 d-none d-md-block">Time (Min)</label>
@@ -1280,9 +1281,10 @@
                     };
                     const onChild1Change = () => {
                         syncSubWc();
-                        updateEmpOptions(aufnr);
+                        updateEmpOptions(aufnr, true);
                         updateCardSummary(aufnr);
                     };
+
 
                     if (child1) {
                         if (child1._lsSyncHandler) {
@@ -1367,7 +1369,8 @@
                     const childSelect = newRow.querySelector('.child-select');
                     childSelect.value = "";
                     childSelect.disabled = false;
-                    childSelect.onchange = function() { updateEmpOptions(aufnr); updateCardSummary(aufnr); };
+                    childSelect.onchange = function() { updateEmpOptions(aufnr, true); updateCardSummary(aufnr); };
+
 
                     const qtyInput = newRow.querySelector('.qty-input');
                     qtyInput.value = "";
@@ -1839,9 +1842,10 @@
                     }
                 }
                 
-                function updateEmpOptions(aufnr) {
+                function updateEmpOptions(aufnr, resetMismatch = false) {
                     const card = document.querySelector(`.pro-card[data-ref-aufnr="${aufnr}"]`);
                     if (!card) return;
+
 
                     const hasChildren = card.dataset.hasChildren === 'true';
                     const parentTargetWc = card.dataset.targetWc;
@@ -1901,7 +1905,58 @@
                         } else if (currentVal !== "") {
                             select.value = "";
                         }
+
+                        // Helper
+                        const normalizeArbpl = (val) => {
+                            if (!val) return "";
+                            let s = val.toString().trim().toUpperCase();
+                            if (s.startsWith("WC")) s = s.substring(2);
+                            return s.trim();
+                        };
+
+                        // 1. Check mismatch
+                        if (resetMismatch && currentVal !== "" && requiredArbpl) {
+                            let currentArbpl = null;
+                            for (let i = 0; i < templateOptions.length; i++) {
+                                if (templateOptions[i].value === currentVal) {
+                                    currentArbpl = templateOptions[i].getAttribute('data-arbpl');
+                                    break;
+                                }
+                            }
+                            const normReq = normalizeArbpl(requiredArbpl);
+                            const normCurr = normalizeArbpl(currentArbpl);
+
+                            // Strict reset if normalized values differ
+                            if (normReq && normCurr && normReq !== normCurr) {
+                                select.value = ""; // FORCE Reset
+                            }
+                        }
+
+                        // 2. Auto Select if empty
+                        if (select.value === "" && requiredArbpl) {
+                            const normReq = normalizeArbpl(requiredArbpl);
+                            const options = Array.from(select.options);
+                            let bestMatch = "";
+
+                            for (const opt of options) {
+                                if (opt.value === "" || opt.disabled) continue;
+
+                                const optArbpl = opt.getAttribute('data-arbpl');
+                                const normOpt = normalizeArbpl(optArbpl);
+
+                                // Exact Normalized Match
+                                if (normOpt === normReq && normReq !== "") {
+                                    bestMatch = opt.value;
+                                    break;
+                                }
+                            }
+
+                            if (bestMatch) {
+                                select.value = bestMatch;
+                            }
+                        }
                     });
+
 
                     if (typeof window.distributeLongshiftQty === 'function') {
                         window.distributeLongshiftQty(aufnr);
@@ -4017,11 +4072,11 @@
                     <div class="modal-header bg-dark text-white">
                         <h5 class="modal-title fw-bold">
                             <i class="fa-solid fa-file-contract me-2"></i>Cek & Simpan Penugasan
-                            @if(in_array($kode ?? '', ['3014'])) 
+                            <!-- @if(in_array($kode ?? '', ['3014'])) 
                                 <button onclick="generateSerialNumber()" class="btn btn-sm btn-info ms-3 text-white fw-bold shadow-sm">
                                     <i class="fa-solid fa-barcode me-2"></i>Generate Serial Number
                                 </button>
-                            @endif
+                            @endif -->
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
@@ -4469,7 +4524,7 @@
                 q2El.value = b.toLocaleString('id-ID');
             };
 
-            window.generateSerialNumber = async function () {
+            /* window.generateSerialNumber = async function () {
                 if (!window.latestAllocations || window.latestAllocations.length === 0) {
                     Swal.fire('Error', 'Tidak ada data alokasi untuk diproses.', 'error');
                     return;

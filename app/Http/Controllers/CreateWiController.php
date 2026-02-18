@@ -24,7 +24,8 @@ use App\Models\ProductionTData4;
 use App\Services\Release;
 use App\Services\YPPR074Z;
 use App\Services\ChangeWc;
-// use App\Services\WorkcenterConsumeService;
+use App\Services\WorkcenterConsumeService;
+
 use Carbon\CarbonInterface;
 
 class CreateWiController extends Controller
@@ -68,7 +69,12 @@ class CreateWiController extends Controller
                 $response = Http::withToken($apiToken)->timeout(5)->post($apiUrl, ['kode_laravel' => $kode]);
                 if ($response->successful()) {
                     $employees = $response->json()['data'];
+                    // Sort by Workcenter (arbpl)
+                    usort($employees, function ($a, $b) {
+                        return strcmp($a['arbpl'] ?? '', $b['arbpl'] ?? '');
+                    });
                 }
+
             } catch (\Exception $e) {
                 Log::error('Koneksi API NIK Error: ' . $e->getMessage());
             }
@@ -375,7 +381,8 @@ class CreateWiController extends Controller
         return $parentHierarchy;
     }
 
-    public function saveWorkInstruction(Request $request) // , WorkcenterConsumeService $consumeService
+    public function saveWorkInstruction(Request $request, WorkcenterConsumeService $consumeService)
+
     {
         $requestData = $request->json()->all();
 
@@ -533,13 +540,13 @@ class CreateWiController extends Controller
                 // [CAPACITY] booking hanya kalau ACTIVE (tanggal == hari ini)
                 // resolve workcenter via mapping_table menggunakan kode_laravel_id (ID)
                 // =========================
-                // $shouldConsume = ($dateForDb === $todayStr);
-                $shouldConsume = false; // FEATURE DISABLED
+                $shouldConsume = ($dateForDb === $todayStr);
 
                 $needsByWcId  = [];
                 $totalsByWcId = [];
 
-                /*
+
+
                 if ($shouldConsume) {
                     $needsByWcCode = [];
 
@@ -587,7 +594,7 @@ class CreateWiController extends Controller
                     ksort($needsByWcId);
                     ksort($totalsByWcId);
                 }
-                */
+
 
                 // =========================================================
                 // A) TRANSAKSI KECIL: lock sequence + (optional) consume + create header
@@ -610,8 +617,9 @@ class CreateWiController extends Controller
                             $todayStr,
                             $shouldConsume,
                             $needsByWcId,
-                            $totalsByWcId
-                            // $consumeService
+                            $totalsByWcId,
+                            $consumeService
+
                         ) {
                             $latestHistory = HistoryWi::withTrashed()
                                 ->where('doc_prefix', $docPrefix)
@@ -625,8 +633,9 @@ class CreateWiController extends Controller
                             $initialStatus = ($dateForDb === $todayStr) ? 'ACTIVE' : 'INACTIVE';
 
                             if ($shouldConsume && $initialStatus === 'ACTIVE' && !empty($needsByWcId)) {
-                                // $consumeService->consumeManyOrFail($dateForDb, $needsByWcId, $totalsByWcId);
+                                $consumeService->consumeManyOrFail($dateForDb, $needsByWcId, $totalsByWcId);
                             }
+
 
                             $history = HistoryWi::create([
                                 'wi_document_code' => $documentCode,
@@ -779,13 +788,14 @@ class CreateWiController extends Controller
 
                     if ($shouldConsume && !empty($needsByWcId)) {
                         try {
-                            /*
+                            
                             DB::transaction(function () use ($consumeService, $dateForDb, $needsByWcId) {
                                 $consumeService->releaseMany($dateForDb, $needsByWcId);
                             }, 3);
-                            */
+                            
                         } catch (\Throwable $ignored2) {}
                     }
+
 
                     throw $inner;
                 }
