@@ -144,7 +144,19 @@ class WorkcenterConsumeService
             $this->ensureDailyRow($date, $wcId, $totalSec);
 
             if (!$this->tryConsume($date, $wcId, $needSec)) {
-                throw new \DomainException("Kapasitas workcenter penuh (workcenter_id={$wcId}) pada tanggal {$date}");
+                // Get current state for debugging
+                $curr = DB::table('workcenter_consume')
+                    ->where('work_date', $date)
+                    ->where('workcenter_id', $wcId)
+                    ->first();
+                
+                $currUsed = $curr ? $curr->capacity_used_sec : 0;
+                $currTotal = $curr ? $curr->capacity_total_sec : 0;
+                $avail = $currTotal - $currUsed;
+
+                \Illuminate\Support\Facades\Log::error("Capacity Full Debug: WC={$wcId}, Date={$date}, Need={$needSec}, Used={$currUsed}, Total={$currTotal}, Avail={$avail}");
+
+                throw new \DomainException("Kapasitas workcenter penuh (workcenter_id={$wcId}) pada tanggal {$date}. Butuh: {$needSec} detik, Tersedia: {$avail} detik (Total: {$currTotal}, Terpakai: {$currUsed})");
             }
         }
     }

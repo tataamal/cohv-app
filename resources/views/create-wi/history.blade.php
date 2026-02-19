@@ -329,6 +329,22 @@
                                     <i class="fa-solid fa-chart-pie me-2 text-primary"></i> Kapasitas Workcenter (Active)
                                 </h6>
                                 <div class="row g-3">
+                                    @php
+                                        // Helper formatter closure
+                                        $formatTime = function($mins) {
+                                            $totalSec = round($mins * 60);
+                                            $h = floor($totalSec / 3600);
+                                            $m = floor(($totalSec % 3600) / 60);
+                                            $s = $totalSec % 60;
+                                            
+                                            $parts = [];
+                                            if ($h > 0) $parts[] = "$h Jam";
+                                            if ($m > 0) $parts[] = "$m Menit";
+                                            if ($s > 0) $parts[] = "$s Detik";
+                                            
+                                            return empty($parts) ? "0 Menit" : implode(" ", $parts);
+                                        };
+                                    @endphp
                                     @foreach($activeWorkcenterCapacities as $cap)
                                         <div class="col-lg-4 col-md-6">
                                             <div class="p-2 border rounded-3 bg-light position-relative overflow-hidden">
@@ -339,7 +355,7 @@
                                                     </div>
                                                     <div class="text-end">
                                                         <span class="badge bg-white text-dark border small fw-bold" style="font-size: 0.65rem;">
-                                                            {{ (fmod($cap['used_mins'], 1) != 0) ? number_format($cap['used_mins'], 2, ',', '.') : number_format($cap['used_mins'], 0, ',', '.') }} / {{ (fmod($cap['max_mins'], 1) != 0) ? number_format($cap['max_mins'], 2, ',', '.') : number_format($cap['max_mins'], 0, ',', '.') }} M
+                                                            {{ $formatTime($cap['used_mins']) }} / {{ $formatTime($cap['max_mins']) }}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -353,16 +369,16 @@
                                                     $progressBarClass = "bg-success";
                                                     $progressWidth = 100; // Full bar if perfect
 
-                                                    if ($diff > 0) {
-                                                        $diffText = "Kelebihan " . ((fmod($absDiff, 1) != 0) ? number_format($absDiff, 2, ',', '.') : number_format($absDiff, 0, ',', '.')) . " Menit";
+                                                    if ($diff > 0.001) { // float tolerance
+                                                        $diffText = "Kelebihan " . $formatTime($absDiff);
                                                         $diffClass = "text-danger"; 
                                                         $progressBarClass = "bg-danger";
                                                         // If over, bar is full red
                                                         $progressWidth = 100; 
-                                                    } elseif ($diff < 0) {
-                                                        $diffText = "Kurang " . ((fmod($absDiff, 1) != 0) ? number_format($absDiff, 2, ',', '.') : number_format($absDiff, 0, ',', '.')) . " Menit";
+                                                    } elseif ($diff < -0.001) {
+                                                        $diffText = "Kurang " . $formatTime($absDiff);
                                                         $diffClass = "text-warning"; 
-                                                        $progressBarClass = "bg-warning";
+                                                        $progressBarClass = "bg-success"; // Green if under capacity (safe)
                                                         // Usage percentage for bar visual
                                                         $progressWidth = ($cap['max_mins'] > 0) ? ($cap['used_mins'] / $cap['max_mins']) * 100 : 0;
                                                     }
@@ -1779,10 +1795,14 @@
         console.log("History Script: Checkpoint 1 - Modal Setup Complete");
 
         // Serialize Mappings with Safety
-        let wcMappings = [];
+        // Serialize Mappings with Safety
+        window.wcMappings = [];
         try {
-            wcMappings = @json($workcenterMappings ?? []);
+            window.wcMappings = @json($workcenterMappings ?? []);
         } catch(e) { console.error("Error parsing wcMappings", e); }
+        
+        // Local alias for compatibility
+        const wcMappings = window.wcMappings;
         
         console.log("History Script: Checkpoint 2 - wcMappings Loaded", wcMappings.length);
 
@@ -1791,9 +1811,55 @@
              wiCapacityMap = @json($wiCapacityMap ?? []);
         } catch(e) { console.error("Error parsing wiCapacityMap", e); }
 
+        window.CONSUMED_MAP = {};
+        try {
+            window.CONSUMED_MAP = @json($consumedMap ?? []);
+        } catch(e) { console.error("Error parsing CONSUMED_MAP", e); }
+
         let availableItemsMap = {}; // Cache for validation
+
+        window.refWorkcentersData = {};
+        try {
+            window.refWorkcentersData = @json($refWorkcenters ?? []);
+        } catch(e) { console.error("Error parsing refWorkcentersData", e); }
         
         // Helper: Calculate Minutes
+        // Helper: Get Single WC Capacity
+        function getSingleWcCapacity(wcCode) {
+            wcCode = (wcCode || '').toUpperCase();
+            const ref = (window.refWorkcentersData || {})[wcCode];
+            let maxMins = 0;
+            if (ref) {
+                 if (ref.operating_time) {
+                      maxMins = parseFloat(String(ref.operating_time).replace(',', '.')) * 60;
+                 } else if (ref.kapaz) {
+                      maxMins = parseFloat(String(ref.kapaz).replace(',', '.')) * 60;
+                 }
+            }
+            return maxMins === 0 ? 570 : maxMins;
+        }
+
+        // Helper: Get Smart Capacity (Parent = Sum of Children)
+        function getWcCapacity(wcCode) {
+             wcCode = (wcCode || '').toUpperCase();
+             // Check if parent (use relation)
+             const children = wcMappings.filter(m => 
+                (m.parent_workcenter?.kode_wc || '').toUpperCase() === wcCode && 
+                (m.child_workcenter?.kode_wc || '').toUpperCase() !== wcCode
+             );
+             
+             if (children.length > 0) {
+                 let sum = 0;
+                 children.forEach(child => {
+                     // child is mapping, access child_workcenter relation
+                     const cCode = (child.child_workcenter?.kode_wc || '').toUpperCase();
+                     sum += getSingleWcCapacity(cCode);
+                 });
+                 return sum;
+             } else {
+                 return getSingleWcCapacity(wcCode);
+             }
+        }
         function calculateItemMinutes(vgw01, vge01, qty) {
             const val = parseFloat(vgw01) || 0;
             const q = parseFloat(qty) || 0;
@@ -1884,45 +1950,82 @@
             const dashboardContainer = document.getElementById('childWcDashboard');
             const capWrap = document.getElementById('capacityAccordionWrapper');
 
-            if (dashboardContainer && capWrap) {
-                dashboardContainer.innerHTML = '';
-                const parentCode = (wcCode || '').toUpperCase();
-                const children = wcMappings.filter(m => (m.wc_induk || '').toUpperCase() === parentCode);
+                if (dashboardContainer && capWrap) {
+                    dashboardContainer.innerHTML = '';
+                    const parentCode = (wcCode || '').toUpperCase();
+                    // Fix: Access parent_workcenter.kode_wc
+                    let children = wcMappings.filter(m => (m.parent_workcenter?.kode_wc || '').toUpperCase() === parentCode);
+                    
+                    // [NEW] Single Workcenter Support
+                    if (children.length === 0) {
+                        const self = (window.refWorkcentersData || {})[parentCode];
+                        if (self) {
+                            // Treat as single child
+                            children = [{
+                                is_single: true,
+                                child_workcenter: { 
+                                    kode_wc: parentCode,
+                                    description: self.description || ''
+                                }
+                            }];
+                        }
+                    }
 
-                if (children.length > 0) {
-                let html = `<div class="row g-2">`;
+                    if (children.length > 0) {
+                    let html = `<div class="row g-2">`;
 
-                children.forEach(c => {
-                    const childCode = (c.workcenter || '').toUpperCase();
-                    const childName = c.nama_workcenter || '';
-                    const ref = (typeof refWorkcentersData !== 'undefined') ? refWorkcentersData[childCode] : null;
+                    children.forEach(c => {
+                        // Fix: Access child_workcenter relation
+                        const childCode = (c.child_workcenter?.kode_wc || '').toUpperCase();
+                        const childName = c.child_workcenter?.description || '';
+                        
+                        // Try get from refWorkcentersData first
+                        const ref = (window.refWorkcentersData || {})[childCode];
+                        let maxMins = 570;
+                        
+                        if (ref && ref.kapaz) {
+                             maxMins = parseFloat(String(ref.kapaz).replace(',', '.')) || 0;
+                        }
+                        if (maxMins === 0) maxMins = 570;
 
-                    let maxMins = 570;
-                    if (ref && ref.kapaz) maxMins = parseFloat(ref.kapaz) || 570;
+                        if (ref && ref.operating_time) {
+                             maxMins = parseFloat(String(ref.operating_time).replace(',', '.')) * 60;
+                        } else if (ref && ref.kapaz) {
+                             maxMins = parseFloat(String(ref.kapaz).replace(',', '.')) * 60;
+                        }
+                        
+                        // Fallback again if calc result is 0
+                        if (maxMins === 0) maxMins = 570;
 
-                    html += `
-                    <div class="col-md-6 col-12">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="text-xs fw-bold text-dark text-truncate" style="max-width: 65%;">
-                            ${childCode} ${childName ? '- ' + childName : ''}
-                        </span>
-                        <span class="text-xs fw-bold text-muted" id="dashboard_val_${childCode}" data-max="${maxMins}">
-                            ${(0).toLocaleString('id-ID', { minimumFractionDigits: 2 })} / ${maxMins.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Min
-                        </span>
-                        </div>
-                        <div class="progress mb-2" style="height: 5px;">
-                        <div class="progress-bar bg-success" id="dashboard_bar_${childCode}" role="progressbar" style="width: 0%"></div>
-                        </div>
-                    </div>`;
-                });
+                        html += `
+                        <div class="col-md-6 col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-xs fw-bold text-dark text-truncate" style="max-width: 65%;">
+                                ${childCode} ${childName ? '- ' + childName : ''}
+                            </span>
+                            <span class="text-xs fw-bold text-muted" id="dashboard_val_${childCode}" data-max="${maxMins}">
+                                ${(0).toLocaleString('id-ID', { minimumFractionDigits: 2 })} / ${maxMins.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Min
+                            </span>
+                            </div>
+                            <div class="progress mb-2" style="height: 5px;">
+                            <div class="progress-bar bg-success" id="dashboard_bar_${childCode}" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>`;
+                    });
 
-                html += `</div>`;
-                dashboardContainer.innerHTML = html;
-                capWrap.classList.remove('d-none');
-                } else {
-                capWrap.classList.add('d-none');
+                    html += `</div>`;
+                    dashboardContainer.innerHTML = html;
+                    capWrap.classList.remove('d-none');
+                    
+                    // [NEW] Initialize dashboard with DB usage
+                    if(typeof updateDashboardUsage === 'function') {
+                        setTimeout(updateDashboardUsage, 0); 
+                    }
+
+                    } else {
+                    capWrap.classList.add('d-none');
+                    }
                 }
-            }
 
             // ✅ set filter wc
             const sel = document.getElementById('filter_wc_add');
@@ -1987,8 +2090,9 @@
 
         function getWcFamilyOptions(wcCode, container = null) {
             const target = (wcCode || '').toUpperCase();
-            const asChild = wcMappings.find(m => (m.workcenter || '').toUpperCase() === target);
-            const children = wcMappings.filter(m => (m.wc_induk || '').toUpperCase() === target);
+            // Fix: Access parent_workcenter / child_workcenter
+            const asChild = wcMappings.find(m => (m.child_workcenter?.kode_wc || '').toUpperCase() === target);
+            const children = wcMappings.filter(m => (m.parent_workcenter?.kode_wc || '').toUpperCase() === target);
             const isParent = children.length > 0;
 
             let batchUsage = {};
@@ -2019,9 +2123,16 @@
 
             let opts = [];
             if (isParent) {
-                children.forEach(c => c.workcenter && opts.push(buildOpt(c.workcenter.toUpperCase(), `${c.workcenter} - ${c.nama_workcenter}`)));
+                children.forEach(c => {
+                    const code = (c.child_workcenter?.kode_wc || '').toUpperCase();
+                    const name = c.child_workcenter?.description || '';
+                    if(code) opts.push(buildOpt(code, `${code} - ${name}`));
+                });
             } else if (asChild) {
-                opts.push(buildOpt(target, `${target} - ${asChild.nama_workcenter}`));
+                const pCode = (asChild.parent_workcenter?.kode_wc || '').toUpperCase(); // Actually we want to show itself?
+                // Logic seems to be: if I am a child, show myself + parent? Or just myself?
+                // The original code was: opts.push(buildOpt(target, `${target} - ${asChild.nama_workcenter}`));
+                opts.push(buildOpt(target, `${target} - ${asChild.child_workcenter?.description || ''}`));
             } else {
                 opts.push(buildOpt(target, target));
             }
@@ -2036,10 +2147,10 @@
             if (!parent) return `<option value="">Pilih Workcenter</option>`;
 
             const children = (window.wcMappings || [])
-                .filter(m => ((m.wc_induk || '').toUpperCase() === parent))
+                .filter(m => ((m.parent_workcenter?.kode_wc || '').toUpperCase() === parent))
                 .map(m => ({
-                code: (m.workcenter || '').toUpperCase().trim(),
-                name: (m.nama_workcenter || '').trim()
+                code: (m.child_workcenter?.kode_wc || '').toUpperCase().trim(),
+                name: (m.child_workcenter?.description || '').trim()
                 }))
                 .filter(x => x.code);
 
@@ -2402,21 +2513,56 @@
             updateDashboardUsage();
         };
 
+        window.updateChildWcOptions = function(totalUsageMap) {
+            const selects = document.querySelectorAll('#addItemModal .row-wc');
+            selects.forEach(sel => {
+                const currentVal = (sel.value || '').toUpperCase();
+                Array.from(sel.options).forEach(opt => {
+                    const wcCode = (opt.value || '').toUpperCase();
+                    if (!wcCode) return;
+
+                    // Use smart limit helper
+                    let limit = getWcCapacity(wcCode);
+
+                    const usage = totalUsageMap[wcCode] || 0;
+                    const isFull = (usage >= limit);
+                    const isSelected = (wcCode === currentVal);
+
+                    if (isFull && !isSelected) {
+                        opt.disabled = true;
+                        if (!opt.innerText.includes('(Full)')) {
+                            opt.innerText += ' (Full)';
+                        }
+                    } else {
+                        opt.disabled = false;
+                        opt.innerText = opt.innerText.replace(' (Full)', '');
+                    }
+                });
+            });
+        };
+
         window.updateDashboardUsage = function() {
             let usageMap = {};
-            const rows = document.querySelectorAll('#addItemModal .split-row');
 
+            // 1. Init with DB Consumption
+            if (window.CONSUMED_MAP) {
+                for (let k in window.CONSUMED_MAP) {
+                    // CONSUMED_MAP is in seconds, convert to minutes
+                    usageMap[k] = (parseFloat(window.CONSUMED_MAP[k]) || 0) / 60;
+                }
+            }
+
+            // 2. Add usage from current modal inputs
+            const rows = document.querySelectorAll('#addItemModal .split-row');
             rows.forEach(r => {
                 const wcS = r.querySelector('.row-wc');
                 const qtyI = r.querySelector('.row-qty');
-                const nikS = r.querySelector('.row-nik');
                 if (!wcS || !qtyI) return;
 
                 const wc = (wcS.value || '').toUpperCase().trim();
                 const qty = parseFloat(qtyI.value || '0') || 0;
                 if (!wc || qty <= 0) return;
 
-                // ambil itemKey dari container terdekat
                 const container = r.closest('[id^="split_container_"]');
                 if (!container) return;
                 const itemKey = container.id.replace('split_container_', '');
@@ -2431,7 +2577,7 @@
                 usageMap[wc] = (usageMap[wc] || 0) + mins;
             });
 
-            // render ke dashboard
+            // 3. Render Dashboard
             for (const el of document.querySelectorAll('[id^="dashboard_val_"]')) {
                 const wc = el.id.replace('dashboard_val_', '');
                 const max = parseFloat(el.getAttribute('data-max')) || 0;
@@ -2442,11 +2588,22 @@
 
                 const bar = document.getElementById(`dashboard_bar_${wc}`);
                 if (bar) {
-                bar.style.width = `${Math.min(pct, 100)}%`;
-                bar.classList.toggle('bg-danger', used > max);
-                bar.classList.toggle('bg-success', used <= max);
+                    bar.style.width = `${Math.min(pct, 100)}%`;
+                    // Color logic: Red if over, Green if safe.
+                    // Note: index.blade.php used yellow for close to full, but simple red/green is fine here.
+                    // Let's stick to existing logic: bg-danger if over, bg-success if safe.
+                    if (used > max) {
+                        bar.classList.remove('bg-success');
+                        bar.classList.add('bg-danger');
+                    } else {
+                        bar.classList.remove('bg-danger');
+                        bar.classList.add('bg-success');
+                    }
                 }
             }
+
+            // 4. Update Dropdown Options
+            updateChildWcOptions(usageMap);
         };
 
         window.updateChildCapacity = function(row, itemKey) {
@@ -2517,7 +2674,9 @@
             const wcSel = row.querySelector('.row-wc');
             if (wcSel && wcDefault) wcSel.value = wcDefault;
 
+
             recalcTotalAssigned(itemKey);
+            if(typeof updateDashboardUsage === 'function') updateDashboardUsage();
         };
 
         document.addEventListener('input', (e) => {
@@ -2673,8 +2832,6 @@
                 if (v === null || v === undefined) return 0;
                 let s = String(v).trim();
                 if (!s) return 0;
-
-                // support "1.234,56" dan "1234.56"
                 if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
                 return parseFloat(s) || 0;
             };
@@ -2686,74 +2843,125 @@
                 const items = [];
                 const seenNik = new Set();
                 let total = 0;
+                
+                // [NEW] Track batch usage for capacity check
+                let batchUsageMap = {}; // WC -> Mins
+
+                // Helper to get minutes
+                const itemData = availableItemsMap?.[itemKey];
+                let tak = parseFloat(itemData?.vgw01) || 0;
+                const unit = (itemData?.vge01 || '').toUpperCase();
+                if (unit === 'S' || unit === 'SEC') tak = tak / 60;
 
                 rows.forEach((r) => {
-                const nikSel = r.querySelector('.row-nik');
-                const qtyInp = r.querySelector('.row-qty');
-                const wcSel = r.querySelector('.row-wc');
+                    const nikSel = r.querySelector('.row-nik');
+                    const qtyInp = r.querySelector('.row-qty');
+                    const wcSel = r.querySelector('.row-wc');
 
-                const nik = (nikSel?.value || '').trim();
-                const name = nikSel?.selectedOptions?.[0]?.dataset?.name || '';
-                const wc = (wcSel?.value || '').trim();
-                const qty = parseNum(qtyInp?.value);
+                    const nik = (nikSel?.value || '').trim();
+                    const name = nikSel?.selectedOptions?.[0]?.dataset?.name || '';
+                    const wc = (wcSel?.value || '').trim().toUpperCase();
+                    const qty = parseNum(qtyInp?.value);
 
-                // skip baris yang tidak valid
-                if (!nik || !wc || qty <= 0) return;
+                    // skip baris yang tidak valid
+                    if (!nik || !wc || qty <= 0) return;
 
-                if (seenNik.has(nik)) {
-                    throw new Error(`NIK ${nik} dipilih lebih dari sekali untuk PRO ${aufnr}/${vornr}.`);
-                }
-                seenNik.add(nik);
+                    if (seenNik.has(nik)) {
+                        throw new Error(`NIK ${nik} dipilih lebih dari sekali untuk PRO ${aufnr}/${vornr}.`);
+                    }
+                    seenNik.add(nik);
 
-                total += qty;
+                    total += qty;
 
-                items.push({
-                    aufnr,
-                    vornr,
-                    qty,
-                    nik,
-                    name,
-                    target_workcenter: wc
-                });
+                    // Calc usage
+                    const mins = tak * qty;
+                    batchUsageMap[wc] = (batchUsageMap[wc] || 0) + mins;
+                    
+                    // Aggregate to Parent Logic
+                    // Cari parent dari mappings global
+                    if (window.wcMappings) {
+                         const mapping = window.wcMappings.find(m => (m.workcenter || '').toUpperCase() === wc);
+                         if (mapping && mapping.wc_induk) {
+                             const parentWc = mapping.wc_induk.toUpperCase();
+                             if (parentWc !== wc) {
+                                 batchUsageMap[parentWc] = (batchUsageMap[parentWc] || 0) + mins;
+                             }
+                         }
+                    }
+
+                    items.push({
+                        aufnr,
+                        vornr,
+                        qty,
+                        nik,
+                        name,
+                        target_workcenter: wc
+                    });
                 });
 
                 if (items.length === 0) {
-                throw new Error('Tidak ada baris valid untuk disimpan.');
+                    throw new Error('Tidak ada baris valid untuk disimpan.');
                 }
 
                 const maxAvail = parseNum(availableItemsMap?.[itemKey]?.available_qty);
                 const over = (maxAvail > 0) && (total > maxAvail + 1e-9);
                 if (over) {
-                throw new Error(`Total assigned (${total}) melebihi available (${maxAvail}).`);
+                    throw new Error(`Total assigned (${total}) melebihi available (${maxAvail}).`);
+                }
+
+                // [NEW] CAPACITY VALIDATION
+                for (const wcCode in batchUsageMap) {
+                    // Current DB Usage (convert sec to min)
+                    const dbMins = (parseFloat(window.CONSUMED_MAP[wcCode] || 0) / 60);
+                    const incomingMins = batchUsageMap[wcCode];
+                    const projectedTotal = dbMins + incomingMins;
+
+                    // Get smart limit (Sum of children if parent, or own limit)
+                    let limit = getWcCapacity(wcCode);
+                    
+                    if (projectedTotal > limit + 0.1) { // 0.1 tolerance
+                        const formatCap = (mVal) => {
+                             const totalSec = Math.round(mVal * 60);
+                             const h = Math.floor(totalSec / 3600);
+                             const m = Math.floor((totalSec % 3600) / 60);
+                             const s = totalSec % 60;
+                             let parts = [];
+                             if(h > 0) parts.push(`${h} Jam`);
+                             if(m > 0) parts.push(`${m} Menit`);
+                             if(s > 0) parts.push(`${s} Detik`);
+                             return parts.length ? parts.join(' ') : '0 Menit';
+                        };
+                        throw new Error(`Kapasitas Workcenter ${wcCode} terlampaui! (Load: ${formatCap(projectedTotal)} / Kapasitas: ${formatCap(limit)}). Simpan dibatalkan.`);
+                    }
                 }
 
                 const payload = {
-                wi_code: currentAddWiCode,
-                machining: isMachiningDoc,
-                longshift: isLongshift,
-                items
+                    wi_code: currentAddWiCode,
+                    machining: isMachiningDoc,
+                    longshift: isLongshift,
+                    items
                 };
 
                 return fetch(`{{ route('wi.add-item-batch') }}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify(payload)
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify(payload)
                 })
                 .then(async (res) => {
                     const text = await res.text();
 
                     let data;
                     try {
-                    data = JSON.parse(text);
+                        data = JSON.parse(text);
                     } catch (e) {
-                    throw new Error(`HTTP ${res.status} (Non-JSON): ${text.slice(0, 200)}`);
+                        throw new Error(`HTTP ${res.status} (Non-JSON): ${text.slice(0, 200)}`);
                     }
 
                     if (!res.ok || data.success === false) {
-                    throw new Error(data.message || `HTTP ${res.status} ${res.statusText}`);
+                        throw new Error(data.message || `HTTP ${res.status} ${res.statusText}`);
                     }
 
                     return data;
@@ -2761,6 +2969,15 @@
                 .then((data) => {
                     Swal.fire('Berhasil', data.message || 'Berhasil', 'success');
                     window.hasAddedItems = true;
+
+                    // [NEW] Update Global CONSUMED_MAP to reflect usage immediately
+                    for (const wcCode in batchUsageMap) {
+                         const addedSec = batchUsageMap[wcCode] * 60;
+                         window.CONSUMED_MAP[wcCode] = (parseFloat(window.CONSUMED_MAP[wcCode] || 0) + addedSec);
+                    }
+                    // Update dashboard visual (bars)
+                    if (typeof updateDashboardUsage === 'function') updateDashboardUsage();
+
                     fetchAvailableItems();
                 })
                 .catch((err) => {

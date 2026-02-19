@@ -39,9 +39,83 @@ class CreateWiController extends Controller
         try {
             DB::beginTransaction();
 
-            $documents = HistoryWi::whereIn('wi_document_code', $ids)->get();
+            // Eager load items to calculate consumption to revert
+            $documents = HistoryWi::with('items')->whereIn('wi_document_code', $ids)->get();
             
             if ($documents->isNotEmpty()) {
+                // Calculate consumption to reduce: [date][wc_code] => seconds
+                $consumptionReductions = [];
+
+                foreach ($documents as $doc) {
+                    // Ensure date is Y-m-d string
+                    $date = Carbon::parse($doc->document_date)->toDateString();
+                    
+                    foreach ($doc->items as $item) {
+                        // Workcenter priority: item's child_wc > document's header wc
+                        $wcCode = $item->child_wc ?: $doc->workcenter; 
+                        
+                        if (!$wcCode) continue;
+
+                        $minutes = (float) $item->calculated_takt_time;
+                        // Avoid reducing if calculated_takt_time is null/zero
+                        if ($minutes <= 0) continue;
+
+                        $seconds = (int) ceil($minutes * 60);
+
+                        if ($seconds > 0) {
+                            if (!isset($consumptionReductions[$date])) {
+                                $consumptionReductions[$date] = [];
+                            }
+                            if (!isset($consumptionReductions[$date][$wcCode])) {
+                                $consumptionReductions[$date][$wcCode] = 0;
+                            }
+                            $consumptionReductions[$date][$wcCode] += $seconds;
+                        }
+                    }
+                }
+
+                // Apply reductions to WorkcenterConsume
+                if (!empty($consumptionReductions)) {
+                    // 1. Get all unique WC codes involved
+                    $allWcCodes = [];
+                    foreach ($consumptionReductions as $date => $wcs) {
+                        foreach (array_keys($wcs) as $code) {
+                            $allWcCodes[] = $code;
+                        }
+                    }
+                    $allWcCodes = array_unique($allWcCodes);
+
+                    // 2. Map Codes -> IDs
+                    // Note: 'workcenter' model uses 'kode_wc' column
+                    $wcMap = workcenter::whereIn('kode_wc', $allWcCodes)->pluck('id', 'kode_wc');
+
+                    // 3. Update DB
+                    foreach ($consumptionReductions as $date => $wcs) {
+                        foreach ($wcs as $wcCode => $secondsToReduce) {
+                            // Resolve ID
+                            $wcId = $wcMap[$wcCode] ?? null;
+                            
+                            // If not found directly, try case-insensitive check if needed (optional locally)
+                            if (!$wcId) {
+                                $wcId = workcenter::where('kode_wc', $wcCode)->value('id');
+                            }
+
+                            if ($wcId) {
+                                $consumeRecord = WorkcenterConsume::where('work_date', $date)
+                                    ->where('workcenter_id', $wcId)
+                                    ->first();
+
+                                if ($consumeRecord) {
+                                    // Safely decrement, clamping at 0
+                                    $newVal = max(0, $consumeRecord->capacity_used_sec - $secondsToReduce);
+                                    $consumeRecord->update(['capacity_used_sec' => $newVal]);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Proceed with original delete/soft-delete logic
                 $docIds = $documents->pluck('id');
                 HistoryWiItem::whereIn('history_wi_id', $docIds)->update(['status' => 'DELETED']);
                 HistoryWi::whereIn('id', $docIds)->update(['status' => 'DELETED']);
@@ -1249,12 +1323,13 @@ class CreateWiController extends Controller
                 foreach ($childrenOfThisWc as $child) {
                     $cCode = strtoupper($child->childWorkcenter->kode_wc);
                     $cap = $wcCapacityMap[$cCode] ?? 0;
-                    if ($cap == 0) $cap = 570; // fallback
-                    $maxMins += $cap;
+                    if ($cap == 0) $cap = 9.5; // fallback 9.5 hours
+                    $maxMins += ($cap * 60); // Convert Hours to Minutes
                 }
             } else {
-                $maxMins = $wcCapacityMap[$targetWcCode] ?? 0;
-                if ($maxMins == 0) $maxMins = 570; // fallback
+                $cap = $wcCapacityMap[$targetWcCode] ?? 0;
+                if ($cap == 0) $cap = 9.5; // fallback 9.5 hours
+                $maxMins = ($cap * 60); // Convert Hours to Minutes
             }
 
             $percentageLoad = $maxMins > 0 ? ($summary['total_load_mins'] / $maxMins) * 100 : 0;
@@ -1306,6 +1381,47 @@ class CreateWiController extends Controller
         }
         unset($cap);
 
+
+        // [NEW] Fetch consumption for today (copied from index)
+        $wcIds = $workcenterMappings->pluck('wc_induk_id')
+            ->merge($workcenterMappings->pluck('wc_anak_id'))
+            ->filter()
+            ->unique()
+            ->toArray();
+            
+        $allWorkcentersForConsume = workcenter::whereIn('id', $wcIds)->get();
+
+        $todayStr = Carbon::now()->toDateString();
+        $consumedMap = [];
+        
+        if (!empty($wcIds)) {
+            $consumes = WorkcenterConsume::whereIn('workcenter_id', $wcIds)
+                ->where('work_date', $todayStr) // Use $todayStr instead of $today (which might be object in some contexts)
+                ->get();
+            
+            // 1. Direct consumption
+            foreach ($consumes as $c) {
+                $wc = $allWorkcentersForConsume->firstWhere('id', $c->workcenter_id);
+                if ($wc) {
+                    $code = strtoupper($wc->kode_wc);
+                    // Use standard variable name consistent with index
+                    $consumedMap[$code] = (int)$c->capacity_used_sec;
+                }
+            }
+
+            // 2. Aggregate to Parents
+            foreach ($workcenterMappings as $m) {
+                if ($m->childWorkcenter && $m->parentWorkcenter) {
+                    $childCode = strtoupper($m->childWorkcenter->kode_wc);
+                    $parentCode = strtoupper($m->parentWorkcenter->kode_wc);
+
+                    if (isset($consumedMap[$childCode])) {
+                        $consumedMap[$parentCode] = ($consumedMap[$parentCode] ?? 0) + $consumedMap[$childCode];
+                    }
+                }
+            }
+        }
+
         return view('create-wi.history', [
             'plantCode' => $plantCode,
             'nama_bagian' => $nama_bagian,
@@ -1319,6 +1435,7 @@ class CreateWiController extends Controller
             'workcenterMappings' => $workcenterMappings,
             'wiCapacityMap' => $wiCapacityMap,
             'activeWorkcenterCapacities' => $aggregatedCapacities,
+            'consumedMap' => $consumedMap, // [NEW]
             'employees' => [],
             'search' => $request->search,
             'date' => $request->date,
@@ -1351,7 +1468,11 @@ class CreateWiController extends Controller
         ]);
 
         try {
-            $doc = HistoryWi::where('wi_document_code', $validated['wi_code'])->firstOrFail();
+            DB::beginTransaction();
+
+            $doc = HistoryWi::where('wi_document_code', $validated['wi_code'])
+                ->lockForUpdate()
+                ->firstOrFail();
 
             $item = HistoryWiItem::where('history_wi_id', $doc->id)
                 ->where('aufnr', $validated['aufnr'])
@@ -1363,24 +1484,63 @@ class CreateWiController extends Controller
                 return back()->with('error', 'Item tidak ditemukan (AUFNR+NIK+VORNR tidak match).');
             }
 
-            $newQty = (float) $validated['new_qty'];
+            $oldQty     = (float) $item->assigned_qty;
+            $newQty     = (float) $validated['new_qty'];
+            $oldMinutes = (float) $item->calculated_takt_time;
 
             // Recalc takt time (minutes)
             $vgw01 = (float) ($item->vgw01 ?? 0);
             $unit  = strtoupper((string) ($item->vge01 ?? 'MIN'));
 
-            $mins = $vgw01 * $newQty;
-            if (in_array($unit, ['S','SEC'], true)) $mins = $mins / 60;
-            elseif (in_array($unit, ['H','HUR'], true)) $mins = $mins * 60;
+            $newMinutesRaw = $vgw01 * $newQty;
+            if (in_array($unit, ['S','SEC'], true)) {
+                $newMinutes = $newMinutesRaw / 60;
+            } elseif (in_array($unit, ['H','HUR'], true)) {
+                $newMinutes = $newMinutesRaw * 60;
+            } else {
+                $newMinutes = $newMinutesRaw;
+            }
+
+            // Calculate Difference in Seconds
+            $oldSeconds = (int) ceil($oldMinutes * 60);
+            $newSeconds = (int) ceil($newMinutes * 60);
+            $diffSeconds = $newSeconds - $oldSeconds;
+
+            if ($diffSeconds != 0) {
+                // Determine WC ID
+                $wcCode = $item->child_wc ?: $doc->workcenter;
+                if ($wcCode) {
+                    $wcId = workcenter::where('kode_wc', $wcCode)->value('id');
+                    if ($wcId) {
+                        $date = Carbon::parse($doc->document_date)->toDateString();
+                        $consumeRecord = WorkcenterConsume::where('work_date', $date)
+                            ->where('workcenter_id', $wcId)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($consumeRecord) {
+                            $currentUsed = (int) $consumeRecord->capacity_used_sec;
+                            $updatedUsed = max(0, $currentUsed + $diffSeconds);
+                            $consumeRecord->update(['capacity_used_sec' => $updatedUsed]);
+                            
+                            // Log debug
+                            Log::info("updateQty Consumption Change: WC={$wcCode}, Date={$date}, Diff={$diffSeconds}, OldUsed={$currentUsed}, NewUsed={$updatedUsed}");
+                        }
+                    }
+                }
+            }
 
             $item->assigned_qty = $newQty;
-            $item->calculated_takt_time = $mins; // IMPORTANT: pakai field yang benar
+            $item->calculated_takt_time = $newMinutes; 
             $item->save();
 
+            DB::commit();
+
             $label = $item->material_desc ?? $item->aufnr;
-            return back()->with('success', "Qty {$label} diupdate menjadi {$newQty}.");
+            return back()->with('success', "Qty {$label} diupdate menjadi {$newQty}. Kapasitas disesuaikan (" . ($diffSeconds > 0 ? '+' : '') . $diffSeconds . " detik).");
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
@@ -3140,52 +3300,78 @@ class CreateWiController extends Controller
     {
         $request->validate([
             'wi_code' => 'required|string',
-            'aufnr' => 'required|string',
-            'vornr' => 'required|string',
-            'nik' => 'required|string',
-            'qty' => 'required'
+            'aufnr'   => 'required|string',
+            'vornr'   => 'required|string',
+            'nik'     => 'required|string',
+            'qty'     => 'required'
         ]);
 
         try {
             DB::beginTransaction();
-            $doc = HistoryWi::where('wi_document_code', $request->wi_code)->lockForUpdate()->firstOrFail();
-            
-            $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
-            if (!is_array($payload)) $payload = [];
-            
-            $newPayload = [];
-            $found = false;
-            
-            $reqNik = (string)$request->nik;
-            $reqQty = floatval($request->qty);
 
-            foreach ($payload as $item) {
-                $itemNik = (string)($item['nik'] ?? '');
-                $itemQty = floatval($item['assigned_qty'] ?? 0);
+            // 1. Lock Document
+            $doc = HistoryWi::where('wi_document_code', $request->wi_code)
+                ->lockForUpdate()
+                ->firstOrFail();
+            
+            $aufnr  = trim((string)$request->aufnr);
+            $vornr  = trim((string)$request->vornr);
+            $reqNik = trim((string)$request->nik);
+            $dbItem = HistoryWiItem::where('history_wi_id', $doc->id)
+                ->where('aufnr', $aufnr)
+                ->where('vornr', $vornr)
+                ->where('nik', $reqNik)
+                ->first();
 
-                if ( !$found &&
-                     ($item['aufnr'] == $request->aufnr) && 
-                     (($item['vornr'] ?? '') == $request->vornr) &&
-                     ($itemNik === $reqNik) &&
-                     (abs($itemQty - $reqQty) < 0.0001)
-                   ) {
-                    
-                    $conf = floatval($item['confirmed_qty'] ?? 0);
-                    if ($conf > 0) {
-                        return response()->json(['success' => false, 'message' => 'Item sudah memiliki konfirmasi, tidak dapat dihapus.'], 400);
-                    }
-                    $found = true;
-                } else {
-                    $newPayload[] = $item;
+            if ($dbItem) {
+                // Check if item has confirmation
+                $confirmedQty = 0;
+                if (method_exists($dbItem, 'pros')) {
+                    $confirmedQty = (float)$dbItem->pros()
+                        ->whereIn(DB::raw('LOWER(status)'), ['confirmasi','confirm','confirmed'])
+                        ->sum('qty_pro');
                 }
+
+                if ($confirmedQty > 0) {
+                    return response()->json(['success' => false, 'message' => 'Item sudah memiliki konfirmasi, tidak dapat dihapus.'], 400);
+                }
+
+                // 3. Reduce Workcenter Consumption
+                $minutes = (float) $dbItem->calculated_takt_time;
+                if ($minutes > 0) {
+                    $seconds = (int) ceil($minutes * 60);
+                    $wcCode  = $dbItem->child_wc ?: $doc->workcenter; // Priority: Item Child WC > Header WC
+                    
+                    if ($wcCode && $seconds > 0) {
+                        $date = Carbon::parse($doc->document_date)->toDateString();
+                        
+                        // Resolve WC ID
+                        $wcId = workcenter::where('kode_wc', $wcCode)->value('id');
+
+                        if ($wcId) {
+                            $consumeRecord = WorkcenterConsume::where('work_date', $date)
+                                ->where('workcenter_id', $wcId)
+                                ->lockForUpdate()
+                                ->first();
+
+                            if ($consumeRecord) {
+                                $newVal = max(0, $consumeRecord->capacity_used_sec - $seconds);
+                                $consumeRecord->update(['capacity_used_sec' => $newVal]);
+                            }
+                        }
+                    }
+                }
+
+                // 4. Delete DB Item
+                $dbItem->delete();
+            } else {
+
+            }
+            
+            if (!$dbItem) {
+                 return response()->json(['success' => false, 'message' => 'Item spesifik tidak ditemukan (Cek NIK/Aufnr/Vornr).'], 400);
             }
 
-            if (!$found) {
-                return response()->json(['success' => false, 'message' => 'Item spesifik tidak ditemukan (Cek NIK/Qty).'], 400);
-            }
-
-            $doc->payload_data = $newPayload;
-            $doc->save();
             DB::commit();
 
             return response()->json(['success' => true, 'message' => 'Item berhasil dihapus.']);
@@ -3287,7 +3473,6 @@ class CreateWiController extends Controller
         if ($request->filled('adv_maktx')) {
             $val = $request->adv_maktx;
             $arr = array_map('trim', explode(',', $val));
-            // Gunakan whereIn agar performa lebih ringan dibanding looping orWhere
             $query->whereIn('MAKTX', $arr);
         }
 
@@ -3379,17 +3564,14 @@ class CreateWiController extends Controller
             return back()->with('error', 'Dokumen inactive tidak ditemukan.');
         }
 
-        // Use the same data structure as printSingleWi to support wi_single_document template
         $data = [
             'documents'  => $documents,
             'printedBy'  => $request->input('printed_by'),
             'department' => preg_replace('/[^\x20-\x7E]/', '', str_replace(['–', '—'], '-', $request->input('department'))),
             'printTime'  => now(),
             'isEmail'    => false,
-            'status_override' => 'INACTIVE', // Force INACTIVE status for this report
+            'status_override' => 'INACTIVE', 
         ];
-
-        // Load the Single Document view instead of the report view
         $pdf = Pdf::loadView('pdf.wi_single_document', $data)
             ->setPaper('a4', 'landscape');
 
@@ -3403,27 +3585,21 @@ class CreateWiController extends Controller
         try {
             $consumes = WorkcenterConsume::where('work_date', $date)->get();
             
-            // 1. Map Direct Consumption (Child IDs)
-            $childConsumptionMap = []; // wc_id => seconds
+            $childConsumptionMap = []; 
             foreach ($consumes as $c) {
                 $childConsumptionMap[$c->workcenter_id] = (int) $c->capacity_used_sec;
             }
 
             $wcIds = array_keys($childConsumptionMap);
 
-            // 2. Find Mappings where these WCs are children
-            $mappings = WorkcenterMapping::whereIn('wc_anak_id', $wcIds)->get(); // distinct parents
+            $mappings = WorkcenterMapping::whereIn('wc_anak_id', $wcIds)->get(); 
 
-            // 3. Get All Involved WC IDs (Children + Parents)
             $parentIds = $mappings->pluck('wc_induk_id')->unique()->toArray();
             $allWcIds = array_unique(array_merge($wcIds, $parentIds));
 
-            // 4. Map IDs to Codes
             $wcs = workcenter::whereIn('id', $allWcIds)->pluck('kode_wc', 'id');
 
             $data = [];
-
-            // A. Fill Direct Consumption (Children & Independent WCs)
             foreach ($childConsumptionMap as $wcId => $sec) {
                 if (isset($wcs[$wcId])) {
                     $code = strtoupper(trim($wcs[$wcId]));
@@ -3431,7 +3607,6 @@ class CreateWiController extends Controller
                 }
             }
 
-            // B. Aggregate to Parents
             foreach ($mappings as $m) {
                 $childId = $m->wc_anak_id;
                 $parentId = $m->wc_induk_id;
@@ -3439,9 +3614,6 @@ class CreateWiController extends Controller
                 if (isset($childConsumptionMap[$childId]) && isset($wcs[$parentId])) {
                     $parentCode = strtoupper(trim($wcs[$parentId]));
                     $childSec = $childConsumptionMap[$childId];
-                    
-                    // Add child consumption to parent
-                    // Start with 0 if not set, or add to existing if parent has own consumption
                     $data[$parentCode] = ($data[$parentCode] ?? 0) + $childSec;
                 }
             }
