@@ -36,7 +36,9 @@
         data-kapaz="{{ $item->KAPAZ }}"
         data-name1="{{ $item->NAME1 }}"
         data-netpr="{{ $item->NETPR }}"
-        data-waerk="{{ $item->WAERK }}"> 
+        data-waerk="{{ $item->WAERK }}"
+        data-matfg="{{ $item->MATFG }}"
+        data-makfg="{{ $item->MAKFG }}"> 
 
         {{-- 1. Checkbox --}}
         <td class="text-center table-col ps-3">

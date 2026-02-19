@@ -838,6 +838,8 @@ class CreateWiController extends Controller
                                 'vgw01'         => $itemData['vgw01'] ?? 0,
                                 'material_number' => $itemData['material_number'] ?? null,
                                 'material_desc'   => $itemData['material_desc'] ?? null,
+                                'matfg'           => $itemData['matfg'] ?? null,
+                                'makfg'           => $itemData['makfg'] ?? null,
                                 'qty_order'        => $itemData['qty_order'] ?? 0,
                                 'assigned_qty'     => $itemData['assigned_qty'] ?? 0,
                                 'parent_wc'        => $parentWc,
@@ -3299,6 +3301,9 @@ class CreateWiController extends Controller
 
                             'material_number' => $targetItem->MATNR ?? null,
                             'material_desc'   => $targetItem->MAKTX ?? null,
+
+                            'matfg'     => $targetItem->MATFG ?? null, // [NEW]
+                            'makfg'     => $targetItem->MAKFG ?? null, // [NEW]
 
                             'qty_order'        => (float)($targetItem->MGVRG2 ?? 0),
                             'assigned_qty'     => $qty,

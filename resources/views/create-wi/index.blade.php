@@ -645,13 +645,10 @@
                     const currentTotalSec = dbConsumedSec + Math.floor(draftMins * 60); 
                     const limitSec = Math.ceil(maxSec + 60); // Toleransi presisi 60 detik
 
-                    // 2. VALIDASI KETAT: Jika WC SUDAH PENUH (>= 100%), tolak drop!
-                    // KECUALI jika mode Machining diaktifkan
                     const chkMachining = document.getElementById('chkUnique1');
                     const isMachining = chkMachining && chkMachining.checked;
 
                     if (!isMachining && currentTotalSec > limitSec) {
-                        // Gunakan helper format waktu untuk pesan error yang rapi
                         const usedText = window.formatDurationLong ? window.formatDurationLong(currentTotalSec) : `${(currentTotalSec/3600).toFixed(2)} Jam`;
                         const maxText = window.formatDurationLong ? window.formatDurationLong(maxSec) : `${(maxSec/3600).toFixed(2)} Jam`;
 
@@ -1995,9 +1992,6 @@
                             const totalMins = (dbConsumedSec / 60) + existingDraftMins + newMins;
                             const totalSec = Math.floor(totalMins * 60);
                             const limitSec = Math.ceil(maxSec + 60); // Toleransi 60 detik
-
-                            // [PERBAIKAN KUNCI]: BERLAKU UNTUK SEMUA WC, BAIK GROUPING MAUPUN SINGLE
-                            // KECUALI jika mode Machining diaktifkan
                             const chkMachining = document.getElementById('chkUnique1');
                             const isMachining = chkMachining && chkMachining.checked;
 
@@ -2016,7 +2010,7 @@
                                     `,
                                     confirmButtonText: 'Mengerti'
                                 });
-                                return; // BLOKIR SIMPAN SECARA KETAT!
+                                return; 
                             }
                     }
                 }
@@ -2382,8 +2376,6 @@
                 const returnedChildWc = item.dataset.childWc || '';
                 if (returnedChildWc) removeAssignedChildWC(aufnr, returnedChildWc);
 
-                // [FIX] Find ANY existing row with the same key/aufnr+vornr that is NOT the current item
-                // Manual loop is safer for whitespace issues than querySelectorAll string matching
                 const candidates = sourceList.querySelectorAll('tr.pro-item');
                 let existing = null;
                 
@@ -3167,7 +3159,9 @@
                                 name1: item.dataset.name1 || '-',
                                 netpr: item.dataset.netpr || '-',
                                 waerk: item.dataset.waerk || '-',
-                                stats: item.dataset.stats || '-', 
+                                stats: item.dataset.stats || '-',
+                                matfg: item.dataset.matfg || '-',
+                                makfg: item.dataset.makfg || '-', 
                                 calculated_tak_time: takTimeMins.toFixed(2),
                                 is_machining: parseInt(item.dataset.isMachining || 0),
                                 is_machining: parseInt(item.dataset.isMachining || 0),

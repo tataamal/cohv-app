@@ -31,6 +31,8 @@ class HistoryWiItem extends Model
         'vgw01',
         'material_number',
         'material_desc',
+        'matfg',
+        'makfg',
         'qty_order',
         'assigned_qty',
         'confirmed_qty_total',
