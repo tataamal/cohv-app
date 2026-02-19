@@ -1738,7 +1738,7 @@
 
                         // jika kosong
                         if (rows.length === 0) {
-                            previewBody.innerHTML = `<tr><td colspan="8" class="text-center py-3 text-muted">Tidak ada data ditemukan.</td></tr>`;
+                            previewBody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">Tidak ada data ditemukan.</td></tr>`;
                             if (btnSubmit) btnSubmit.disabled = true;
                         } else {
                             let no = 1;
@@ -1761,7 +1761,6 @@
                                     <td class="text-center">${safe(row.description, '').substring(0, 15)}...</td>
                                     <td class="text-center">${safeNum(row.balance, 0)}</td>
                                     <td class="text-center"><span class="badge ${badgeClass}">${safe(row.status)}</span></td>
-                                    <td class="text-center">${dept ? safe(dept) : '-'}</td>
                                 `;
                                 previewBody.appendChild(tr);
                             });
@@ -2816,6 +2815,14 @@
             if (typeof updateDashboardUsage === 'function') updateDashboardUsage();
         };
 
+        function getParentWc(childCode) {
+            childCode = (childCode || '').toUpperCase();
+            const m = (window.wcMappings || []).find(x =>
+                (x.child_workcenter?.kode_wc || '').toUpperCase() === childCode
+            );
+            return (m?.parent_workcenter?.kode_wc || '').toUpperCase();
+        }
+
         window.submitBatchItem = function (aufnr, vornr, btnEl) {
             const itemKey = `${aufnr}_${vornr}`;
             const isMachiningDoc = !!window.AddItemState?.flags?.machining;
@@ -2882,8 +2889,8 @@
                     if (window.wcMappings) {
                          const mapping = window.wcMappings.find(m => (m.workcenter || '').toUpperCase() === wc);
                          if (mapping && mapping.wc_induk) {
-                             const parentWc = mapping.wc_induk.toUpperCase();
-                             if (parentWc !== wc) {
+                             const parentWc = getParentWc(wc);
+                             if (parentWc && parentWc !== wc) {
                                  batchUsageMap[parentWc] = (batchUsageMap[parentWc] || 0) + mins;
                              }
                          }
@@ -3568,55 +3575,87 @@
                     if (e.key === 'Enter') performSearch();
                 });
 
+                function escapeHtml(str) {
+                    return String(str ?? '')
+                        .replaceAll('&', '&amp;')
+                        .replaceAll('<', '&lt;')
+                        .replaceAll('>', '&gt;')
+                        .replaceAll('"', '&quot;')
+                        .replaceAll("'", '&#039;');
+                }
+
                 function renderSearchResults(data) {
-                    if (!data || data.length === 0) {
-                        resultBody.innerHTML = '<div class="alert alert-info border-0 shadow-sm"><i class="fa-solid fa-info-circle me-2"></i>Tidak ada remark ditemukan untuk AUFNR ini.</div>';
+                    const resultBody = document.getElementById('remarkSearchResultBody');
+                    if (!resultBody) return;
+
+                    if (!Array.isArray(data) || data.length === 0) {
+                        resultBody.innerHTML =
+                        '<div class="alert alert-info border-0 shadow-sm">' +
+                        '<i class="fa-solid fa-info-circle me-2"></i>Tidak ada remark ditemukan untuk AUFNR ini.' +
+                        '</div>';
                         return;
                     }
 
                     let html = '<div class="list-group list-group-flush rounded-3">';
+
                     data.forEach(doc => {
-                         html += `
-                            <div class="list-group-item list-group-item-action p-3 border-bottom-0 mb-2 rounded shadow-sm bg-white border">
-                                <div class="d-flex w-100 justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0 text-primary fw-bold font-monospace"><i class="fa-solid fa-file-lines me-2"></i>${doc.wi_code}</h6>
-                                    <span class="badge bg-light text-secondary border">${doc.document_date}</span>
-                                </div>
-                                <div class="mb-2 text-muted small row">
-                                    <div class="col-md-6"><i class="fa-solid fa-box me-1"></i> Material: <span class="text-dark fw-bold">${doc.material_desc}</span></div>
-                                    <div class="col-md-6"><i class="fa-solid fa-layer-group me-1"></i> VORNR: <span class="text-dark fw-bold">${doc.vornr}</span></div>
-                                </div>
-                                <div class="mb-2 text-muted small"><i class="fa-solid fa-user-gear me-1"></i> Operator: <span class="text-dark fw-bold">${doc.operator || '-'}</span></div>
-                                
-                                <div class="mt-3 ps-3 border-start border-3 border-danger bg-light p-2 rounded-end">
-                                     <div class="fw-bold text-danger text-xs mb-1 text-uppercase">Log Remark</div>
-                                     <ul class="list-unstyled mb-0 mt-1">`;
-                                         
-                         if (doc.history && doc.history.length > 0) {
-                             doc.history.forEach(h => {
-                                 html += `
-                                    <li class="mb-2 d-flex flex-column gap-1 border-bottom pb-2 last-no-border">
-                                        <span class="badge bg-danger text-wrap text-start lh-base" style="font-size: 0.8rem;">
-                                            <i class="fa-solid fa-triangle-exclamation me-1"></i> 
-                                            <strong>Jumlah Item Gagal: ${parseFloat(h.qty || 0)}</strong> - ${h.remark || '-'}
-                                        </span>
-                                        <div class="text-end">
-                                            <small class="text-muted fst-italic" style="font-size: 0.7rem;">
-                                                ${h.created_at || ''} <span class="mx-1">•</span> <i class="fa-solid fa-user-clock text-xs"></i> ${h.created_by || 'System'}
-                                            </small>
-                                        </div>
-                                    </li>
-                                 `;
-                             });
-                         } else {
-                             html += `<li class="text-muted small"><em>Tidak ada detail history.</em></li>`;
-                         }
-                         
-                         html += `   </ul>
-                                </div>
+                        const wiCode = escapeHtml(doc.wi_code || doc.wiCode || '-');
+                        const docDate = escapeHtml(doc.document_date || doc.date || '-');
+                        const material = escapeHtml(doc.material_desc || doc.material || '-');
+                        const vornr = escapeHtml(doc.vornr || '-');
+
+                        // ambil remark list (sesuaikan field)
+                        const remarks = Array.isArray(doc.remark_history)
+                        ? doc.remark_history
+                        : (Array.isArray(doc.remarks) ? doc.remarks : []);
+
+                        let remarksHtml = '';
+                        if (remarks.length) {
+                        remarksHtml = '<ul class="list-unstyled mb-0 mt-2">';
+                        remarks.forEach(r => {
+                            const qty = r.qty ?? r.remark_qty ?? 0;
+                            const msg = escapeHtml(r.remark_text || r.remark || r.tag || '-');
+                            const qtyText = Number(qty).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+
+                            remarksHtml += `
+                            <li class="mb-1">
+                                <span class="badge bg-danger text-wrap text-start" style="font-size:0.75rem;">
+                                <strong>Jumlah Item Gagal: ${qtyText}</strong> - ${msg}
+                                </span>
+                            </li>
+                            `;
+                        });
+                        remarksHtml += '</ul>';
+                        } else {
+                        remarksHtml =
+                            '<div class="text-muted small fst-italic mt-2">Tidak ada detail remark di dokumen ini.</div>';
+                        }
+
+                        html += `
+                        <div class="list-group-item p-3 mb-2 rounded shadow-sm bg-white border">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="fw-bold text-primary font-monospace">
+                                <i class="fa-solid fa-file-lines me-2"></i>${wiCode}
                             </div>
-                         `;
+                            <span class="badge bg-light text-secondary border">${docDate}</span>
+                            </div>
+
+                            <div class="row g-2 small text-muted">
+                            <div class="col-md-6">
+                                <i class="fa-solid fa-box me-1"></i> Material:
+                                <span class="text-dark fw-bold">${material}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <i class="fa-solid fa-layer-group me-1"></i> VORNR:
+                                <span class="text-dark fw-bold">${vornr}</span>
+                            </div>
+                            </div>
+
+                            ${remarksHtml}
+                        </div>
+                        `;
                     });
+
                     html += '</div>';
                     resultBody.innerHTML = html;
                 }

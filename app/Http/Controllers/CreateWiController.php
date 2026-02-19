@@ -27,6 +27,7 @@ use App\Services\YPPR074Z;
 use App\Services\ChangeWc;
 use App\Services\WorkcenterConsumeService;
 
+
 use Carbon\CarbonInterface;
 
 class CreateWiController extends Controller
@@ -3084,7 +3085,7 @@ class CreateWiController extends Controller
         }
     }
 
-    public function addItemBatch(Request $request)
+    public function addItemBatch(Request $request, WorkcenterConsumeService $consumeService)
     {
         $validated = $request->validate([
             'wi_code' => 'required|string',
@@ -3105,8 +3106,11 @@ class CreateWiController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            if ($doc->machining) {
+                throw new \Exception("Dokumen Machining tidak dapat menambah item melalui fitur ini.");
+            }
+
             $plantCode = $doc->plant_code;
-            $isMachiningDoc = ((int)($doc->machining ?? 0) === 1);
             $availableItems = $this->getAvailableProsData($plantCode);
             $allMappingsQuery = WorkcenterMapping::query();
             $allMappingsQuery->where(function ($q) use ($plantCode) {
@@ -3122,9 +3126,69 @@ class CreateWiController extends Controller
             });
 
             $allMappings = $allMappingsQuery->get();
+
+            // [NEW] CAPACITY CHECK
+            $kodeLaravelId = null;
+            $kodeLaravel = KodeLaravel::where('laravel_code', (string)$plantCode)->first(['id']);
+            if (!$kodeLaravel && ctype_digit((string)$plantCode)) {
+                $kodeLaravel = KodeLaravel::where('id', (int)$plantCode)->first(['id']);
+            }
+
+            if ($kodeLaravel) {
+                $needsByWcCode = [];
+                
+                foreach ($validated['items'] as $itemReq) {
+                    $aufnrReq = (string)$itemReq['aufnr'];
+                    $vornrReq = (string)$itemReq['vornr'];
+                    
+                    // Match item from valid source
+                    $targetItem = $availableItems->first(function($i) use ($aufnrReq, $vornrReq) {
+                        return (string)$i->AUFNR === $aufnrReq && (string)$i->VORNR === $vornrReq;
+                    });
+                    
+                    if ($targetItem) {
+                        $wcTarget = (string)$itemReq['target_workcenter'];
+                        $mapping = $allMappings->first(fn($m) => strtoupper((string)$m->workcenter) === strtoupper($wcTarget));
+                        $parentWc = $mapping ? ($mapping->wc_induk ?? $wcTarget) : $wcTarget;
+                        
+                        $qty = (float)$itemReq['qty'];
+                        $baseTime = (float)($targetItem->VGW01 ?? 0);
+                        $unit     = strtoupper((string)($targetItem->VGE01 ?? 'MIN'));
+                        
+                        $mins = $baseTime * $qty;
+                        if (in_array($unit, ['S','SEC'], true)) $mins = $mins / 60;
+                        elseif (in_array($unit, ['H','HUR'], true)) $mins = $mins * 60;
+                        
+                        // Convert to seconds
+                        $seconds = (int)ceil($mins * 60);
+                        if ($seconds > 0) {
+                            $needsByWcCode[$parentWc] = ($needsByWcCode[$parentWc] ?? 0) + $seconds;
+                        }
+                    }
+                }
+                
+                if (!empty($needsByWcCode)) {
+                     $wcCodes = array_keys($needsByWcCode);
+                     $resolved = $consumeService->resolveWorkcentersByKodeLaravel($kodeLaravel->id, $wcCodes);
+                     
+                     $needsByWcId = [];
+                     $totalsByWcId = [];
+                     
+                     foreach ($needsByWcCode as $code => $sec) {
+                          if (!isset($resolved[$code])) {
+                               throw new \Exception("Workcenter {$code} belum dimapping ke Plant ID {$kodeLaravel->id}.");
+                          }
+                          $wcId = $resolved[$code]['id'];
+                          $needsByWcId[$wcId] = ($needsByWcId[$wcId] ?? 0) + $sec;
+                          $totalsByWcId[$wcId] = $resolved[$code]['capacity_total_sec'];
+                     }
+                     
+                     $dateForDb = Carbon::parse($doc->document_date)->toDateString();
+                     $consumeService->consumeManyOrFail($dateForDb, $needsByWcId, $totalsByWcId);
+                }
+            }
+
             $groupedRequests = collect($validated['items'])->groupBy(fn($it) => $it['aufnr'].'_'.$it['vornr']);
-            $minSsavd = null;
-            $maxSssld = null;
 
             foreach ($groupedRequests as $groupKey => $requests) {
 
@@ -3133,6 +3197,8 @@ class CreateWiController extends Controller
                     ->filter();
 
                 if ($niks->count() !== $niks->unique()->count()) {
+                    // re-using existing var for exception message if needed, but safer to use requests->first()
+                    $firstReq = $requests->first();
                     throw new \Exception("NIK tidak boleh sama untuk PRO {$firstReq['aufnr']} / {$firstReq['vornr']} (Longshift).");
                 }
                 $firstReq = $requests->first();
@@ -3148,7 +3214,8 @@ class CreateWiController extends Controller
 
                 $totalRequestedQty = (float)$requests->sum('qty');
                 $availableQty = (float)($targetItem->real_sisa_qty ?? 0);
-
+                
+                // Allow slightly stricter check or same check as loop start? Keeping existing logic.
                 if ($totalRequestedQty > $availableQty + 0.0001) {
                     throw new \Exception("Total Qty ({$totalRequestedQty}) melebihi sisa tersedia ({$availableQty}) untuk PRO {$firstReq['aufnr']}.");
                 }
@@ -3217,7 +3284,7 @@ class CreateWiController extends Controller
                             $existingItem->parent_wc = $parentWc;
                         }
 
-                        if ($isMachiningDoc) $existingItem->machining = 1;
+
 
                         $existingItem->save();
                     } else {
@@ -3252,40 +3319,17 @@ class CreateWiController extends Controller
                             'parent_wc' => $parentWc,
                             'child_wc'  => $childWc,
 
-                            'machining' => $isMachiningDoc ? 1 : 0,
+                            'machining' => 0,
                             'calculated_takt_time' => $mins,
                             'status' => 'Open',
                         ]);
 
-                        if ($isMachiningDoc) {
-                            $s = $this->parseWiDate(($targetItem->SSAVD ?? null));
-                            $e = $this->parseWiDate(($targetItem->SSSLD ?? null));
 
-                            if ($s && (!$minSsavd || $s->lt($minSsavd))) $minSsavd = $s;
-                            if ($e && (!$maxSssld || $e->gt($maxSssld))) $maxSssld = $e;
-                        }
                     }
                 }
             }
 
-            if ($isMachiningDoc) {
-                $docDate = Carbon::parse($doc->document_date)->startOfDay();
-                $docExp  = $doc->expired_at ? Carbon::parse($doc->expired_at) : null;
 
-                if ($minSsavd && $minSsavd->lt($docDate)) {
-                    $doc->document_date = $minSsavd->toDateString();
-                }
-
-                if ($maxSssld) {
-                    $newExp = $maxSssld->copy()->endOfDay();
-                    if (!$docExp || $newExp->gt($docExp)) {
-                        $doc->expired_at = $newExp;
-                    }
-                }
-
-                $doc->document_time = null; // machining flow
-                $doc->save();
-            }
 
             DB::commit();
             return response()->json(['success' => true, 'message' => count($validated['items']).' Item berhasil ditambahkan.']);

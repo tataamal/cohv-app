@@ -646,7 +646,11 @@
                     const limitSec = Math.ceil(maxSec + 60); // Toleransi presisi 60 detik
 
                     // 2. VALIDASI KETAT: Jika WC SUDAH PENUH (>= 100%), tolak drop!
-                    if (currentTotalSec > limitSec) {
+                    // KECUALI jika mode Machining diaktifkan
+                    const chkMachining = document.getElementById('chkUnique1');
+                    const isMachining = chkMachining && chkMachining.checked;
+
+                    if (!isMachining && currentTotalSec > limitSec) {
                         // Gunakan helper format waktu untuk pesan error yang rapi
                         const usedText = window.formatDurationLong ? window.formatDurationLong(currentTotalSec) : `${(currentTotalSec/3600).toFixed(2)} Jam`;
                         const maxText = window.formatDurationLong ? window.formatDurationLong(maxSec) : `${(maxSec/3600).toFixed(2)} Jam`;
@@ -1993,7 +1997,11 @@
                             const limitSec = Math.ceil(maxSec + 60); // Toleransi 60 detik
 
                             // [PERBAIKAN KUNCI]: BERLAKU UNTUK SEMUA WC, BAIK GROUPING MAUPUN SINGLE
-                            if (totalSec > limitSec) {
+                            // KECUALI jika mode Machining diaktifkan
+                            const chkMachining = document.getElementById('chkUnique1');
+                            const isMachining = chkMachining && chkMachining.checked;
+
+                            if (!isMachining && totalSec > limitSec) {
                                 const usedText = window.formatDurationLong ? window.formatDurationLong(totalSec) : `${(totalSec/3600).toFixed(2)} Jam`;
                                 const maxText = window.formatDurationLong ? window.formatDurationLong(maxSec) : `${(maxSec/3600).toFixed(2)} Jam`;
 
