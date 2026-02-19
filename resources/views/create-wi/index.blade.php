@@ -455,10 +455,12 @@
     @push('scripts')
     <script>
         document.addEventListener("DOMContentLoaded", function() {
+            let savedDate = sessionStorage.getItem('CURRENT_CAPACITY_DATE') || "today";
+            savedDate = savedDate.replace(/['"]+/g, '');
             flatpickr(".flatpickr-date", {
                 dateFormat: "Y-m-d",
                 minDate: "today",
-                defaultDate: "today"
+                defaultDate: savedDate
             });
             flatpickr(".flatpickr-time", {
                 enableTime: true,
@@ -478,7 +480,8 @@
 
         <script>
             const PARENT_WORKCENTERS = @json($parentWorkcenters);
-            const CONSUMED_MAP = @json($consumedMap ?? []);
+            window.CONSUMED_MAP = @json($consumedMap ?? []);
+            window.CURRENT_CAPACITY_DATE = new Date().toISOString().split('T')[0];
             const PLANT_CODE = '{{ $kode }}';
 
             let activeDraggedItem = null;
@@ -511,17 +514,14 @@
                 setupModalLogic();
                 setupMismatchLogic(); 
                 setupTargetWcSearch(); 
-                setupRowDoubleClick(); // [NEW] Double click to toggle check 
+                setupRowDoubleClick(); 
                 document.getElementById('uniqueAssignmentModal').addEventListener('hide.bs.modal', function() {
-                    // Check if there are active items tracking, if so, cancel drop
-                    // Removed tempSplits check to ensure we always cleanup if variables are set
                     if (draggedItemsCache.length > 0 || activeDraggedItem) {
                         cancelDrop(false); 
                     }
                 });
             });
 
-            // --- SELECTION LOGIC (NEW) ---
             function updateSelectionUI() {
                 const checkboxes = document.querySelectorAll('#source-list .pro-item .row-checkbox');
                 const selected = document.querySelectorAll('#source-list .pro-item .row-checkbox:checked');
@@ -530,7 +530,6 @@
                 const countSpan = document.getElementById('selectionCount');
                 const clearBtn = document.getElementById('btnClearSelection');
 
-                // Update Select All Checkbox State
                 const selectAllCb = document.getElementById('selectAll');
                 if (selectAllCb) {
                     if (count > 0 && count === checkboxes.length) {
@@ -627,82 +626,64 @@
                 const wcContainer = toList.closest('.wc-card-container');
                 const targetWcId = wcContainer ? wcContainer.dataset.wcId : '';
                 const originWc = item.dataset.arbpl;
+
                 if (wcContainer) {
                     const maxSec = parseFloat(wcContainer.dataset.maxCapacitySec) || 0;
-                    // Use dbConsumedSec (server data) + manually calc existing cards
                     const dbConsumedSec = parseFloat(wcContainer.dataset.dbConsumedSec) || 0;
+                    const currentItemKey = (item.dataset.aufnr || '') + '_' + (item.dataset.vornr || '');
 
-                    // 1. Calculate Load of Existing Draft Items (excluding the one just dropped)
+                    // 1. HANYA hitung beban yang SUDAH ADA (DB + Draft yang belum disave)
                     let draftMins = 0;
                     wcContainer.querySelectorAll('.pro-item-card').forEach(card => {
-                        // Exclude the item currently being processed (it's already in DOM due to Sortable)
-                        const isDragged = (card === item);
-                        if (!isDragged) {
-                            draftMins += parseFloat(card.dataset.calculatedMins) || 0;
+                        const cardKey = (card.dataset.aufnr || '') + '_' + (card.dataset.vornr || '');
+                        if (cardKey !== currentItemKey) {
+                            const cm = parseFloat(card.dataset.calculatedMins);
+                            if (!isNaN(cm)) draftMins += cm;
                         }
                     });
 
-                    // 2. Calculate Incoming Load (Dragged Item + Any Checked Items)
-                    let incomingMins = parseFloat(item.dataset.calculatedMins) || 0;
-                    
-                    // Mirrors processDrop logic: if dragged item is checked, include other checked items
-                    const checkbox = item.querySelector('.row-checkbox');
-                    if (checkbox && checkbox.checked) {
-                        document.querySelectorAll('#source-list .pro-item .row-checkbox:checked').forEach(cb => {
-                            const row = cb.closest('.pro-item');
-                            if (row && row !== item) {
-                                incomingMins += parseFloat(row.dataset.calculatedMins) || 0;
-                            }
-                        });
-                    }
+                    const currentTotalSec = dbConsumedSec + Math.floor(draftMins * 60); 
+                    const limitSec = Math.ceil(maxSec + 60); // Toleransi presisi 60 detik
 
-                    // 3. Total Check
-                    const totalSec = dbConsumedSec + (draftMins * 60) + (incomingMins * 60);
+                    // 2. VALIDASI KETAT: Jika WC SUDAH PENUH (>= 100%), tolak drop!
+                    if (currentTotalSec > limitSec) {
+                        // Gunakan helper format waktu untuk pesan error yang rapi
+                        const usedText = window.formatDurationLong ? window.formatDurationLong(currentTotalSec) : `${(currentTotalSec/3600).toFixed(2)} Jam`;
+                        const maxText = window.formatDurationLong ? window.formatDurationLong(maxSec) : `${(maxSec/3600).toFixed(2)} Jam`;
 
-                    // Tolerance 60s
-                    if (totalSec > (maxSec + 60)) {
                         Swal.fire({
                             icon: 'error',
-                            title: 'Kapasitas Penuh!',
-                            text: 'Total load melebihi kapasitas workcenter ini!',
+                            title: 'Workcenter Sudah Penuh!',
+                            html: `
+                                Kapasitas Workcenter ini sudah mencapai batas maksimal.<br><br>
+                                <div class="bg-light p-2 rounded border text-start d-inline-block">
+                                    <i class="fa-solid fa-chart-pie me-2 text-primary"></i><b>Terpakai:</b> <span class="text-danger fw-bold">${usedText}</span><br>
+                                    <i class="fa-solid fa-bullseye me-2 text-primary"></i><b>Kapasitas:</b> <span class="text-success fw-bold">${maxText}</span>
+                                </div><br><br>
+                                Silakan masukkan ke Workcenter lain atau hapus beban sebelumnya.
+                            `,
                             confirmButtonText: 'Mengerti'
                         });
                         
-                        // Revert: Move item back to source
-                        if (fromList) {
-                            fromList.appendChild(item);
-                        }
-                        // Reset state
+                        // Kembalikan item ke tempat asal
+                        if (fromList) fromList.appendChild(item);
+                        
                         activeDraggedItem = null;
                         draggedItemsCache = [];
-                        return; // STOP EXECUTION (Assign Operator Modal won't open)
+                        return; // Hentikan proses buka modal
                     }
                 }
 
-                // FIX: Sembunyikan placeholder segera agar tidak tumpang tindih visual
                 if (toList) checkEmptyPlaceholder(toList);
 
+                // Cek Mismatch (Pindah WC)
                 if (originWc && targetWcId && originWc !== targetWcId) {
                     pendingMismatchItem = item;
                     targetContainerCache = toList;
                     sourceContainerCache = fromList;
-                    if (!draggedItemsCache || draggedItemsCache.length === 0) {
-                        draggedItemsCache = [item]; 
-                    }
-                    const controls = document.getElementById('selectionControls');
-                    const count = draggedItemsCache.length;
-                    if (count > 0) {
-                        controls.classList.remove('d-none');
-                        document.getElementById('selectionCount').innerText = count;
-                        document.getElementById('btnClearSelection').classList.remove('d-none');
-                        document.getElementById('btnBulkRelease').classList.remove('d-none');
-                        document.getElementById('btnBulkRefresh').classList.remove('d-none');
-                    } else {
-                        document.getElementById('selectionCount').innerText = '0';
-                        document.getElementById('btnClearSelection').classList.add('d-none');
-                        document.getElementById('btnBulkRelease').classList.add('d-none');
-                        document.getElementById('btnBulkRefresh').classList.add('d-none');
-                    }
+                    if (!draggedItemsCache || draggedItemsCache.length === 0) draggedItemsCache = [item];
+                    
+                    document.getElementById('selectionCount').innerText = draggedItemsCache.length;
                     document.getElementById('mismatchCurrentWC').value = originWc;
                     document.getElementById('mismatchTargetWC').value = targetWcId;
                     mismatchModalInstance.show();
@@ -721,7 +702,6 @@
                 tempSplits = []; 
                 currentSisaQty = parseFloat(item.dataset.sisaQty) || 0;
                 
-                // [FIX] Deduplication using Map
                 const uniqueItemsMap = new Map();
                 const addItemToMap = (node) => {
                     const aufnr = String(node.dataset.aufnr || '').trim();
@@ -732,10 +712,8 @@
                     }
                 };
 
-                // 1. Add Dragged Item
-                addItemToMap(item); // Always prioritize dragged item
+                addItemToMap(item);
 
-                // 2. Add Checked Items (if dragged item was checked)
                 transformToCardView(item);
                 const checkbox = item.querySelector('.row-checkbox');
                 if (checkbox && checkbox.checked) {
@@ -907,9 +885,9 @@
 
                                     </div>
                                     <div class="col-md-2 col-time">
-                                        <label class="small text-muted fw-bold mb-0 d-none d-md-block">Time (Min)</label>
+                                        <label class="small text-muted fw-bold mb-0 d-none d-md-block">Estimasi Waktu</label>
                                         <input type="text" class="form-control form-control-sm time-input shadow-none border-secondary text-center bg-white text-dark fw-bold" value="0" readonly>
-                                    </div>
+                                    </div>  
                                     <div class="col-md-1 text-center">
                                         <button class="btn btn-outline-danger btn-sm btn-remove-row d-none w-100 p-1 mb-1" type="button" onclick="removeAssignmentRow(this)" title="Remove">
                                             <i class="fa-solid fa-xmark"></i>
@@ -1192,7 +1170,7 @@
                     qtyInput.title = "";
                 }
 
-                newRow.querySelector('.time-input').value = "0 Min";
+                newRow.querySelector('.time-input').value = "0";
 
                 const removeBtn = newRow.querySelector('.btn-remove-row');
                 removeBtn.classList.remove('d-none');
@@ -1409,8 +1387,8 @@
                             timeMins = timeMins / 60;
                         }
                         timeMins = parseFloat(timeMins.toFixed(3));
-                        
-                        timeInp.value = timeMins.toLocaleString('id-ID') + ' Min'; 
+                        let timeSecs = timeMins * 60;
+                        timeInp.value = window.formatDurationLong(timeSecs); 
                         
                         if (subWc) {
                             globalChildUsage[subWc] = (globalChildUsage[subWc] || 0) + timeMins;
@@ -1928,12 +1906,12 @@
                 const chkLongshiftGlobal = document.getElementById('chkLongshift');
                 const isLongshiftGlobal = chkLongshiftGlobal ? chkLongshiftGlobal.checked : false;
 
+                // 1. VALIDASI INPUT & BUILD ASSIGNMENT ARRAY
                 cards.forEach(card => {
                     const aufnr = card.dataset.refAufnr;
                     const maxQty = parseFloat(card.dataset.maxQty) || 0;
                     
                     const lsCheckbox = card.querySelector(`#ls-${aufnr}`);
-                    // Merge Local + Global
                     const isLongshift = (lsCheckbox && lsCheckbox.checked) || isLongshiftGlobal;
 
                     const rows = card.querySelectorAll('.assignment-rows .assignment-row');
@@ -1954,28 +1932,23 @@
                         if (!nik || qty < 0) {
                             allValid = false;
                             row.classList.add('border', 'border-danger');
-                            if(qty < 0) {
-                                validationErrors.push(`Quantity minimal 0 untuk item ${aufnr}`);
-                            }
+                            if(qty < 0) validationErrors.push(`Quantity minimal 0 untuk item ${aufnr}`);
                         } else {
                             row.classList.remove('border', 'border-danger');
                         }
                         
-                        // Collect Assignment
                         if (nik && qty >= 0) {
                             const item = draggedItemsCache.find(i => i.dataset.aufnr == aufnr); 
-                            
                             if (item) {
                                 assignments.push({ item, nik, name: name || rawText, childWc, qty, isMachining, isLongshift });
                             }
                         }
-                        
                         currentSum += qty;
                     });
                     
-                    if (currentSum > maxQty) {
+                    if (currentSum > maxQty + 0.001) { 
                         allValid = false;
-                        validationErrors.push(`Total Qty for ${aufnr} exceeds limit (${currentSum.toLocaleString('id-ID')} > ${maxQty.toLocaleString('id-ID')})`);
+                        validationErrors.push(`Total Qty untuk ${aufnr} melebihi batas (${currentSum.toLocaleString('id-ID')} > ${maxQty.toLocaleString('id-ID')})`);
                         card.classList.remove('border-0');
                         card.classList.add('border-danger');
                     } else {
@@ -1985,57 +1958,125 @@
                 });
 
                 if (!allValid) {
-                    Swal.fire('Validation Error', validationErrors.length > 0 ? validationErrors.join('<br>') : 'Please complete all fields correctly.', 'warning');
+                    Swal.fire('Validasi Gagal', validationErrors.length > 0 ? validationErrors.join('<br>') : 'Mohon lengkapi semua field operator.', 'warning');
                     return;
                 }
 
-                // [NEW] Capacity Validation
+                // 2. VALIDASI KAPASITAS PARENT/SINGLE WC
                 if (targetContainerCache) {
                     const wcCard = targetContainerCache.closest('.wc-card-container');
                     if (wcCard) {
                             const maxSec = parseFloat(wcCard.dataset.maxCapacitySec) || 0;
                             const dbConsumedSec = parseFloat(wcCard.dataset.dbConsumedSec) || 0;
                             
-                            // Existing Draft Items (convert to seconds)
                             let existingDraftMins = 0;
                             wcCard.querySelectorAll('.pro-item-card').forEach(item => {
-                                // Check if this item is being re-assigned (if logic allows editing). 
-                                // For now, assume drop adds new items. 
-                                // If we are editing, we might need to filter out the ID. 
-                                // But usually create-wi is "Add" flow.
-                                existingDraftMins += parseFloat(item.dataset.calculatedMins) || 0;
+                                const isBeingAssigned = assignments.some(a => a.item === item);
+                                if (!isBeingAssigned) {
+                                    existingDraftMins += parseFloat(item.dataset.calculatedMins) || 0;
+                                }
                             });
                             
-                            // New Assignment Mins
                             let newMins = 0;
                             assignments.forEach(a => {
-                                // Calculate mins for this assignment
-                                // Ensure calculateItemMinutes is accessible
                                 if (typeof calculateItemMinutes === 'function') {
-                                    const m = calculateItemMinutes(a.item, a.qty);
-                                    newMins += parseFloat(m);
+                                    newMins += parseFloat(calculateItemMinutes(a.item, a.qty));
                                 } else {
-                                    // Fallback simple calc if function not found (should be there)
                                     const vgw01 = parseFloat(a.item.dataset.vgw01) || 0;
                                     const vge01 = parseFloat(a.item.dataset.vge01) || 0;
-                                    // Formula: (Qty * vgw01) + vge01
-                                    // But let's hope function exists.
                                     newMins += (a.qty * vgw01) + vge01; 
                                 }
                             });
                             
-                            const totalSec = dbConsumedSec + (existingDraftMins * 60) + (newMins * 60);
-                            if (totalSec > (maxSec + 60)) { // tolerance 1 min
+                            const totalMins = (dbConsumedSec / 60) + existingDraftMins + newMins;
+                            const totalSec = Math.floor(totalMins * 60);
+                            const limitSec = Math.ceil(maxSec + 60); // Toleransi 60 detik
+
+                            // [PERBAIKAN KUNCI]: BERLAKU UNTUK SEMUA WC, BAIK GROUPING MAUPUN SINGLE
+                            if (totalSec > limitSec) {
+                                const usedText = window.formatDurationLong ? window.formatDurationLong(totalSec) : `${(totalSec/3600).toFixed(2)} Jam`;
+                                const maxText = window.formatDurationLong ? window.formatDurationLong(maxSec) : `${(maxSec/3600).toFixed(2)} Jam`;
+
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Kapasitas Penuh!',
-                                    text: 'Total load melebihi kapasitas workcenter ini!',
+                                    html: `
+                                        Total beban yang akan disimpan melebihi kapasitas Workcenter!<br><br>
+                                        <b>Total Beban Baru:</b> <span class="text-danger fw-bold">${usedText}</span><br>
+                                        <b>Kapasitas Maksimal:</b> <span class="text-success fw-bold">${maxText}</span><br><br>
+                                        Silakan kurangi Quantity (Split) agar sesuai dengan sisa waktu.
+                                    `,
                                     confirmButtonText: 'Mengerti'
                                 });
-                                return; // Block save
+                                return; // BLOKIR SIMPAN SECARA KETAT!
                             }
                     }
                 }
+
+                // 3. VALIDASI KAPASITAS CHILD WC (FIXED BAGIAN INI)
+                if (targetContainerCache) {
+                    const wcCard = targetContainerCache.closest('.wc-card-container');
+                    const wcCode = wcCard.dataset.wcId || '';
+                    const normalizedParent = wcCode.toUpperCase().trim();
+                    
+                    // Pastikan PARENT_WORKCENTERS ada dan normalizedParent valid
+                    if (PARENT_WORKCENTERS && PARENT_WORKCENTERS[normalizedParent]) {
+                        const childAssignments = {};
+                        assignments.forEach(a => {
+                            if(a.childWc) {
+                                if(!childAssignments[a.childWc]) childAssignments[a.childWc] = 0;
+                                let mins = 0;
+                                if (typeof calculateItemMinutes === 'function') {
+                                    mins = parseFloat(calculateItemMinutes(a.item, a.qty));
+                                } else {
+                                    const vgw01 = parseFloat(a.item.dataset.vgw01) || 0;
+                                    const vge01 = parseFloat(a.item.dataset.vge01) || 0;
+                                    mins = (a.qty * vgw01) + vge01; 
+                                }
+                                childAssignments[a.childWc] += mins;
+                            }
+                        });
+                        
+                        // Loop assignments dan validasi
+                        for (const [childCode, newMins] of Object.entries(childAssignments)) {
+                            // Cari definisi child dengan aman
+                            const childDef = PARENT_WORKCENTERS[normalizedParent].find(c => c.code === childCode);
+                            
+                            if (childDef) {
+                                let rawKapaz = parseFloat(String(childDef.kapaz).replace(',', '.')) || 0;
+                                if (rawKapaz === 0) rawKapaz = 9.5; 
+                                const limitMins = rawKapaz * 60;
+                                
+                                // Aman akses CONSUMED_MAP
+                                const dbSec = (window.CONSUMED_MAP && window.CONSUMED_MAP[childCode.toUpperCase()]) || 0;
+                                const dbMins = dbSec / 60;
+                                
+                                let existingDraftMins = 0;
+                                wcCard.querySelectorAll('.pro-item-card').forEach(item => {
+                                    if (item.dataset.childWc === childCode) {
+                                        const isBeingAssigned = assignments.some(a => a.item === item);
+                                        if (!isBeingAssigned) {
+                                            existingDraftMins += parseFloat(item.dataset.calculatedMins) || 0;
+                                        }
+                                    }
+                                });
+                                
+                                const totalMins = dbMins + existingDraftMins + newMins;
+                                if (totalMins > (limitMins + 1)) { 
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Kapasitas Sub-WC Penuh!',
+                                        html: `Sub-Workcenter <b>${childCode}</b> melebihi kapasitas!<br>Total: ${totalMins.toFixed(1)} / ${limitMins.toFixed(1)} Menit`,
+                                        confirmButtonText: 'Mengerti'
+                                    });
+                                    return; // Block Save
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 4. FINAL PROCESS (Create DOM Elements)
                 const groupedAssignments = {};
                 assignments.forEach(a => {
                     if (!groupedAssignments[a.item.dataset.aufnr]) groupedAssignments[a.item.dataset.aufnr] = [];
@@ -2084,10 +2125,9 @@
                     });
                 }
 
-                // Cleanup
                 draggedItemsCache = [];
-                tempSplits = []; // Reset splits
-                activeDraggedItem = null; // Clear active item so hide event doesn't trigger cancelDrop
+                tempSplits = [];
+                activeDraggedItem = null;
                 document.getElementById('selectAll').checked = false;
                 updateCapacity(targetContainerCache.closest('.wc-card-container'));
                 checkEmptyPlaceholder(targetContainerCache);
@@ -3286,8 +3326,8 @@
                 const colDocumentTime = document.getElementById('colDocumentTime');
 
                 const now = new Date();
-                let defaultDate = now.toISOString().split('T')[0];
-                let defaultEndDate = defaultDate; 
+                let defaultDate = window.CURRENT_CAPACITY_DATE || now.toISOString().split('T')[0];
+                let defaultEndDate = defaultDate;
 
                 const chkMachining = document.getElementById('chkUnique1');
                 const isMachining = chkMachining && chkMachining.checked;
@@ -4000,13 +4040,11 @@
                         const maxSec = parseFloat(wcCard.dataset.maxCapacitySec) || 0;
                         const dbConsumedSec = parseFloat(wcCard.dataset.dbConsumedSec) || 0;
 
-                        // Existing Draft Items
                         let existingDraftMins = 0;
                         wcCard.querySelectorAll('.pro-item-card').forEach(item => {
                             existingDraftMins += parseFloat(item.dataset.calculatedMins) || 0;
                         });
 
-                        // Calculate Total Load in Modal
                         let modalMins = 0;
                         const modalCards = document.querySelectorAll('#assignmentCardContainer .pro-card');
                         modalCards.forEach(mc => {
@@ -4020,11 +4058,9 @@
                                 const item = window.draggedItemsCache ? window.draggedItemsCache.find(i => i.dataset.aufnr == aufnr) : null;
                                 
                                 if(item) {
-                                    // Use calculateItemMinutes if available
                                     if (typeof calculateItemMinutes === 'function') {
                                         modalMins += parseFloat(calculateItemMinutes(item, qty));
                                     } else {
-                                        // Fallback
                                         const vgw01 = parseFloat(item.dataset.vgw01) || 0;
                                         const vge01 = parseFloat(item.dataset.vge01) || 0;
                                         modalMins += ((qty * vgw01) + vge01);
@@ -4035,10 +4071,8 @@
 
                         const totalSec = dbConsumedSec + (existingDraftMins * 60) + (modalMins * 60);
                         
-                        // Feedback
                         const isExceeded = totalSec > (maxSec + 60);
                         
-                        // Visual Cue on the input
                         if(isExceeded) {
                             e.target.classList.add('text-danger', 'fw-bold', 'border-danger');
                             e.target.title = "Kapasitas Workcenter Terlampaui!";
@@ -4269,32 +4303,50 @@
                 }
             });
         }
-
-        // [NEW] Daily Capacity Check Logic
         window.checkDailyCapacity = function() {
+            let lastDate = window.CURRENT_CAPACITY_DATE || new Date().toISOString().split('T')[0];
+            const uniqueId = 'dailyCapDate_' + new Date().getTime();
+
+            console.log('Daily Capacity Modal > Last Date:', lastDate);
+
             Swal.fire({
                 title: 'Cek Kapasitas Harian',
                 html: `
-                    <p class="text-muted small mb-3">Pilih tanggal untuk melihat utilitas kapasitas workcenter.</p>
-                    <input type="text" id="dailyCapDate" class="form-control text-center flatpickr-date bg-white" placeholder="Pilih Tanggal">
+                    <p class="text-muted small mb-3">Pilih tanggal untuk melihat kapasitas workcenter</p>
+                    
+                    <input type="text" id="${uniqueId}" class="form-control text-center bg-white fs-5" placeholder="Pilih Tanggal" value="${lastDate}">
                 `,
                 showCancelButton: true,
                 confirmButtonText: 'Cek Kapasitas',
                 cancelButtonText: 'Batal',
                 didOpen: () => {
-                    flatpickr('#dailyCapDate', { 
-                        dateFormat: 'Y-m-d', 
-                        defaultDate: 'today',
-                        minDate: 'today' 
-                    });
+                    const input = document.getElementById(uniqueId);
+                    
+                    setTimeout(() => {
+                        if(input) {
+                            try {
+                                const fp = flatpickr('#' + uniqueId, { 
+                                    dateFormat: 'Y-m-d', 
+                                    defaultDate: lastDate, 
+                                    minDate: 'today' 
+                                });
+                            } catch(e) {
+                                console.error('Flatpickr init error', e);
+                                input.value = lastDate;
+                            }
+                        }
+                    }, 500);
                 },
                 preConfirm: () => {
-                        const val = document.getElementById('dailyCapDate').value;
-                        if(!val) Swal.showValidationMessage('Pilih tanggal terlebih dahulu');
-                        return val;
+                    const el = document.getElementById(uniqueId);
+                    const val = el ? el.value : '';
+                    if(!val) Swal.showValidationMessage('Pilih tanggal terlebih dahulu');
+                    return val;
                 }
             }).then((result) => {
                 if(result.isConfirmed && result.value) {
+                    window.CURRENT_CAPACITY_DATE = result.value; 
+                    // SessionStorage removed -> Reset on refresh
                     fetchDailyCapacity(result.value);
                 }
             });
@@ -4324,7 +4376,6 @@
                     applyDailyCapacity(json.data, date);
                     Swal.close();
                     
-                    // Update Document Date Input as well to facilitate "Inactive" creation
                     const docDateInput = document.getElementById('wiDocumentDate');
                     if(docDateInput && docDateInput._flatpickr) {
                         docDateInput._flatpickr.setDate(date);
@@ -4347,7 +4398,16 @@
         }
 
         function applyDailyCapacity(data, date) {
-            // Update Banner
+            // --- UPDATE VARIABEL GLOBAL DI SINI ---
+            // --- UPDATE VARIABEL GLOBAL DI SINI ---
+            window.CURRENT_CAPACITY_DATE = date; 
+            // SessionStorage removed -> Reset on refresh
+            window.CONSUMED_MAP = data || {}; 
+            // --------------------------------------
+
+            console.log('Capacity View updated to:', window.CURRENT_CAPACITY_DATE);
+
+            // Update Banner Visual
             let banner = document.getElementById('capacityViewBanner');
             if(!banner) {
                 banner = document.createElement('div');
@@ -4355,44 +4415,34 @@
                 banner.className = 'alert alert-info border-info sticky-top shadow-sm d-flex justify-content-between align-items-center mb-3';
                 banner.style.zIndex = '1020';
                 banner.innerHTML = `
-                    <div>
-                        <i class="fa-solid fa-eye me-2"></i>
-                        <strong>Mode Lihat Kapasitas:</strong> <span id="capViewDate" class="fw-bold text-decoration-underline">${date}</span>
-                    </div>
-                    <button class="btn btn-sm btn-light border text-danger fw-bold" onclick="resetCapacityView()">
-                        <i class="fa-solid fa-xmark me-1"></i> Reset ke Hari Ini
-                    </button>
+                    <div><i class="fa-solid fa-eye me-2"></i><strong>Mode Lihat Kapasitas:</strong> <span id="capViewDate" class="fw-bold text-decoration-underline">${date}</span></div>
+                    <button class="btn btn-sm btn-light border text-danger fw-bold" onclick="resetCapacityView()"><i class="fa-solid fa-xmark me-1"></i> Reset ke Hari Ini</button>
                 `;
-                // Insert after title row
                 const container = document.querySelector('.container-fluid');
                 const titleRow = container.querySelector('.d-flex.justify-content-between');
-                if(titleRow) {
-                    titleRow.parentNode.insertBefore(banner, titleRow.nextSibling);
-                }
+                if(titleRow) titleRow.parentNode.insertBefore(banner, titleRow.nextSibling);
             } else {
                 document.getElementById('capViewDate').innerText = date;
                 banner.classList.remove('d-none');
             }
 
+            // Update Card Bars
             document.querySelectorAll('.wc-card-container').forEach(card => {
-                const code = card.dataset.wcId; // e.g. "WC1" (Assuming data-wc-id is CODE)
-                // If backend sends map by Code, we use it directly.
-                // If frontend uses ID in dataset, we might need a map.
-                // Previously I checked and cards use `data-wc-id="{{ $wc->kode_wc }}"`.
+                let code = card.dataset.wcId || '';
+                code = code.trim().toUpperCase();
                 
                 const consumed = (data && data[code] !== undefined) ? data[code] : 0;
-                
                 card.dataset.dbConsumedSec = consumed;
                 
-                // Trigger Update
                 updateCapacity(card);
                 
-                // Visual cue on card?
                 const header = card.querySelector('.wc-header');
-                if(date !== new Date().toISOString().split('T')[0]) {
-                    header.classList.add('bg-info', 'bg-opacity-10');
-                } else {
-                    header.classList.remove('bg-info', 'bg-opacity-10');
+                if(header) {
+                    if(date !== new Date().toISOString().split('T')[0]) {
+                        header.classList.add('bg-info', 'bg-opacity-10');
+                    } else {
+                        header.classList.remove('bg-info', 'bg-opacity-10');
+                    }
                 }
             });
         }
@@ -4401,7 +4451,6 @@
             const today = new Date().toISOString().split('T')[0];
             fetchDailyCapacity(today);
             
-            // Hide banner
             const banner = document.getElementById('capacityViewBanner');
             if(banner) banner.classList.add('d-none');
         };
@@ -4484,8 +4533,6 @@
                     return;
                 }
 
-                // SEBELUMNYA: setupSearch();
-                // SEKARANG:
                 if (typeof window.triggerTableRefresh === 'function') {
                     window.triggerTableRefresh();
                     if(typeof clearSourceSelection === 'function') clearSourceSelection();
@@ -4496,7 +4543,6 @@
                 }
             };
 
-            // Override Close Button Action to Reload
             btnClose.onclick = refreshAction;
             if(btnHeaderClose) {
                 btnHeaderClose.onclick = refreshAction;
@@ -4544,10 +4590,8 @@
                     }
                 }
 
-                // Stream Complete Logic
                 if(btnHeaderClose) btnHeaderClose.classList.remove('d-none');
                 
-                // Force Complete UI State if not already
                 progressBar.style.width = '100%';
                 progressBar.classList.remove('progress-bar-animated', 'bg-primary');
                 progressBar.classList.add('bg-success');
@@ -4555,7 +4599,6 @@
                 percentText.innerText = '100%';
                 btnClose.classList.remove('d-none');
 
-                // Auto Close Countdown
                 let timer = 3; 
                 let actionText = onComplete ? 'Updating...' : 'Reload';
                 btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (${actionText} ${timer}s)`;
@@ -4564,13 +4607,12 @@
                     timer--;
                     if(timer <= 0) {
                         clearInterval(interval);
-                        refreshAction(); // Run Action
+                        refreshAction();
                     } else {
                         btnClose.innerHTML = `<i class="fa-solid fa-check me-1"></i> Selesai (${actionText} ${timer}s)`;
                     }
                 }, 1000);
 
-                // Also run action if user clicks close manually
                 btnClose.onclick = function() { refreshAction(); };
 
             } catch (error) {
@@ -4612,8 +4654,6 @@
                         timer: 2000,
                         showConfirmButton: false
                     }).then(() => {
-                        // Reload data table
-                        // Reload data table
                         if (typeof window.triggerTableRefresh === 'function') {
                             window.triggerTableRefresh(); 
                         } else {
@@ -4714,118 +4754,6 @@
             });
         };
 
-        // [NEW] Daily Capacity Check Logic
-        window.checkDailyCapacity = function() {
-            Swal.fire({
-                title: 'Cek Kapasitas Harian',
-                html: `
-                    <p class="text-muted small mb-3">Pilih tanggal untuk melihat utilitas kapasitas workcenter.</p>
-                    <input type="text" id="dailyCapDate" class="form-control text-center flatpickr-date bg-white" placeholder="Pilih Tanggal">
-                `,
-                showCancelButton: true,
-                confirmButtonText: 'Cek Kapasitas',
-                didOpen: () => {
-                    flatpickr('#dailyCapDate', { 
-                        dateFormat: 'Y-m-d', 
-                        defaultDate: 'today',
-                        minDate: 'today' 
-                    });
-                },
-                preConfirm: () => {
-                        const val = document.getElementById('dailyCapDate').value;
-                        if(!val) Swal.showValidationMessage('Pilih tanggal terlebih dahulu');
-                        return val;
-                }
-            }).then((result) => {
-                if(result.isConfirmed && result.value) {
-                    fetchDailyCapacity(result.value);
-                }
-            });
-        };
-
-        async function fetchDailyCapacity(date) {
-            Swal.fire({
-                title: 'Mengambil Data...',
-                didOpen: () => Swal.showLoading()
-            });
-
-            try {
-                const response = await fetch("{{ route('create-wi.daily-capacity') }}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        body: JSON.stringify({ date: date })
-                });
-                
-                const json = await response.json();
-                
-                if(json.success) {
-                    applyDailyCapacity(json.data, date);
-                    Swal.close();
-                    
-                    // Update Document Date Input
-                    const docDateInput = document.getElementById('wiDocumentDate');
-                    if(docDateInput && docDateInput._flatpickr) {
-                        docDateInput._flatpickr.setDate(date);
-                    }
-                    
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Data Terupdate',
-                        text: `Menampilkan kapasitas untuk tanggal: ${date}`,
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                } else {
-                        throw new Error(json.message);
-                }
-            } catch(e) {
-                Swal.fire('Error', 'Gagal memuat data kapasitas: ' + e.message, 'error');
-            }
-        }
-
-        function applyDailyCapacity(data, date) {
-            let banner = document.getElementById('capacityViewBanner');
-            if(!banner) {
-                banner = document.createElement('div');
-                banner.id = 'capacityViewBanner';
-                banner.className = 'alert alert-info border-info sticky-top shadow-sm d-flex justify-content-between align-items-center mb-3';
-                banner.style.zIndex = '1020';
-                banner.innerHTML = `
-                    <div><i class="fa-solid fa-eye me-2"></i><strong>Mode Lihat Kapasitas:</strong> <span id="capViewDate" class="fw-bold text-decoration-underline">${date}</span></div>
-                    <button class="btn btn-sm btn-light border text-danger fw-bold" onclick="resetCapacityView()"><i class="fa-solid fa-xmark me-1"></i> Reset ke Hari Ini</button>
-                `;
-                const container = document.querySelector('.container-fluid');
-                const titleRow = container.querySelector('.d-flex.justify-content-between');
-                if(titleRow) titleRow.parentNode.insertBefore(banner, titleRow.nextSibling);
-            } else {
-                document.getElementById('capViewDate').innerText = date;
-                banner.classList.remove('d-none');
-            }
-
-            document.querySelectorAll('.wc-card-container').forEach(card => {
-                let code = card.dataset.wcId || '';
-                code = code.trim().toUpperCase(); // Normalize key
-                
-                const consumed = (data && data[code] !== undefined) ? data[code] : 0;
-                card.dataset.dbConsumedSec = consumed;
-                
-                // Force update to ensure UI reflects the new state even if 0
-                updateCapacity(card);
-                
-                const header = card.querySelector('.wc-header');
-                if(header) {
-                    if(date !== new Date().toISOString().split('T')[0]) {
-                        header.classList.add('bg-info', 'bg-opacity-10');
-                    } else {
-                        header.classList.remove('bg-info', 'bg-opacity-10');
-                    }
-                }
-            });
-        }
-        
         window.resetCapacityView = function() {
             const today = new Date().toISOString().split('T')[0];
             fetchDailyCapacity(today);
@@ -4845,14 +4773,12 @@
         window.handleBulkRelease = function() {
                 const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
                 if (checkboxes.length === 0) return;
-                // Implementation simplified for brevity - assumes logic exists or handled via modal
                 Swal.fire('Info', 'Bulk Release logic here (refer to existing implementation)', 'info');
         };
 
             window.handleBulkRefresh = function() {
                 const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
                 if (checkboxes.length === 0) return;
-                // Implementation simplified
                 Swal.fire('Info', 'Bulk Refresh logic here', 'info');
         };
 
@@ -4863,7 +4789,6 @@
             sourceList.addEventListener('dblclick', function(e) {
                 const row = e.target.closest('.pro-item');
                 if (row) {
-                    // Prevent double toggle if clicking directly on checkbox
                     if (e.target.classList.contains('row-checkbox')) return; 
 
                     const cb = row.querySelector('.row-checkbox');
@@ -4871,14 +4796,12 @@
                         cb.checked = !cb.checked;
                         cb.dispatchEvent(new Event('change'));
                         
-                        // Basic visual toggle (safe to add)
                         if (cb.checked) {
                             row.classList.add('selected-row');
                         } else {
                             row.classList.remove('selected-row');
                         }
                         
-                        // Ensure UI updates (counters etc)
                         updateSelectionUI();
                     }
                 }

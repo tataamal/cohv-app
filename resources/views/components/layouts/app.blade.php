@@ -44,8 +44,6 @@
         </main>
     </div>
     
-    {{-- Overlay dipindah ke sini agar berada di atas segalanya --}}
-    {{-- Overlay untuk mobile --}}
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
     @stack('scripts')
