@@ -4789,18 +4789,6 @@
             if(window.draggedItemsCache) window.draggedItemsCache = [];
         };
 
-        window.handleBulkRelease = function() {
-                const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
-                if (checkboxes.length === 0) return;
-                Swal.fire('Info', 'Bulk Release logic here (refer to existing implementation)', 'info');
-        };
-
-            window.handleBulkRefresh = function() {
-                const checkboxes = document.querySelectorAll('.source-table .form-check-input:checked:not(#selectAll)');
-                if (checkboxes.length === 0) return;
-                Swal.fire('Info', 'Bulk Refresh logic here', 'info');
-        };
-
         function setupRowDoubleClick() {
             const sourceList = document.getElementById('source-list');
             if (!sourceList) return;
