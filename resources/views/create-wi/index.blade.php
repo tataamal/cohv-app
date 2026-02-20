@@ -1720,9 +1720,26 @@
                     const chkAutoAssign = document.getElementById('chkUnique2');
                     const isBypassFilter = (chkMachining && chkMachining.checked) && (chkAutoAssign && chkAutoAssign.checked);
 
+                    // Helper for normalization
+                    const normalizeArbplLocal = (val) => {
+                        if (!val) return "";
+                        let s = val.toString().trim().toUpperCase();
+                        if (s.startsWith("WC")) s = s.substring(2);
+                        return s.trim();
+                    };
+
                     templateOptions.forEach(tmplOpt => {
                         if (tmplOpt.value === "") return;
                         const empArbpl = tmplOpt.getAttribute('data-arbpl');
+                        
+                        if (!isBypassFilter) {
+                             // Filter: Only show employees belonging to the required WC
+                             const normEmp = normalizeArbplLocal(empArbpl);
+                             const normReq = normalizeArbplLocal(requiredArbpl);
+                             // Skip if WC doesn't match
+                             if (normEmp !== normReq) return; 
+                        }
+
                         const newOpt = tmplOpt.cloneNode(true);
                         
                         if (!isBypassFilter) {
