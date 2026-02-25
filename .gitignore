@@ -28,4 +28,4 @@ cogi.py
 **/caddy
 frankenphp
 frankenphp-worker.php
-public/index.php
+/public/index.php
