@@ -1561,8 +1561,8 @@ class CreateWiController extends Controller
                         ];
                     }
                 }
-                $netpr = 0; // $item->netpr ?? 0;
-                $waerk = ''; // $item->waerk ?? '';
+                $netpr = floatval($item->netpr ?? 0);
+                $waerk = $item->waerk ?? '';
                 
                  // Remark Data
                 $remarkText = !empty($remarkTexts) ? implode("\n", $remarkTexts) : '-';
@@ -1670,7 +1670,7 @@ class CreateWiController extends Controller
                 } elseif (strtoupper($waerk) === 'IDR') {
                     $prefixInfo = 'Rp ';
                 } else {
-                    $prefixInfo = '';
+                    $prefixInfo = !empty($waerk) ? strtoupper($waerk) . ' ' : '';
                 }
                 
                 $priceFormatted = $prefixInfo . number_format($confirmedPrice, (strtoupper($waerk) === 'USD' ? 2 : 0), ',', '.');
@@ -1728,16 +1728,25 @@ class CreateWiController extends Controller
 
                 $totalAssigned = collect($sortedItems)->sum('assigned');
                 $totalConfirmed = collect($sortedItems)->sum('confirmed');
-                $totalFailed = collect($sortedItems)->sum('balance'); 
+                $totalFailed = $totalAssigned - $totalConfirmed; 
                 $totalRemarkQty = collect($sortedItems)->sum('remark_qty');
                 $achievement = ($totalAssigned > 0) ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
                 
                 $totalConfirmedPrice = collect($sortedItems)->sum('confirmed_price');
                 $totalFailedPrice = collect($sortedItems)->sum('failed_price');
+                $totalAssignedPrice = $totalConfirmedPrice + $totalFailedPrice;
 
                 $curr = $sortedItems[0]['currency'] ?? 'IDR';
                 $pfx = ($curr === 'USD') ? '$ ' : 'Rp ';
                 $dec = ($curr === 'USD') ? 2 : 0;
+
+                $wcKendalaArr = collect($sortedItems)
+                    ->filter(fn($i) => ($i['remark_qty'] ?? 0) > 0)
+                    ->pluck('workcenter')
+                    ->unique()
+                    ->filter()
+                    ->values()
+                    ->all();
 
                 $finalReports[] = [
                     'report_title' => 'WORK INSTRUCTION SHEET', 
@@ -1748,7 +1757,12 @@ class CreateWiController extends Controller
                         'total_failed' => $totalFailed,
                         'total_remark_qty' => $totalRemarkQty,
                         'achievement_rate' => $achievement,
+                        'wc_kendala' => empty($wcKendalaArr) ? '-' : implode(', ', $wcKendalaArr),
+                        'total_price_assigned_raw' => $totalAssignedPrice,
+                        'total_price_assigned' => $pfx . number_format($totalAssignedPrice, $dec, ',', '.'),
+                        'total_price_ok_raw' => $totalConfirmedPrice,
                         'total_price_ok' => $pfx . number_format($totalConfirmedPrice, $dec, ',', '.'),
+                        'total_price_fail_raw' => $totalFailedPrice,
                         'total_price_fail' => $pfx . number_format($totalFailedPrice, $dec, ',', '.')
                     ],
                     'nama_bagian' => $namaBagian,  
@@ -1784,6 +1798,7 @@ class CreateWiController extends Controller
             
             $totalConfirmedPrice = collect($sortedItems)->sum('confirmed_price');
             $totalFailedPrice = collect($sortedItems)->sum('failed_price');
+            $totalAssignedPrice = $totalConfirmedPrice + $totalFailedPrice;
 
             $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
 
@@ -1791,8 +1806,13 @@ class CreateWiController extends Controller
             $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
             $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
 
-            $totalConfirmedPriceFmt = $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.');
-            $totalFailedPriceFmt = $prefix . number_format($totalFailedPrice, $decimal, ',', '.');
+            $wcKendalaArr = collect($sortedItems)
+                 ->filter(fn($i) => ($i['remark_qty'] ?? 0) > 0)
+                 ->pluck('workcenter')
+                 ->unique()
+                 ->filter()
+                 ->values()
+                 ->all();
 
             // Calculate Aggregate Status
             $uniqueStatuses = collect($sortedItems)->pluck('status')->unique();
@@ -1817,8 +1837,13 @@ class CreateWiController extends Controller
                     'total_failed' => $totalFailed,
                     'total_remark_qty' => $totalRemarkQty,
                     'achievement_rate' => $achievement,
-                    'total_price_ok' => $totalConfirmedPriceFmt,
-                    'total_price_fail' => $totalFailedPriceFmt
+                    'wc_kendala' => empty($wcKendalaArr) ? '-' : implode(', ', $wcKendalaArr),
+                    'total_price_assigned_raw' => $totalAssignedPrice,
+                    'total_price_assigned' => $prefix . number_format($totalAssignedPrice, $decimal, ',', '.'),
+                    'total_price_ok_raw' => $totalConfirmedPrice,
+                    'total_price_ok' => $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.'),
+                    'total_price_fail_raw' => $totalFailedPrice,
+                    'total_price_fail' => $prefix . number_format($totalFailedPrice, $decimal, ',', '.')
                 ],
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),
