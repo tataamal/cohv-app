@@ -306,6 +306,7 @@ class SendLogWeeklyEmail extends Command
             $totalFailedPrice = collect($sortedItems)->sum('failed_price');
             $totalAssignedPrice = $totalConfirmedPrice + $totalFailedPrice;
             $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+            $failureRate = $totalAssigned > 0 ? round(($totalFailed / $totalAssigned) * 100) . '%' : '0%';
 
             $firstCurr = collect($sortedItems)->first()['currency'] ?? '';
             $pfx = (strtoupper($firstCurr) === 'USD') ? '$ ' : 'Rp ';
@@ -332,7 +333,8 @@ class SendLogWeeklyEmail extends Command
                     'total_price_ok_raw' => $totalConfirmedPrice,
                     'total_price_ok' => $pfx . number_format($totalConfirmedPrice, $dec, ',', '.'),
                     'total_price_fail_raw' => $totalFailedPrice,
-                    'total_price_fail' => $pfx . number_format($totalFailedPrice, $dec, ',', '.')
+                    'total_price_fail' => $pfx . number_format($totalFailedPrice, $dec, ',', '.'),
+                    'failure_rate' => $failureRate
                 ],
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),

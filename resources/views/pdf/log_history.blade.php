@@ -268,32 +268,35 @@
     @endphp
     <table style="border-left: 2px solid #000; border-right: 2px solid #000; border-bottom: 2px solid #000; border-top: none;">
         <tr class="summary-header">
-            <td width="25%">QTY TASK</td>
-            <td width="25%">TERKONFIRMASI</td>
-            <td width="25%">TIDAK TERKONFIRMASI</td>
-            <td width="25%">{{ $judulRata }}</td>
+            <td width="20%">QTY TASK</td>
+            <td width="20%">TERKONFIRMASI</td>
+            <td width="20%">TIDAK TERKONFIRMASI</td>
+            <td width="40%">{{ $judulRata }}</td>
         </tr>
-        <tr class="summary-values">
-            <td>
+        <tr class="summary-values" style="vertical-align: middle;">
+            <td style="font-size: 11pt;">
                 {{ number_format($sum['total_assigned'] ?? 0, 0) }}
                 @if($showCustomPriceColumn)
                     <br><span style="font-size: 8pt; font-weight: normal; color: #555;">({{ $sum['total_price_assigned'] ?? '-' }})</span>
                 @endif
             </td>
-            <td class="text-success">
+            <td class="text-success" style="font-size: 11pt;">
                 {{ number_format($sum['total_confirmed'] ?? 0, 0) }}
                 @if($showCustomPriceColumn)
                     <br><span style="font-size: 8pt; font-weight: normal; color: #555;">({{ $sum['total_price_ok'] ?? '-' }})</span>
                 @endif
             </td>
-            <td class="text-danger">
+            <td class="text-danger" style="font-size: 11pt;">
                 {{ number_format($sum['total_failed'] ?? 0, 0) }}
                 @if($showCustomPriceColumn)
                     <br><span style="font-size: 8pt; font-weight: normal; color: #555;">({{ $sum['total_price_fail'] ?? '-' }})</span>
                 @endif
             </td>
-            <td style="font-size: 8pt; font-weight: normal; word-wrap: break-word; white-space: normal;">
+            <td style="font-size: 7.5pt; font-weight: normal; word-wrap: break-word; white-space: normal; line-height: 1.3;">
                 {{ $valRata }}
+                @if(isset($sum['failure_rate']) && ($sum['total_failed'] ?? 0) > 0)
+                    <br><br><strong>Presentase Kegagalan : {{ $sum['failure_rate'] }}</strong>
+                @endif
             </td>
         </tr>
     </table>
@@ -355,7 +358,7 @@
                         <th width="15%">MATERIAL</th>
                         <th width="4%">QTY</th>
                         <th width="4%">CONF</th>
-                        ' . ($showCustomPriceColumn ? '<th width="8%">PRICE</th>' : '') . '
+                        ' . ($showCustomPriceColumn ? '<th width="8%">PRICE OK</th><th width="8%">PRICE FALSE</th>' : '') . '
                         ' . $cols . '
                         <th width="10%">REMARK</th>
                         ' . $prog . '
@@ -410,7 +413,7 @@
                 : ($isReportMachining ? 11 : 10);
             
             if ($showCustomPriceColumn) {
-                $nikColspan += 1;
+                $nikColspan += 2;
             }
 
             $headerLines = 2;
@@ -613,9 +616,16 @@
                 <td class="text-center fw-bold text-success">{{ floatval($row['confirmed'] ?? 0) }}</td>
 
                 @if($showCustomPriceColumn)
-                    <td class="text-center" style="font-size: 7pt;">
+                    <td class="text-center text-success" style="font-size: 7pt;">
                         @if(($row['confirmed_price'] ?? 0) > 0)
-                            {{ $row['price_formatted'] ?? '-' }}
+                            {{ $row['price_ok_fmt'] ?? '-' }}
+                        @else
+                            -
+                        @endif
+                    </td>
+                    <td class="text-center text-danger" style="font-size: 7pt;">
+                        @if(($row['failed_price'] ?? 0) > 0)
+                            {{ $row['price_fail_fmt'] ?? '-' }}
                         @else
                             -
                         @endif

@@ -1731,6 +1731,7 @@ class CreateWiController extends Controller
                 $totalFailed = $totalAssigned - $totalConfirmed; 
                 $totalRemarkQty = collect($sortedItems)->sum('remark_qty');
                 $achievement = ($totalAssigned > 0) ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+                $failureRate = ($totalAssigned > 0) ? round(($totalFailed / $totalAssigned) * 100) . '%' : '0%';
                 
                 $totalConfirmedPrice = collect($sortedItems)->sum('confirmed_price');
                 $totalFailedPrice = collect($sortedItems)->sum('failed_price');
@@ -1763,7 +1764,8 @@ class CreateWiController extends Controller
                         'total_price_ok_raw' => $totalConfirmedPrice,
                         'total_price_ok' => $pfx . number_format($totalConfirmedPrice, $dec, ',', '.'),
                         'total_price_fail_raw' => $totalFailedPrice,
-                        'total_price_fail' => $pfx . number_format($totalFailedPrice, $dec, ',', '.')
+                        'total_price_fail' => $pfx . number_format($totalFailedPrice, $dec, ',', '.'),
+                        'failure_rate' => $failureRate
                     ],
                     'nama_bagian' => $namaBagian,  
                     'printDate' => now()->format('d-M-Y H:i'),
@@ -1801,6 +1803,7 @@ class CreateWiController extends Controller
             $totalAssignedPrice = $totalConfirmedPrice + $totalFailedPrice;
 
             $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+            $failureRate = $totalAssigned > 0 ? round(($totalFailed / $totalAssigned) * 100) . '%' : '0%';
 
             $firstCurrency = collect($sortedItems)->first()['currency'] ?? '';
             $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
@@ -1843,7 +1846,8 @@ class CreateWiController extends Controller
                     'total_price_ok_raw' => $totalConfirmedPrice,
                     'total_price_ok' => $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.'),
                     'total_price_fail_raw' => $totalFailedPrice,
-                    'total_price_fail' => $prefix . number_format($totalFailedPrice, $decimal, ',', '.')
+                    'total_price_fail' => $prefix . number_format($totalFailedPrice, $decimal, ',', '.'),
+                    'failure_rate' => $failureRate
                 ],
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),
