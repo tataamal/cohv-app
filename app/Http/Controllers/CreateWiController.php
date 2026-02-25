@@ -1737,9 +1737,29 @@ class CreateWiController extends Controller
                 $totalFailedPrice = collect($sortedItems)->sum('failed_price');
                 $totalAssignedPrice = $totalConfirmedPrice + $totalFailedPrice;
 
-                $curr = $sortedItems[0]['currency'] ?? 'IDR';
-                $pfx = ($curr === 'USD') ? '$ ' : 'Rp ';
-                $dec = ($curr === 'USD') ? 2 : 0;
+                $currGroups = collect($sortedItems)->groupBy('currency');
+                $priceAssignedParts = [];
+                $priceOkParts = [];
+                $priceFailParts = [];
+
+                foreach ($currGroups as $curr => $grpItems) {
+                    $cOk = $grpItems->sum('confirmed_price');
+                    $cFail = $grpItems->sum('failed_price');
+                    $cAssign = $cOk + $cFail;
+                    
+                    if ($cAssign > 0 || $cOk > 0 || $cFail > 0) {
+                        $pfx = (strtoupper($curr) === 'USD') ? '$ ' : 'Rp ';
+                        $dec = (strtoupper($curr) === 'USD') ? 2 : 0;
+                        
+                        $priceAssignedParts[] = $pfx . number_format($cAssign, $dec, ',', '.');
+                        $priceOkParts[]       = $pfx . number_format($cOk,     $dec, ',', '.');
+                        $priceFailParts[]     = $pfx . number_format($cFail,   $dec, ',', '.');
+                    }
+                }
+
+                $totalAssignedPriceStr = !empty($priceAssignedParts) ? implode(' | ', $priceAssignedParts) : '-';
+                $totalOkPriceStr       = !empty($priceOkParts) ? implode(' | ', $priceOkParts) : '-';
+                $totalFailPriceStr     = !empty($priceFailParts) ? implode(' | ', $priceFailParts) : '-';
 
                 $wcKendalaArr = collect($sortedItems)
                     ->filter(fn($i) => ($i['remark_qty'] ?? 0) > 0)
@@ -1760,11 +1780,11 @@ class CreateWiController extends Controller
                         'achievement_rate' => $achievement,
                         'wc_kendala' => empty($wcKendalaArr) ? '-' : implode(', ', $wcKendalaArr),
                         'total_price_assigned_raw' => $totalAssignedPrice,
-                        'total_price_assigned' => $pfx . number_format($totalAssignedPrice, $dec, ',', '.'),
+                        'total_price_assigned' => $totalAssignedPriceStr,
                         'total_price_ok_raw' => $totalConfirmedPrice,
-                        'total_price_ok' => $pfx . number_format($totalConfirmedPrice, $dec, ',', '.'),
+                        'total_price_ok' => $totalOkPriceStr,
                         'total_price_fail_raw' => $totalFailedPrice,
-                        'total_price_fail' => $pfx . number_format($totalFailedPrice, $dec, ',', '.'),
+                        'total_price_fail' => $totalFailPriceStr,
                         'failure_rate' => $failureRate
                     ],
                     'nama_bagian' => $namaBagian,  
@@ -1805,9 +1825,29 @@ class CreateWiController extends Controller
             $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
             $failureRate = $totalAssigned > 0 ? round(($totalFailed / $totalAssigned) * 100) . '%' : '0%';
 
-            $firstCurrency = collect($sortedItems)->first()['currency'] ?? '';
-            $prefix = (strtoupper($firstCurrency) === 'USD') ? '$ ' : 'Rp ';
-            $decimal = (strtoupper($firstCurrency) === 'USD') ? 2 : 0;
+            $currGroups = collect($sortedItems)->groupBy('currency');
+            $priceAssignedParts = [];
+            $priceOkParts = [];
+            $priceFailParts = [];
+
+            foreach ($currGroups as $curr => $grpItems) {
+                $cOk = $grpItems->sum('confirmed_price');
+                $cFail = $grpItems->sum('failed_price');
+                $cAssign = $cOk + $cFail;
+                
+                if ($cAssign > 0 || $cOk > 0 || $cFail > 0) {
+                    $pfx = (strtoupper($curr) === 'USD') ? '$ ' : 'Rp ';
+                    $dec = (strtoupper($curr) === 'USD') ? 2 : 0;
+                    
+                    $priceAssignedParts[] = $pfx . number_format($cAssign, $dec, ',', '.');
+                    $priceOkParts[]       = $pfx . number_format($cOk,     $dec, ',', '.');
+                    $priceFailParts[]     = $pfx . number_format($cFail,   $dec, ',', '.');
+                }
+            }
+
+            $totalAssignedPriceStr = !empty($priceAssignedParts) ? implode(' | ', $priceAssignedParts) : '-';
+            $totalOkPriceStr       = !empty($priceOkParts) ? implode(' | ', $priceOkParts) : '-';
+            $totalFailPriceStr     = !empty($priceFailParts) ? implode(' | ', $priceFailParts) : '-';
 
             $wcKendalaArr = collect($sortedItems)
                  ->filter(fn($i) => ($i['remark_qty'] ?? 0) > 0)
@@ -1842,11 +1882,11 @@ class CreateWiController extends Controller
                     'achievement_rate' => $achievement,
                     'wc_kendala' => empty($wcKendalaArr) ? '-' : implode(', ', $wcKendalaArr),
                     'total_price_assigned_raw' => $totalAssignedPrice,
-                    'total_price_assigned' => $prefix . number_format($totalAssignedPrice, $decimal, ',', '.'),
+                    'total_price_assigned' => $totalAssignedPriceStr,
                     'total_price_ok_raw' => $totalConfirmedPrice,
-                    'total_price_ok' => $prefix . number_format($totalConfirmedPrice, $decimal, ',', '.'),
+                    'total_price_ok' => $totalOkPriceStr,
                     'total_price_fail_raw' => $totalFailedPrice,
-                    'total_price_fail' => $prefix . number_format($totalFailedPrice, $decimal, ',', '.'),
+                    'total_price_fail' => $totalFailPriceStr,
                     'failure_rate' => $failureRate
                 ],
                 'nama_bagian' => $namaBagian,  
