@@ -362,23 +362,23 @@ class SendLogWeeklyEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No files to send.");
         } else {
-            // $recipients = [
-            //     'tataamal1128@gmail.com',
-            //     'finc.smg@pawindo.com',
-            //     'kmi356smg@gmail.com',
-            //     'adm.mkt5.smg@gmail.com',
-            //     'lily.smg@pawindo.com',
-            //     'kmi3.60.smg@gmail.com',
-            //     'kmi3.31.smg@gmail.com',
-            //     'kmi3.16.smg@gmail.com',
-            //     'kmi3.29.smg@gmail.com',
-            //     'kmi3.58.smg@gmail.com',
-            //     'kmi3.57.smg@gmail.com',
-            //     'kmi3.2.smg@gmail.com',
-            //     'kmi3.1.smg@gmail.com'
-            // ];
+            $recipients = [
+                'tataamal1128@gmail.com',
+                'finc.smg@pawindo.com',
+                'kmi3.56.smg@gmail.com',
+                'adm.mkt5.smg@gmail.com',
+                'lily.smg@pawindo.com',
+                'kmi3.60.smg@gmail.com',
+                'kmi3.31.smg@gmail.com',
+                'kmi3.16.smg@gmail.com',
+                'kmi3.29.smg@gmail.com',
+                'kmi3.58.smg@gmail.com',
+                'kmi3.57.smg@gmail.com',
+                'kmi3.2.smg@gmail.com',
+                'kmi3.1.smg@gmail.com'
+            ];
 
-            $recipients = ['tataamal1128@gmail.com'];
+            // $recipients = ['tataamal1128@gmail.com'];
             
             $dateInfoFormatted = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
             $subject = "Weekly Report_" . $dateInfoFormatted;

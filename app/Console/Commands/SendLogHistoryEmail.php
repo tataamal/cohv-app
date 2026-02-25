@@ -389,22 +389,22 @@ class SendLogHistoryEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No reports/files to send.");
         } else {
-            // $recipients = [
-            //     'finc.smg@pawindo.com',
-            //     'kmi356smg@gmail.com',
-            //     'adm.mkt5.smg@gmail.com',
-            //     'lily.smg@pawindo.com',
-            //     'kmi3.60.smg@gmail.com',
-            //     'kmi3.31.smg@gmail.com',
-            //     'kmi3.16.smg@gmail.com',
-            //     'kmi3.29.smg@gmail.com',
-            //     'kmi3.58.smg@gmail.com',
-            //     'kmi3.57.smg@gmail.com',
-            //     'kmi3.2.smg@gmail.com',
-            //     'kmi3.1.smg@gmail.com',
-            //     'tataamal1128@gmail.com'
-            // ];
-            $recipients = ['tataamal1128@gmail.com'];
+            $recipients = [
+                'finc.smg@pawindo.com',
+                'kmi3.56.smg@gmail.com',
+                'adm.mkt5.smg@gmail.com',
+                'lily.smg@pawindo.com',
+                'kmi3.60.smg@gmail.com',
+                'kmi3.31.smg@gmail.com',
+                'kmi3.16.smg@gmail.com',
+                'kmi3.29.smg@gmail.com',
+                'kmi3.58.smg@gmail.com',
+                'kmi3.57.smg@gmail.com',
+                'kmi3.2.smg@gmail.com',
+                'kmi3.1.smg@gmail.com',
+                'tataamal1128@gmail.com'
+            ];
+            // $recipients = ['tataamal1128@gmail.com'];
             $dateInfoFormatted = Carbon::parse($dateHistory)->locale('id')->translatedFormat('d F Y');
 
             try {
