@@ -206,14 +206,24 @@ class SendLogWeeklyEmail extends Command
                  $remarkText = !empty($remarkTexts) ? implode("\n", $remarkTexts) : '-';
 
                  $netpr = floatval($item->netpr ?? 0); 
-                 $waerk = $item->waerk ?? ''; 
+                 $waerk = trim($item->waerk ?? ''); 
                  
-                 $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : (!empty($waerk) ? strtoupper($waerk) . ' ' : ''));
-                 $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
-                 $confirmedPrice = $netpr * $confirmed;
-                 
-                 $balance = $assigned - ($confirmed + $remarkQty);
-                 $failedPrice = $netpr * ($balance + $remarkQty);
+                 if ($waerk === '-' || $waerk === '') {
+                     $confirmedPrice = 0;
+                     $failedPrice = 0;
+                     $priceOkFmt = '-';
+                     $priceFailFmt = '-';
+                 } else {
+                     $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : (!empty($waerk) ? strtoupper($waerk) . ' ' : ''));
+                     $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
+                     $confirmedPrice = $netpr * $confirmed;
+                     
+                     $balance = $assigned - ($confirmed + $remarkQty);
+                     $failedPrice = $netpr * ($balance + $remarkQty);
+                     
+                     $priceOkFmt = $prefix . number_format($confirmedPrice, $decimals, ',', '.');
+                     $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
+                 }
 
                  // Takt Time Logic (Updated to Assigned Qty)
                  $vgw01 = floatval($item->vgw01 ?? 0);
@@ -253,9 +263,6 @@ class SendLogWeeklyEmail extends Command
                  } else {
                      $taktFull = '-';
                  }
-
-                 $priceOkFmt = $prefix . number_format($confirmedPrice, $decimals, ',', '.');
-                 $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
 
                  // SO Item Logic
                  $kdauf = $item->kdauf ?? '-';
@@ -314,6 +321,8 @@ class SendLogWeeklyEmail extends Command
             $priceFailParts = [];
 
             foreach ($currGroups as $curr => $grpItems) {
+                if (trim($curr) === '-' || trim($curr) === '') continue;
+                
                 $cOk = $grpItems->sum('confirmed_price');
                 $cFail = $grpItems->sum('failed_price');
                 $cAssign = $cOk + $cFail;

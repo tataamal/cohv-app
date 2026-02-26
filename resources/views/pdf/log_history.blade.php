@@ -179,7 +179,10 @@
         $showPriceCols = false;
 
         // Custom Price Column logic (NETPR * Confirmed Qty)
-        $totalConfirmedPrice = collect($itemsCheck)->sum('confirmed_price');
+        $totalConfirmedPrice = collect($itemsCheck)->reject(function($i) {
+            $curr = trim($i['currency'] ?? '');
+            return $curr === '-' || $curr === '';
+        })->sum('confirmed_price');
         $showCustomPriceColumn = $totalConfirmedPrice > 0;
     @endphp
 
@@ -260,6 +263,7 @@
     {{-- 3) SUMMARY TABLE --}}
     @php
         $sum = $report['summary'] ?? [];
+        // If the backend zeros out the raw totals for '-' currencies, this will naturally be false when all currencies are '-'.
         $showCustomPriceColumn = isset($sum['total_price_ok_raw']) && (($sum['total_price_ok_raw'] > 0) || ($sum['total_price_fail_raw'] > 0) || (($sum['total_price_assigned_raw'] ?? 0) > 0));
         
         // Use wc_kendala if exists, otherwise achievement_rate
@@ -617,14 +621,14 @@
 
                 @if($showCustomPriceColumn)
                     <td class="text-center text-success" style="font-size: 7pt;">
-                        @if(($row['confirmed_price'] ?? 0) > 0)
+                        @if(($row['confirmed_price'] ?? 0) > 0 && trim($row['currency'] ?? '') !== '-' && trim($row['currency'] ?? '') !== '')
                             {{ $row['price_ok_fmt'] ?? '-' }}
                         @else
                             -
                         @endif
                     </td>
                     <td class="text-center text-danger" style="font-size: 7pt;">
-                        @if(($row['failed_price'] ?? 0) > 0)
+                        @if(($row['failed_price'] ?? 0) > 0 && trim($row['currency'] ?? '') !== '-' && trim($row['currency'] ?? '') !== '')
                             {{ $row['price_fail_fmt'] ?? '-' }}
                         @else
                             -

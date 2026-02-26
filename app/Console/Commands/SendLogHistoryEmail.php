@@ -185,14 +185,24 @@ class SendLogHistoryEmail extends Command
 
                  $remarkText = !empty($remarkTexts) ? implode("\n", $remarkTexts) : '-';
                  $netpr = floatval($item->netpr ?? 0); 
-                 $waerk = $item->waerk ?? ''; 
+                 $waerk = trim($item->waerk ?? ''); 
                  
-                 $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : (!empty($waerk) ? strtoupper($waerk) . ' ' : ''));
-                 $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
-                 $confirmedPrice = $netpr * $confirmed;
-                 
-                 $balance = $assigned - ($confirmed + $remarkQty);
-                 $failedPrice = $netpr * ($balance + $remarkQty);
+                 if ($waerk === '-' || $waerk === '') {
+                     $confirmedPrice = 0;
+                     $failedPrice = 0;
+                     $priceOkFmt = '-';
+                     $priceFailFmt = '-';
+                 } else {
+                     $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : (!empty($waerk) ? strtoupper($waerk) . ' ' : ''));
+                     $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
+                     $confirmedPrice = $netpr * $confirmed;
+                     
+                     $balance = $assigned - ($confirmed + $remarkQty);
+                     $failedPrice = $netpr * ($balance + $remarkQty);
+                     
+                     $priceOkFmt = $prefix . number_format($confirmedPrice, $decimals, ',', '.');
+                     $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
+                 }
 
                  // Takt Time Logic (Updated to Assigned Qty)
                  $vgw01 = floatval($item->vgw01 ?? 0);
@@ -233,9 +243,6 @@ class SendLogHistoryEmail extends Command
                  } else {
                      $taktFull = '-';
                  }
-
-                 $priceOkFmt = $prefix . number_format($confirmedPrice, $decimals, ',', '.');
-                 $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
 
                  // SO Item Logic
                  $kdauf = $item->kdauf ?? '-';
@@ -293,6 +300,8 @@ class SendLogHistoryEmail extends Command
             $priceFailParts = [];
 
             foreach ($currGroups as $curr => $grpItems) {
+                if (trim($curr) === '-' || trim($curr) === '') continue;
+                
                 $cOk = $grpItems->sum('confirmed_price');
                 $cFail = $grpItems->sum('failed_price');
                 $cAssign = $cOk + $cFail;
@@ -367,14 +376,18 @@ class SendLogHistoryEmail extends Command
                     $item['buyer_sourced'] = $item['name1'] ?? '-';
                     
                     $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
-                    $waerk = isset($item['waerk']) ? $item['waerk'] : '';
+                    $waerk = isset($item['waerk']) ? trim($item['waerk']) : '';
                     
-                    if (strtoupper($waerk) === 'USD') {
-                        $priceFmt = '$ ' . number_format($netpr, 2);
-                    } elseif (strtoupper($waerk) === 'IDR') {
-                        $priceFmt = 'Rp ' . number_format($netpr, 0, ',', '.');
+                    if ($waerk === '-' || $waerk === '') {
+                        $priceFmt = '-';
                     } else {
-                        $priceFmt = (!empty($waerk) ? strtoupper($waerk) . ' ' : '') . number_format($netpr, 0, ',', '.'); 
+                        if (strtoupper($waerk) === 'USD') {
+                            $priceFmt = '$ ' . number_format($netpr, 2);
+                        } elseif (strtoupper($waerk) === 'IDR') {
+                            $priceFmt = 'Rp ' . number_format($netpr, 0, ',', '.');
+                        } else {
+                            $priceFmt = (!empty($waerk) ? strtoupper($waerk) . ' ' : '') . number_format($netpr, 0, ',', '.'); 
+                        }
                     }
                     
                     $item['price_sourced'] = $priceFmt;
@@ -383,24 +396,33 @@ class SendLogHistoryEmail extends Command
                  $doc->payload_data = $updatedPayload;
                  
                  $totalDocPrice = 0;
-                 $docCurrency = 'IDR'; 
+                 $docCurrency = ''; 
+                 $hasValidCurrency = false;
                  
                  foreach ($updatedPayload as $itm) {
+                     $itmWaerk = isset($itm['waerk']) ? trim($itm['waerk']) : '';
+                     if ($itmWaerk === '-' || $itmWaerk === '') continue;
+                     
+                     $hasValidCurrency = true;
                      $assg = floatval(str_replace(',', '.', $itm['assigned_qty'] ?? 0));
                      $prc = floatval($itm['netpr'] ?? 0);
                      $totalDocPrice += ($assg * $prc);
                      
-                     if (!empty($itm['waerk'])) {
-                         $docCurrency = $itm['waerk'];
+                     if (!empty($itmWaerk)) {
+                         $docCurrency = $itmWaerk;
                      }
                  }
                  
-                 if (strtoupper($docCurrency) === 'USD') {
-                     $doc->total_price_formatted = '$ ' . number_format($totalDocPrice, 2);
-                 } elseif (strtoupper($docCurrency) === 'IDR') {
-                     $doc->total_price_formatted = 'Rp ' . number_format($totalDocPrice, 0, ',', '.');
+                 if (!$hasValidCurrency) {
+                     $doc->total_price_formatted = '-';
                  } else {
-                     $doc->total_price_formatted = $docCurrency . ' ' . number_format($totalDocPrice, 0, ',', '.');
+                     if (strtoupper($docCurrency) === 'USD') {
+                         $doc->total_price_formatted = '$ ' . number_format($totalDocPrice, 2);
+                     } elseif (strtoupper($docCurrency) === 'IDR') {
+                         $doc->total_price_formatted = 'Rp ' . number_format($totalDocPrice, 0, ',', '.');
+                     } else {
+                         $doc->total_price_formatted = strtoupper($docCurrency) . ' ' . number_format($totalDocPrice, 0, ',', '.');
+                     }
                  }
               }
  
