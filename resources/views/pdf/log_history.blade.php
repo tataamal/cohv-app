@@ -177,6 +177,13 @@
 
         // [REQ] Hide Price Cols
         $showPriceCols = false;
+
+        // Custom Price Column logic (NETPR * Confirmed Qty)
+        $totalConfirmedPrice = collect($itemsCheck)->reject(function($i) {
+            $curr = trim($i['currency'] ?? '');
+            return $curr === '-' || $curr === '';
+        })->sum('confirmed_price');
+        $showCustomPriceColumn = $totalConfirmedPrice > 0;
     @endphp
 
     {{-- 1) HEADER --}}
@@ -254,31 +261,47 @@
     @endif
 
     {{-- 3) SUMMARY TABLE --}}
+    @php
+        $sum = $report['summary'] ?? [];
+        // If the backend zeros out the raw totals for '-' currencies, this will naturally be false when all currencies are '-'.
+        $showCustomPriceColumn = isset($sum['total_price_ok_raw']) && (($sum['total_price_ok_raw'] > 0) || ($sum['total_price_fail_raw'] > 0) || (($sum['total_price_assigned_raw'] ?? 0) > 0));
+        
+        // Use wc_kendala if exists, otherwise achievement_rate
+        $judulRata = isset($sum['wc_kendala']) ? 'WC KENDALA / REMARK' : 'RATA-RATA KEBERHASILAN';
+        $valRata = $sum['wc_kendala'] ?? ($sum['achievement_rate'] ?? '-');
+    @endphp
     <table style="border-left: 2px solid #000; border-right: 2px solid #000; border-bottom: 2px solid #000; border-top: none;">
         <tr class="summary-header">
-            @if($showPriceCols)
-                <td width="16%">Quantity Task</td>
-                <td width="16%">Terkonfirmasi</td>
-                <td width="16%">Tidak Terkonfirmasi</td>
-                <td width="20%">Rata-rata Keberhasilan</td>
-                <td width="16%">Total Price OK</td>
-                <td width="16%">Total Price Fail</td>
-            @else
-                <td width="25%">QTY TASK</td>
-                <td width="25%">Terkonfirmasi</td>
-                <td width="25%">Tidak Terkonfirmasi</td>
-                <td width="25%">Rata-rata Keberhasilan</td>
-            @endif
+            <td width="20%">QTY TASK</td>
+            <td width="20%">TERKONFIRMASI</td>
+            <td width="20%">TIDAK TERKONFIRMASI</td>
+            <td width="40%">{{ $judulRata }}</td>
         </tr>
-        <tr class="summary-values">
-            <td>{{ number_format($report['summary']['total_assigned'], 0) }}</td>
-            <td class="text-success">{{ number_format($report['summary']['total_confirmed'], 0) }}</td>
-            <td class="text-danger">{{ number_format($report['summary']['total_failed'], 0) }}</td>
-            <td>{{ $report['summary']['achievement_rate'] }}</td>
-            @if($showPriceCols)
-                <td class="text-success">{{ $report['summary']['total_price_ok'] }}</td>
-                <td class="text-danger">{{ $report['summary']['total_price_fail'] }}</td>
-            @endif
+        <tr class="summary-values" style="vertical-align: middle;">
+            <td style="font-size: 11pt;">
+                {{ number_format($sum['total_assigned'] ?? 0, 0) }}
+                @if($showCustomPriceColumn)
+                    <br><span style="font-size: 8pt; font-weight: normal; color: #555;">({{ $sum['total_price_assigned'] ?? '-' }})</span>
+                @endif
+            </td>
+            <td class="text-success" style="font-size: 11pt;">
+                {{ number_format($sum['total_confirmed'] ?? 0, 0) }}
+                @if($showCustomPriceColumn)
+                    <br><span style="font-size: 8pt; font-weight: normal; color: #555;">({{ $sum['total_price_ok'] ?? '-' }})</span>
+                @endif
+            </td>
+            <td class="text-danger" style="font-size: 11pt;">
+                {{ number_format($sum['total_failed'] ?? 0, 0) }}
+                @if($showCustomPriceColumn)
+                    <br><span style="font-size: 8pt; font-weight: normal; color: #555;">({{ $sum['total_price_fail'] ?? '-' }})</span>
+                @endif
+            </td>
+            <td style="font-size: 7.5pt; font-weight: normal; word-wrap: break-word; white-space: normal; line-height: 1.3;">
+                {{ $valRata }}
+                @if(isset($sum['failure_rate']) && ($sum['total_failed'] ?? 0) > 0)
+                    <br><br><strong>Presentase Kegagalan : {{ $sum['failure_rate'] }}</strong>
+                @endif
+            </td>
         </tr>
     </table>
 
@@ -316,7 +339,7 @@
         $currentLines = 0;
 
         // Helper to render Data Table Header
-        $renderHeader = function() use ($showPriceCols, $isReportMachining) {
+        $renderHeader = function() use ($showPriceCols, $isReportMachining, $showCustomPriceColumn) {
             $cols = '';
             if ($showPriceCols) {
                 $cols .= '<th width="8%">PRICE OK</th><th width="8%">PRICE FAIL</th>';
@@ -339,6 +362,7 @@
                         <th width="15%">MATERIAL</th>
                         <th width="4%">QTY</th>
                         <th width="4%">CONF</th>
+                        ' . ($showCustomPriceColumn ? '<th width="8%">PRICE OK</th><th width="8%">PRICE FALSE</th>' : '') . '
                         ' . $cols . '
                         <th width="10%">REMARK</th>
                         ' . $prog . '
@@ -391,6 +415,10 @@
             $nikColspan = $showPriceCols
                 ? ($isReportMachining ? 13 : 12)
                 : ($isReportMachining ? 11 : 10);
+            
+            if ($showCustomPriceColumn) {
+                $nikColspan += 2;
+            }
 
             $headerLines = 2;
 
@@ -590,6 +618,23 @@
 
                 {{-- CONF --}}
                 <td class="text-center fw-bold text-success">{{ floatval($row['confirmed'] ?? 0) }}</td>
+
+                @if($showCustomPriceColumn)
+                    <td class="text-center text-success" style="font-size: 7pt;">
+                        @if(($row['confirmed_price'] ?? 0) > 0 && trim($row['currency'] ?? '') !== '-' && trim($row['currency'] ?? '') !== '')
+                            {{ $row['price_ok_fmt'] ?? '-' }}
+                        @else
+                            -
+                        @endif
+                    </td>
+                    <td class="text-center text-danger" style="font-size: 7pt;">
+                        @if(($row['failed_price'] ?? 0) > 0 && trim($row['currency'] ?? '') !== '-' && trim($row['currency'] ?? '') !== '')
+                            {{ $row['price_fail_fmt'] ?? '-' }}
+                        @else
+                            -
+                        @endif
+                    </td>
+                @endif
 
                 {{-- PRICE COLS (hidden by request) --}}
                 @if($showPriceCols)

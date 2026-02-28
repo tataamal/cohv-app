@@ -155,27 +155,54 @@ class SendLogHistoryEmail extends Command
                     if (in_array($st, ['confirmation', 'confirm', 'confirmed', 'confirmasi', 'konfirmasi'])) {
                         $confirmed += $pro->qty_pro;
                     } elseif (str_contains($st, 'remark')) {
-                        $remarkQty += $pro->qty_pro;
-                        if (!empty($pro->remark_text)) {
-                            $remarkTexts[] = $pro->remark_text;
+                        $remarkQty += $pro->qty_pro; // Restored
+                        
+                        $rText = $pro->remark_text;
+                        $rTag = $pro->tag;
+                        
+                        $effectiveRemark = $rText;
+                        if (empty($effectiveRemark)) {
+                            $effectiveRemark = $rTag;
                         }
+                        if (empty($effectiveRemark)) {
+                            $effectiveRemark = '-';
+                        }
+                        
+                        if (!empty($rText)) {
+                            $remarkTexts[] = $rText;
+                        } elseif (!empty($rTag)) {
+                            $remarkTexts[] = $rTag;
+                        }
+
                         $remarkDetails[] = [
                             'qty' => $pro->qty_pro,
-                            'text' => $pro->remark_text ?? '-'
+                            'remark' => $effectiveRemark,
+                            'remark_text' => $rText,
+                            'tag' => $rTag
                         ];
                     }
                  }
 
                  $remarkText = !empty($remarkTexts) ? implode("\n", $remarkTexts) : '-';
-                 $netpr = 0; 
-                 $waerk = ''; 
+                 $netpr = floatval($item->netpr ?? 0); 
+                 $waerk = trim($item->waerk ?? ''); 
                  
-                 $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : $waerk . ' ');
-                 $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
-                 $confirmedPrice = $netpr * $confirmed;
-                 
-                 $balance = $assigned - ($confirmed + $remarkQty);
-                 $failedPrice = $netpr * ($balance + $remarkQty);
+                 if ($waerk === '-' || $waerk === '') {
+                     $confirmedPrice = 0;
+                     $failedPrice = 0;
+                     $priceOkFmt = '-';
+                     $priceFailFmt = '-';
+                 } else {
+                     $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : (!empty($waerk) ? strtoupper($waerk) . ' ' : ''));
+                     $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
+                     $confirmedPrice = $netpr * $confirmed;
+                     
+                     $balance = $assigned - ($confirmed + $remarkQty);
+                     $failedPrice = $netpr * ($balance + $remarkQty);
+                     
+                     $priceOkFmt = $prefix . number_format($confirmedPrice, $decimals, ',', '.');
+                     $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
+                 }
 
                  // Takt Time Logic (Updated to Assigned Qty)
                  $vgw01 = floatval($item->vgw01 ?? 0);
@@ -217,9 +244,6 @@ class SendLogHistoryEmail extends Command
                      $taktFull = '-';
                  }
 
-                 $priceOkFmt = $prefix . number_format($confirmedPrice, $decimals, ',', '.');
-                 $priceFailFmt = $prefix . number_format($failedPrice, $decimals, ',', '.');
-
                  // SO Item Logic
                  $kdauf = $item->kdauf ?? '-';
                  $kdpos = $item->kdpos ? ltrim((string)$item->kdpos, '0') : '-';
@@ -244,6 +268,7 @@ class SendLogHistoryEmail extends Command
                     'takt_time'     => $taktFull,
                     'nik'           => $nik,
                     'name'          => $item->operator_name ?? '-',
+                    'price_formatted' => $priceOkFmt,
                     'price_ok_fmt'    => $priceOkFmt,
                     'price_fail_fmt'  => $priceFailFmt,
                     'confirmed_price' => $confirmedPrice, 
@@ -265,11 +290,43 @@ class SendLogHistoryEmail extends Command
             $totalFailed = $totalAssigned - $totalConfirmed; 
             $totalConfirmedPrice = collect($sortedItems)->sum('confirmed_price');
             $totalFailedPrice = collect($sortedItems)->sum('failed_price');
+            $totalAssignedPrice = $totalConfirmedPrice + $totalFailedPrice;
             $achievement = $totalAssigned > 0 ? round(($totalConfirmed / $totalAssigned) * 100) . '%' : '0%';
+            $failureRate = $totalAssigned > 0 ? round(($totalFailed / $totalAssigned) * 100) . '%' : '0%';
 
-            $firstCurr = collect($sortedItems)->first()['currency'] ?? '';
-            $pfx = (strtoupper($firstCurr) === 'USD') ? '$ ' : 'Rp ';
-            $dec = (strtoupper($firstCurr) === 'USD') ? 2 : 0;
+            $currGroups = collect($sortedItems)->groupBy('currency');
+            $priceAssignedParts = [];
+            $priceOkParts = [];
+            $priceFailParts = [];
+
+            foreach ($currGroups as $curr => $grpItems) {
+                if (trim($curr) === '-' || trim($curr) === '') continue;
+                
+                $cOk = $grpItems->sum('confirmed_price');
+                $cFail = $grpItems->sum('failed_price');
+                $cAssign = $cOk + $cFail;
+                
+                if ($cAssign > 0 || $cOk > 0 || $cFail > 0) {
+                    $pfx = (strtoupper($curr) === 'USD') ? '$ ' : 'Rp ';
+                    $dec = (strtoupper($curr) === 'USD') ? 2 : 0;
+                    
+                    $priceAssignedParts[] = $pfx . number_format($cAssign, $dec, ',', '.');
+                    $priceOkParts[]       = $pfx . number_format($cOk,     $dec, ',', '.');
+                    $priceFailParts[]     = $pfx . number_format($cFail,   $dec, ',', '.');
+                }
+            }
+
+            $totalAssignedPriceStr = !empty($priceAssignedParts) ? implode(' | ', $priceAssignedParts) : '-';
+            $totalOkPriceStr       = !empty($priceOkParts) ? implode(' | ', $priceOkParts) : '-';
+            $totalFailPriceStr     = !empty($priceFailParts) ? implode(' | ', $priceFailParts) : '-';
+
+            $wcKendalaArr = collect($sortedItems)
+                ->filter(fn($i) => ($i['remark_qty'] ?? 0) > 0)
+                ->pluck('workcenter')
+                ->unique()
+                ->filter()
+                ->values()
+                ->all();
 
             $reportData = [
                 'items' => $sortedItems,
@@ -278,8 +335,14 @@ class SendLogHistoryEmail extends Command
                     'total_confirmed' => $totalConfirmed,
                     'total_failed' => $totalFailed,
                     'achievement_rate' => $achievement,
-                    'total_price_ok' => $pfx . number_format($totalConfirmedPrice, $dec, ',', '.'),
-                    'total_price_fail' => $pfx . number_format($totalFailedPrice, $dec, ',', '.')
+                    'wc_kendala' => empty($wcKendalaArr) ? '-' : implode(', ', $wcKendalaArr),
+                    'total_price_assigned_raw' => $totalAssignedPrice,
+                    'total_price_assigned' => $totalAssignedPriceStr,
+                    'total_price_ok_raw' => $totalConfirmedPrice,
+                    'total_price_ok' => $totalOkPriceStr,
+                    'total_price_fail_raw' => $totalFailedPrice,
+                    'total_price_fail' => $totalFailPriceStr,
+                    'failure_rate' => $failureRate
                 ],
                 'nama_bagian' => $namaBagian,  
                 'printDate' => now()->format('d-M-Y H:i'),
@@ -313,14 +376,18 @@ class SendLogHistoryEmail extends Command
                     $item['buyer_sourced'] = $item['name1'] ?? '-';
                     
                     $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
-                    $waerk = isset($item['waerk']) ? $item['waerk'] : '';
+                    $waerk = isset($item['waerk']) ? trim($item['waerk']) : '';
                     
-                    if (strtoupper($waerk) === 'USD') {
-                        $priceFmt = '$ ' . number_format($netpr, 2);
-                    } elseif (strtoupper($waerk) === 'IDR') {
-                        $priceFmt = 'Rp ' . number_format($netpr, 0, ',', '.');
+                    if ($waerk === '-' || $waerk === '') {
+                        $priceFmt = '-';
                     } else {
-                        $priceFmt = $waerk . ' ' . number_format($netpr, 0, ',', '.'); 
+                        if (strtoupper($waerk) === 'USD') {
+                            $priceFmt = '$ ' . number_format($netpr, 2);
+                        } elseif (strtoupper($waerk) === 'IDR') {
+                            $priceFmt = 'Rp ' . number_format($netpr, 0, ',', '.');
+                        } else {
+                            $priceFmt = (!empty($waerk) ? strtoupper($waerk) . ' ' : '') . number_format($netpr, 0, ',', '.'); 
+                        }
                     }
                     
                     $item['price_sourced'] = $priceFmt;
@@ -329,24 +396,33 @@ class SendLogHistoryEmail extends Command
                  $doc->payload_data = $updatedPayload;
                  
                  $totalDocPrice = 0;
-                 $docCurrency = 'IDR'; 
+                 $docCurrency = ''; 
+                 $hasValidCurrency = false;
                  
                  foreach ($updatedPayload as $itm) {
+                     $itmWaerk = isset($itm['waerk']) ? trim($itm['waerk']) : '';
+                     if ($itmWaerk === '-' || $itmWaerk === '') continue;
+                     
+                     $hasValidCurrency = true;
                      $assg = floatval(str_replace(',', '.', $itm['assigned_qty'] ?? 0));
                      $prc = floatval($itm['netpr'] ?? 0);
                      $totalDocPrice += ($assg * $prc);
                      
-                     if (!empty($itm['waerk'])) {
-                         $docCurrency = $itm['waerk'];
+                     if (!empty($itmWaerk)) {
+                         $docCurrency = $itmWaerk;
                      }
                  }
                  
-                 if (strtoupper($docCurrency) === 'USD') {
-                     $doc->total_price_formatted = '$ ' . number_format($totalDocPrice, 2);
-                 } elseif (strtoupper($docCurrency) === 'IDR') {
-                     $doc->total_price_formatted = 'Rp ' . number_format($totalDocPrice, 0, ',', '.');
+                 if (!$hasValidCurrency) {
+                     $doc->total_price_formatted = '-';
                  } else {
-                     $doc->total_price_formatted = $docCurrency . ' ' . number_format($totalDocPrice, 0, ',', '.');
+                     if (strtoupper($docCurrency) === 'USD') {
+                         $doc->total_price_formatted = '$ ' . number_format($totalDocPrice, 2);
+                     } elseif (strtoupper($docCurrency) === 'IDR') {
+                         $doc->total_price_formatted = 'Rp ' . number_format($totalDocPrice, 0, ',', '.');
+                     } else {
+                         $doc->total_price_formatted = strtoupper($docCurrency) . ' ' . number_format($totalDocPrice, 0, ',', '.');
+                     }
                  }
               }
  
@@ -357,7 +433,7 @@ class SendLogHistoryEmail extends Command
         } else {
             $recipients = [
                 'finc.smg@pawindo.com',
-                'kmi356smg@gmail.com',
+                'kmi3.56.smg@gmail.com',
                 'adm.mkt5.smg@gmail.com',
                 'lily.smg@pawindo.com',
                 'kmi3.60.smg@gmail.com',

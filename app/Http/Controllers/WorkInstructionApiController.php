@@ -289,7 +289,8 @@ class WorkInstructionApiController extends Controller
         $vornr   = $request->input('vornr');
 
         // Konsisten decimal (hindari beda rounding guard vs update)
-        $confQty = round((float) $request->input('confirmed_qty'), 3);
+        $rawConfQty = str_replace(',', '.', $request->input('confirmed_qty'));
+        $confQty = round((float) $rawConfQty, 3);
         $confQtyStr = number_format($confQty, 3, '.', '');
 
         $todayStart = Carbon::today(); // 00:00:00
@@ -477,7 +478,8 @@ class WorkInstructionApiController extends Controller
         $remark    = (string)($request->input('remark') ?? '');
         $tag       = (string)($request->input('tag') ?? '');
 
-        $remarkQty = round((float) $request->input('remark_qty'), 3);
+        $rawRemarkQty = str_replace(',', '.', $request->input('remark_qty'));
+        $remarkQty = round((float) $rawRemarkQty, 3);
         $remarkQtyStr = number_format($remarkQty, 3, '.', '');
 
         $todayStart = Carbon::today();
@@ -733,7 +735,7 @@ class WorkInstructionApiController extends Controller
                 // No need to filter by status/order here as it's done in the eager load query
                 ->map(function ($r) use ($operatorInfo) {
                     return [
-                        'qty'        => (int) $r->qty_pro,
+                        'qty'        => (float) $r->qty_pro,
                         'remark'     => $r->remark_text ?? '',
                         'tag'        => $r->tag ?? '',
                         'created_at' => Carbon::parse($r->created_at)->toDateTimeString(),
