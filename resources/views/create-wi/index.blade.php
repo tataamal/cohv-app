@@ -1191,7 +1191,6 @@
                 const allRows = Array.from(rowsContainer.querySelectorAll('.assignment-row'));
                 const idx = allRows.indexOf(row);
 
-                // Guard: jangan sampai row pertama bisa dihapus
                 if (idx === 0) return;
 
                 row.remove();
@@ -1199,7 +1198,6 @@
                 const isLongshift = document.getElementById(`ls-${aufnr}`)?.checked;
 
                 if (isLongshift && typeof window.applyLongshiftMode === 'function') {
-                    // applyLongshiftMode akan set state tombol + lock subWC + re-sync + panggil update
                     window.applyLongshiftMode(aufnr);
                 } else {
                     updateEmpOptions(aufnr);
@@ -1208,10 +1206,15 @@
             };
 
             window.parseLocaleNum = function(str) {
-                if (!str) return 0;
+                if (str == null || str === "") return 0;
+                if (typeof str === 'number') return str;
+                
                 let stringVal = String(str).trim();
-                stringVal = stringVal.replace(/\./g, '');
-                stringVal = stringVal.replace(/,/g, '.');
+                if (stringVal.includes('.') && stringVal.includes(',')) {
+                    stringVal = stringVal.replace(/\./g, '').replace(/,/g, '.');
+                } else if (stringVal.includes(',')) {
+                    stringVal = stringVal.replace(/,/g, '.');
+                }
                 return parseFloat(stringVal) || 0;
             };
 
@@ -3409,8 +3412,15 @@
                 let crtdItems = [];
 
                 const toNum = (v) => {
-                    if (v == null) return 0;
-                    const s = String(v).trim().replace(/\./g, '').replace(/,/g, '.');
+                    if (v == null || v === "") return 0;
+                    if (typeof v === 'number') return v;
+                    
+                    let s = String(v).trim();
+                    if (s.includes('.') && s.includes(',')) {
+                        s = s.replace(/\./g, '').replace(/,/g, '.');
+                    } else if (s.includes(',')) {
+                        s = s.replace(/,/g, '.');
+                    }
                     return parseFloat(s) || 0;
                 };
 

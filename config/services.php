@@ -42,4 +42,9 @@ return [
         'base_url' => env('FLASK_API_URL'),
         'timeout'  => 3600,
     ],
+
+    'sap_konfirmasi' => [
+        'base_url' => env('SAP_KONFIRMASI_API_URL', 'http://127.0.0.1:5014'),
+        'timeout'  => (int) env('SAP_KONFIRMASI_TIMEOUT', 15),
+    ],
 ];

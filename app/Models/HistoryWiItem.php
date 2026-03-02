@@ -44,6 +44,8 @@ class HistoryWiItem extends Model
         'longshift',
         'calculated_takt_time',
         'stats',
+        'remark_text',
+        'tag',
     ];
 
     protected $casts = [
@@ -61,10 +63,5 @@ class HistoryWiItem extends Model
     public function wi(): BelongsTo
     {
         return $this->belongsTo(HistoryWi::class, 'history_wi_id');
-    }
-
-    public function pros()
-    {
-        return $this->hasMany(\App\Models\HistoryPro::class, 'history_wi_item_id');
     }
 }

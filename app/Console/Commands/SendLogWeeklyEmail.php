@@ -69,7 +69,7 @@ class SendLogWeeklyEmail extends Command
         $this->info("Range: $startDate to $endDate");
 
         // --- 2. FETCH DATA (Range) ---
-        $queryHistory = HistoryWi::with(['kode', 'items.pros'])
+        $queryHistory = HistoryWi::with(['kode', 'items'])
                     ->where('wi_document_code', 'LIKE', 'WIH%')
                     ->whereBetween('document_date', [$startDate, $endDate])
                     ->orderBy('created_at', 'desc');
@@ -163,44 +163,22 @@ class SendLogWeeklyEmail extends Command
 
                  $assigned = floatval($item->assigned_qty ?? 0);
                  
-                 // Calculate confirmed & remarks from PROS
-                 $confirmed = 0;
-                 $remarkQty = 0;
+                 // Directly use confirmed & remark totals from HistoryWiItem fields
+                 $confirmed = floatval($item->confirmed_qty_total ?? 0);
+                 $remarkQty = floatval($item->remark_qty_total ?? 0);
+                 
                  $remarkTexts = [];
+                 if (!empty($item->remark_text)) $remarkTexts[] = $item->remark_text;
+                 if (!empty($item->tag)) $remarkTexts[] = $item->tag;
+
                  $remarkDetails = [];
-
-                 foreach ($item->pros as $pro) {
-                    $st = strtolower(trim($pro->status ?? ''));
-                    // Add 'confirmasi' and 'konfirmasi' variations
-                    if (in_array($st, ['confirmation', 'confirm', 'confirmed', 'confirmasi', 'konfirmasi'])) {
-                        $confirmed += $pro->qty_pro;
-                    } elseif (str_contains($st, 'remark')) {
-                        $remarkQty += $pro->qty_pro; // Restored
-                        
-                        $rText = $pro->remark_text;
-                        $rTag = $pro->tag;
-                        
-                        $effectiveRemark = $rText;
-                        if (empty($effectiveRemark)) {
-                            $effectiveRemark = $rTag;
-                        }
-                        if (empty($effectiveRemark)) {
-                            $effectiveRemark = '-';
-                        }
-                        
-                        if (!empty($rText)) {
-                            $remarkTexts[] = $rText;
-                        } elseif (!empty($rTag)) {
-                            $remarkTexts[] = $rTag;
-                        }
-
-                        $remarkDetails[] = [
-                            'qty' => $pro->qty_pro,
-                            'remark' => $effectiveRemark,
-                            'remark_text' => $rText,
-                            'tag' => $rTag
-                        ];
-                    }
+                 if ($remarkQty > 0) {
+                     $remarkDetails[] = [
+                         'qty'    => $remarkQty,
+                         'remark' => !empty($item->remark_text) ? $item->remark_text : ($item->tag ?? '-'),
+                         'remark_text' => $item->remark_text,
+                         'tag'    => $item->tag
+                     ];
                  }
                  
                  $remarkText = !empty($remarkTexts) ? implode("\n", $remarkTexts) : '-';
@@ -391,23 +369,22 @@ class SendLogWeeklyEmail extends Command
         if (empty($filesToAttach)) {
             $this->info("   No files to send.");
         } else {
-            $recipients = [
-                'tataamal1128@gmail.com',
-                'finc.smg@pawindo.com',
-                'kmi3.56.smg@gmail.com',
-                'adm.mkt5.smg@gmail.com',
-                'lily.smg@pawindo.com',
-                'kmi3.60.smg@gmail.com',
-                'kmi3.31.smg@gmail.com',
-                'kmi3.16.smg@gmail.com',
-                'kmi3.29.smg@gmail.com',
-                'kmi3.58.smg@gmail.com',
-                'kmi3.57.smg@gmail.com',
-                'kmi3.2.smg@gmail.com',
-                'kmi3.1.smg@gmail.com'
-            ];
-
-            // $recipients = ['tataamal1128@gmail.com'];
+            // $recipients = [
+            //     'tataamal1128@gmail.com',
+            //     'finc.smg@pawindo.com',
+            //     'kmi3.56.smg@gmail.com',
+            //     'adm.mkt5.smg@gmail.com',
+            //     'lily.smg@pawindo.com',
+            //     'kmi3.60.smg@gmail.com',
+            //     'kmi3.31.smg@gmail.com',
+            //     'kmi3.16.smg@gmail.com',
+            //     'kmi3.29.smg@gmail.com',
+            //     'kmi3.58.smg@gmail.com',
+            //     'kmi3.57.smg@gmail.com',
+            //     'kmi3.2.smg@gmail.com',
+            //     'kmi3.1.smg@gmail.com'
+            // ];
+            $recipients = ['tataamal1128@gmail.com'];
             
             $dateInfoFormatted = Carbon::parse($startDate)->format('d-m-Y') . " to " . Carbon::parse($endDate)->format('d-m-Y');
             $subject = "Weekly Report_" . $dateInfoFormatted;

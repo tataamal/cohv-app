@@ -144,6 +144,8 @@ Route::middleware('auth')->group(function (){
     Route::post('/create-wi/stream-release', [CreateWiController::class, 'streamRelease'])->name('create-wi.stream-release');
     Route::post('/create-wi/stream-refresh', [CreateWiController::class, 'streamRefresh'])->name('create-wi.stream-refresh');
     Route::post('/create-wi/stream-change-wc', [CreateWiController::class, 'streamChangeWc'])->name('create-wi.stream-change-wc');
+    Route::post('/create-wi/check-konfirmasi', [CreateWiController::class, 'checkKonfirmasi'])->name('create-wi.check-konfirmasi');
+    Route::post('/create-wi/save-remark', [CreateWiController::class, 'saveRemark'])->name('create-wi.save-remark');
     Route::get('/create-wi/{kode}', [CreateWiController::class, 'index'])->name('create-wi.index');
     Route::get('work-instruction/create/{kode}', [CreateWiController::class, 'index'])->name('wi.create');
     Route::post('work-instruction/save', [CreateWiController::class, 'saveWorkInstruction'])->name('wi.save');

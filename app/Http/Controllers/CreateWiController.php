@@ -13,8 +13,7 @@ use App\Models\ProductionTData1;
 use App\Models\WorkcenterMapping;
 use App\Models\HistoryWi;
 use App\Models\HistoryWiItem;
-use App\Models\HistoryPro;
-use App\Models\WorkcenterConsume; // [NEW]
+use App\Models\WorkcenterConsume;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\KodeLaravel;
@@ -26,6 +25,7 @@ use App\Services\Release;
 use App\Services\YPPR074Z;
 use App\Services\ChangeWc;
 use App\Services\WorkcenterConsumeService;
+use App\Services\CheckQuantityConfiramsi;
 
 
 use Carbon\CarbonInterface;
@@ -39,26 +39,20 @@ class CreateWiController extends Controller
         }
         try {
             DB::beginTransaction();
-
-            // Eager load items to calculate consumption to revert
             $documents = HistoryWi::with('items')->whereIn('wi_document_code', $ids)->get();
             
             if ($documents->isNotEmpty()) {
-                // Calculate consumption to reduce: [date][wc_code] => seconds
                 $consumptionReductions = [];
 
                 foreach ($documents as $doc) {
-                    // Ensure date is Y-m-d string
                     $date = Carbon::parse($doc->document_date)->toDateString();
                     
                     foreach ($doc->items as $item) {
-                        // Workcenter priority: item's child_wc > document's header wc
                         $wcCode = $item->child_wc ?: $doc->workcenter; 
                         
                         if (!$wcCode) continue;
 
                         $minutes = (float) $item->calculated_takt_time;
-                        // Avoid reducing if calculated_takt_time is null/zero
                         if ($minutes <= 0) continue;
 
                         $seconds = (int) ceil($minutes * 60);
@@ -75,9 +69,7 @@ class CreateWiController extends Controller
                     }
                 }
 
-                // Apply reductions to WorkcenterConsume
                 if (!empty($consumptionReductions)) {
-                    // 1. Get all unique WC codes involved
                     $allWcCodes = [];
                     foreach ($consumptionReductions as $date => $wcs) {
                         foreach (array_keys($wcs) as $code) {
@@ -86,17 +78,12 @@ class CreateWiController extends Controller
                     }
                     $allWcCodes = array_unique($allWcCodes);
 
-                    // 2. Map Codes -> IDs
-                    // Note: 'workcenter' model uses 'kode_wc' column
                     $wcMap = workcenter::whereIn('kode_wc', $allWcCodes)->pluck('id', 'kode_wc');
 
-                    // 3. Update DB
                     foreach ($consumptionReductions as $date => $wcs) {
                         foreach ($wcs as $wcCode => $secondsToReduce) {
-                            // Resolve ID
                             $wcId = $wcMap[$wcCode] ?? null;
                             
-                            // If not found directly, try case-insensitive check if needed (optional locally)
                             if (!$wcId) {
                                 $wcId = workcenter::where('kode_wc', $wcCode)->value('id');
                             }
@@ -107,7 +94,6 @@ class CreateWiController extends Controller
                                     ->first();
 
                                 if ($consumeRecord) {
-                                    // Safely decrement, clamping at 0
                                     $newVal = max(0, $consumeRecord->capacity_used_sec - $secondsToReduce);
                                     $consumeRecord->update(['capacity_used_sec' => $newVal]);
                                 }
@@ -116,7 +102,6 @@ class CreateWiController extends Controller
                     }
                 }
 
-                // Proceed with original delete/soft-delete logic
                 $docIds = $documents->pluck('id');
                 HistoryWiItem::whereIn('history_wi_id', $docIds)->update(['status' => 'DELETED']);
                 HistoryWi::whereIn('id', $docIds)->update(['status' => 'DELETED']);
@@ -293,7 +278,7 @@ class CreateWiController extends Controller
 
     protected function getAssignedProQuantities(string $kodePlant)
     {
-        $histories = HistoryWi::with(['items.pros'])
+        $histories = HistoryWi::with(['items'])
                               ->where('plant_code', $kodePlant)
                               ->where(function ($query) {
                                   $query->where('document_date', '>=', Carbon::today())
@@ -308,20 +293,16 @@ class CreateWiController extends Controller
             
             if ($proItems->isEmpty()) continue;
 
-            // Check completion per item
             foreach ($proItems as $item) {
-                // Determine quantities from relations
-                $confirmedQty = $item->pros->whereIn('status', ['confirmasi', 'confirm', 'confirmed'])->sum('qty_pro');
-                $remarkQty    = $item->pros->where('status', 'remark')->sum('qty_pro');
+                $confirmedQty = (float)($item->confirmed_qty_total ?? 0);
+                $remarkQty    = (float)($item->remark_qty_total ?? 0);
                 $assignedQty  = (float) $item->assigned_qty;
 
-                // Check if item is completed (Balance <= 0)
                 $balance = $assignedQty - ($confirmedQty + $remarkQty);
                 if ($balance <= 0.001) {
-                    continue; // Skip completed items
+                    continue;
                 }
                 
-                // If Item Status is literally COMPLETED, also skip
                  if (str_contains(strtoupper($item->status ?? ''), 'COMPLETED')) {
                     continue;
                 }
@@ -337,6 +318,147 @@ class CreateWiController extends Controller
         }
 
         return $assignedProQuantities;
+    }
+
+    public function saveRemark(Request $request)
+    {
+        $request->validate([
+            'wi_document_code' => 'required|string',
+            'aufnr'            => 'required|string',
+            'nik'              => 'required|string',
+            'vornr'            => 'required|string',
+            'remark_qty'       => 'required|numeric|min:0',
+            'remark_text'      => 'nullable|string',
+            'tag'              => 'nullable|string'
+        ]);
+
+        $wiDocument = HistoryWi::where('wi_document_code', $request->wi_document_code)->first();
+        if (!$wiDocument) {
+            return response()->json(['success' => false, 'message' => 'WI Document not found'], 404);
+        }
+
+        $item = HistoryWiItem::where('history_wi_id', $wiDocument->id)
+            ->where('aufnr', $request->aufnr)
+            ->where('nik', $request->nik)
+            ->where('vornr', $request->vornr)
+            ->first();
+
+        if (!$item) {
+            return response()->json(['success' => false, 'message' => 'History WI Item not found for this operation'], 404);
+        }
+
+        $assignedQty = floatval($item->assigned_qty);
+        $confirmedQty = floatval($item->confirmed_qty_total);
+        $maxRemarkAllowed = max(0, $assignedQty - $confirmedQty);
+
+        if ($request->remark_qty > $maxRemarkAllowed) {
+            return response()->json([
+                'success' => false, 
+                'message' => "Jumlah Qty Remark : ({$request->remark_qty}) melebihi kapasitas yang tersedia. Quantity Maksimal: {$maxRemarkAllowed} (Ditugaskan: {$assignedQty}, Konfirmasi: {$confirmedQty})"
+            ], 422);
+        }
+
+        $item->remark_qty_total = $request->remark_qty;
+        $item->remark_text      = $request->remark_text;
+        $item->tag              = $request->tag;
+
+        $item->save();
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'Remark successfully saved!'
+        ]);
+    }
+
+    public function checkKonfirmasi(Request $request)
+    {
+        $wiCode = $request->input('wi_document_code');
+        $wiCodesInput = $request->input('wi_codes');
+
+        if (!$wiCode && empty($wiCodesInput)) {
+            return response()->json(['success' => false, 'message' => 'WI Document Code required'], 400);
+        }
+
+        $codesToProcess = !empty($wiCodesInput) ? $wiCodesInput : [$wiCode];
+
+        $documents = HistoryWi::with('items')->whereIn('wi_document_code', $codesToProcess)->get();
+        if ($documents->isEmpty()) {
+            return response()->json(['success' => false, 'message' => 'Document not found'], 404);
+        }
+
+        $service = new CheckQuantityConfiramsi();
+        $updates = 0;
+        $errors = [];
+
+        foreach ($documents as $document) {
+            $items = $document->items;
+            if ($items->isEmpty()) {
+                continue;
+            }
+
+            $budat = Carbon::parse($document->document_date)->format('dmY');
+            // $budat = "28022026";
+
+            foreach ($items as $item) {
+                if (!$item->aufnr || !$item->vornr || !$item->nik) {
+                    continue;
+                }
+
+                $res = $service->check($item->aufnr, $item->vornr, $item->nik, $budat);
+
+                if ($res['status'] === 'success') {
+                    $confirmedQty = (float) $res['confirmed_qty'];
+                    $assignedQty = (float) $item->assigned_qty;
+                    $remarkQty = (float) ($item->remark_qty_total ?? 0);
+
+                    if (($confirmedQty + $remarkQty) > $assignedQty) {
+                        $remarkQty = max(0, $assignedQty - $confirmedQty);
+                    }
+
+                    if ($confirmedQty > $assignedQty) {
+                        $confirmedQty = $assignedQty;
+                    }
+
+                    // Status Logic
+                    if (($confirmedQty + $remarkQty) >= $assignedQty) {
+                        if ($remarkQty > 0) {
+                            $item->status = 'COMPLETED WITH REMARK';
+                        } else {
+                            $item->status = 'COMPLETED';
+                        }
+                    } else {
+                        $item->status = 'PROGRESS';
+                    }
+
+                    $item->confirmed_qty_total = $confirmedQty;
+                    $item->remark_qty_total = $remarkQty;
+                    $item->save();
+                    $updates++;
+                } else {
+                    $errors[] = "AUFNR {$item->aufnr}: " . ($res['msg_error'] ?? 'Unknown error');
+                }
+            }
+
+            $document->refresh();
+            $allItemsFinished = $document->items->every(function ($i) {
+                $st = strtoupper(trim($i->status ?? ''));
+                return in_array($st, ['COMPLETED', 'COMPLETED WITH REMARK']);
+            });
+
+            if ($document->items->isNotEmpty() && $allItemsFinished) {
+                $anyWithRemark = $document->items->contains(function ($i) {
+                    return strtoupper(trim($i->status ?? '')) === 'COMPLETED WITH REMARK';
+                });
+                $document->status = $anyWithRemark ? 'COMPLETED WITH REMARK' : 'COMPLETED';
+                $document->save();
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully checked and updated $updates item(s).",
+            'errors' => $errors
+        ]);
     }
 
     public function refreshData(Request $request, $kode)
@@ -389,14 +511,8 @@ class CreateWiController extends Controller
         $plant = $request->input('plant');
 
         try {
-            // 1. Release Order
             $releaseService = new Release();
             $releaseResult = $releaseService->release($aufnr);
-            
-            // Note: We might want to check $releaseResult for specific success flags if needed, 
-            // but the service throws exception on failure.
-
-            // 2. Refresh PRO
             $ypprService = new YPPR074Z();
             $refreshResult = $ypprService->refreshPro($plant, $aufnr);
 
@@ -417,7 +533,7 @@ class CreateWiController extends Controller
 
     public function fetchProStatus(Request $request)
     {
-        $kode = $request->input('plant_code'); // Ensure plant code if needed for scope
+        $kode = $request->input('plant_code');
         $aufnrs = $request->input('aufnrs', []);
 
         if (empty($aufnrs)) {
@@ -470,10 +586,8 @@ class CreateWiController extends Controller
             $isDuplicate = collect($parentHierarchy[$parentCode])->contains('code', $childCode);
 
             if (!$isDuplicate) {
-                // Determine capacity from primaryWCs or from child relation
                 $childWcObj = $primaryWCs->firstWhere('kode_wc', $childCode);
                 
-                // [UPDATED] Use operating_time as requested (User: operating_time satuanya jam)
                 $childKapaz = $childWcObj ? $childWcObj->operating_time : ($mapping->childWorkcenter->operating_time ?? 0);
 
                 $parentHierarchy[$parentCode][] = [
@@ -496,7 +610,7 @@ class CreateWiController extends Controller
     {
         $requestData = $request->json()->all();
 
-        $plantCode  = $requestData['plant_code'] ?? null; // INI KODE/VALUE (mis. "3021"), BUKAN ID
+        $plantCode  = $requestData['plant_code'] ?? null;
         $inputDate  = $requestData['document_date'] ?? null;
         $inputTime  = $requestData['document_time'] ?? null;
         $payload    = $requestData['workcenter_allocations'] ?? [];
@@ -508,13 +622,11 @@ class CreateWiController extends Controller
         }
         $kodeLaravel = null;
 
-        // fallback 1: kalau plantCode numeric, coba as ID dulu
         $kodeLaravel = \App\Models\KodeLaravel::query()
-            ->where('laravel_code', (string)$plantCode)   // plantCode = VALUE
+            ->where('laravel_code', (string)$plantCode)
             ->first(['id']);
 
         if (!$kodeLaravel && ctype_digit((string)$plantCode)) {
-            // fallback kalau ternyata plantCode adalah ID
             $kodeLaravel = \App\Models\KodeLaravel::query()
                 ->where('id', (int)$plantCode)
                 ->first(['id']);
@@ -528,7 +640,6 @@ class CreateWiController extends Controller
 
         $kodeLaravelId = (int)$kodeLaravel->id;
 
-        // prefix masih mengikuti pola kamu (kalau plant_code value diawali '3' => WIH)
         $docPrefix = str_starts_with((string)$plantCode, '3') ? 'WIH' : 'WIW';
 
         $baseDateTime = Carbon::parse(trim($inputDate . ' ' . ($inputTime ?: '00:00')));
@@ -561,9 +672,6 @@ class CreateWiController extends Controller
                     ], 400);
                 }
 
-                // =========================
-                // Merge items by aufnr+vornr+nik
-                // =========================
                 $merged = [];
                 foreach ($rawItems as $it) {
                     $aufnr = trim($it['aufnr'] ?? '');
@@ -809,6 +917,8 @@ class CreateWiController extends Controller
 
                             $confirmedQty = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
                             $remarkQty    = (int)($itemData['remark_qty'] ?? 0);
+                            $remarkText   = $itemData['remark_text'] ?? ($itemData['remark'] ?? null);
+                            $tag          = $itemData['tag'] ?? null;
 
                             $rawStatus = $itemData['status'] ?? ($itemData['stats'] ?? 'Open');
                             $dbStatus = $rawStatus;
@@ -842,6 +952,10 @@ class CreateWiController extends Controller
                                 'makfg'           => $itemData['makfg'] ?? null,
                                 'qty_order'        => $itemData['qty_order'] ?? 0,
                                 'assigned_qty'     => $itemData['assigned_qty'] ?? 0,
+                                'confirmed_qty_total' => $confirmedQty,
+                                'remark_qty_total'    => $remarkQty,
+                                'remark_text'         => $remarkText,
+                                'tag'                 => $tag,
                                 'parent_wc'        => $parentWc,
                                 'child_wc'         => $childWc,
                                 'status'           => $dbStatus,
@@ -850,45 +964,6 @@ class CreateWiController extends Controller
                                 'calculated_takt_time' => $itemData['calculated_takt_time'] ?? 0,
                                 'stats'            => $itemData['stats'] ?? null,
                             ]);
-
-                            $proEntries = $itemData['history_pro'] ?? ($itemData['pro_entries'] ?? null);
-
-                            if (is_array($proEntries) && count($proEntries) > 0) {
-                                foreach ($proEntries as $p) {
-                                    HistoryPro::create([
-                                        'history_wi_item_id' => $wiItem->id,
-                                        'qty_pro'     => (int)($p['qty_pro'] ?? 0),
-                                        'status'      => $p['status'] ?? null,
-                                        'remark_text' => $p['remark_text'] ?? null,
-                                        'tag'         => $p['tag'] ?? null,
-                                    ]);
-                                }
-                            } else {
-                                $tag = $itemData['tag'] ?? null;
-
-                                $confirmedQty2 = (int)($itemData['confirmed_qty'] ?? ($itemData['qty_pro'] ?? 0));
-                                if ($confirmedQty2 > 0) {
-                                    HistoryPro::create([
-                                        'history_wi_item_id' => $wiItem->id,
-                                        'qty_pro'     => $confirmedQty2,
-                                        'status'      => 'confirmasi',
-                                        'remark_text' => null,
-                                        'tag'         => $tag,
-                                    ]);
-                                }
-
-                                $remarkText = $itemData['remark_text'] ?? ($itemData['remark'] ?? null);
-                                if ($remarkText) {
-                                    $remarkQty2 = (int)($itemData['remark_qty'] ?? 0);
-                                    HistoryPro::create([
-                                        'history_wi_item_id' => $wiItem->id,
-                                        'qty_pro'     => $remarkQty2,
-                                        'status'      => 'remark',
-                                        'remark_text' => $remarkText,
-                                        'tag'         => $tag,
-                                    ]);
-                                }
-                            }
                         }
                     }, 3);
 
@@ -1101,7 +1176,7 @@ class CreateWiController extends Controller
                         ->orWhere('operator_name', 'like', "%{$search}%")
                         ->orWhere('nik', 'like', "%{$search}%");
                 })
-                ->orWhereHas('items.pros', function($q3) use ($search) {
+                ->orWhereHas('items', function($q3) use ($search) {
                     $q3->where('remark_text', 'like', "%{$search}%")
                         ->orWhere('tag', 'like', "%{$search}%")
                         ->orWhere('status', 'like', "%{$search}%");
@@ -1113,7 +1188,7 @@ class CreateWiController extends Controller
             $query->where('workcenter', $request->workcenter);
         }
 
-        $wiDocuments = $query->with(['items.pros'])
+        $wiDocuments = $query->with(['items'])
             ->orderBy('document_date', 'desc')
             ->orderByRaw('CASE WHEN document_time IS NULL THEN 1 ELSE 0 END')
             ->orderBy('document_time', 'desc')
@@ -1234,35 +1309,27 @@ class CreateWiController extends Controller
                 $summary['total_items']++;
 
                 $assignedQty = (float)($item->assigned_qty ?? 0);
-                $pros = $item->pros ?? collect();
-                $confirmedQty = (float)$pros->filter(function($p){
-                    $s = strtolower(trim($p->status ?? ''));
-                    return in_array($s, ['confirmation', 'confirm', 'confirmed', 'confirmasi', 'konfirmasi']);
-                })->sum('qty_pro');
+                $confirmedQty = (float)($item->confirmed_qty_total ?? 0);
+                $remarkQty = (float)($item->remark_qty_total ?? 0);
 
-                $remarkQty = (float)$pros->filter(function($p){
-                    return str_contains(strtolower((string)($p->status ?? '')), 'remark');
-                })->sum('qty_pro');
-
-                $allRemarks = $pros->filter(function($p){
-                    return str_contains(strtolower((string)($p->status ?? '')), 'remark');
-                })->sortByDesc('created_at'); // Newest first
-
-                $remarkHistory = $allRemarks->map(function($r){
-                    return [
-                        'qty' => $r->qty_pro,
-                        'remark_text' => $r->remark_text,
-                        'tag' => $r->tag,
-                        'created_at' => $r->created_at
+                $remarkHistory = [];
+                if ($remarkQty > 0) {
+                    $remarkHistory[] = [
+                        'qty' => $remarkQty,
+                        'remark_text' => $item->remark_text ?? '',
+                        'tag' => $item->tag ?? '',
+                        'created_at' => $item->updated_at
                     ];
-                })->values()->toArray();
+                }
 
                 $totalDone = $confirmedQty + $remarkQty;
                 $remainingQty = max(0, $assignedQty - $totalDone);
 
                 $auf = $item->aufnr ?? '';
                 $prodData = $prodDataMap1[$auf] ?? null;
+
                 if (!$prodData) $prodData = $prodDataMap3[$auf] ?? null;
+
                 $sapTotal = $prodData ? floatval($prodData->MGVRG2) : (float)($item->qty_order ?? $assignedQty);
                 $sapConfirmed = $prodData ? floatval($prodData->LMNGA) : 0;
                 $fullOrderQty = max(0, $sapTotal - $sapConfirmed);
@@ -1275,9 +1342,13 @@ class CreateWiController extends Controller
                 $takTime = (float)($item->calculated_takt_time ?? 0);
                 $summary['total_load_mins'] += $takTime;
                 $progressPct = $assignedQty > 0 ? ($totalDone / $assignedQty) * 100 : 0;
-                if ($progressPct >= 100) $statusItem = 'Completed';
-                elseif ($totalDone > 0)  $statusItem = 'On Progress';
-                else                     $statusItem = 'Created';
+                if ($progressPct >= 100) {
+                    $statusItem = ($remarkQty > 0) ? 'COMPLETED WITH REMARK' : 'Completed';
+                } elseif ($totalDone > 0) {
+                    $statusItem = 'On Progress';
+                } else {
+                    $statusItem = 'Created';
+                }
                 $t3Data = $prodDataMap3[$auf] ?? null;
                 $kdaufRaw = $t3Data->KDAUF ?? ($item->kdauf ?? '-');
                 $kdposRaw = $t3Data->KDPOS ?? ($item->kdpos ?? '-');
@@ -1295,13 +1366,17 @@ class CreateWiController extends Controller
                     'assigned_qty'  => $assignedQty,
                     'remaining_qty' => $remainingQty, // Added remaining_qty
                     'confirmed_qty' => $confirmedQty,
+                    'confirmed_qty_total' => (float)($item->confirmed_qty_total ?? 0), // Added confirmed_qty_total
                     'qty_order'     => $qtyOrderRaw,
                     'uom'           => $item->uom ?? 'EA',
                     'progress_pct'  => $progressPct,
                     'status'        => $statusItem,
                     'item_mins'     => $takTime,
-                    'remark'        => $latestRemark->remark_text ?? null,
+                    'remark'        => $item->remark_text ?? null,
+                    'remark_text'   => $item->remark_text ?? null,
+                    'tag'           => $item->tag ?? null,
                     'remark_qty'    => $remarkQty,
+                    'remark_qty_total'=> $remarkQty,
                     'remark_history'=> $remarkHistory, // Added remark_history
                     'vgw01'         => $item->vgw01 ?? 0,
                     'vge01'         => $item->vge01 ?? '',
@@ -1729,44 +1804,38 @@ class CreateWiController extends Controller
 
                 $assigned = floatval($item->assigned_qty ?? 0);
                 
-                // Calculate confirmed and remark from PROS
-                $confirmed = 0;
-                $remarkQty = 0;
+                // Calculate confirmed and remark natively
+                $confirmed = (float)($item->confirmed_qty_total ?? 0);
+                $remarkQty = (float)($item->remark_qty_total ?? 0);
                 $remarkTexts = [];
                 $remarkDetails = [];
                 
-                foreach ($item->pros as $pro) {
-                    $st = strtolower($pro->status ?? '');
-                    if (in_array($st, ['confirmation', 'confirm', 'confirmed', 'confirmasi', 'konfirmasi'])) {
-                        $confirmed += $pro->qty_pro;
-                    } elseif (str_contains($st, 'remark')) {
-                        $remarkQty += $pro->qty_pro;
-                        $rText = $pro->remark_text;
-                        $rTag = $pro->tag;
-                        
-                        // Effective Remark: Text -> Tag -> '-'
-                        $effectiveRemark = $rText;
-                        if (empty($effectiveRemark)) {
-                            $effectiveRemark = $rTag;
-                        }
-                        if (empty($effectiveRemark)) {
-                            $effectiveRemark = '-';
-                        }
-                        
-                        // Populate Texts array for top-level summary if needed
-                        if (!empty($rText)) {
-                            $remarkTexts[] = $rText;
-                        } elseif (!empty($rTag)) {
-                             $remarkTexts[] = $rTag; // Include tag in summary if text missing? Optional, but safer.
-                        }
-                        
-                        $remarkDetails[] = [
-                            'qty' => $pro->qty_pro,
-                            'remark' => $effectiveRemark, // For Expired Tab
-                            'remark_text' => $rText,      // For Active Tab
-                            'tag' => $rTag
-                        ];
-                    }
+                $rText = $item->remark_text ?? '';
+                $rTag = $item->tag ?? '';
+                
+                // Effective Remark: Text -> Tag -> '-'
+                $effectiveRemark = $rText;
+                if (empty($effectiveRemark)) {
+                    $effectiveRemark = $rTag;
+                }
+                if (empty($effectiveRemark)) {
+                    $effectiveRemark = '-';
+                }
+                
+                // Populate Texts array for top-level summary if needed
+                if (!empty($rText)) {
+                    $remarkTexts[] = $rText;
+                } elseif (!empty($rTag)) {
+                    $remarkTexts[] = $rTag; // Include tag in summary if text missing? Optional, but safer.
+                }
+                
+                if ($remarkQty > 0) {
+                    $remarkDetails[] = [
+                        'qty' => $remarkQty,
+                        'remark' => $effectiveRemark, // For Expired Tab
+                        'remark_text' => $rText,      // For Active Tab
+                        'tag' => $rTag
+                    ];
                 }
                 $netpr = floatval($item->netpr ?? 0);
                 $waerk = $item->waerk ?? '';
@@ -1788,7 +1857,7 @@ class CreateWiController extends Controller
                      // Optional: Map REL to ACTIVE for consistency if needed, but user asked for DB values.
                      // We will stick to DB values. 
                 } elseif ($balance <= 0) {
-                    $status = 'COMPLETED'; 
+                    $status = ($remarkQty > 0) ? 'COMPLETED WITH REMARK' : 'COMPLETED'; 
                 } elseif ($hasRemark) {
                     $status = 'NOT COMPLETED WITH REMARK';
                 } elseif ($isDocExpired) {
@@ -1828,13 +1897,8 @@ class CreateWiController extends Controller
                 } else {
                     $soItem = ($kdauf !== '-' && $kdpos !== '-') ? "{$kdauf}-{$kdpos}" : '-';
                 }
-
-                // Takt Time
-                // Takt Time (Changed to ASSIGNED Qty as requested)
                 $vgw01 = floatval($item->vgw01 ?? 0);
                 $vge01 = strtoupper(trim($item->vge01 ?? ''));
-                
-                // 1. Planned Time (Assigned) - "Time" Column & "Jam Kerja" Denominator
                 $baseMins = $vgw01 * $assigned; 
 
                 if (in_array($vge01, ['S', 'SEC'])) {
@@ -2000,7 +2064,9 @@ class CreateWiController extends Controller
                     'doc_metadata' => [
                          'code'     => $doc->wi_document_code,
                          'status'   => (now()->gt($doc->expired_at)) ? 'EXPIRED' : (
-                                        (collect($sortedItems)->sum('balance') <= 0) ? 'COMPLETED' : 'ACTIVE'
+                                        (collect($sortedItems)->sum('balance') <= 0) 
+                                            ? (collect($sortedItems)->contains(fn($si) => str_contains(strtoupper($si['status'] ?? ''), 'REMARK')) ? 'COMPLETED WITH REMARK' : 'COMPLETED')
+                                            : 'ACTIVE'
                                       ),
                          'date'     => $doc->created_at->format('d-M-Y'),
                          'expired'  => $doc->expired_at ? Carbon::parse($doc->expired_at)->format('d-M-Y H:i') : '-',
@@ -2074,8 +2140,8 @@ class CreateWiController extends Controller
                  $aggStatus = 'INACTIVE';
             } elseif ($uniqueStatuses->contains('NOT COMPLETED') || $uniqueStatuses->contains('NOT COMPLETED WITH REMARK')) {
                 $aggStatus = 'EXPIRED';
-            } elseif ($uniqueStatuses->contains('COMPLETED')) {
-                $aggStatus = 'COMPLETED';
+            } elseif ($uniqueStatuses->contains('COMPLETED') || $uniqueStatuses->contains('COMPLETED WITH REMARK')) {
+                $aggStatus = $uniqueStatuses->contains('COMPLETED WITH REMARK') ? 'COMPLETED WITH REMARK' : 'COMPLETED';
             }
 
             $reportData = [
@@ -2268,10 +2334,10 @@ class CreateWiController extends Controller
 
                 $hasRemark = ($remarkQty > 0 || ($remarkText !== '-' && !empty($remarkText)));
                 
-                if ($hasRemark) {
+                if ($balance <= 0.001) {
+                    $status = ($remarkQty > 0) ? 'COMPLETED WITH REMARK' : 'COMPLETED';
+                } elseif ($hasRemark) {
                     $status = 'NOT COMPLETED WITH REMARK';
-                } elseif ($balance <= 0) {
-                    $status = 'COMPLETED';
                 } elseif ($request->input('status_override') === 'INACTIVE') {
                     $status = 'INACTIVE';
                 } elseif ($docDate->gt($today)) {
@@ -2330,7 +2396,7 @@ class CreateWiController extends Controller
         ]);
         $rawInput = $request->input('wi_codes');
         $wiCodes = explode(',', $rawInput);
-        $documents = HistoryWi::with(['items.pros'])
+        $documents = HistoryWi::with(['items'])
                     ->whereIn('wi_document_code', $wiCodes)
                     ->where('expired_at', '>', now()) 
                     ->get();
@@ -2355,7 +2421,7 @@ class CreateWiController extends Controller
     {
         $rawInput = $request->input('wi_codes');
         $wiCodes = explode(',', $rawInput);
-        $documents = HistoryWi::with(['items.pros'])->whereIn('wi_document_code', $wiCodes)->get();
+        $documents = HistoryWi::with(['items'])->whereIn('wi_document_code', $wiCodes)->get();
         
         // Fetch Plant Code for WC Lookup
         $plantCode = $documents->first() ? $documents->first()->plant_code : null;
@@ -2384,21 +2450,13 @@ class CreateWiController extends Controller
 
                 $assigned = floatval($item->assigned_qty ?? 0);
                 
-                // Calculate from PROS
-                $confirmed = 0;
-                $remarkQty = 0;
+                // Calculate native columns
+                $confirmed = (float)($item->confirmed_qty_total ?? 0);
+                $remarkQty = (float)($item->remark_qty_total ?? 0);
                 $remarkTexts = [];
                 
-                foreach ($item->pros as $pro) {
-                    $st = strtolower($pro->status ?? '');
-                    if (in_array($st, ['confirmation', 'confirm', 'confirmed'])) {
-                        $confirmed += $pro->qty_pro;
-                    } elseif ($st === 'remark') {
-                        $remarkQty += $pro->qty_pro;
-                        if (!empty($pro->remark_text)) {
-                            $remarkTexts[] = $pro->remark_text;
-                        }
-                    }
+                if (!empty($item->remark_text)) {
+                    $remarkTexts[] = $item->remark_text;
                 }
                 
                 $balance = $assigned - ($confirmed + $remarkQty);
@@ -2421,7 +2479,7 @@ class CreateWiController extends Controller
                     'balance'     => $balance,
                     'remark_qty'  => $remarkQty,
                     'remark_text' => $remarkTextStr,
-                    'status'      => ($balance <= 0.001 && $remarkQty == 0) ? 'COMPLETED' : 
+                    'status'      => ($balance <= 0.001) ? (($remarkQty > 0) ? 'COMPLETED WITH REMARK' : 'COMPLETED') : 
                                      (($remarkQty > 0 || ($remarkTextStr !== '-' && !empty($remarkTextStr))) ? 'NOT COMPLETED WITH REMARK' : 'NOT COMPLETED')
                 ];
             }
@@ -2452,7 +2510,7 @@ class CreateWiController extends Controller
     {
         $rawInput = $request->input('wi_codes'); 
         $wiCodes = explode(',', $rawInput);
-        $documents = HistoryWi::with(['items.pros'])->whereIn('wi_document_code', $wiCodes)->get();
+        $documents = HistoryWi::with(['items'])->whereIn('wi_document_code', $wiCodes)->get();
         
         $reportItems = [];
         $grandTotalAssigned = 0;
@@ -2469,14 +2527,8 @@ class CreateWiController extends Controller
                 $wc = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
                 $assigned = floatval($item->assigned_qty ?? 0);
 
-                // Calculate confirmed from PROS
-                $confirmed = 0;
-                foreach ($item->pros as $pro) {
-                    $st = strtolower($pro->status ?? '');
-                    if (in_array($st, ['confirmation', 'confirm', 'confirmed'])) {
-                        $confirmed += $pro->qty_pro;
-                    }
-                }
+                // Calculate confirmed from native properties
+                $confirmed = (float)($item->confirmed_qty_total ?? 0);
 
                 $balance = $assigned - $confirmed;
                 $grandTotalAssigned += $assigned;
@@ -3323,11 +3375,7 @@ class CreateWiController extends Controller
                     if ($existingItem) {
                         // blok merge kalau sudah ada confirmasi
                         $confirmedQty = 0;
-                        if (method_exists($existingItem, 'pros')) {
-                            $confirmedQty = (float)$existingItem->pros()
-                                ->whereIn(DB::raw('LOWER(status)'), ['confirmasi','confirm','confirmed'])
-                                ->sum('qty_pro');
-                        }
+                        $confirmedQty = (float)($existingItem->confirmed_qty_total ?? 0);
 
                         if ($confirmedQty > 0) {
                             throw new \Exception("Item PRO {$aufnr} untuk operator {$req['name']} tidak bisa ditambah karena sudah ada konfirmasi.");
@@ -3444,11 +3492,7 @@ class CreateWiController extends Controller
             if ($dbItem) {
                 // Check if item has confirmation
                 $confirmedQty = 0;
-                if (method_exists($dbItem, 'pros')) {
-                    $confirmedQty = (float)$dbItem->pros()
-                        ->whereIn(DB::raw('LOWER(status)'), ['confirmasi','confirm','confirmed'])
-                        ->sum('qty_pro');
-                }
+                $confirmedQty = (float)($dbItem->confirmed_qty_total ?? 0);
 
                 if ($confirmedQty > 0) {
                     return response()->json(['success' => false, 'message' => 'Item sudah memiliki konfirmasi, tidak dapat dihapus.'], 400);
@@ -3673,7 +3717,7 @@ class CreateWiController extends Controller
         $rawInput = $request->input('wi_codes');
         $wiCodes = array_values(array_filter(array_map('trim', explode(',', $rawInput))));
         
-        $documents = HistoryWi::with(['items.pros'])
+        $documents = HistoryWi::with(['items'])
             ->whereIn('wi_document_code', $wiCodes)
             // ->where('status', 'INACTIVE') // Optional: remove restriction if we want to print any selected docs from inactive tab
             ->get();

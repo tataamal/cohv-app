@@ -411,6 +411,9 @@
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllActive">Pilih Semua</label>
                                 </div>
                                 <div class="d-flex gap-2" id="actionGroupActive">
+                                    <button type="button" id="btnActiveCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('active')">
+                                        <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countActiveCheckConfirmation">0</span>)
+                                    </button>
                                     <button type="button" id="btnActiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('active')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countActiveDel">0</span>)
                                     </button>
@@ -456,24 +459,27 @@
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <div>
                                                     <h6 class="fw-bold mb-1 d-inline-block align-middle me-2">{{ $document->wi_document_code }}</h6>
-                                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;"
+                                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-1" style="font-size: 0.75rem;"
                                                         onclick="setupSinglePrint('{{ $document->wi_document_code }}', 'active')">
                                                         <i class="fa-solid fa-print me-1"></i> Cetak
                                                     </button>
                                                     @if(empty($document->machining))
-                                                        <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
+                                                        <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-1" style="font-size: 0.75rem;" 
                                                             onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'>
                                                             <i class="fa-solid fa-plus me-1"></i> Tambah Item
                                                         </button>
                                                     @else
-                                                        <button class="btn btn-sm btn-secondary text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" disabled title="Dikunci saat Active (Mode Machining)">
+                                                        <button class="btn btn-sm btn-secondary text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-1" style="font-size: 0.75rem;" disabled title="Dikunci saat Active (Mode Machining)">
                                                             <i class="fa-solid fa-lock me-1"></i> Tambah Item
                                                         </button>
                                                     @endif
+                                                    <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-3" style="font-size: 0.75rem;"
+                                                        onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
+                                                        <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
+                                                    </button>
                                                 </div>
                                                 <div class="text-end">
-                                                    <span class="badge bg-light text-dark border">{{ $docItemsCount }} PRO</span>
-                                                    <span class="badge badge-soft bg-soft-success ms-2">Active</span>
+                                                    <span class="badge bg-light text-dark border">{{ $docItemsCount }} Item</span>
                                                 </div>
                                             </div>
                                             <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
@@ -549,13 +555,16 @@
                                                                     @else
                                                                         <span class="badge bg-secondary text-white small">Fitur dikunci untuk mode Machining</span>
                                                                     @endif
+                                                                    <button class="btn btn-sm btn-danger ms-1" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
+                                                                        Remark
+                                                                    </button>
                                                                 @endif
                                                             </div>  
                                                         </div>
                                                     </div>
                                                     <div class="d-flex justify-content-end mb-1">
                                                         <span class="text-xs fw-bold text-muted">
-                                                             Sukses: {{ (fmod($item['confirmed_qty'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty'] ?? 0, 0, ',', '.') }}
+                                                             Sukses: {{ (fmod($item['confirmed_qty_total'] ?? 0, 1) != 0) ? number_format($item['confirmed_qty_total'] ?? 0, 2, ',', '.') : number_format($item['confirmed_qty_total'] ?? 0, 0, ',', '.') }}
                                                             @if(($item['remark_qty'] ?? 0) > 0)
                                                                 <span class="text-danger"> Gagal: {{ (fmod($item['remark_qty'], 1) != 0) ? number_format($item['remark_qty'], 2, ',', '.') : number_format($item['remark_qty'], 0, ',', '.') }}</span>
                                                             @endif
@@ -567,8 +576,8 @@
                                                         $aQty = $item['assigned_qty'] > 0 ? $item['assigned_qty'] : 1;
                                                         $rPct = ($rQty / $aQty) * 100;
                                                         
-                                                        // Explicitly calculate success percentage based on confirmed_qty
-                                                        $cQty = $item['confirmed_qty'] ?? 0;
+                                                        // Explicitly calculate success percentage based on confirmed_qty_total
+                                                        $cQty = $item['confirmed_qty_total'] ?? 0;
                                                         $cPct = ($cQty / $aQty) * 100;
                                                     @endphp
                                                     <div class="progress" style="height: 6px;">
@@ -644,6 +653,11 @@
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllInactive">Pilih Semua</label>
                                 </div>
                                 <div class="d-flex gap-2" id="actionGroupInactive">
+                                    @if(Auth::user()->nik === 'auto_email')
+                                        <button type="button" id="btnInactiveCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('inactive')">
+                                            <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countInactiveCheckConfirmation">0</span>)
+                                        </button>
+                                    @endif
                                     <button type="button" id="btnInactiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('inactive')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countInactiveDel">0</span>)
                                     </button>
@@ -678,6 +692,12 @@
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <div>
                                                     <h6 class="fw-bold mb-1 d-inline-block align-middle me-2">{{ $document->wi_document_code }}</h6>
+                                                    @if(Auth::user()->name === 'DEVELOPER')
+                                                        <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-1" style="font-size: 0.75rem;"
+                                                            onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
+                                                            <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
+                                                        </button>
+                                                    @endif
                                                     <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
                                                         onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'>
                                                         <i class="fa-solid fa-plus me-1"></i> Tambah Item
@@ -758,6 +778,12 @@
                                                                         <span class="badge bg-secondary text-white small">Fitur dikunci untuk mode Machining</span>
                                                                     @endif
                                                                 @endif
+
+                                                                @if(Auth::user()->name === 'DEVELOPER')
+                                                                    <button class="btn btn-sm btn-danger ms-1" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
+                                                                        Remark
+                                                                    </button>
+                                                                @endif
                                                             </div>
                                                     </div>
                                                 </div>
@@ -791,6 +817,11 @@
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllExpired">Pilih Semua</label>
                                 </div>
                                 <div class="d-flex gap-2" id="actionGroupExpired">
+                                    @if(Auth::user()->name === 'DEVELOPER')
+                                        <button type="button" id="btnExpiredCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('expired')">
+                                            <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countExpiredCheckConfirmation">0</span>)
+                                        </button>
+                                    @endif
                                     <button type="button" id="btnExpiredDelete" class="btn btn-outline-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('expired')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countExpiredDel">0</span>)
                                     </button>
@@ -818,7 +849,15 @@
                                     <div class="d-flex align-items-center gap-3">
                                         <input class="form-check-input wi-checkbox cb-expired" type="checkbox" value="{{ $document->wi_document_code }}">
                                         <div>
-                                            <h6 class="fw-bold mb-0">{{ $document->wi_document_code }}</h6>
+                                            <div class="d-flex align-items-center mb-1">
+                                                <h6 class="fw-bold mb-0 me-2">{{ $document->wi_document_code }}</h6>
+                                                @if(Auth::user()->name === 'DEVELOPER')
+                                                    <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 me-2" style="font-size: 0.75rem;"
+                                                        onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
+                                                        <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
+                                                    </button>
+                                                @endif
+                                            </div>
                                             @if(!empty($document->machining))
                                                 <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
                                             @endif
@@ -887,6 +926,13 @@
                                                         <div class="fw-bold text-dark fs-6">
                                                             {{ (fmod($item['assigned_qty'], 1) != 0) ? number_format($item['assigned_qty'], 2, ',', '.') : number_format($item['assigned_qty'], 0, ',', '.') }}
                                                             <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span>
+                                                        </div>
+                                                        <div class="d-flex gap-1 justify-content-end mt-1">
+                                                            @if(Auth::user()->name === 'DEVELOPER')
+                                                                <button class="btn btn-sm btn-danger" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
+                                                                    Remark
+                                                                </button>
+                                                            @endif
                                                         </div>
                                                     </div>
                                                 </div>
@@ -999,6 +1045,11 @@
                                         <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllCompleted">Pilih Semua</label>
                                     </div>
                                     <div class="d-flex gap-2" id="actionGroupCompleted">
+                                        @if(Auth::user()->name === 'DEVELOPER')
+                                            <button type="button" id="btnCompletedCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('completed')">
+                                                <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countCompletedCheckConfirmation">0</span>)
+                                            </button>
+                                        @endif
                                         <button type="button" id="btnCompletedDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('completed')">
                                             <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countCompletedDel">0</span>)
                                         </button>
@@ -1026,7 +1077,15 @@
                                         <div class="d-flex align-items-center gap-3">
                                             <input class="form-check-input wi-checkbox cb-completed" type="checkbox" value="{{ $document->wi_document_code }}">
                                             <div>
-                                                <h6 class="fw-bold mb-0">{{ $document->wi_document_code }}</h6>
+                                                <div class="d-flex align-items-center mb-1">
+                                                    <h6 class="fw-bold mb-0 me-2">{{ $document->wi_document_code }}</h6>
+                                                    @if(Auth::user()->name === 'DEVELOPER')
+                                                        <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 me-2" style="font-size: 0.75rem;"
+                                                            onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
+                                                            <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
+                                                        </button>
+                                                    @endif
+                                                </div>
                                                 @if(!empty($document->machining))
                                                     <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
                                                 @endif
@@ -1094,9 +1153,16 @@
                                                                 <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span>
                                                             </div>
 
-                                                            <button class="btn btn-sm btn-outline-info py-0 px-2 rounded-pill small fw-bold" disabled>
-                                                                <i class="fa-solid fa-check-double me-1"></i> Completed
-                                                            </button>
+                                                            <div class="d-flex gap-1 justify-content-end mt-1">
+                                                                @if(Auth::user()->name === 'DEVELOPER')
+                                                                    <button class="btn btn-sm btn-danger" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
+                                                                        Remark
+                                                                    </button>
+                                                                @endif
+                                                                <button class="btn btn-sm btn-outline-info py-0 px-2 rounded-pill small fw-bold" disabled>
+                                                                    <i class="fa-solid fa-check-double me-1"></i> Completed
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -1322,6 +1388,57 @@
     </script>
     @endpush
 
+    <!-- Modal Input Remark -->
+    <div class="modal fade" id="inputRemarkModal" tabindex="-1" aria-hidden="true" style="backdrop-filter: blur(5px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 1rem; overflow: hidden;">
+                <div class="modal-header bg-danger text-white border-bottom-0 pb-3">
+                    <h5 class="modal-title fw-bold d-flex align-items-center">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i> Input Remark
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-light pt-4">
+                    <form id="formInputRemark">
+                        <input type="hidden" id="remarkWiCode" name="wi_document_code">
+                        <input type="hidden" id="remarkAufnr" name="aufnr">
+                        <input type="hidden" id="remarkNik" name="nik">
+                        <input type="hidden" id="remarkVornr" name="vornr">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-dark small">Quantity Remark (<span id="remarkUomText" class="text-primary fw-bold"></span>)</label>
+                            <input type="number" step="any" class="form-control border-2 shadow-sm rounded-3" id="remarkQty" name="remark_qty" required placeholder="0">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-dark small">Tag (Kategori)</label>
+                            <select class="form-select border-2 shadow-sm rounded-3" id="remarkTag" name="tag">
+                                <option value="">-- Pilih Tag --</option>
+                                <option value="Perbaikan kayu">Perbaikan kayu</option>
+                                <option value="Perbaikan Logam">Perbaikan Logam</option>
+                                <option value="Perbaikan Aksesori">Perbaikan Aksesori</option>
+                                <option value="Perbaikan Warna / Perbaikan Cat">Perbaikan Warna / Perbaikan Cat</option>
+                                <option value="Sedang Dikerjakan">Sedang Dikerjakan</option>
+                                <option value="Masalah Kualitas">Masalah Kualitas</option>
+                                <option value="Menunggu Informasi Lebih Lanjut">Menunggu Informasi Lebih Lanjut</option>
+                                <option value="Error Dalam Pengembangan">Error Dalam Pengembangan</option>
+                                <option value="Serial Number">Serial Number</option>
+                                <option value="Lainya">Lainya</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-dark small">Catatan / Remark Text</label>
+                            <textarea class="form-control border-2 shadow-sm rounded-3" id="remarkText" name="remark_text" rows="3" placeholder="Tulis detil kendala di sini..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light border-0 pt-0">
+                    <button type="button" class="btn btn-secondary btn-sm px-4 rounded-pill fw-bold" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger btn-sm px-4 rounded-pill fw-bold shadow-sm" onclick="submitRemark()">Simpan Remark</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Search Result -->
     <div class="modal fade" id="remarkSearchModal" tabindex="-1" aria-hidden="true" style="backdrop-filter: blur(5px);">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1484,6 +1601,60 @@
             setupModalUI(type, 1, 'document'); // Default to document mode for single print
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
+        }
+
+        function checkKonfirmasi(wiCode) {
+            Swal.fire({
+                title: 'Loading',
+                text: 'Sedang mengecek konfirmasi qty...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            $.ajax({
+                url: '{{ route('create-wi.check-konfirmasi') }}',
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    wi_document_code: wiCode
+                },
+                success: function(response) {
+                    if (response.success) {
+                        let msg = response.message;
+                        if (response.errors && response.errors.length > 0) {
+                            msg += '<br><br><b>Peringatan:</b><ul class="text-start">';
+                            response.errors.forEach(function(e) {
+                                msg += '<li>' + e + '</li>';
+                            });
+                            msg += '</ul>';
+                        }
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Selesai',
+                            html: msg,
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal',
+                            text: response.message || 'Gagal mengecek qty.'
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: xhr.responseJSON?.message || 'Terjadi kesalahan sistem, silakan coba lagi.'
+                    });
+                }
+            });
         }
 
         function ensureHidden(form, name) {
@@ -3231,6 +3402,69 @@
             });
         };
 
+        // --- 4.6 BULK CHECK KONFIRMASI FUNCTION ---
+        window.confirmCheckConfirmation = function(type) {
+            let selector;
+            if (type === 'active') selector = '.cb-active:checked';
+            else if (type === 'inactive') selector = '.cb-inactive:checked';
+            else if (type === 'completed') selector = '.cb-completed:checked';
+            else selector = '.cb-expired:checked';
+
+            const checked = document.querySelectorAll(selector);
+            let codes = [];
+            checked.forEach(cb => codes.push(cb.value));
+
+            if(codes.length === 0) return;
+
+            Swal.fire({
+                title: 'Check Konfirmasi Massal',
+                text: `Anda akan mengecek sinkronisasi konfirmasi untuk ${codes.length} dokumen. Lanjutkan?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ya, Cek!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Mengecek Data ke SAP...',
+                        html: 'Mohon tunggu sebentar, sedang sinkronisasi data',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    fetch('{{ route('create-wi.check-konfirmasi') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ wi_codes: codes })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if(data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil',
+                                text: data.message,
+                                confirmButtonText: 'OK'
+                            }).then(() => location.reload());
+                        } else {
+                            Swal.fire('Gagal', data.message || 'Gagal mengecek data', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        Swal.fire('Error', 'Terjadi kesalahan sistem.', 'error');
+                    });
+                }
+            });
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             // --- 5. HIGHLIGHT CARD LOGIC ---
             function toggleCardHighlight(checkbox) {
@@ -3242,7 +3476,7 @@
             }
 
             // --- 6. CHECKBOX HANDLERS (Generic Helper) ---
-            function setupCheckboxGroup(selectAllId, itemClass, btnActionId, btnDeleteId, countId, countDelId) {
+            function setupCheckboxGroup(selectAllId, itemClass, btnActionId, btnDeleteId, countId, countDelId, btnCheckConfId = null, countCheckConfId = null) {
                 const selectAll = document.getElementById(selectAllId);
                 if(!selectAll) return;
 
@@ -3268,25 +3502,109 @@
                     const btnDel = document.getElementById(btnDeleteId);
                     const countSpan = document.getElementById(countId);
                     const countDelSpan = document.getElementById(countDelId);
+                    
+                    const btnCheckConf = btnCheckConfId ? document.getElementById(btnCheckConfId) : null;
+                    const countCheckConfSpan = countCheckConfId ? document.getElementById(countCheckConfId) : null;
 
                     if (checked.length > 0) {
                         if(btnAction) btnAction.classList.remove('d-none');
                         if(btnDel) btnDel.classList.remove('d-none');
+                        if(btnCheckConf) btnCheckConf.classList.remove('d-none');
+                        
                         if(countSpan) countSpan.innerText = checked.length;
                         if(countDelSpan) countDelSpan.innerText = checked.length;
+                        if(countCheckConfSpan) countCheckConfSpan.innerText = checked.length;
                     } else {
                         if(btnAction) btnAction.classList.add('d-none');
                         if(btnDel) btnDel.classList.add('d-none');
+                        if(btnCheckConf) btnCheckConf.classList.add('d-none');
                     }
                 }
             }
             
             // Setup Groups
-            setupCheckboxGroup('selectAllActive', '.cb-active', 'btnActiveAction', 'btnActiveDelete', 'countActive', 'countActiveDel');
-            setupCheckboxGroup('selectAllInactive', '.cb-inactive', 'btnInactiveAction', 'btnInactiveDelete', 'countInactive', 'countInactiveDel');
-            setupCheckboxGroup('selectAllExpired', '.cb-expired', 'btnExpiredAction', 'btnExpiredDelete', 'countExpired', 'countExpiredDel');
-            setupCheckboxGroup('selectAllCompleted', '.cb-completed', 'btnCompletedAction', 'btnCompletedDelete', 'countCompleted', 'countCompletedDel');
+            setupCheckboxGroup('selectAllActive', '.cb-active', 'btnActiveAction', 'btnActiveDelete', 'countActive', 'countActiveDel', 'btnActiveCheckConfirmation', 'countActiveCheckConfirmation');
+            setupCheckboxGroup('selectAllInactive', '.cb-inactive', 'btnInactiveAction', 'btnInactiveDelete', 'countInactive', 'countInactiveDel', 'btnInactiveCheckConfirmation', 'countInactiveCheckConfirmation');
+            setupCheckboxGroup('selectAllExpired', '.cb-expired', 'btnExpiredAction', 'btnExpiredDelete', 'countExpired', 'countExpiredDel', 'btnExpiredCheckConfirmation', 'countExpiredCheckConfirmation');
+            setupCheckboxGroup('selectAllCompleted', '.cb-completed', 'btnCompletedAction', 'btnCompletedDelete', 'countCompleted', 'countCompletedDel', 'btnCompletedCheckConfirmation', 'countCompletedCheckConfirmation');
         });
+
+        // --- 7. REMARK LOGIC ---
+        window.openRemarkModal = function(wiCode, aufnr, nik, vornr, uom, currentRemarkQty, remarkText, tag) {
+            document.getElementById('remarkWiCode').value = wiCode;
+            document.getElementById('remarkAufnr').value = aufnr;
+            document.getElementById('remarkNik').value = nik;
+            document.getElementById('remarkVornr').value = vornr;
+            
+            // Set input values
+            let qtyInput = document.getElementById('remarkQty');
+            qtyInput.value = parseFloat(currentRemarkQty) > 0 ? currentRemarkQty : '';
+            document.getElementById('remarkText').value = remarkText || '';
+            document.getElementById('remarkTag').value = tag || '';
+
+            // Handle UoM rules (ST / SET disable decimal)
+            const unit = (uom || '').toUpperCase();
+            document.getElementById('remarkUomText').innerText = unit;
+
+            if (unit === 'ST' || unit === 'SET' || unit === 'PC') {
+                qtyInput.setAttribute('step', '1');
+            } else {
+                qtyInput.setAttribute('step', 'any');
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('inputRemarkModal'));
+            modal.show();
+        };
+
+        window.submitRemark = function() {
+            const qty = document.getElementById('remarkQty').value;
+            const tag = document.getElementById('remarkTag').value;
+            const text = document.getElementById('remarkText').value;
+            const wiCode = document.getElementById('remarkWiCode').value;
+            const aufnr = document.getElementById('remarkAufnr').value;
+            const nik = document.getElementById('remarkNik').value;
+            const vornr = document.getElementById('remarkVornr').value;
+
+            if (!qty || parseFloat(qty) <= 0) {
+                Swal.fire('Peringatan', 'Mohon isi Quantity Remark dengan angka positif', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Menyimpan...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            fetch('{{ route('create-wi.save-remark') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    wi_document_code: wiCode,
+                    aufnr: aufnr,
+                    nik: nik,
+                    vornr: vornr,
+                    remark_qty: qty,
+                    tag: tag,
+                    remark_text: text
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Berhasil', data.message, 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Gagal', data.message || 'Gagal menyimpan data', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire('Error', 'Terjadi kesalahan sistem.', 'error');
+            });
+        }
 
         window.openEditQtyModal = function(wiCode, aufnr, description, assignedQty, orderQty, uom, vgw01, vge01, nik, vornr, maxCapacity, currentTotalUsed, currentItemLoad) {
             // Helper for ID locale

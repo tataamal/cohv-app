@@ -31,8 +31,6 @@ Route::middleware('auth:sanctum')->prefix('wi')->group(function () {
     
     Route::get('aufnr/unexpired', [WorkInstructionApiController::class, 'getUniqueUnexpiredAufnrs']); 
     Route::post('document/get', [WorkInstructionApiController::class, 'getWiDocumentByCode']); 
-    Route::post('pro/complete', [WorkInstructionApiController::class, 'completeProStatus']); 
-    Route::post('pro/complete-remark', [WorkInstructionApiController::class, 'completeWithRemark']);
 
 });
 
