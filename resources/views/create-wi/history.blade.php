@@ -1,192 +1,6 @@
 <x-layouts.app title="Work Instruction History">
     @push('styles')
-        <style>
-            /* --- 1. GLOBAL VARIABLES & THEME --- */
-            :root {
-                --bg-app: #eef2f6; 
-                --card-header-bg: #f8fafc;
-                --border-color: #e2e8f0;
-                --primary-dark: #1e293b;
-                --text-secondary: #64748b;
-                --success-color: #10b981;
-                --danger-color: #ef4444;
-                --info-color: #3b82f6;
-            }
-
-            body { background-color: var(--bg-app) !important; color: var(--primary-dark); }
-            
-            /* --- 2. FILTER CONTROL PANEL --- */
-            .filter-panel {
-                background: #ffffff;
-                border-radius: 12px;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-                border: 1px solid var(--border-color);
-                margin-bottom: 2rem;
-            }
-
-            /* --- 3. MODERN CARD DESIGN (THE TICKET LOOK) --- */
-            .wi-item-card {
-                background: #ffffff;
-                border-radius: 10px;
-                border: 1px solid var(--border-color);
-                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-                transition: transform 0.2s, box-shadow 0.2s;
-                overflow: hidden; 
-                position: relative;
-            }
-            .wi-item-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-            }
-
-            /* Status Indicators (Border Kiri Tebal) */
-            .status-active { border-left: 5px solid var(--success-color); }
-            .status-expired { border-left: 5px solid var(--danger-color); }
-
-            /* Card Header */
-            .card-header-area {
-                background-color: var(--card-header-bg);
-                padding: 12px 20px;
-                border-bottom: 1px solid var(--border-color);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-
-            /* Card Body */
-            .card-body-area { padding: 15px 20px; }
-
-            /* Accordion Toggle */
-            .accordion-trigger-area {
-                background-color: #ffffff;
-                border-top: 1px dashed var(--border-color);
-                padding: 0;
-            }
-            .btn-accordion-toggle {
-                width: 100%;
-                text-align: center;
-                background: none;
-                border: none;
-                padding: 10px;
-                font-size: 0.8rem;
-                font-weight: 600;
-                color: var(--text-secondary);
-                transition: all 0.2s;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-            .btn-accordion-toggle:hover {
-                background-color: #f1f5f9;
-                color: var(--primary-dark);
-            }
-            .btn-accordion-toggle::after {
-                content: '\f078'; /* FontAwesome Chevron Down */
-                font-family: "Font Awesome 6 Free";
-                font-weight: 900;
-                margin-left: 8px;
-                transition: transform 0.3s;
-                display: inline-block;
-            }
-            .btn-accordion-toggle[aria-expanded="true"]::after {
-                transform: rotate(180deg);
-            }
-
-            /* Item List inside Accordion */
-            .item-list-container {
-                background-color: #f8fafc;
-                border-top: 1px solid var(--border-color);
-                padding: 15px 20px;
-            }
-            
-            /* --- ITEM CARD DI DALAM ACCORDION (LEBIH DETIL) --- */
-            .pro-item-row {
-                background: white;
-                border: 1px solid var(--border-color);
-                border-radius: 8px;
-                padding: 12px;
-                margin-bottom: 10px;
-                position: relative;
-            }
-            
-            /* Progress Bar Styling */
-            .progress-label {
-                font-size: 0.65rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                color: var(--text-secondary);
-                margin-bottom: 2px;
-                display: block;
-            }
-            .progress-custom {
-                height: 6px;
-                background-color: #e2e8f0;
-                border-radius: 3px;
-                overflow: hidden;
-            }
-
-            /* --- 4. UTILITIES --- */
-            .wi-checkbox { 
-                width: 22px; height: 22px; cursor: pointer; 
-                border: 2px solid #cbd5e1; border-radius: 6px;
-                margin-top: 20px; 
-            }
-            .wi-row-wrapper { display: flex; gap: 15px; margin-bottom: 20px; }
-            .badge-soft { padding: 5px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; }
-            .bg-soft-success { background-color: #d1fae5; color: #065f46; }
-            .bg-soft-danger { background-color: #fee2e2; color: #991b1b; }
-
-            /* Highlight Selection */
-            .card-selected-highlight {
-                border: 2px solid var(--success-color) !important;
-                background-color: #f0fdf4 !important;
-                box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
-                z-index: 10;
-                box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
-                z-index: 10;
-            }
-
-            /* Custom Hover for Edit Qty Button */
-            .btn-edit-qty:hover {
-                color: #ffffff !important;
-            }
-
-            /* --- 5. TAB STYLING FOR EXPIRED --- */
-            #expired-tab {
-                color: var(--danger-color); /* Inactive Text Red */
-                background-color: #fff;
-            }
-            #expired-tab.active {
-                background-color: var(--danger-color) !important;
-                color: #fff !important;
-            }
-            #expired-tab i { color: inherit; } /* Icon follows text color */
-            #expired-tab .badge {
-                transition: all 0.2s;
-            }
-            #expired-tab.active .badge {
-                background-color: rgba(255,255,255,0.2) !important;
-                color: #fff !important;
-            }
-
-            /* --- 6. TAB STYLING FOR COMPLETED --- */
-            #completed-tab {
-                color: var(--success-color); /* Inactive Text Green */
-                background-color: #fff;
-            }
-            #completed-tab.active {
-                background-color: var(--success-color) !important;
-                color: #fff !important;
-            }
-            #completed-tab i { color: inherit; }
-            #completed-tab .badge {
-                transition: all 0.2s;
-            }
-            #completed-tab.active .badge {
-                background-color: rgba(255,255,255,0.2) !important;
-                color: #fff !important;
-            }
-            
-        </style>
+        @vite(['resources/css/history-wi.css'])
     @endpush
 
     <div class="container-fluid p-4">
@@ -411,9 +225,11 @@
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllActive">Pilih Semua</label>
                                 </div>
                                 <div class="d-flex gap-2" id="actionGroupActive">
-                                    <button type="button" id="btnActiveCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('active')">
-                                        <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countActiveCheckConfirmation">0</span>)
-                                    </button>
+                                    @if(Auth::user()->name === 'DEVELOPER')
+                                        <button type="button" id="btnActiveCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('active')">
+                                            <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countActiveCheckConfirmation">0</span>)
+                                        </button>
+                                    @endif
                                     <button type="button" id="btnActiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('active')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countActiveDel">0</span>)
                                     </button>
@@ -473,10 +289,12 @@
                                                             <i class="fa-solid fa-lock me-1"></i> Tambah Item
                                                         </button>
                                                     @endif
-                                                    <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-3" style="font-size: 0.75rem;"
-                                                        onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
-                                                        <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
-                                                    </button>
+                                                    @if(Auth::user()->name === 'DEVELOPER')
+                                                        <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-3" style="font-size: 0.75rem;"
+                                                            onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
+                                                            <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
+                                                        </button>
+                                                    @endif
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-light text-dark border">{{ $docItemsCount }} Item</span>
@@ -653,7 +471,7 @@
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllInactive">Pilih Semua</label>
                                 </div>
                                 <div class="d-flex gap-2" id="actionGroupInactive">
-                                    @if(Auth::user()->nik === 'auto_email')
+                                    @if(Auth::user()->name === 'DEVELOPER')
                                         <button type="button" id="btnInactiveCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('inactive')">
                                             <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countInactiveCheckConfirmation">0</span>)
                                         </button>
@@ -2299,9 +2117,7 @@
                     if(code) opts.push(buildOpt(code, `${code} - ${name}`));
                 });
             } else if (asChild) {
-                const pCode = (asChild.parent_workcenter?.kode_wc || '').toUpperCase(); // Actually we want to show itself?
-                // Logic seems to be: if I am a child, show myself + parent? Or just myself?
-                // The original code was: opts.push(buildOpt(target, `${target} - ${asChild.nama_workcenter}`));
+                const pCode = (asChild.parent_workcenter?.kode_wc || '').toUpperCase();
                 opts.push(buildOpt(target, `${target} - ${asChild.child_workcenter?.description || ''}`));
             } else {
                 opts.push(buildOpt(target, target));
@@ -2311,10 +2127,17 @@
 
         window.employeesData = window.employeesData || [];
 
+        let lastWcOptionsHtml = '';
+        let lastWcOptionsParent = null;
+
         window.getWcOptionsHtml = function() {
             const sel = document.getElementById('filter_wc_add');
             const parent = (sel?.value || '').toUpperCase().trim();
             if (!parent) return `<option value="">Pilih Workcenter</option>`;
+
+            if (parent === lastWcOptionsParent && lastWcOptionsHtml) {
+                return lastWcOptionsHtml;
+            }
 
             const children = (window.wcMappings || [])
                 .filter(m => ((m.parent_workcenter?.kode_wc || '').toUpperCase() === parent))
@@ -2327,11 +2150,14 @@
             const list = children.length ? children : [{ code: parent, name: '' }];
 
             const seen = new Set();
-            return list.map(wc => {
+            lastWcOptionsParent = parent;
+            lastWcOptionsHtml = list.map(wc => {
                 if (seen.has(wc.code)) return '';
                 seen.add(wc.code);
                 return `<option value="${wc.code}">${wc.code}${wc.name ? ' - ' + wc.name : ''}</option>`;
             }).join('');
+            
+            return lastWcOptionsHtml;
         };
 
         window.recalcTotalAssigned = function (itemKey) {
@@ -2344,7 +2170,6 @@
                 if (v === null || v === undefined) return 0;
                 let s = String(v).trim();
                 if (!s) return 0;
-                // support "1.234,56" dan "1234.56"
                 if (s.includes(",")) return parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
                 return parseFloat(s) || 0;
             };
@@ -2365,13 +2190,15 @@
             });
 
             if (totalEl) {
-                totalEl.innerText = total.toLocaleString("id-ID", {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 2,
+                const newTotalText = total.toLocaleString("id-ID", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
                 });
+                if (totalEl.innerText !== newTotalText) {
+                    totalEl.innerText = newTotalText;
+                }
             }
-
-            // IMPORTANT: gunakan availableItemsMap (bukan window.availableItemsMap)
+            
             const item = (typeof availableItemsMap !== "undefined" ? availableItemsMap : {})[itemKey];
             const maxAvail = parseNum(item?.available_qty);
             const over = maxAvail > 0 && total > maxAvail + 1e-9;
@@ -2387,44 +2214,34 @@
 
             return total;
         };
-        // LISTENER: input qty
+        // Consolidated Input Listener
         document.addEventListener("input", (e) => {
             if (e.target.classList.contains("row-qty")) {
                 const container = e.target.closest('[id^="split_container_"]');
                 if (container) {
-                const itemKey = container.id.replace("split_container_", "");
-                recalcTotalAssigned(itemKey);
+                    const itemKey = container.id.replace("split_container_", "");
+                    recalcTotalAssigned(itemKey);
                 }
                 updateDashboardUsage();
             }
         });
-            // LISTENER: change operator / workcenter
-        document.addEventListener("change", (e) => {
-            if (e.target.classList.contains("row-wc") || e.target.classList.contains("row-nik")) {
-                const container = e.target.closest('[id^="split_container_"]');
-                if (container) {
-                const itemKey = container.id.replace("split_container_", "");
-                recalcTotalAssigned(itemKey);
-                }
-                updateDashboardUsage();
-            }
-        });
-
+        // Consolidated Listener
         document.addEventListener('change', (e) => {
             if (e.target.classList.contains('row-wc') || e.target.classList.contains('row-nik')) {
                 const container = e.target.closest('[id^="split_container_"]');
                 if (container) {
-                const itemKey = container.id.replace('split_container_', '');
-                recalcTotalAssigned(itemKey);
+                    const itemKey = container.id.replace('split_container_', '');
+                    recalcTotalAssigned(itemKey);
 
-                if (e.target.classList.contains('row-nik')) {
-                    enforceLongshiftUniqueNik(itemKey);
-                }
+                    if (e.target.classList.contains('row-nik')) {
+                        enforceLongshiftUniqueNik(itemKey);
+                    }
                 }
                 updateDashboardUsage();
             }
         });
 
+        window.isBatchLoadingAddItem = false;
         window.fetchAvailableItems = function () {
             const wcEl = document.getElementById('filter_wc_add');
             const wc = wcEl ? wcEl.value : '';
@@ -2587,6 +2404,9 @@
 
                 if (container) container.innerHTML = html;
 
+                // [PERF] Start batch
+                window.isBatchLoadingAddItem = true;
+
                 items.forEach(item => {
                     const itemKey = `${item.aufnr}_${item.vornr}`;
 
@@ -2599,6 +2419,10 @@
 
                 // sync global map sekali saja
                 window.availableItemsMap = availableItemsMap;
+
+                // [PERF] End batch and update once
+                window.isBatchLoadingAddItem = false;
+                updateDashboardUsage();
                 })
                 .catch((err) => {
                 console.error('fetchAvailableItems error:', err);
@@ -2685,33 +2509,41 @@
 
         window.updateChildWcOptions = function(totalUsageMap) {
             const selects = document.querySelectorAll('#addItemModal .row-wc');
+            if (!selects.length) return;
+
+            // [PERF] Cache capacity values for this run
+            const capCache = {};
+
             selects.forEach(sel => {
                 const currentVal = (sel.value || '').toUpperCase();
                 Array.from(sel.options).forEach(opt => {
                     const wcCode = (opt.value || '').toUpperCase();
                     if (!wcCode) return;
 
-                    // Use smart limit helper
-                    let limit = getWcCapacity(wcCode);
+                    if (typeof capCache[wcCode] === 'undefined') {
+                        capCache[wcCode] = getWcCapacity(wcCode);
+                    }
+                    let limit = capCache[wcCode];
 
                     const usage = totalUsageMap[wcCode] || 0;
                     const isFull = (usage >= limit);
                     const isSelected = (wcCode === currentVal);
 
                     if (isFull && !isSelected) {
-                        opt.disabled = true;
-                        if (!opt.innerText.includes('(Full)')) {
-                            opt.innerText += ' (Full)';
+                        if (!opt.innerText.includes('(Over Cap)')) {
+                            opt.innerText += ' (Over Cap)';
                         }
                     } else {
-                        opt.disabled = false;
-                        opt.innerText = opt.innerText.replace(' (Full)', '');
+                        if (opt.innerText.includes('(Over Cap)') || opt.innerText.includes('(Full)')) {
+                            opt.innerText = opt.innerText.replace(' (Over Cap)', '').replace(' (Full)', '');
+                        }
                     }
                 });
             });
         };
 
         window.updateDashboardUsage = function() {
+            if (window.isBatchLoadingAddItem) return;
             let usageMap = {};
 
             // 1. Init with DB Consumption
@@ -2736,11 +2568,13 @@
                 const container = r.closest('[id^="split_container_"]');
                 if (!container) return;
                 const itemKey = container.id.replace('split_container_', '');
-                const item = availableItemsMap[itemKey];
-                if (!item) return;
+                
+                // Use the map directly, don't declare another const
+                const itemData = availableItemsMap[itemKey];
+                if (!itemData) return;
 
-                let tak = parseFloat(item.vgw01) || 0;
-                const unit = (item.vge01 || '').toUpperCase();
+                let tak = parseFloat(itemData.vgw01) || 0;
+                const unit = (itemData.vge01 || '').toUpperCase();
                 if (unit === 'S' || unit === 'SEC') tak = tak / 60;
 
                 const mins = tak * qty;
@@ -2849,11 +2683,6 @@
             if(typeof updateDashboardUsage === 'function') updateDashboardUsage();
         };
 
-        document.addEventListener('input', (e) => {
-            if (e.target.classList.contains('row-qty') || e.target.classList.contains('row-wc')) {
-                updateDashboardUsage();
-            }
-        });
 
         window.removeSplitRow = function(uniqueId, itemKey) {
             const row = document.getElementById(`row_${uniqueId}`);
@@ -3087,83 +2916,100 @@
                     throw new Error(`Total assigned (${total}) melebihi available (${maxAvail}).`);
                 }
 
-                // [NEW] CAPACITY VALIDATION
+                // [NEW] CAPACITY VALIDATION - [MOD] Warning instead of block
+                let overCapacityWcs = [];
                 for (const wcCode in batchUsageMap) {
-                    // Current DB Usage (convert sec to min)
                     const dbMins = (parseFloat(window.CONSUMED_MAP[wcCode] || 0) / 60);
                     const incomingMins = batchUsageMap[wcCode];
                     const projectedTotal = dbMins + incomingMins;
-
-                    // Get smart limit (Sum of children if parent, or own limit)
                     let limit = getWcCapacity(wcCode);
                     
                     if (projectedTotal > limit + 0.1) { // 0.1 tolerance
-                        const formatCap = (mVal) => {
-                             const totalSec = Math.round(mVal * 60);
-                             const h = Math.floor(totalSec / 3600);
-                             const m = Math.floor((totalSec % 3600) / 60);
-                             const s = totalSec % 60;
-                             let parts = [];
-                             if(h > 0) parts.push(`${h} Jam`);
-                             if(m > 0) parts.push(`${m} Menit`);
-                             if(s > 0) parts.push(`${s} Detik`);
-                             return parts.length ? parts.join(' ') : '0 Menit';
-                        };
-                        throw new Error(`Kapasitas Workcenter ${wcCode} terlampaui! (Load: ${formatCap(projectedTotal)} / Kapasitas: ${formatCap(limit)}). Simpan dibatalkan.`);
+                        overCapacityWcs.push({
+                            code: wcCode,
+                            load: projectedTotal,
+                            limit: limit
+                        });
                     }
                 }
 
-                const payload = {
-                    wi_code: currentAddWiCode,
-                    machining: isMachiningDoc,
-                    longshift: isLongshift,
-                    items
+                const doSubmit = () => {
+                    const payload = {
+                        wi_code: currentAddWiCode,
+                        machining: isMachiningDoc,
+                        longshift: isLongshift,
+                        items
+                    };
+
+                    return fetch(`{{ route('wi.add-item-batch') }}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(async (res) => {
+                        const text = await res.text();
+                        let data;
+                        try { data = JSON.parse(text); } catch (e) { throw new Error(`HTTP ${res.status} (Non-JSON): ${text.slice(0, 200)}`); }
+                        if (!res.ok || data.success === false) throw new Error(data.message || `HTTP ${res.status} ${res.statusText}`);
+                        return data;
+                    })
+                    .then((data) => {
+                        Swal.fire('Berhasil', data.message || 'Berhasil', 'success');
+                        window.hasAddedItems = true;
+                        for (const wcCode in batchUsageMap) {
+                             const addedSec = batchUsageMap[wcCode] * 60;
+                             window.CONSUMED_MAP[wcCode] = (parseFloat(window.CONSUMED_MAP[wcCode] || 0) + addedSec);
+                        }
+                        if (typeof updateDashboardUsage === 'function') updateDashboardUsage();
+                        fetchAvailableItems();
+                    })
+                    .catch((err) => {
+                        Swal.fire('Gagal', err.message || 'Error', 'error');
+                    })
+                    .finally(() => {
+                        setBtn(false);
+                    });
                 };
 
-                return fetch(`{{ route('wi.add-item-batch') }}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(async (res) => {
-                    const text = await res.text();
+                if (overCapacityWcs.length > 0) {
+                    const formatCap = (mVal) => {
+                         const totalSec = Math.round(mVal * 60);
+                         const h = Math.floor(totalSec / 3600);
+                         const m = Math.floor((totalSec % 3600) / 60);
+                         const s = totalSec % 60;
+                         let parts = [];
+                         if(h > 0) parts.push(`${h} Jam`);
+                         if(m > 0) parts.push(`${m} Menit`);
+                         if(s > 0) parts.push(`${s} Detik`);
+                         return parts.length ? parts.join(' ') : '0 Menit';
+                    };
 
-                    let data;
-                    try {
-                        data = JSON.parse(text);
-                    } catch (e) {
-                        throw new Error(`HTTP ${res.status} (Non-JSON): ${text.slice(0, 200)}`);
-                    }
+                    let warningHtml = '<div class="text-start small">Kapasitas terlampaui pada workcenter berikut:<br><br>';
+                    overCapacityWcs.forEach(wc => {
+                        warningHtml += `<i class="fa-solid fa-circle-exclamation text-warning me-1"></i><b>${wc.code}</b>: ${formatCap(wc.load)} / ${formatCap(wc.limit)}<br>`;
+                    });
+                    warningHtml += '<br>Tetap lanjutkan simpan?</div>';
 
-                    if (!res.ok || data.success === false) {
-                        throw new Error(data.message || `HTTP ${res.status} ${res.statusText}`);
-                    }
-
-                    return data;
-                })
-                .then((data) => {
-                    Swal.fire('Berhasil', data.message || 'Berhasil', 'success');
-                    window.hasAddedItems = true;
-
-                    // [NEW] Update Global CONSUMED_MAP to reflect usage immediately
-                    for (const wcCode in batchUsageMap) {
-                         const addedSec = batchUsageMap[wcCode] * 60;
-                         window.CONSUMED_MAP[wcCode] = (parseFloat(window.CONSUMED_MAP[wcCode] || 0) + addedSec);
-                    }
-                    // Update dashboard visual (bars)
-                    if (typeof updateDashboardUsage === 'function') updateDashboardUsage();
-
-                    fetchAvailableItems();
-                })
-                .catch((err) => {
-                    Swal.fire('Gagal', err.message || 'Error', 'error');
-                })
-                .finally(() => {
-                    setBtn(false);
-                });
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Kapasitas Terlampaui',
+                        html: warningHtml,
+                        showCancelButton: true,
+                        confirmButtonText: 'Ya, Simpan',
+                        cancelButtonText: 'Batal'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            doSubmit();
+                        } else {
+                            setBtn(false);
+                        }
+                    });
+                } else {
+                    doSubmit();
+                }
             } catch (err) {
                 Swal.fire('Error', err.message || 'Error', 'error');
                 setBtn(false);
@@ -3730,7 +3576,7 @@
                              errorMsg.innerText = 'EXCEEDS DAILY CAPACITY!';
                              errorMsg.classList.remove('d-none');
                          }
-                         if(btnSave) btnSave.disabled = true; // STRICT BLOCKING
+                         if(btnSave) btnSave.disabled = false; // [MOD] Allow save even if over capacity
                 } else {
                         // Reset capacity warning (but don't clear qty warning if exists)
                          if(qtyWrapper && !inputNewQty.classList.contains('text-danger')) { // Only reset if not qty error
@@ -3795,19 +3641,15 @@
                          inputNewQty.classList.remove('text-danger');
                          if(errorContainer) errorContainer.classList.add('d-none'); // Hide Alert
 
-                         // Check if Capacity Error exists (updateCapacity sets it internally)
-                         const capError = (errorMsg && errorMsg.innerText === 'EXCEEDS DAILY CAPACITY!' && !errorMsg.classList.contains('d-none'));
-                         
-                         if(!capError) {
-                             if(qtyWrapper) {
-                                qtyWrapper.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10');
-                                qtyWrapper.classList.add('border-primary', 'bg-white');
-                             }
-                             if(errorMsg) errorMsg.classList.add('d-none');
-                             
-                             // Enable Button Only if No Errors
-                             if(btnSaveInside) btnSaveInside.disabled = false;
+                         // [MOD] Allow saving even if capacity warning exists
+                         if(qtyWrapper) {
+                            qtyWrapper.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10');
+                            qtyWrapper.classList.add('border-primary', 'bg-white');
                          }
+                         if(errorMsg) errorMsg.classList.add('d-none');
+                         
+                         // Enable Button Only if No Errors
+                         if(btnSaveInside) btnSaveInside.disabled = false;
                     }
                 };
 

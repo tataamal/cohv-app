@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->prefix('wi')->group(function () {
 });
 
 Route::post('wi/remarks/get', [WorkInstructionApiController::class, 'getRemarksByAufnr']);
+Route::get('wi/workcenters-load', [WorkInstructionApiController::class, 'getWorkcentersLoad']);
 
 
 Route::post('cohv/get-mapping', [App\Http\Controllers\ApiCohvController::class, 'getMappingBySapId']);

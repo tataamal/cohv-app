@@ -1,0 +1,218 @@
+/* --- 1. GLOBAL VARIABLES & THEME --- */
+:root {
+    --bg-app: #eef2f6;
+    --card-header-bg: #f8fafc;
+    --border-color: #e2e8f0;
+    --primary-dark: #1e293b;
+    --text-secondary: #64748b;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --info-color: #3b82f6;
+}
+
+body {
+    background-color: var(--bg-app) !important;
+    color: var(--primary-dark);
+}
+
+/* --- 2. FILTER CONTROL PANEL --- */
+.filter-panel {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+}
+
+/* --- 3. MODERN CARD DESIGN (THE TICKET LOOK) --- */
+.wi-item-card {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    transition:
+        transform 0.2s,
+        box-shadow 0.2s;
+    overflow: hidden;
+    position: relative;
+}
+.wi-item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+/* Status Indicators (Border Kiri Tebal) */
+.status-active {
+    border-left: 5px solid var(--success-color);
+}
+.status-expired {
+    border-left: 5px solid var(--danger-color);
+}
+
+/* Card Header */
+.card-header-area {
+    background-color: var(--card-header-bg);
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Card Body */
+.card-body-area {
+    padding: 15px 20px;
+}
+
+/* Accordion Toggle */
+.accordion-trigger-area {
+    background-color: #ffffff;
+    border-top: 1px dashed var(--border-color);
+    padding: 0;
+}
+.btn-accordion-toggle {
+    width: 100%;
+    text-align: center;
+    background: none;
+    border: none;
+    padding: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.btn-accordion-toggle:hover {
+    background-color: #f1f5f9;
+    color: var(--primary-dark);
+}
+.btn-accordion-toggle::after {
+    content: "\f078"; /* FontAwesome Chevron Down */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-left: 8px;
+    transition: transform 0.3s;
+    display: inline-block;
+}
+.btn-accordion-toggle[aria-expanded="true"]::after {
+    transform: rotate(180deg);
+}
+
+/* Item List inside Accordion */
+.item-list-container {
+    background-color: #f8fafc;
+    border-top: 1px solid var(--border-color);
+    padding: 15px 20px;
+}
+
+/* --- ITEM CARD DI DALAM ACCORDION (LEBIH DETIL) --- */
+.pro-item-row {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+/* Progress Bar Styling */
+.progress-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+    display: block;
+}
+.progress-custom {
+    height: 6px;
+    background-color: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+/* --- 4. UTILITIES --- */
+.wi-checkbox {
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    border: 2px solid #cbd5e1;
+    border-radius: 6px;
+    margin-top: 20px;
+}
+.wi-row-wrapper {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.badge-soft {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+.bg-soft-success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+.bg-soft-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Highlight Selection */
+.card-selected-highlight {
+    border: 2px solid var(--success-color) !important;
+    background-color: #f0fdf4 !important;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
+    z-index: 10;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
+    z-index: 10;
+}
+
+/* Custom Hover for Edit Qty Button */
+.btn-edit-qty:hover {
+    color: #ffffff !important;
+}
+
+/* --- 5. TAB STYLING FOR EXPIRED --- */
+#expired-tab {
+    color: var(--danger-color); /* Inactive Text Red */
+    background-color: #fff;
+}
+#expired-tab.active {
+    background-color: var(--danger-color) !important;
+    color: #fff !important;
+}
+#expired-tab i {
+    color: inherit;
+} /* Icon follows text color */
+#expired-tab .badge {
+    transition: all 0.2s;
+}
+#expired-tab.active .badge {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: #fff !important;
+}
+
+/* --- 6. TAB STYLING FOR COMPLETED --- */
+#completed-tab {
+    color: var(--success-color); /* Inactive Text Green */
+    background-color: #fff;
+}
+#completed-tab.active {
+    background-color: var(--success-color) !important;
+    color: #fff !important;
+}
+#completed-tab i {
+    color: inherit;
+}
+#completed-tab .badge {
+    transition: all 0.2s;
+}
+#completed-tab.active .badge {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: #fff !important;
+}

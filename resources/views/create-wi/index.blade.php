@@ -652,26 +652,34 @@
                         const usedText = window.formatDurationLong ? window.formatDurationLong(currentTotalSec) : `${(currentTotalSec/3600).toFixed(2)} Jam`;
                         const maxText = window.formatDurationLong ? window.formatDurationLong(maxSec) : `${(maxSec/3600).toFixed(2)} Jam`;
 
+                        // [MOD] Change error to warning and ALLOW progress
                         Swal.fire({
-                            icon: 'error',
-                            title: 'Workcenter Sudah Penuh!',
+                            icon: 'warning',
+                            title: 'Kapasitas Terlampaui',
                             html: `
                                 Kapasitas Workcenter ini sudah mencapai batas maksimal.<br><br>
                                 <div class="bg-light p-2 rounded border text-start d-inline-block">
                                     <i class="fa-solid fa-chart-pie me-2 text-primary"></i><b>Terpakai:</b> <span class="text-danger fw-bold">${usedText}</span><br>
                                     <i class="fa-solid fa-bullseye me-2 text-primary"></i><b>Kapasitas:</b> <span class="text-success fw-bold">${maxText}</span>
                                 </div><br><br>
-                                Silakan masukkan ke Workcenter lain atau hapus beban sebelumnya.
+                                Tetap lanjutkan proses pembuatan WI?
                             `,
-                            confirmButtonText: 'Mengerti'
+                            showCancelButton: true,
+                            confirmButtonText: 'Ya, Lanjutkan',
+                            cancelButtonText: 'Batal'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                // Lanjutkan proses drop
+                                processDrop(evt, item, toList, fromList, targetWcId);
+                            } else {
+                                // Kembalikan item ke tempat asal
+                                if (fromList) fromList.appendChild(item);
+                                activeDraggedItem = null;
+                                draggedItemsCache = [];
+                                if (typeof checkEmptyPlaceholder === 'function') checkEmptyPlaceholder(fromList);
+                            }
                         });
-                        
-                        // Kembalikan item ke tempat asal
-                        if (fromList) fromList.appendChild(item);
-                        
-                        activeDraggedItem = null;
-                        draggedItemsCache = [];
-                        return; // Hentikan proses buka modal
+                        return; // Hentikan proses awal (akan dilanjut di .then)
                     }
                 }
 
@@ -1562,13 +1570,13 @@
                         const isSelected = (wcCode === myCurrentWc);
 
                         if (isFull && !isSelected) {
-                             opt.disabled = true;
-                             if (!opt.innerText.includes('(Full)')) {
-                                opt.innerText += ' (Full)';
+                             // opt.disabled = true; // [MOD] Allow selection
+                             if (!opt.innerText.includes('(Over Cap)')) {
+                                opt.innerText += ' (Over Cap)';
                              }
                         } else {
-                            opt.disabled = false;
-                            opt.innerText = opt.innerText.replace(' (Full)', '');
+                            // opt.disabled = false;
+                            opt.innerText = opt.innerText.replace(' (Over Cap)', '').replace(' (Full)', '');
                         }
                     });
                 });
@@ -1983,179 +1991,150 @@
                     return;
                 }
 
-                // 2. VALIDASI KAPASITAS PARENT/SINGLE WC
+                // [MOD] 2. & 3. COLLECT CAPACITY WARNINGS (Parent & Child)
+                let capWarnings = [];
                 if (targetContainerCache) {
                     const wcCard = targetContainerCache.closest('.wc-card-container');
                     if (wcCard) {
-                            const maxSec = parseFloat(wcCard.dataset.maxCapacitySec) || 0;
-                            const dbConsumedSec = parseFloat(wcCard.dataset.dbConsumedSec) || 0;
-                            
-                            let existingDraftMins = 0;
-                            wcCard.querySelectorAll('.pro-item-card').forEach(item => {
-                                const isBeingAssigned = assignments.some(a => a.item === item);
-                                if (!isBeingAssigned) {
-                                    existingDraftMins += parseFloat(item.dataset.calculatedMins) || 0;
-                                }
-                            });
-                            
-                            let newMins = 0;
-                            assignments.forEach(a => {
-                                if (typeof calculateItemMinutes === 'function') {
-                                    newMins += parseFloat(calculateItemMinutes(a.item, a.qty));
-                                } else {
-                                    const vgw01 = parseFloat(a.item.dataset.vgw01) || 0;
-                                    const vge01 = parseFloat(a.item.dataset.vge01) || 0;
-                                    newMins += (a.qty * vgw01) + vge01; 
-                                }
-                            });
-                            
-                            const totalMins = (dbConsumedSec / 60) + existingDraftMins + newMins;
-                            const totalSec = Math.floor(totalMins * 60);
-                            const limitSec = Math.ceil(maxSec + 60); // Toleransi 60 detik
-                            const chkMachining = document.getElementById('chkUnique1');
-                            const isMachining = chkMachining && chkMachining.checked;
-
-                            if (!isMachining && totalSec > limitSec) {
-                                const usedText = window.formatDurationLong ? window.formatDurationLong(totalSec) : `${(totalSec/3600).toFixed(2)} Jam`;
-                                const maxText = window.formatDurationLong ? window.formatDurationLong(maxSec) : `${(maxSec/3600).toFixed(2)} Jam`;
-
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Kapasitas Penuh!',
-                                    html: `
-                                        Total beban yang akan disimpan melebihi kapasitas Workcenter!<br><br>
-                                        <b>Total Beban Baru:</b> <span class="text-danger fw-bold">${usedText}</span><br>
-                                        <b>Kapasitas Maksimal:</b> <span class="text-success fw-bold">${maxText}</span><br><br>
-                                        Silakan kurangi Quantity (Split) agar sesuai dengan sisa waktu.
-                                    `,
-                                    confirmButtonText: 'Mengerti'
-                                });
-                                return; 
-                            }
-                    }
-                }
-
-                // 3. VALIDASI KAPASITAS CHILD WC (FIXED BAGIAN INI)
-                if (targetContainerCache) {
-                    const wcCard = targetContainerCache.closest('.wc-card-container');
-                    const wcCode = wcCard.dataset.wcId || '';
-                    const normalizedParent = wcCode.toUpperCase().trim();
-                    
-                    // Pastikan PARENT_WORKCENTERS ada dan normalizedParent valid
-                    if (PARENT_WORKCENTERS && PARENT_WORKCENTERS[normalizedParent]) {
-                        const childAssignments = {};
-                        assignments.forEach(a => {
-                            if(a.childWc) {
-                                if(!childAssignments[a.childWc]) childAssignments[a.childWc] = 0;
-                                let mins = 0;
-                                if (typeof calculateItemMinutes === 'function') {
-                                    mins = parseFloat(calculateItemMinutes(a.item, a.qty));
-                                } else {
-                                    const vgw01 = parseFloat(a.item.dataset.vgw01) || 0;
-                                    const vge01 = parseFloat(a.item.dataset.vge01) || 0;
-                                    mins = (a.qty * vgw01) + vge01; 
-                                }
-                                childAssignments[a.childWc] += mins;
+                        const maxSec = parseFloat(wcCard.dataset.maxCapacitySec) || 0;
+                        const dbConsumedSec = parseFloat(wcCard.dataset.dbConsumedSec) || 0;
+                        let existingDraftMins = 0;
+                        wcCard.querySelectorAll('.pro-item-card').forEach(item => {
+                            if (!assignments.some(a => a.item === item)) {
+                                existingDraftMins += parseFloat(item.dataset.calculatedMins) || 0;
                             }
                         });
-                        
-                        // Loop assignments dan validasi
-                        for (const [childCode, newMins] of Object.entries(childAssignments)) {
-                            // Cari definisi child dengan aman
-                            const childDef = PARENT_WORKCENTERS[normalizedParent].find(c => c.code === childCode);
-                            
-                            if (childDef) {
-                                let rawKapaz = parseFloat(String(childDef.kapaz).replace(',', '.')) || 0;
-                                if (rawKapaz === 0) rawKapaz = 9.5; 
-                                const limitMins = rawKapaz * 60;
-                                
-                                // Aman akses CONSUMED_MAP
-                                const dbSec = (window.CONSUMED_MAP && window.CONSUMED_MAP[childCode.toUpperCase()]) || 0;
-                                const dbMins = dbSec / 60;
-                                
-                                let existingDraftMins = 0;
-                                wcCard.querySelectorAll('.pro-item-card').forEach(item => {
-                                    if (item.dataset.childWc === childCode) {
-                                        const isBeingAssigned = assignments.some(a => a.item === item);
-                                        if (!isBeingAssigned) {
+                        let newMins = 0;
+                        assignments.forEach(a => {
+                            if (typeof calculateItemMinutes === 'function') newMins += parseFloat(calculateItemMinutes(a.item, a.qty));
+                            else {
+                                const vgw01 = parseFloat(a.item.dataset.vgw01) || 0;
+                                const vge01 = parseFloat(a.item.dataset.vge01) || 0;
+                                newMins += (a.qty * vgw01) + vge01; 
+                            }
+                        });
+                        const totalSec = Math.floor(((dbConsumedSec / 60) + existingDraftMins + newMins) * 60);
+                        const limitSec = Math.ceil(maxSec + 60);
+
+                        if (!isMachining && totalSec > limitSec) {
+                            const usedText = window.formatDurationLong ? window.formatDurationLong(totalSec) : `${(totalSec/3600).toFixed(2)} Jam`;
+                            const maxText = window.formatDurationLong ? window.formatDurationLong(maxSec) : `${(maxSec/3600).toFixed(2)} Jam`;
+                            capWarnings.push(`<b>Parent WC (${wcCard.dataset.wcId}):</b> ${usedText} / ${maxText}`);
+                        }
+
+                        // Child WC Check
+                        const wcCode = wcCard.dataset.wcId || '';
+                        const normalizedParent = wcCode.toUpperCase().trim();
+                        if (PARENT_WORKCENTERS && PARENT_WORKCENTERS[normalizedParent]) {
+                            const childAssignments = {};
+                            assignments.forEach(a => {
+                                if(a.childWc) {
+                                    if(!childAssignments[a.childWc]) childAssignments[a.childWc] = 0;
+                                    let mins = 0;
+                                    if (typeof calculateItemMinutes === 'function') mins = parseFloat(calculateItemMinutes(a.item, a.qty));
+                                    else {
+                                        const vgw01 = parseFloat(a.item.dataset.vgw01) || 0;
+                                        const vge01 = parseFloat(a.item.dataset.vge01) || 0;
+                                        mins = (a.qty * vgw01) + vge01; 
+                                    }
+                                    childAssignments[a.childWc] += mins;
+                                }
+                            });
+                            for (const [childCode, newMins] of Object.entries(childAssignments)) {
+                                const childDef = PARENT_WORKCENTERS[normalizedParent].find(c => c.code === childCode);
+                                if (childDef) {
+                                    let rawKapaz = parseFloat(String(childDef.kapaz).replace(',', '.')) || 0;
+                                    if (rawKapaz === 0) rawKapaz = 9.5; 
+                                    const limitMins = rawKapaz * 60;
+                                    const dbMins = ((window.CONSUMED_MAP && window.CONSUMED_MAP[childCode.toUpperCase()]) || 0) / 60;
+                                    let existingDraftMins = 0;
+                                    wcCard.querySelectorAll('.pro-item-card').forEach(item => {
+                                        if (item.dataset.childWc === childCode && !assignments.some(a => a.item === item)) {
                                             existingDraftMins += parseFloat(item.dataset.calculatedMins) || 0;
                                         }
-                                    }
-                                });
-                                
-                                const totalMins = dbMins + existingDraftMins + newMins;
-                                if (totalMins > (limitMins + 1)) { 
-                                    Swal.fire({
-                                        icon: 'error',
-                                        title: 'Kapasitas Sub-WC Penuh!',
-                                        html: `Sub-Workcenter <b>${childCode}</b> melebihi kapasitas!<br>Total: ${totalMins.toFixed(1)} / ${limitMins.toFixed(1)} Menit`,
-                                        confirmButtonText: 'Mengerti'
                                     });
-                                    return; // Block Save
+                                    const totalMins = dbMins + existingDraftMins + newMins;
+                                    if (totalMins > (limitMins + 1)) { 
+                                        capWarnings.push(`<b>Sub-WC (${childCode}):</b> ${totalMins.toFixed(1)} / ${limitMins.toFixed(1)} Min`);
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                // 4. FINAL PROCESS (Create DOM Elements)
-                const groupedAssignments = {};
-                assignments.forEach(a => {
-                    if (!groupedAssignments[a.item.dataset.aufnr]) groupedAssignments[a.item.dataset.aufnr] = [];
-                    groupedAssignments[a.item.dataset.aufnr].push(a);
-                });
+                const finalStep = () => {
+                    // 4. FINAL PROCESS (Create DOM Elements)
+                    const groupedAssignments = {};
+                    assignments.forEach(a => {
+                        if (!groupedAssignments[a.item.dataset.aufnr]) groupedAssignments[a.item.dataset.aufnr] = [];
+                        groupedAssignments[a.item.dataset.aufnr].push(a);
+                    });
 
-                for (const [aufnr, group] of Object.entries(groupedAssignments)) {
-                    const item = group[0].item;
-                    const sisaOriginal = parseFloat(item.dataset.sisaQty) || 0;
-                    const totalAssigned = group.reduce((sum, a) => sum + a.qty, 0);
-                    
-                    if (parseFloat(totalAssigned.toFixed(3)) < parseFloat(sisaOriginal.toFixed(3))) {
-                        const remainingQty = sisaOriginal - totalAssigned;
-                        const remainingRow = item.cloneNode(true);
-                        remainingRow.dataset.id = Date.now() + Math.random();
-                        remainingRow.dataset.sisaQty = remainingQty;
-                        remainingRow.dataset.assignedQty = 0;
-                        remainingRow.dataset.isSplit = '1';
+                    for (const [aufnr, group] of Object.entries(groupedAssignments)) {
+                        const item = group[0].item;
+                        const sisaOriginal = parseFloat(item.dataset.sisaQty) || 0;
+                        const totalAssigned = group.reduce((sum, a) => sum + a.qty, 0);
                         
-                        transformToTableView(remainingRow);
-                        const sisaCell = remainingRow.querySelector('.col-sisa-qty');
-                        if(sisaCell) sisaCell.innerText = remainingQty.toLocaleString('id-ID');
-                        
-                        sourceContainerCache.appendChild(remainingRow);
-                    }
-                    
-                    group.forEach((assign, idx) => {
-                        let targetItem;
-                        if (idx === 0) {
-                            targetItem = item;
-                        } else {
-                            targetItem = item.cloneNode(true);
-                            targetItem.dataset.id = Date.now() + Math.random();
+                        if (parseFloat(totalAssigned.toFixed(3)) < parseFloat(sisaOriginal.toFixed(3))) {
+                            const remainingQty = sisaOriginal - totalAssigned;
+                            const remainingRow = item.cloneNode(true);
+                            remainingRow.dataset.id = Date.now() + Math.random();
+                            remainingRow.dataset.sisaQty = remainingQty;
+                            remainingRow.dataset.assignedQty = 0;
+                            remainingRow.dataset.isSplit = '1';
+                            
+                            transformToTableView(remainingRow);
+                            const sisaCell = remainingRow.querySelector('.col-sisa-qty');
+                            if(sisaCell) sisaCell.innerText = remainingQty.toLocaleString('id-ID');
+                            
+                            sourceContainerCache.appendChild(remainingRow);
                         }
                         
-                        transformToCardView(targetItem);
-                        targetContainerCache.appendChild(targetItem);
-                        targetItem.dataset.sisaQty = assign.qty;
-                        targetItem.dataset.assignedQty = assign.qty;
-                        targetItem.dataset.employeeNik = assign.nik;
-                        targetItem.dataset.employeeName = assign.name;
-                        targetItem.dataset.childWc = assign.childWc || '';
-                        targetItem.dataset.isMachining = assign.isMachining ? 1 : 0;
-                        targetItem.dataset.isLongshift = assign.isLongshift ? 1 : 0;
-                        updateRowUI(targetItem, assign.name, assign.qty, assign.childWc);
-                    });
-                }
+                        group.forEach((assign, idx) => {
+                            let targetItem;
+                            if (idx === 0) targetItem = item;
+                            else {
+                                targetItem = item.cloneNode(true);
+                                targetItem.dataset.id = Date.now() + Math.random();
+                            }
+                            transformToCardView(targetItem);
+                            targetContainerCache.appendChild(targetItem);
+                            targetItem.dataset.sisaQty = assign.qty;
+                            targetItem.dataset.assignedQty = assign.qty;
+                            targetItem.dataset.employeeNik = assign.nik;
+                            targetItem.dataset.employeeName = assign.name;
+                            targetItem.dataset.childWc = assign.childWc || '';
+                            targetItem.dataset.isMachining = assign.isMachining ? 1 : 0;
+                            targetItem.dataset.isLongshift = assign.isLongshift ? 1 : 0;
+                            updateRowUI(targetItem, assign.name, assign.qty, assign.childWc);
+                        });
+                    }
 
-                draggedItemsCache = [];
-                tempSplits = [];
-                activeDraggedItem = null;
-                document.getElementById('selectAll').checked = false;
-                updateCapacity(targetContainerCache.closest('.wc-card-container'));
-                checkEmptyPlaceholder(targetContainerCache);
-                checkEmptyPlaceholder(sourceContainerCache);
-                
-                assignmentModalInstance.hide();
+                    draggedItemsCache = [];
+                    tempSplits = [];
+                    activeDraggedItem = null;
+                    if(document.getElementById('selectAll')) document.getElementById('selectAll').checked = false;
+                    updateCapacity(targetContainerCache.closest('.wc-card-container'));
+                    checkEmptyPlaceholder(targetContainerCache);
+                    checkEmptyPlaceholder(sourceContainerCache);
+                    assignmentModalInstance.hide();
+                };
+
+                if (capWarnings.length > 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Kapasitas Terlampaui',
+                        html: `<div class="text-start small">Assign ini akan membuat Workcenter melebihi kapasitas:<br><br>${capWarnings.join('<br>')}<br><br>Tetap lanjutkan simpan?</div>`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Ya, Lanjutkan',
+                        cancelButtonText: 'Batal'
+                    }).then((result) => {
+                        if (result.isConfirmed) finalStep();
+                    });
+                } else {
+                    finalStep();
+                }
             }
 
             function setupTargetWcSearch() {

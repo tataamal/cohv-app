@@ -342,6 +342,70 @@ class WorkInstructionApiController extends Controller
     }
 
 
+    public function getWorkcentersLoad(Request $request)
+    {
+        try {
+            // Check for date parameter (ddmmyyyy)
+            $dateParam = $request->query('date');
+            
+            if ($dateParam) {
+                try {
+                    // Try parsing the ddmmyyyy format
+                    $dateObj = Carbon::createFromFormat('dmY', $dateParam);
+                    if ($dateObj === false) {
+                        throw new \Exception();
+                    }
+                    $filterDate = $dateObj->toDateString();
+                } catch (\Exception $ex) {
+                    return response()->json([
+                        'status'        => 'fail',
+                        'mess_err'      => 'Format tanggal tidak valid. Gunakan format ddmmyyyy (contoh: 03032026).',
+                        'http_response' => 400,
+                    ], 400);
+                }
+            } else {
+                // Default to today
+                $filterDate = Carbon::now()->toDateString();
+            }
+
+            $loads = HistoryWiItem::select(
+                DB::raw('COALESCE(child_wc, parent_wc) as workcenters'),
+                DB::raw('SUM(calculated_takt_time) as assigned_time'),
+                DB::raw('COUNT(id) as total_item_wi'),
+                DB::raw('GROUP_CONCAT(DISTINCT nik) as niks_string')
+            )
+            ->whereHas('wi', function ($query) use ($filterDate) {
+                $query->whereDate('document_date', $filterDate);
+            })
+            ->whereNotNull(DB::raw('COALESCE(child_wc, parent_wc)'))
+            ->groupByRaw('COALESCE(child_wc, parent_wc)')
+            ->get();
+
+            $formattedLoads = $loads->map(function ($load) {
+                return [
+                    'workcenters'   => $load->workcenters,
+                    'assigned_time' => (float) $load->assigned_time,
+                    'total_item_wi' => (int) $load->total_item_wi,
+                    'nik'           => $load->niks_string ? explode(',', $load->niks_string) : []
+                ];
+            });
+
+            return response()->json([
+                'status'        => 'success',
+                'mess_err'      => null,
+                'http_response' => 200,
+                'data'          => $formattedLoads
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'        => 'fail',
+                'mess_err'      => $e->getMessage(),
+                'http_response' => 500,
+            ], 500);
+        }
+    }
+
     private function wiStartEnd($doc): array
     {
         $date = $doc->document_date instanceof CarbonInterface

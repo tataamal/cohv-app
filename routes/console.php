@@ -4,6 +4,7 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+use App\Jobs\SyncWiConfirmedQtyJob;
 
 // --- Scheduler Email WI Harian (07:00 Pagi) ---
 Schedule::command('wi:send-log-email')
@@ -22,6 +23,10 @@ Schedule::command('wi:send-weekly-email')
 Schedule::command('wi:calculate-daily-time')
     ->dailyAt('01:00')
     ->timezone('Asia/Jakarta');
+
+Schedule::job(new SyncWiConfirmedQtyJob)
+    ->everyMinute()
+    ->withoutOverlapping();
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

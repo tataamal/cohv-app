@@ -121,9 +121,8 @@ class WorkcenterConsumeService
              SET capacity_used_sec = capacity_used_sec + ?,
                  updated_at = NOW()
              WHERE work_date = ?
-               AND workcenter_id = ?
-               AND capacity_used_sec + ? <= capacity_total_sec",
-            [$needSec, $date, $workcenterId, $needSec]
+               AND workcenter_id = ?",
+            [$needSec, $date, $workcenterId]
         );
 
         return $affected === 1;

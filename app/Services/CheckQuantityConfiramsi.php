@@ -19,8 +19,8 @@ class CheckQuantityConfiramsi
 
     public function check(string $aufnr, string $vornr, string $pernr, string $budat): array
     {
-        $user = Session::get('username');
-        $pass = Session::get('password');
+        $user = Session::get('username') ?? config('services.sap_konfirmasi.username');
+        $pass = Session::get('password') ?? config('services.sap_konfirmasi.password');
 
         if (!$user || !$pass) {
             return [
