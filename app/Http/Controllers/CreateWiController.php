@@ -521,6 +521,44 @@ class CreateWiController extends Controller
                 $document->status = $anyWithRemark ? 'COMPLETED WITH REMARK' : 'COMPLETED';
                 $document->save();
             }
+
+            $isCompleted = in_array(strtoupper(trim($document->status ?? '')), ['COMPLETED', 'COMPLETED WITH REMARK']);
+            $isExpired = $document->expired_at && Carbon::now()->greaterThan(Carbon::parse($document->expired_at));
+
+            if ($isCompleted || $isExpired) {
+                try {
+                    $sapUsername = session('username');
+                    $sapPassword = session('password');
+                    
+                    if ($sapUsername && $sapPassword) {
+                        $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                        $endpoint = rtrim($apiUrl, '/') . '/api/delete_document_wi';
+                        
+                        $payload = [
+                            'I_DOCNO' => $document->wi_document_code
+                        ];
+
+                        $response = Http::timeout(30)
+                            ->withHeaders([
+                                'X-SAP-Username' => $sapUsername,
+                                'X-SAP-Password' => $sapPassword,
+                            ])
+                            ->delete($endpoint, $payload);
+
+                        if (!$response->successful()) {
+                            Log::error("Failed to sync Delete WI Document (Completed/Expired) to Python API", [
+                                'wi_code' => $document->wi_document_code,
+                                'response' => $response->body(),
+                                'status' => $response->status(),
+                            ]);
+                        }
+                    }
+                } catch (\Exception $apiEx) {
+                    Log::error("Exception when sinking Delete WI Document (Completed/Expired) to Python API", [
+                        'message' => $apiEx->getMessage()
+                    ]);
+                }
+            }
         }
 
         return response()->json([
@@ -823,10 +861,6 @@ class CreateWiController extends Controller
                     $expiredAt = $baseDateTime->copy()->addHours(24);
                 }
 
-                // =========================
-                // [CAPACITY] booking untuk SEMUA TANGGAL (Active maupun Inactive/Future)
-                // resolve workcenter via mapping_table menggunakan kode_laravel_id (ID)
-                // =========================
                 $shouldConsume = true; // Always consume
 
                 $needsByWcId  = [];
@@ -1221,43 +1255,30 @@ class CreateWiController extends Controller
 
             if ($start && $end) {
                 $query->where(function($q) use ($start, $end) {
-                    // 1. Has Expired At (Includes Machining & Explicit Normal/Longshift)
-                    // Valid if ANY overlap between [DocDate, ExpiredAt] and [FilStart, FilEnd]
-                    // Overlap: (DocStart <= FilEnd) AND (DocEnd >= FilStart)
-                    // Using dates:
                     $q->where(function($sub) use ($start, $end) {
                         $sub->whereNotNull('expired_at')
                             ->whereDate('document_date', '<=', $end)
                             ->whereDate('expired_at', '>=', $start);
                     })
-                    // 2. Longshift (No Expired At -> Implied 2 Days: Document Date & Next Day)
-                    // Valid if DocDate is in [Start-1, End] (Since DocDate+1 is valid on Start)
                     ->orWhere(function($sub) use ($start, $end) {
                         $sub->whereNull('expired_at')
                             ->where('longshift', 1)
                             ->whereDate('document_date', '>=', $start->copy()->subDay())
                             ->whereDate('document_date', '<=', $end);
                     })
-                    // 3. Normal (No Expired At -> Implied 24 Hours from DocDate+Time)
-                    // Effectively treated as "Active on Document Date" for simpler filtering
-                    // OR strictly overlap logic if needed, but usually DocDate match is enough for list view
                     ->orWhere(function($sub) use ($start, $end) {
                         $sub->whereNull('expired_at')
                             ->where(function($n) {
                                 $n->where('longshift', '!=', 1)
                                   ->orWhereNull('longshift');
                             })
-                            // For normal docs without expiry, we assume they are relevant on their document_date
                             ->whereBetween('document_date', [$start, $end]);
                     });
                 });
             }
         } else {
-            // Default View: Recent Docs OR Currently Active/Future Docs (like Machining/Longshift)
             $query->where(function($q) use ($today) {
-                // 1. Created recently (last 7 days)
                 $q->whereDate('document_date', '>=', $today->copy()->subDays(7))
-                // 2. OR still active/valid today (or in future)
                   ->orWhereDate('expired_at', '>=', $today);
             });
         }

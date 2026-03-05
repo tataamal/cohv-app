@@ -1558,9 +1558,6 @@
                         // 1. Operator Limit Check
                         const usedCount = usedNiks.filter(nik => potentialNiks.includes(nik)).length;
                         const totalCap = potentialNiks.length;
-                        // const remaining = totalCap - usedCount; 
-
-                        // 2. [NEW] Capacity Limit Check
                         const draftUsage = (window.currentGlobalDraftUsage && window.currentGlobalDraftUsage[wcCode]) || 0;
                         const dbSec = CONSUMED_MAP[wcCode] || 0;
                         const totalUsage = (dbSec / 60) + draftUsage;
@@ -1570,7 +1567,6 @@
                         const isSelected = (wcCode === myCurrentWc);
 
                         if (isFull && !isSelected) {
-                             // opt.disabled = true; // [MOD] Allow selection
                              if (!opt.innerText.includes('(Over Cap)')) {
                                 opt.innerText += ' (Over Cap)';
                              }
