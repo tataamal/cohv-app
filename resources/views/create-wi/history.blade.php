@@ -1867,19 +1867,89 @@
         let currentAddWiCode = '';
         window.hasAddedItems = false; // Track changes
         
-        // Initialize Modal Listener for Reload on Close
+        // Initialize Modal Listener for Bulk Save on Close
         document.addEventListener('DOMContentLoaded', function() {
             const addItemModalEl = document.getElementById('addItemModal');
-             if(addItemModalEl) {
-                addItemModalEl.addEventListener('hidden.bs.modal', function () {
-                    if(window.hasAddedItems) {
+            let isSubmittingBulk = false;
+
+            if(addItemModalEl) {
+                addItemModalEl.addEventListener('hide.bs.modal', function (e) {
+                    if (isSubmittingBulk) return; // Allow programmatic close after completion
+
+                    const queue = window.pendingSaveItems || [];
+                    if (queue.length > 0) {
+                        e.preventDefault(); // Stop modal from closing immediately
+                        isSubmittingBulk = true;
+
+                        // Collapse all payload items into one array
+                        let allItems = [];
+                        let isMachiningDoc = false;
+                        let isLongshift = false;
+                        let wiCode = currentAddWiCode;
+
+                        queue.forEach(q => {
+                            isMachiningDoc = isMachiningDoc || q.payload.machining;
+                            isLongshift = isLongshift || q.payload.longshift;
+                            if (q.payload.items && q.payload.items.length) {
+                                allItems.push(...q.payload.items);
+                            }
+                        });
+
+                        const bulkPayload = {
+                            wi_code: wiCode,
+                            machining: isMachiningDoc,
+                            longshift: isLongshift,
+                            items: allItems
+                        };
+
+                        Swal.fire({
+                            title: 'Menyimpan Data...',
+                            allowOutsideClick: false,
+                            showConfirmButton: false,
+                            didOpen: () => Swal.showLoading()
+                        });
+
+                        fetch(`{{ route('wi.add-item-batch') }}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify(bulkPayload)
+                        })
+                        .then(async (res) => {
+                            const text = await res.text();
+                            let data;
+                            try { data = JSON.parse(text); } catch (err) { throw new Error(`HTTP ${res.status} (Non-JSON)`); }
+                            if (!res.ok || data.success === false) throw new Error(data.message || `HTTP ${res.status}`);
+                            return data;
+                        })
+                        .then((data) => {
+                            window.pendingSaveItems = [];
+                            Swal.fire({
+                                title: 'Berhasil',
+                                text: data.message || 'Berhasil menyimpan semua item.',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                // Close modal and reload page to reflect changes properly
+                                const bsModal = bootstrap.Modal.getInstance(addItemModalEl);
+                                if (bsModal) bsModal.hide();
+                                setTimeout(() => location.reload(), 300);
+                            });
+                        })
+                        .catch((err) => {
+                            isSubmittingBulk = false; // reset
+                            Swal.fire('Gagal Menyimpan', err.message || 'Terjadi kesalahan sistem.', 'error');
+                        });
+                    } else if (window.hasAddedItems) {
+                        // Queue empty but items were saved previously (if manual save was ever kept) -> reload
                         Swal.fire({
                             title: 'Memuat ulang...',
                             timer: 1000,
                             showConfirmButton: false,
-                            didOpen: () => {
-                                Swal.showLoading();
-                            }
+                            didOpen: () => Swal.showLoading()
                         }).then(() => location.reload());
                     }
                 });
@@ -1918,6 +1988,7 @@
 
             currentAddWiCode = wiCode;
             window.hasAddedItems = false;
+            window.pendingSaveItems = [];        // Queue for bulk saving
             availableItemsMap = {};              // cache local
             window.availableItemsMap = availableItemsMap; // ✅ sync kalau kamu masih pakai window.availableItemsMap
 
@@ -2051,10 +2122,14 @@
                 return nik ? { nik, name, arbpl } : null;
             }).filter(Boolean);
         }
-
+        
+        window.cachedEmployeesOptionsHtml = '';
         window.fetchEmployees = function() {
             if (window.AddItemState?.employeesLoaded) {
                 window.employeesData = window.AddItemState.employeesData;
+                if (!window.cachedEmployeesOptionsHtml && window.employeesData.length > 0) {
+                     window.cachedEmployeesOptionsHtml = window.employeesData.map(e => `<option value="${e.nik}" data-name="${e.name}">${e.nik} - ${e.name}</option>`).join('');
+                }
                 return Promise.resolve(window.employeesData);
             }
 
@@ -2065,6 +2140,7 @@
                 window.AddItemState.employeesLoaded = true;
                 window.AddItemState.employeesData = normalized;
                 window.employeesData = normalized;
+                window.cachedEmployeesOptionsHtml = normalized.map(e => `<option value="${e.nik}" data-name="${e.name}">${e.nik} - ${e.name}</option>`).join('');
                 return normalized;
                 })
                 .catch(err => {
@@ -2072,6 +2148,7 @@
                 window.AddItemState.employeesLoaded = true;
                 window.AddItemState.employeesData = [];
                 window.employeesData = [];
+                window.cachedEmployeesOptionsHtml = '';
                 return [];
             });
         };
@@ -2388,6 +2465,12 @@
                                 <div class="fw-bold text-dark" id="total_assign_${itemKey}">0</div>
                             </div>
 
+                            <button class="btn btn-danger btn-sm fw-bold px-3 rounded-pill shadow-sm d-none ms-2"
+                                    id="btn_cancel_save_${itemKey}"
+                                    type="button"
+                                    onclick="cancelQueuedItem('${item.aufnr}', '${item.vornr}', this)">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
                             <button class="btn btn-primary btn-sm fw-bold px-4 rounded-pill shadow-sm"
                                     id="btn_save_${itemKey}"
                                     type="button"
@@ -2422,7 +2505,9 @@
 
                 // [PERF] End batch and update once
                 window.isBatchLoadingAddItem = false;
-                updateDashboardUsage();
+                if (!window.skipDashboardUpdate) {
+                     updateDashboardUsage();
+                }
                 })
                 .catch((err) => {
                 console.error('fetchAvailableItems error:', err);
@@ -2569,15 +2654,16 @@
                 if (!container) return;
                 const itemKey = container.id.replace('split_container_', '');
                 
-                // Use the map directly, don't declare another const
-                const itemData = availableItemsMap[itemKey];
+                const itemData = window.availableItemsMap ? window.availableItemsMap[itemKey] : null;
                 if (!itemData) return;
 
                 let tak = parseFloat(itemData.vgw01) || 0;
                 const unit = (itemData.vge01 || '').toUpperCase();
-                if (unit === 'S' || unit === 'SEC') tak = tak / 60;
-
-                const mins = tak * qty;
+                
+                let mins = tak * qty;
+                if (unit === 'S' || unit === 'SEC') mins = mins / 60;
+                else if (unit === 'H' || unit === 'HUR') mins = mins * 60;
+                
                 usageMap[wc] = (usageMap[wc] || 0) + mins;
             });
 
@@ -2651,7 +2737,7 @@
                 <div class="col-md-4">
                 <select class="form-select form-select-sm row-nik">
                     <option value="">Pilih Operator</option>
-                    ${(window.employeesData || []).map(e => `<option value="${e.nik}" data-name="${e.name}">${e.nik} - ${e.name}</option>`).join('')}
+                    ${window.cachedEmployeesOptionsHtml || ''}
                 </select>
                 </div>
                 <div class="col-md-4">
@@ -2941,36 +3027,43 @@
                         items
                     };
 
-                    return fetch(`{{ route('wi.add-item-batch') }}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(async (res) => {
-                        const text = await res.text();
-                        let data;
-                        try { data = JSON.parse(text); } catch (e) { throw new Error(`HTTP ${res.status} (Non-JSON): ${text.slice(0, 200)}`); }
-                        if (!res.ok || data.success === false) throw new Error(data.message || `HTTP ${res.status} ${res.statusText}`);
-                        return data;
-                    })
-                    .then((data) => {
-                        Swal.fire('Berhasil', data.message || 'Berhasil', 'success');
-                        window.hasAddedItems = true;
-                        for (const wcCode in batchUsageMap) {
-                             const addedSec = batchUsageMap[wcCode] * 60;
-                             window.CONSUMED_MAP[wcCode] = (parseFloat(window.CONSUMED_MAP[wcCode] || 0) + addedSec);
-                        }
-                        if (typeof updateDashboardUsage === 'function') updateDashboardUsage();
-                        fetchAvailableItems();
-                    })
-                    .catch((err) => {
-                        Swal.fire('Gagal', err.message || 'Error', 'error');
-                    })
-                    .finally(() => {
-                        setBtn(false);
+                    // PUSH to memory queue
+                    window.pendingSaveItems.push({
+                        itemKey: itemKey,
+                        payload: payload
+                    });
+
+                    // Update UI to "Tersimpan"
+                    if (btnEl) {
+                        btnEl.innerHTML = '<i class="fa-solid fa-check me-1"></i> Tersimpan';
+                        btnEl.classList.remove('btn-primary');
+                        btnEl.classList.add('btn-success');
+                        btnEl.disabled = true;
+                    }
+
+                    // Show X cancel button
+                    const btnCancel = document.getElementById(`btn_cancel_save_${itemKey}`);
+                    if (btnCancel) {
+                        btnCancel.classList.remove('d-none');
+                    }
+
+                    // Hide split btn
+                    const btnSplit = document.getElementById(`btn_split_${itemKey}`);
+                    if (btnSplit) btnSplit.classList.add('d-none');
+
+                    // Disable inputs
+                    const rws = container.querySelectorAll('.split-row');
+                    rws.forEach(r => {
+                        const nikS = r.querySelector('.row-nik');
+                        const qtyI = r.querySelector('.row-qty');
+                        const wcS = r.querySelector('.row-wc');
+                        const rmvBtn = r.querySelector('.btn-remove-split');
+                        
+                        // Disable them but they still exist, so updateDashboardUsage will still count their values visually
+                        if(nikS) nikS.disabled = true;
+                        if(qtyI) qtyI.disabled = true;
+                        if(wcS) wcS.disabled = true;
+                        if(rmvBtn) rmvBtn.classList.add('d-none');
                     });
                 };
 
@@ -3014,6 +3107,45 @@
                 Swal.fire('Error', err.message || 'Error', 'error');
                 setBtn(false);
             }
+        };
+
+        window.cancelQueuedItem = function (aufnr, vornr, btnEl) {
+            const itemKey = `${aufnr}_${vornr}`;
+            const container = document.getElementById(`split_container_${itemKey}`);
+            if (!container) return;
+
+            // Remove from queue
+            window.pendingSaveItems = (window.pendingSaveItems || []).filter(item => item.itemKey !== itemKey);
+
+            // Hide Cancel button
+            if (btnEl) btnEl.classList.add('d-none');
+
+            // Restore Simpan button
+            const btnSave = document.getElementById(`btn_save_${itemKey}`);
+            if (btnSave) {
+                btnSave.innerHTML = '<i class="fa-solid fa-save me-1"></i> Simpan';
+                btnSave.classList.remove('btn-success');
+                btnSave.classList.add('btn-primary');
+                btnSave.disabled = false;
+            }
+
+            // Show Split Btn
+            const btnSplit = document.getElementById(`btn_split_${itemKey}`);
+            if (btnSplit) btnSplit.classList.remove('d-none');
+
+            // Re-enable inputs
+            const rws = container.querySelectorAll('.split-row');
+            rws.forEach(r => {
+                const nikS = r.querySelector('.row-nik');
+                const qtyI = r.querySelector('.row-qty');
+                const wcS = r.querySelector('.row-wc');
+                const rmvBtn = r.querySelector('.btn-remove-split');
+                
+                if(nikS) nikS.disabled = false;
+                if(qtyI) qtyI.disabled = false;
+                if(wcS) wcS.disabled = false;
+                if(rmvBtn) rmvBtn.classList.remove('d-none');
+            });
         };
 
         function updateCapacityBarUI(wiCode, used, max) {

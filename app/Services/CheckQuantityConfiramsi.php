@@ -17,7 +17,7 @@ class CheckQuantityConfiramsi
         $this->timeout = (int) (config('services.sap_konfirmasi.timeout') ?? 15);
     }
 
-    public function check(string $aufnr, string $vornr, string $pernr, string $budat): array
+    public function check(string $aufnr, string $vornr, string $pernr, string $budat, string $werks = ''): array
     {
         $user = Session::get('username') ?? config('services.sap_konfirmasi.username');
         $pass = Session::get('password') ?? config('services.sap_konfirmasi.password');
@@ -47,6 +47,7 @@ class CheckQuantityConfiramsi
             'P_VORNR' => $vornr,
             'P_PERNR' => $pernr,
             'P_BUDAT' => $budat,
+            'P_WERKS' => $werks,
         ];
 
         try {

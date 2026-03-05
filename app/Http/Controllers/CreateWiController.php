@@ -276,45 +276,37 @@ class CreateWiController extends Controller
         }
     }
 
-    protected function getAssignedProQuantities(string $kodePlant)
+    protected function getAssignedProQuantities(string $kodePlant, array $aufnrFilter = [])
     {
-        $histories = HistoryWi::with(['items'])
-                              ->where('plant_code', $kodePlant)
-                              ->where(function ($query) {
-                                  $query->where('document_date', '>=', Carbon::today())
-                                        ->orWhere('expired_at', '>=', Carbon::now());
-                              })
-                              ->get();
-                              
+        $query = DB::table('history_wi_item')
+            ->join('history_wi', 'history_wi_item.history_wi_id', '=', 'history_wi.id')
+            ->where('history_wi.plant_code', $kodePlant)
+            ->where(function ($q) {
+                $q->where('history_wi.document_date', '>=', Carbon::today())
+                  ->orWhere('history_wi.expired_at', '>=', Carbon::now());
+            })
+            ->where('history_wi_item.status', '!=', 'COMPLETED')
+            // Calculate effective balance directly in SQL:
+            // balance = assigned_qty - (confirmed_qty_total + remark_qty_total)
+            // effective = balance > 0 ? balance : 0
+            ->select(
+                'history_wi_item.aufnr',
+                'history_wi_item.vornr',
+                DB::raw('SUM(GREATEST(0, history_wi_item.assigned_qty - (COALESCE(history_wi_item.confirmed_qty_total, 0) + COALESCE(history_wi_item.remark_qty_total, 0)))) as total_effective')
+            )
+            ->havingRaw('SUM(GREATEST(0, history_wi_item.assigned_qty - (COALESCE(history_wi_item.confirmed_qty_total, 0) + COALESCE(history_wi_item.remark_qty_total, 0)))) > 0.001')
+            ->groupBy('history_wi_item.aufnr', 'history_wi_item.vornr');
+
+        if (!empty($aufnrFilter)) {
+            $query->whereIn('history_wi_item.aufnr', $aufnrFilter);
+        }
+
+        $aggregated = $query->get();
+
         $assignedProQuantities = [];
-
-        foreach ($histories as $history) {
-            $proItems = $history->items;
-            
-            if ($proItems->isEmpty()) continue;
-
-            foreach ($proItems as $item) {
-                $confirmedQty = (float)($item->confirmed_qty_total ?? 0);
-                $remarkQty    = (float)($item->remark_qty_total ?? 0);
-                $assignedQty  = (float) $item->assigned_qty;
-
-                $balance = $assignedQty - ($confirmedQty + $remarkQty);
-                if ($balance <= 0.001) {
-                    continue;
-                }
-                
-                 if (str_contains(strtoupper($item->status ?? ''), 'COMPLETED')) {
-                    continue;
-                }
-                
-                $effectiveAssigned = max(0, $balance);
-
-                if ($item->aufnr) {
-                    $key = $item->aufnr . '-' . ($item->vornr ?? '');
-                    $currentTotal = $assignedProQuantities[$key] ?? 0;
-                    $assignedProQuantities[$key] = $currentTotal + $effectiveAssigned;
-                }
-            }
+        foreach ($aggregated as $row) {
+            $key = $row->aufnr . '-' . ($row->vornr ?? '');
+            $assignedProQuantities[$key] = (float) $row->total_effective;
         }
 
         return $assignedProQuantities;
@@ -398,13 +390,14 @@ class CreateWiController extends Controller
 
             $budat = Carbon::parse($document->document_date)->format('dmY');
             // $budat = "28022026";
+            $werks = $document->plant_code ?? '';
 
             foreach ($items as $item) {
                 if (!$item->aufnr || !$item->vornr || !$item->nik) {
                     continue;
                 }
 
-                $res = $service->check($item->aufnr, $item->vornr, $item->nik, $budat);
+                $res = $service->check($item->aufnr, $item->vornr, $item->nik, $budat, $werks);
 
                 if ($res['status'] === 'success') {
                     $confirmedQty = (float) $res['confirmed_qty'];
@@ -2938,7 +2931,7 @@ class CreateWiController extends Controller
         return $response;
     }
 
-    protected function getAvailableProsData($kode, $workcenter = null, $search = null)
+    protected function getAvailableProsData($kode, $workcenter = null, $search = null, $aufnrFilter = [])
     {
         $tData1 = ProductionTData1::where('WERKSX', $kode)
             ->whereRaw('CAST(MGVRG2 AS DECIMAL(20,3)) > CAST(COALESCE(LMNGA, 0) AS DECIMAL(20,3))')
@@ -2946,6 +2939,10 @@ class CreateWiController extends Controller
                 $query->where('STATS', 'LIKE', '%REL%')
                       ->orWhere('STATS', 'LIKE', '%PCNF%');
             });
+            
+        if (!empty($aufnrFilter)) {
+            $tData1->whereIn('AUFNR', $aufnrFilter);
+        }
             
         if ($workcenter && $workcenter !== 'all') {
 
@@ -3006,7 +3003,7 @@ class CreateWiController extends Controller
              }
         }
 
-        $assignedProQuantities = $this->getAssignedProQuantities($kode);
+        $assignedProQuantities = $this->getAssignedProQuantities($kode, $aufnrFilter);
         
         $results = $tData1->get()->transform(function ($item) use ($assignedProQuantities) {
             $aufnr = $item->AUFNR;
@@ -3090,7 +3087,7 @@ class CreateWiController extends Controller
             $doc = HistoryWi::where('wi_document_code', $request->wi_code)->lockForUpdate()->firstOrFail();
             $plantCode = $doc->plant_code; 
 
-            $availableItems = $this->getAvailableProsData($plantCode);
+            $availableItems = $this->getAvailableProsData($plantCode, null, null, [$request->aufnr]);
             $targetItem = $availableItems->first(function($i) use ($request) {
                 return $i->AUFNR == $request->aufnr && $i->VORNR == $request->vornr;
             });
@@ -3234,7 +3231,10 @@ class CreateWiController extends Controller
             }
 
             $plantCode = $doc->plant_code;
-            $availableItems = $this->getAvailableProsData($plantCode);
+
+            $aufnrs = collect($validated['items'])->pluck('aufnr')->unique()->toArray();
+            $availableItems = $this->getAvailableProsData($plantCode, null, null, $aufnrs);
+
             $allMappingsQuery = WorkcenterMapping::query();
             $allMappingsQuery->where(function ($q) use ($plantCode) {
                 if (Schema::hasColumn('workcenter_mappings', 'plant_code')) {
@@ -3550,7 +3550,7 @@ class CreateWiController extends Controller
         
         $results = $query->select(['id', 'AUFNR', 'VORNR', 'WERKSX', 'PWWRK', 'ARBPL', 'MGVRG2', 'LMNGA', 'VGE01', 'VGW01'])->get();
 
-        $assignedProQuantities = $this->getAssignedProQuantities($kode);
+        $assignedProQuantities = $this->getAssignedProQuantities($kode, []);
         
         $filtered = $results->map(function($item) use ($assignedProQuantities) {
             $key = $item->AUFNR . '-' . ($item->VORNR ?? '');

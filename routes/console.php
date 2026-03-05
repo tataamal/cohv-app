@@ -15,17 +15,17 @@ Schedule::command('wi:send-log-email')
 Schedule::command('wi:send-weekly-email')
     ->weeklyOn(1, '07:00')
     ->timezone('Asia/Jakarta')
-    ->withoutOverlapping(60) // cegah dobel jalan (misal schedule:work restart / overlap)
-    ->runInBackground()      // biar scheduler tidak “ketahan” kalau PDF/email lama
+    ->withoutOverlapping(60)
+    ->runInBackground()
     ->appendOutputTo(storage_path('logs/wi-weekly.log'));
 
-// --- Scheduler Hitung Total Time WI Harian (23:45) ---
 Schedule::command('wi:calculate-daily-time')
-    ->dailyAt('01:00')
+    ->dailyAt('01:00') 
     ->timezone('Asia/Jakarta');
 
 Schedule::job(new SyncWiConfirmedQtyJob)
-    ->everyMinute()
+    ->hourly()
+    ->timezone('Asia/Jakarta')
     ->withoutOverlapping();
 
 Artisan::command('inspire', function () {
