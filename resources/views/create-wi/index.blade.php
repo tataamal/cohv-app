@@ -1744,11 +1744,13 @@
                         const empArbpl = tmplOpt.getAttribute('data-arbpl');
                         
                         if (!isBypassFilter) {
-                             // Filter: Only show employees belonging to the required WC
-                             const normEmp = normalizeArbplLocal(empArbpl);
-                             const normReq = normalizeArbplLocal(requiredArbpl);
-                             // Skip if WC doesn't match
-                             if (normEmp !== normReq) return; 
+                             if (PLANT_CODE !== '3012' && PLANT_CODE !== '2001') {
+                                 // Filter: Only show employees belonging to the required WC
+                                 const normEmp = normalizeArbplLocal(empArbpl);
+                                 const normReq = normalizeArbplLocal(requiredArbpl);
+                                 // Skip if WC doesn't match
+                                 if (normEmp !== normReq) return; 
+                             }
                         }
 
                         const newOpt = tmplOpt.cloneNode(true);
@@ -1794,7 +1796,9 @@
 
                         // Strict reset if normalized values differ
                         if (normReq && normCurr && normReq !== normCurr) {
-                            select.value = ""; // FORCE Reset
+                            if (PLANT_CODE !== '3012' && PLANT_CODE !== '2001') {
+                                select.value = ""; // FORCE Reset
+                            }
                         }
                     }
 
