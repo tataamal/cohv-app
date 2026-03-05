@@ -109,6 +109,41 @@ class CreateWiController extends Controller
             }
 
             DB::commit();
+            try {
+                $sapUsername = session('username');
+                $sapPassword = session('password');
+                
+                if ($sapUsername && $sapPassword && $documents->isNotEmpty()) {
+                    $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                    $endpoint = rtrim($apiUrl, '/') . '/api/delete_document_wi';
+
+                    foreach ($documents as $doc) {
+                        $payload = [
+                            'I_DOCNO' => $doc->wi_document_code
+                        ];
+
+                        $response = Http::timeout(30)
+                            ->withHeaders([
+                                'X-SAP-Username' => $sapUsername,
+                                'X-SAP-Password' => $sapPassword,
+                            ])
+                            ->delete($endpoint, $payload);
+
+                        if (!$response->successful()) {
+                            Log::error("Failed to sync Delete WI Document to Python API", [
+                                'wi_code' => $doc->wi_document_code,
+                                'response' => $response->body(),
+                                'status' => $response->status(),
+                            ]);
+                        }
+                    }
+                }
+            } catch (\Exception $apiEx) {
+                Log::error("Exception when sinking Delete WI Document to Python API", [
+                    'message' => $apiEx->getMessage()
+                ]);
+            }
+
             return response()->json(['message' => 'Documents deleted successfully.', 'count' => count($ids)]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -286,9 +321,6 @@ class CreateWiController extends Controller
                   ->orWhere('history_wi.expired_at', '>=', Carbon::now());
             })
             ->where('history_wi_item.status', '!=', 'COMPLETED')
-            // Calculate effective balance directly in SQL:
-            // balance = assigned_qty - (confirmed_qty_total + remark_qty_total)
-            // effective = balance > 0 ? balance : 0
             ->select(
                 'history_wi_item.aufnr',
                 'history_wi_item.vornr',
@@ -355,6 +387,50 @@ class CreateWiController extends Controller
         $item->tag              = $request->tag;
 
         $item->save();
+        try {
+            $sapUsername = session('username');
+            $sapPassword = session('password');
+            
+            if ($sapUsername && $sapPassword) {
+                $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                $endpoint = rtrim($apiUrl, '/') . '/api/add_remark_qty';
+                
+                $payload = [
+                    'header' => [
+                        'I_DOCNO' => $request->wi_document_code
+                    ],
+                    'items' => [
+                        [
+                            'DOCNO'  => $request->wi_document_code,
+                            'AUFNR'  => $request->aufnr,
+                            'VORNR'  => $request->vornr,
+                            'PERNR'  => $request->nik,
+                            'RMKQTY' => $request->remark_qty
+                        ]
+                    ]
+                ];
+
+                $response = Http::timeout(30)
+                    ->withHeaders([
+                        'X-SAP-Username' => $sapUsername,
+                        'X-SAP-Password' => $sapPassword,
+                    ])
+                    ->post($endpoint, $payload);
+
+                if (!$response->successful()) {
+                    Log::error("Failed to sync Save Remark WI to Python API", [
+                        'wi_code' => $request->wi_document_code,
+                        'response' => $response->body(),
+                        'status' => $response->status(),
+                        'payload' => $payload
+                    ]);
+                }
+            }
+        } catch (\Exception $apiEx) {
+            Log::error("Exception when sinking Save Remark WI to Python API", [
+                'message' => $apiEx->getMessage()
+            ]);
+        }
 
         return response()->json([
             'success' => true, 
@@ -979,6 +1055,58 @@ class CreateWiController extends Controller
                     throw $inner;
                 }
 
+                try {
+                    $sapUsername = session('username');
+                    $sapPassword = session('password');
+                    
+                    if ($sapUsername && $sapPassword) {
+                        $pythonItems = [];
+                        foreach ($items as $itemData) {
+                            $pythonItems[] = [
+                                'DOCNO'     => $documentCode,
+                                'AUFNR'     => $itemData['aufnr'] ?? '',
+                                'VORNR'     => $itemData['vornr'] ?? '',
+                                'PERNR'     => $itemData['nik'] ?? '',
+                                'DATE_FROM' => Carbon::parse($dateForDb)->format('dmY'),
+                                'DATE_TO'   => Carbon::parse($expiredAt)->format('dmY'),
+                                'KDAUF'     => $itemData['kdauf'] ?? '',
+                                'KDPOS'     => $itemData['kdpos'] ?? '',
+                                'STEUS'     => $itemData['steus'] ?? '',
+                                'GMNGA'     => $itemData['assigned_qty'] ?? 0,
+                                'MEINS'     => $itemData['uom'] ?? '',
+                                'MATNR'     => $itemData['material_number'] ?? '',
+                                'MATFG'     => $itemData['matfg'] ?? '',
+                            ];
+                        }
+                        
+                        $payloadPython = [
+                            'header' => [
+                                'I_DOCNO'     => $documentCode,
+                                'I_DATE_FROM' => Carbon::parse($dateForDb)->format('dmY'),
+                                'I_DATE_TO'   => Carbon::parse($expiredAt)->format('dmY'),
+                            ],
+                            'items' => $pythonItems
+                        ];
+                        
+                        $flaskApiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                        
+                        $response = Http::timeout(15)
+                            ->withHeaders([
+                                'X-SAP-Username' => $sapUsername,
+                                'X-SAP-Password' => $sapPassword,
+                            ])
+                            ->post($flaskApiUrl . '/api/create_document_wi', $payloadPython);
+                            
+                        if (!$response->successful()) {
+                            Log::error("Failed to send document $documentCode to Python API: " . $response->body());
+                        }
+                    } else {
+                        Log::warning("Skipped sending document $documentCode to Python API due to missing credentials.");
+                    }
+                } catch (\Throwable $e) {
+                    Log::error("Exception calling Python API for $documentCode: " . $e->getMessage());
+                }
+
                 $wiDocuments[] = [
                     'workcenter'    => $headerWc,
                     'document_code' => $documentCode,
@@ -1028,8 +1156,6 @@ class CreateWiController extends Controller
         // 2. LONGSHIFT
         if ((int)$doc->longshift === 1) {
             $start = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
-            // Valid for 2 days (Today & Tomorrow) OR until expired_at
-            // If expired_at is set, use it. Else default to start + 1 day end (approx 48h from date 00:00)
             $end = $doc->expired_at 
                 ? Carbon::parse($doc->expired_at)->endOfDay() 
                 : $start->copy()->addDay()->endOfDay();
@@ -1606,6 +1732,50 @@ class CreateWiController extends Controller
             $item->save();
 
             DB::commit();
+            
+            try {
+                $sapUsername = session('username');
+                $sapPassword = session('password');
+                
+                if ($sapUsername && $sapPassword) {
+                    $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                    $endpoint = rtrim($apiUrl, '/') . '/api/edit_qty_wi';
+                    
+                    $payload = [
+                        'header' => [
+                            'I_DOCNO' => $validated['wi_code']
+                        ],
+                        'items' => [
+                            [
+                                'DOCNO' => $validated['wi_code'],
+                                'AUFNR' => $validated['aufnr'],
+                                'VORNR' => $validated['vornr'],
+                                'PERNR' => $validated['nik'],
+                                'GMNGA' => $newQty
+                            ]
+                        ]
+                    ];
+
+                    $response = Http::timeout(30)
+                        ->withHeaders([
+                            'X-SAP-Username' => $sapUsername,
+                            'X-SAP-Password' => $sapPassword,
+                        ])
+                        ->patch($endpoint, $payload);
+
+                    if (!$response->successful()) {
+                        Log::error("Failed to sync Edit QTY WI to Python API", [
+                            'response' => $response->body(),
+                            'status' => $response->status(),
+                            'payload' => $payload
+                        ]);
+                    }
+                }
+            } catch (\Exception $apiEx) {
+                Log::error("Exception when sinking Edit QTY WI to Python API", [
+                    'message' => $apiEx->getMessage()
+                ]);
+            }
 
             $label = $item->material_desc ?? $item->aufnr;
             return back()->with('success', "Qty {$label} diupdate menjadi {$newQty}. Kapasitas disesuaikan (" . ($diffSeconds > 0 ? '+' : '') . $diffSeconds . " detik).");
@@ -3069,142 +3239,6 @@ class CreateWiController extends Controller
         }
     }
 
-    public function addItem(Request $request)
-    {
-        $request->validate([
-            'wi_code' => 'required|string',
-            'aufnr' => 'required|string',
-            'vornr' => 'required|string', 
-            'qty' => 'required|numeric|min:0.001',
-            'nik' => 'required|string',
-            'name' => 'required|string',
-            'target_workcenter' => 'required|string'
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            $doc = HistoryWi::where('wi_document_code', $request->wi_code)->lockForUpdate()->firstOrFail();
-            $plantCode = $doc->plant_code; 
-
-            $availableItems = $this->getAvailableProsData($plantCode, null, null, [$request->aufnr]);
-            $targetItem = $availableItems->first(function($i) use ($request) {
-                return $i->AUFNR == $request->aufnr && $i->VORNR == $request->vornr;
-            });
-
-            if (!$targetItem) {
-                return response()->json(['success' => false, 'message' => 'Item tidak ditemukan atau quantity sudah habis.'], 400);
-            }
-
-            if ($request->qty > $targetItem->real_sisa_qty) {
-                 return response()->json(['success' => false, 'message' => "Quantity melebihi sisa tersedia ({$targetItem->real_sisa_qty})."], 400);
-            }
-
-            $payload = is_string($doc->payload_data) ? json_decode($doc->payload_data, true) : $doc->payload_data;
-            if (!is_array($payload)) $payload = [];
-
-            $requestedNik = $request->nik;
-            $requestedWc = $request->target_workcenter;
-            
-            $itemFoundAndUpdated = false;
-            foreach ($payload as $index => $existing) {
-                $exNik = $existing['nik'] ?? '-';
-                $exWc = $existing['target_workcenter'] ?? ($existing['workcenter'] ?? ''); 
-                
-                if ($exNik === $requestedNik && $exWc === $requestedWc && ($existing['aufnr'] === $request->aufnr) && ($existing['vornr'] === $request->vornr)) {
-                     return response()->json([
-                        'success' => false, 
-                        'message' => "Operator {$request->name} ({$requestedNik}) sudah ditugaskan untuk PRO ini di Workcenter {$requestedWc}."
-                    ], 400);
-                }
-            }
-
-            $currentLoadMins = 0;
-            if(!empty($payload)) {
-                 foreach($payload as $pItem) {
-                      $currentLoadMins += floatval($pItem['calculated_tak_time'] ?? 0);
-                 }
-            }
-            
-            $fixedSingleMins = 570;
-            $workcenterMappings = WorkcenterMapping::where('plant', $plantCode)
-                                  ->orWhere('kode_laravel', $plantCode)->get();
-            
-            $childrenOfThisWc = $workcenterMappings->filter(function($m) use ($doc) {
-                 return strtoupper($m->wc_induk) === strtoupper($doc->workcenter_code) && 
-                        strtoupper($m->workcenter) !== strtoupper($m->wc_induk);
-            });
-            
-            $childCount = $childrenOfThisWc->count();
-            $maxMins = ($childCount > 0) ? ($childCount * $fixedSingleMins) : $fixedSingleMins;
-
-            $baseTime = floatval($targetItem->VGW01);
-            $reqQty = floatval($request->qty);
-            $unit = strtoupper($targetItem->VGE01);
-            $totalRaw = $baseTime * $reqQty;
-             if ($unit === 'S' || $unit === 'SEC') {
-                $checkNewMins = $totalRaw / 60;
-            } elseif ($unit === 'H' || $unit === 'HUR') {
-                $checkNewMins = $totalRaw * 60;
-            } else {
-                $checkNewMins = $totalRaw;
-            }
-
-            if (($currentLoadMins + $checkNewMins) > ($maxMins + 0.01)) { // 0.01 tolerance
-                 $sisaMins = max(0, $maxMins - $currentLoadMins);
-                 return response()->json([
-                     'success' => false, 
-                     'message' => "Kapasitas Harian tidak mencukupi! Max: " . number_format($maxMins, 0) . " Min. Tersisa: " . number_format($sisaMins, 2) . " Min. Dibutuhkan: " . number_format($checkNewMins, 2) . " Min." 
-                 ], 400);
-            }
-
-            $newItem = [
-                'aufnr' => $targetItem->AUFNR,
-                'vornr' => $targetItem->VORNR,
-                'material' => $targetItem->MATNR,
-                'material_desc' => $targetItem->MAKTX,
-                'assigned_qty' => $request->qty,
-                'qty_order' => $targetItem->MGVRG2, 
-                'confirmed_qty' => 0,
-                'remark_qty' => 0,
-                'uom' => $targetItem->MEINS,
-                'nik' => $request->nik,
-                'name' => $request->name,
-                'target_workcenter' => $request->target_workcenter,
-                'vge01' => $targetItem->VGE01,
-                'vgw01' => $targetItem->VGW01,
-            ];
-            
-            $baseTime = floatval($targetItem->VGW01);
-            $qty = floatval($request->qty);
-            $unit = strtoupper($targetItem->VGE01);
-            $totalRaw = $baseTime * $qty;
-             if ($unit === 'S' || $unit === 'SEC') {
-                $mins = $totalRaw / 60;
-            } elseif ($unit === 'H' || $unit === 'HUR') {
-                $mins = $totalRaw * 60;
-            } else {
-                $mins = $totalRaw;
-            }
-            $newItem['calculated_tak_time'] = number_format($mins, 2, '.', '');
-            
-            $newItem['name1'] = $targetItem->NAME1 ?? '-';
-            $newItem['netpr'] = $targetItem->NETPR ?? 0;
-            $newItem['waerk'] = $targetItem->WAERK ?? '';
-
-            $payload[] = $newItem;
-            $doc->payload_data = $payload;
-            $doc->save();
-
-            DB::commit();
-            return response()->json(['success' => true, 'message' => 'Item berhasil ditambahkan.']);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
-        }
-    }
-
     public function addItemBatch(Request $request, WorkcenterConsumeService $consumeService)
     {
         $validated = $request->validate([
@@ -3454,6 +3488,60 @@ class CreateWiController extends Controller
 
 
             DB::commit();
+
+            try {
+                $sapUsername = session('username');
+                $sapPassword = session('password');
+                
+                if ($sapUsername && $sapPassword) {
+                    $pythonItems = [];
+                    $docItems = HistoryWiItem::where('history_wi_id', $doc->id)->get();
+                    foreach ($docItems as $itemData) {
+                        $pythonItems[] = [
+                            'DOCNO'     => $doc->wi_document_code,
+                            'AUFNR'     => $itemData->aufnr ?? '',
+                            'VORNR'     => $itemData->vornr ?? '',
+                            'PERNR'     => $itemData->nik ?? '',
+                            'DATE_FROM' => Carbon::parse($doc->document_date)->format('dmY'),
+                            'DATE_TO'   => Carbon::parse($doc->expired_at ?? Carbon::parse($doc->document_date)->addDay())->format('dmY'),
+                            'KDAUF'     => $itemData->kdauf ?? '',
+                            'KDPOS'     => $itemData->kdpos ?? '',
+                            'STEUS'     => $itemData->steus ?? '',
+                            'GMNGA'     => $itemData->assigned_qty ?? 0,
+                            'MEINS'     => $itemData->uom ?? '',
+                            'MATNR'     => $itemData->material_number ?? '',
+                            'MATFG'     => $itemData->matfg ?? '',
+                        ];
+                    }
+                    
+                    $payloadPython = [
+                        'header' => [
+                            'I_DOCNO'     => $doc->wi_document_code,
+                            'I_DATE_FROM' => Carbon::parse($doc->document_date)->format('dmY'),
+                            'I_DATE_TO'   => Carbon::parse($doc->expired_at ?? Carbon::parse($doc->document_date)->addDay())->format('dmY'),
+                        ],
+                        'items' => $pythonItems
+                    ];
+                    
+                    $flaskApiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                    
+                    $response = Http::timeout(15)
+                        ->withHeaders([
+                            'X-SAP-Username' => $sapUsername,
+                            'X-SAP-Password' => $sapPassword,
+                        ])
+                        ->put($flaskApiUrl . '/api/update_document_wi', $payloadPython);
+                        
+                    if (!$response->successful()) {
+                        Log::error("Failed to update document {$doc->wi_document_code} to Python API: " . $response->body());
+                    }
+                } else {
+                    Log::warning("Skipped updating document {$doc->wi_document_code} to Python API due to missing credentials.");
+                }
+            } catch (\Throwable $e) {
+                Log::error("Exception calling Python API for {$doc->wi_document_code}: " . $e->getMessage());
+            }
+
             return response()->json(['success' => true, 'message' => count($validated['items']).' Item berhasil ditambahkan.']);
 
         } catch (\Exception $e) {
@@ -3535,6 +3623,42 @@ class CreateWiController extends Controller
             }
 
             DB::commit();
+            
+            try {
+                $sapUsername = session('username');
+                $sapPassword = session('password');
+                
+                if ($sapUsername && $sapPassword) {
+                    $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                    $endpoint = rtrim($apiUrl, '/') . '/api/delete_wi_item';
+                    
+                    $payload = [
+                        'I_DOCNO' => $request->wi_code,
+                        'I_AUFNR' => $request->aufnr,
+                        'I_VORNR' => $request->vornr,
+                        'I_PERNR' => $request->nik
+                    ];
+
+                    $response = Http::timeout(30)
+                        ->withHeaders([
+                            'X-SAP-Username' => $sapUsername,
+                            'X-SAP-Password' => $sapPassword,
+                        ])
+                        ->delete($endpoint, $payload);
+
+                    if (!$response->successful()) {
+                        Log::error("Failed to sync Remove Item WI to Python API", [
+                            'item' => $payload,
+                            'response' => $response->body(),
+                            'status' => $response->status(),
+                        ]);
+                    }
+                }
+            } catch (\Exception $apiEx) {
+                Log::error("Exception when sinking Remove Item WI to Python API", [
+                    'message' => $apiEx->getMessage()
+                ]);
+            }
 
             return response()->json(['success' => true, 'message' => 'Item berhasil dihapus.']);
 

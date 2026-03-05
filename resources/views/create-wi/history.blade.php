@@ -597,11 +597,9 @@
                                                                     @endif
                                                                 @endif
 
-                                                                @if(Auth::user()->name === 'DEVELOPER')
-                                                                    <button class="btn btn-sm btn-danger ms-1" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
-                                                                        Remark
-                                                                    </button>
-                                                                @endif
+                                                                <button class="btn btn-sm btn-danger ms-1" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
+                                                                    Remark
+                                                                </button>
                                                             </div>
                                                     </div>
                                                 </div>
@@ -746,11 +744,9 @@
                                                             <span class="text-xs text-muted">{{ ($item['uom'] ?? '-') == 'ST' ? 'PC' : ($item['uom'] ?? '-') }}</span>
                                                         </div>
                                                         <div class="d-flex gap-1 justify-content-end mt-1">
-                                                            @if(Auth::user()->name === 'DEVELOPER')
                                                                 <button class="btn btn-sm btn-danger" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
                                                                     Remark
                                                                 </button>
-                                                            @endif
                                                         </div>
                                                     </div>
                                                 </div>
@@ -972,11 +968,9 @@
                                                             </div>
 
                                                             <div class="d-flex gap-1 justify-content-end mt-1">
-                                                                @if(Auth::user()->name === 'DEVELOPER')
-                                                                    <button class="btn btn-sm btn-danger" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
-                                                                        Remark
-                                                                    </button>
-                                                                @endif
+                                                                <button class="btn btn-sm btn-danger" title="Remark" onclick="openRemarkModal('{{ $document->wi_document_code }}', '{{ $item['aufnr'] }}', '{{ addslashes($item['nik'] ?? '') }}', '{{ addslashes($item['vornr'] ?? '') }}', '{{ addslashes($item['uom'] ?? '') }}', '{{ $item['remark_qty_total'] ?? 0 }}', '{{ addslashes($item['remark_text'] ?? '') }}', '{{ addslashes($item['tag'] ?? '') }}')" {{ ($item['confirmed_qty_total'] ?? 0) >= ($item['assigned_qty'] ?? 0) ? 'disabled' : '' }}>
+                                                                    Remark
+                                                                </button>
                                                                 <button class="btn btn-sm btn-outline-info py-0 px-2 rounded-pill small fw-bold" disabled>
                                                                     <i class="fa-solid fa-check-double me-1"></i> Completed
                                                                 </button>
@@ -3619,14 +3613,11 @@
             if(displayAufnrDiv) displayAufnrDiv.innerText = aufnr;
             const initialQtyVal = parseFloat(assignedQty) || 0;
             if(inputNewQty) {
-                // If Integer, 0 decimals. If float, 2 decimals (or varying).
-                // Logic: if float part exists, show 2 decimals.
                 const needsDec = (initialQtyVal % 1 !== 0);
                 inputNewQty.value = initialQtyVal.toLocaleString('id-ID', { minimumFractionDigits: needsDec ? 2 : 0, maximumFractionDigits: 2 });
             }
             if(realNewQty) realNewQty.value = initialQtyVal; // Set hidden
-            
-            // Format Max Qty (For Display)
+
             const maxOrderVal = parseFloat(orderQty) || 0;
             if(displayMaxQtyDiv) displayMaxQtyDiv.innerText = maxOrderVal.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
             if(inputMaxQtyHidden) inputMaxQtyHidden.value = orderQty;
@@ -3643,34 +3634,27 @@
             }
             if(inputVgw01) inputVgw01.value = rawVgw * timeFactor; 
             
-            // Capacity Logic
             const maxCapValue = parseFloat(maxCapacity) || 570; 
             const totalUsedValue = parseFloat(currentTotalUsed) || 0;
             const itemLoadValue = parseFloat(currentItemLoad) || 0;
             const baseLoad = Math.max(0, totalUsedValue - itemLoadValue); 
 
-            // --- UNIT HANDLING ---
             const modalUnitText = document.getElementById('modalUnitText');
             let displayUnit = (uom || '').toUpperCase();
             
-            // 1. Normalize Display
             if(displayUnit === 'ST') displayUnit = 'PC';
             if(modalUnitText) modalUnitText.innerText = `UNIT: ${displayUnit}`;
             if(document.getElementById('modalMaxCapText')) document.getElementById('modalMaxCapText').innerText = maxCapValue.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
             
-            // Function to Update Capacity UI
             const updateCapacity = (qty) => {
                 const timePerUnit = parseFloat(inputVgw01.value) || 0;
                 const newItemTime = qty * timePerUnit;
-                
-                // Calculate Projected Total
                 const projectedTotal = baseLoad + newItemTime;
                 
                 if(displayTotalTime) {
                    displayTotalTime.innerText = newItemTime.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 4 });
                 }
 
-                // Progress Bar Logic (TOTAL LOAD vs MAX)
                 const maxCap = maxCapValue;
                 let percent = maxCap > 0 ? (projectedTotal / maxCap) * 100 : 0;
                 if(percent > 100) percent = 100;
@@ -3685,11 +3669,9 @@
                 }
                 
                 if(progressText) {
-                    // Show percentage of TOTAL load
                     progressText.innerText = percent.toLocaleString('id-ID', { maximumFractionDigits: 1 }) + '%';
                 }
 
-                // Update Max Cap Text to show usage
                 if(document.getElementById('modalMaxCapText')) {
                     document.getElementById('modalMaxCapText').innerText = `${projectedTotal.toLocaleString('id-ID', {maximumFractionDigits: 2})} / ${maxCapValue.toLocaleString('id-ID', {maximumFractionDigits: 2})}`;
                 }
@@ -3708,10 +3690,9 @@
                              errorMsg.innerText = 'EXCEEDS DAILY CAPACITY!';
                              errorMsg.classList.remove('d-none');
                          }
-                         if(btnSave) btnSave.disabled = false; // [MOD] Allow save even if over capacity
+                         if(btnSave) btnSave.disabled = false;
                 } else {
-                        // Reset capacity warning (but don't clear qty warning if exists)
-                         if(qtyWrapper && !inputNewQty.classList.contains('text-danger')) { // Only reset if not qty error
+                         if(qtyWrapper && !inputNewQty.classList.contains('text-danger')) {
                              qtyWrapper.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10');
                              qtyWrapper.classList.add('border-primary', 'bg-white');
                          }
@@ -3720,13 +3701,11 @@
                          }
                 }
 
-                return connectedTotalTime = projectedTotal; // Return projected total
+                return connectedTotalTime = projectedTotal;
             };
 
-            // Initial Calc
             updateCapacity(initialQtyVal);
             
-            // Validation Logic
             const btnSave = document.getElementById('btnSaveQty');
             const errorMsg = document.getElementById('qtyErrorMsg');
             const qtyWrapper = document.getElementById('qtyInputWrapper');
@@ -3734,17 +3713,13 @@
 
             if(inputNewQty) {
                 const performValidation = (val) => {
-                    // Update Capacity UI First
                     updateCapacity(val);
-
-                    // Re-fetch elements to ensure active scope
                     const btnSaveInside = document.getElementById('btnSaveQty');
                     const errorContainer = document.getElementById('qtyErrorContainer');
                     const errorText = document.getElementById('qtyErrorText');
 
                     let rangeError = false;
 
-                    // 2. Validate Input Range (Cannot be 0 or less)
                     if(val <= 0) {
                         rangeError = true;
                         inputNewQty.classList.add('text-danger');
@@ -3754,7 +3729,6 @@
                         }
                         if(btnSaveInside) btnSaveInside.disabled = true;
                     }
-                    // 3. Max Qty Hard Limit Check (Order Qty)
                     else if(val > maxLimit) {
                          rangeError = true;
                          inputNewQty.classList.add('text-danger');
@@ -3771,21 +3745,15 @@
 
                     if (!rangeError) {
                          inputNewQty.classList.remove('text-danger');
-                         if(errorContainer) errorContainer.classList.add('d-none'); // Hide Alert
-
-                         // [MOD] Allow saving even if capacity warning exists
+                         if(errorContainer) errorContainer.classList.add('d-none');
                          if(qtyWrapper) {
                             qtyWrapper.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10');
                             qtyWrapper.classList.add('border-primary', 'bg-white');
                          }
                          if(errorMsg) errorMsg.classList.add('d-none');
-                         
-                         // Enable Button Only if No Errors
                          if(btnSaveInside) btnSaveInside.disabled = false;
                     }
                 };
-
-                // Reset State
                 inputNewQty.classList.remove('is-invalid', 'text-danger'); 
                 if(qtyWrapper) {
                     qtyWrapper.classList.remove('border-danger', 'bg-danger', 'bg-opacity-10');
@@ -3793,14 +3761,12 @@
                 }
                 if(errorMsg) errorMsg.classList.add('d-none');
                 
-                // Bind Handler
                 inputNewQty.oninput = function() {
                     const rawVal = parseLocaleNum(this.value);
-                    if(realNewQty) realNewQty.value = rawVal; // Sync hidden
+                    if(realNewQty) realNewQty.value = rawVal;
                     performValidation(rawVal);
                 };
 
-                // Trigger Initial Validation
                 performValidation(initialQtyVal);
             }
 

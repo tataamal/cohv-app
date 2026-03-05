@@ -158,17 +158,14 @@ Route::middleware('auth')->group(function (){
     Route::post('/work-instruction/print-completed', [CreateWiController::class, 'printCompletedReport'])->name('wi.print-completed-report');
     Route::get('/work-instruction/history/preview/{kode}', [CreateWiController::class, 'previewLog'])->name('wi.preview-log');
     Route::post('/work-instruction/history/email/{kode}', [CreateWiController::class, 'emailLog'])->name('wi.email-log');
-    Route::post('/work-instruction/delete', [CreateWiController::class, 'delete'])->name('wi.delete'); // Added Delete Route
+    Route::post('/work-instruction/delete', [CreateWiController::class, 'delete'])->name('wi.delete');
     Route::post('/work-instruction/history/print-log-nik/{kode}', [CreateWiController::class, 'printLogByNik'])->name('wi.print-log-nik');
-    
-    // Edit WI Routes
     Route::get('/work-instruction/available-items/{kode}', [CreateWiController::class, 'getAvailableItems'])->name('wi.available-items');
     Route::get('/work-instruction/get-employees/{kode}', [CreateWiController::class, 'getEmployees'])->name('wi.get-employees');
     Route::post('/work-instruction/add-item', [CreateWiController::class, 'addItem'])->name('wi.add-item');
     Route::post('/work-instruction/add-item-batch', [CreateWiController::class, 'addItemBatch'])->name('wi.add-item-batch');
     Route::post('/work-instruction/remove-item', [CreateWiController::class, 'removeItem'])->name('wi.remove-item');
     Route::get('/work-instruction/fetch-all-ids/{kode}', [CreateWiController::class, 'fetchAllIds'])->name('wi.fetch-all-ids');
-    
     Route::prefix('api')->group(function () {
         Route::post('/serial-numbers/generate-pro', [SerialNumberController::class, 'generateForPro']);
     });
