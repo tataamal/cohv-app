@@ -73,6 +73,23 @@ def normalize_budat(value: str) -> str:
 
     return dt.strftime("%Y%m%d")
 
+def normalize_werks(value: str) -> str:
+    if not value:
+        return ""
+    
+    s = str(value).strip()
+    if s in ("1001", "1200"):
+        return s
+        
+    if s.startswith("30"):
+        return "3000"
+    if s.startswith("20"):
+        return "2000"
+    if s.startswith("10"):
+        return "1000"
+        
+    return s
+
 def to_decimal(val) -> Decimal:
     if val is None or val == "":
         return Decimal("0")
@@ -115,12 +132,14 @@ def check_hasil_konfirmasi():
         p_aufnr = (payload.get("P_AUFNR") or "").strip()
         p_vornr = (payload.get("P_VORNR") or "").strip()
         p_pernr = (payload.get("P_PERNR") or "").strip()
+        p_werks_raw = (payload.get("P_WERKS") or "").strip()
         p_budat_raw = payload.get("P_BUDAT")
 
         missing = []
         if not p_aufnr: missing.append("P_AUFNR")
         if not p_vornr: missing.append("P_VORNR")
         if not p_pernr: missing.append("P_PERNR")
+        if not p_werks_raw: missing.append("P_WERKS")
         if p_budat_raw in (None, ""): missing.append("P_BUDAT")
 
         if missing:
@@ -128,6 +147,7 @@ def check_hasil_konfirmasi():
             return jsonify(base_resp), 400
 
         p_budat = normalize_budat(p_budat_raw)
+        p_werks = normalize_werks(p_werks_raw)
 
         conn = None
         try:
@@ -138,7 +158,8 @@ def check_hasil_konfirmasi():
                 P_AUFNR=p_aufnr,
                 P_VORNR=p_vornr,
                 P_PERNR=p_pernr,
-                P_BUDAT=p_budat
+                P_BUDAT=p_budat,
+                P_WERKS=p_werks
             )
 
         finally:
