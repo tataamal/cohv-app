@@ -10,6 +10,7 @@ export default defineConfig({
                 "resources/js/app.js",
                 "resources/scss/app.scss",
                 "resources/css/create-wi.css",
+                "resources/css/history-wi.css",
             ],
             refresh: true,
         }),
