@@ -367,7 +367,8 @@ class WorkInstructionApiController extends Controller
                 DB::raw('COALESCE(child_wc, parent_wc) as workcenters'),
                 DB::raw('SUM(calculated_takt_time) as assigned_time'),
                 DB::raw('COUNT(id) as total_item_wi'),
-                DB::raw('GROUP_CONCAT(DISTINCT nik) as niks_string')
+                DB::raw('GROUP_CONCAT(DISTINCT nik) as niks_string'),
+                DB::raw('SUM(assigned_qty) as total_quantity')
             )
             ->whereHas('wi', function ($query) use ($filterDate) {
                 $query->whereDate('document_date', $filterDate);
@@ -378,11 +379,12 @@ class WorkInstructionApiController extends Controller
 
             $formattedLoads = $loads->map(function ($load) {
                 return [
-                    'workcenters'   => $load->workcenters,
-                    'assigned_time' => (float) $load->assigned_time,
-                    'total_item_wi' => (int) $load->total_item_wi,
-                    'nik'           => $load->niks_string ? explode(',', $load->niks_string) : []
-                ];
+                    'workcenters'              => $load->workcenters,
+                    'assigned_time'            => (float) $load->assigned_time,
+                    'jml_pro_vornr_nik_unique' => (int) $load->total_item_wi,
+                    'nik'                      => $load->niks_string ? explode(',', $load->niks_string) : [],
+                    'total_quantity'           => (float) $load->total_quantity
+                ];  
             });
 
             return response()->json([
