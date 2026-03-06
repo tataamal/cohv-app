@@ -402,48 +402,16 @@
                                                         <div class="progress-bar bg-primary" role="progressbar" style="width: {{ $cPct }}%"></div>
                                                         <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $rPct }}%"></div>
                                                     </div>
-                                                    @if(!empty($item['remark_history']) && is_array($item['remark_history']))
+                                                    @if(($item['remark_qty_total'] ?? 0) > 0)
                                                         <div class="mt-2">
-                                                            <div class="fw-bold text-danger" style="font-size: 0.75rem;">Riwayat Remark:</div>
+                                                            <div class="fw-bold text-danger" style="font-size: 0.75rem;">Remark:</div>
                                                             <ul class="list-unstyled mb-0 ps-1 mt-1">
-                                                                @foreach($item['remark_history'] as $h)
-                                                                    <li class="mb-1">
-                                                                        <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
-                                                                             <strong>Jumlah Item Gagal: {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}</strong> - {{ $h['remark_text'] ?: ($h['tag'] ?? '-') }}
-                                                                         </span>
-                                                                    </li>
-                                                                @endforeach
+                                                                <li class="mb-1">
+                                                                    <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                         <strong>Jumlah Item Gagal: {{ (fmod($item['remark_qty_total'] ?? 0, 1) != 0) ? number_format($item['remark_qty_total'] ?? 0, 2, ',', '.') : number_format($item['remark_qty_total'] ?? 0, 0, ',', '.') }}</strong> - {{ $item['remark_text'] ?: ($item['tag'] ?? '-') }}
+                                                                     </span>
+                                                                </li>
                                                             </ul>
-                                                        </div>
-                                                    @elseif(!empty($item['remark']))
-                                                        <div class="mt-2 text-danger" style="font-size: 0.75rem;">
-                                                            @foreach(explode(';', $item['remark']) as $r)
-                                                                @if(trim($r))
-                                                                    @php
-                                                                        $parts = explode(':', $r, 2);
-                                                                        $qtyMsg = '';
-                                                                        $remarkMsg = trim($r);
-                                                                        if (count($parts) == 2 && stripos($parts[0], 'Qty') !== false) {
-                                                                            // Parse 'Qty X' to 'X'
-                                                                            $qtyVal =  trim(str_ireplace('Qty', '', $parts[0]));
-                                                                            $remarkMsg = trim($parts[1]);
-                                                                            $qtyDisplay = "Jumlah Item Gagal: " . $qtyVal;
-                                                                        } else {
-                                                                            // No Qty prefix found, maybe just message
-                                                                            $qtyDisplay = "Remark"; 
-                                                                        }
-                                                                    @endphp
-                                                                    <div class="mb-1">
-                                                                        <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
-                                                                            @if(!empty($qtyDisplay) && $qtyDisplay !== 'Remark')
-                                                                                <strong>{{ $qtyDisplay }}</strong> - {{ $remarkMsg }}
-                                                                            @else
-                                                                                {{ $remarkMsg }}
-                                                                            @endif
-                                                                        </span>
-                                                                    </div>
-                                                                @endif
-                                                            @endforeach
                                                         </div>
                                                     @endif
                                                 </div>
@@ -778,22 +746,20 @@
                                                 </div>
 
                                                 {{-- Remark Area (selaras Active + NO REASON) --}}
-                                                @if((!empty($item['remark_history']) && is_array($item['remark_history'])) || $missingQty > 0)
+                                                @if(($item['remark_qty_total'] ?? 0) > 0 || $missingQty > 0)
                                                     <div class="mt-2">
-                                                        <div class="fw-bold text-danger" style="font-size: 0.75rem;">Riwayat Remark:</div>
+                                                        <div class="fw-bold text-danger" style="font-size: 0.75rem;">Remark:</div>
                                                         <ul class="list-unstyled mb-0 ps-1 mt-1">
-                                                            @if(!empty($item['remark_history']) && is_array($item['remark_history']))
-                                                                @foreach($item['remark_history'] as $h)
-                                                                    <li class="mb-1">
-                                                                        <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
-                                                                            <strong>
-                                                                                Jumlah Item Gagal:
-                                                                                {{ (fmod($h['qty'] ?? 0, 1) != 0) ? number_format($h['qty'] ?? 0, 2, ',', '.') : number_format($h['qty'] ?? 0, 0, ',', '.') }}
-                                                                            </strong>
-                                                                            - {{ $h['remark_text'] ?: ($h['tag'] ?? '-') }}
-                                                                        </span>
-                                                                    </li>
-                                                                @endforeach
+                                                            @if(($item['remark_qty_total'] ?? 0) > 0)
+                                                                <li class="mb-1">
+                                                                    <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
+                                                                        <strong>
+                                                                            Jumlah Item Gagal:
+                                                                            {{ (fmod($item['remark_qty_total'] ?? 0, 1) != 0) ? number_format($item['remark_qty_total'] ?? 0, 2, ',', '.') : number_format($item['remark_qty_total'] ?? 0, 0, ',', '.') }}
+                                                                        </strong>
+                                                                        - {{ $item['remark_text'] ?: ($item['tag'] ?? '-') }}
+                                                                    </span>
+                                                                </li>
                                                             @endif
                                                             
                                                             @if($missingQty > 0)
@@ -808,35 +774,6 @@
                                                                 </li>
                                                             @endif
                                                         </ul>
-                                                    </div>
-                                                @elseif(!empty($item['remark']))
-                                                    <div class="mt-2 text-danger" style="font-size: 0.75rem;">
-                                                        @foreach(explode(';', $item['remark']) as $r)
-                                                            @if(trim($r))
-                                                                @php
-                                                                    $parts = explode(':', $r, 2);
-                                                                    $remarkMsg = trim($r);
-
-                                                                    if (count($parts) == 2 && stripos($parts[0], 'Qty') !== false) {
-                                                                        $qtyVal = trim(str_ireplace('Qty', '', $parts[0]));
-                                                                        $remarkMsg = trim($parts[1]);
-                                                                        $qtyDisplay = "Jumlah Item Gagal: " . $qtyVal;
-                                                                    } else {
-                                                                        $qtyDisplay = "Remark";
-                                                                    }
-                                                                @endphp
-
-                                                                <div class="mb-1">
-                                                                    <span class="badge bg-danger text-wrap text-start" style="font-size: 0.7rem;">
-                                                                        @if(!empty($qtyDisplay) && $qtyDisplay !== 'Remark')
-                                                                            <strong>{{ $qtyDisplay }}</strong> - {{ $remarkMsg }}
-                                                                        @else
-                                                                            {{ $remarkMsg }}
-                                                                        @endif
-                                                                    </span>
-                                                                </div>
-                                                            @endif
-                                                        @endforeach
                                                     </div>
                                                 @endif
                                             </div>

@@ -164,16 +164,16 @@ class SendLogHistoryEmail extends Command
 
                  $remarkText = !empty($remarkTexts) ? implode("\n", $remarkTexts) : '-';
                  $netpr = floatval($item->netpr ?? 0); 
-                 $waerk = trim($item->waerk ?? ''); 
+                 $waerk = 'USD'; 
                  
-                 if ($waerk === '-' || $waerk === '') {
+                 if ($netpr <= 0) {
                      $confirmedPrice = 0;
                      $failedPrice = 0;
                      $priceOkFmt = '-';
                      $priceFailFmt = '-';
                  } else {
-                     $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : (!empty($waerk) ? strtoupper($waerk) . ' ' : ''));
-                     $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
+                     $prefix = '$ ';
+                     $decimals = 2;
                      $confirmedPrice = $netpr * $confirmed;
                      
                      $balance = $assigned - ($confirmed + $remarkQty);
@@ -355,18 +355,12 @@ class SendLogHistoryEmail extends Command
                     $item['buyer_sourced'] = $item['name1'] ?? '-';
                     
                     $netpr = isset($item['netpr']) ? floatval($item['netpr']) : 0;
-                    $waerk = isset($item['waerk']) ? trim($item['waerk']) : '';
+                    $waerk = 'USD';
                     
-                    if ($waerk === '-' || $waerk === '') {
+                    if ($netpr <= 0) {
                         $priceFmt = '-';
                     } else {
-                        if (strtoupper($waerk) === 'USD') {
-                            $priceFmt = '$ ' . number_format($netpr, 2);
-                        } elseif (strtoupper($waerk) === 'IDR') {
-                            $priceFmt = 'Rp ' . number_format($netpr, 0, ',', '.');
-                        } else {
-                            $priceFmt = (!empty($waerk) ? strtoupper($waerk) . ' ' : '') . number_format($netpr, 0, ',', '.'); 
-                        }
+                        $priceFmt = '$ ' . number_format($netpr, 2);
                     }
                     
                     $item['price_sourced'] = $priceFmt;
@@ -375,33 +369,21 @@ class SendLogHistoryEmail extends Command
                  $doc->payload_data = $updatedPayload;
                  
                  $totalDocPrice = 0;
-                 $docCurrency = ''; 
                  $hasValidCurrency = false;
                  
                  foreach ($updatedPayload as $itm) {
-                     $itmWaerk = isset($itm['waerk']) ? trim($itm['waerk']) : '';
-                     if ($itmWaerk === '-' || $itmWaerk === '') continue;
+                     $prc = floatval($itm['netpr'] ?? 0);
+                     if ($prc <= 0) continue;
                      
                      $hasValidCurrency = true;
                      $assg = floatval(str_replace(',', '.', $itm['assigned_qty'] ?? 0));
-                     $prc = floatval($itm['netpr'] ?? 0);
                      $totalDocPrice += ($assg * $prc);
-                     
-                     if (!empty($itmWaerk)) {
-                         $docCurrency = $itmWaerk;
-                     }
                  }
                  
                  if (!$hasValidCurrency) {
                      $doc->total_price_formatted = '-';
                  } else {
-                     if (strtoupper($docCurrency) === 'USD') {
-                         $doc->total_price_formatted = '$ ' . number_format($totalDocPrice, 2);
-                     } elseif (strtoupper($docCurrency) === 'IDR') {
-                         $doc->total_price_formatted = 'Rp ' . number_format($totalDocPrice, 0, ',', '.');
-                     } else {
-                         $doc->total_price_formatted = strtoupper($docCurrency) . ' ' . number_format($totalDocPrice, 0, ',', '.');
-                     }
+                     $doc->total_price_formatted = '$ ' . number_format($totalDocPrice, 2);
                  }
               }
  

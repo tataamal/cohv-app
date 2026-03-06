@@ -63,8 +63,10 @@ class SendTotalTimeController extends Controller
                         'history_wi_item.assigned_qty',
                         'history_wi.plant_code',
                         'history_wi.status as doc_status',
+                        'history_wi_item.tag',
+                        'history_wi_item.confirmed_qty_total',
+                        'history_wi_item.remark_qty_total',
                     ])
-                    ->with(['pros'])
                     ->get();
 
                 foreach ($normalRows as $row) {
@@ -84,24 +86,13 @@ class SendTotalTimeController extends Controller
                     }
 
                     // --- Processing Tags & NO REASON Logic ---
-                    $confirmedQty = 0;
-                    $remarkQty = 0;
+                    $confirmedQty = (float)($row->confirmed_qty_total ?? 0);
+                    $remarkQty    = (float)($row->remark_qty_total ?? 0);
 
-                    if ($row->pros) {
-                        foreach ($row->pros as $pro) {
-                            $tag = trim((string)$pro->tag);
-                            if ($tag !== '') {
-                                if (!isset($dailyData[$nik]['tags'][$tag])) $dailyData[$nik]['tags'][$tag] = 0;
-                                $dailyData[$nik]['tags'][$tag]++;
-                            }
-
-                            $st = strtolower($pro->status ?? '');
-                            if (in_array($st, ['confirmasi', 'confirm', 'confirmed', 'confirmation'])) {
-                                $confirmedQty += $pro->qty_pro;
-                            } elseif (str_contains($st, 'remark')) {
-                                $remarkQty += $pro->qty_pro;
-                            }
-                        }
+                    $tag = trim((string)$row->tag);
+                    if ($tag !== '') {
+                        if (!isset($dailyData[$nik]['tags'][$tag])) $dailyData[$nik]['tags'][$tag] = 0;
+                        $dailyData[$nik]['tags'][$tag]++;
                     }
 
                     // Expired - NO REASON check
@@ -153,10 +144,10 @@ class SendTotalTimeController extends Controller
                         'history_wi.document_date',
                         'history_wi.expired_at',
                         'history_wi.plant_code',
+                        'history_wi_item.tag',
+                        'history_wi_item.confirmed_qty_total',
+                        'history_wi_item.remark_qty_total',
                     ])
-                    ->with(['pros' => function($q) use ($currentDate) {
-                        $q->whereDate('created_at', $currentDate);
-                    }])
                     ->get();
 
                 // Grouping: [NIK][WI_CODE][AUFNR_VORNR]
@@ -166,16 +157,12 @@ class SendTotalTimeController extends Controller
                     $nik = trim((string)$row->nik);
                     if ($nik === '') continue;
                     $this->initAggregator($dailyData, $nik, $row->operator_name ?: $row->name1);
-                    if ($row->pros) {
-                        foreach ($row->pros as $pro) {
-                            $tag = trim((string)$pro->tag);
-                            if ($tag !== '') {
-                                if (!isset($dailyData[$nik]['tags'][$tag])) {
-                                    $dailyData[$nik]['tags'][$tag] = 0;
-                                }
-                                $dailyData[$nik]['tags'][$tag]++; // Counting frequency
-                            }
+                    $tag = trim((string)$row->tag);
+                    if ($tag !== '') {
+                        if (!isset($dailyData[$nik]['tags'][$tag])) {
+                            $dailyData[$nik]['tags'][$tag] = 0;
                         }
+                        $dailyData[$nik]['tags'][$tag]++; // Counting frequency
                     }
                     $wiCode = $row->wi_document_code;
                     $aufnr  = $row->aufnr;

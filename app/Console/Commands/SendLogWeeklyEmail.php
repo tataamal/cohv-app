@@ -184,16 +184,16 @@ class SendLogWeeklyEmail extends Command
                  $remarkText = !empty($remarkTexts) ? implode("\n", $remarkTexts) : '-';
 
                  $netpr = floatval($item->netpr ?? 0); 
-                 $waerk = trim($item->waerk ?? ''); 
+                 $waerk = 'USD'; 
                  
-                 if ($waerk === '-' || $waerk === '') {
+                 if ($netpr <= 0) {
                      $confirmedPrice = 0;
                      $failedPrice = 0;
                      $priceOkFmt = '-';
                      $priceFailFmt = '-';
                  } else {
-                     $prefix = strtoupper($waerk) === 'USD' ? '$ ' : (strtoupper($waerk) === 'IDR' ? 'Rp ' : (!empty($waerk) ? strtoupper($waerk) . ' ' : ''));
-                     $decimals = strtoupper($waerk) === 'USD' ? 2 : 0;
+                     $prefix = '$ ';
+                     $decimals = 2;
                      $confirmedPrice = $netpr * $confirmed;
                      
                      $balance = $assigned - ($confirmed + $remarkQty);

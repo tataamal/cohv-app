@@ -288,10 +288,7 @@ class WorkInstructionApiController extends Controller
         $today = $now->toDateString();
         $items = HistoryWiItem::query()
             ->where('aufnr', $aufnr)
-            ->with(['wi', 'pros' => function($q) {
-                // Eager load only remarks, ordered by created_at
-                $q->where('status', 'remark')->orderBy('created_at', 'asc');
-            }])
+            ->with(['wi'])
             ->get();
 
         $remarksData = [];
@@ -299,28 +296,26 @@ class WorkInstructionApiController extends Controller
         foreach ($items as $item) {
             $wi = $item->wi;
             if (!$wi) continue;
+            
+            $remarkQty = (float)($item->remark_qty_total ?? 0);
+            if ($remarkQty <= 0) {
+                continue;
+            }
+
             $operatorNik  = $item->nik ?? '-';
             $operatorName = $item->name1 ?? '-';
             $operatorInfo = "{$operatorNik} - {$operatorName}";
             
-            // Use the eager-loaded 'pros' collection
-            $history = $item->pros
-                // No need to filter by status/order here as it's done in the eager load query
-                ->map(function ($r) use ($operatorInfo) {
-                    return [
-                        'qty'        => (float) $r->qty_pro,
-                        'remark'     => $r->remark_text ?? '',
-                        'tag'        => $r->tag ?? '',
-                        'created_at' => Carbon::parse($r->created_at)->toDateTimeString(),
-                        'created_by' => $operatorInfo, 
-                    ];
-                })
-                ->values() // Reset keys
-                ->toArray();
-                
-            if (empty($history)) {
-                continue;
-            }
+            // Generate single history item from HistoryWiItem
+            $history = [
+                [
+                    'qty'        => $remarkQty,
+                    'remark'     => $item->remark_text ?? '',
+                    'tag'        => $item->tag ?? '',
+                    'created_at' => Carbon::parse($item->updated_at)->toDateTimeString(),
+                    'created_by' => $operatorInfo,
+                ]
+            ];
 
             $remarksData[] = [
                 'wi_code'        => $wi->wi_document_code ?? '-',

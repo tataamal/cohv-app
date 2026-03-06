@@ -316,6 +316,7 @@ class CreateWiController extends Controller
         $query = DB::table('history_wi_item')
             ->join('history_wi', 'history_wi_item.history_wi_id', '=', 'history_wi.id')
             ->where('history_wi.plant_code', $kodePlant)
+            ->whereNull('history_wi.deleted_at')
             ->where(function ($q) {
                 $q->where('history_wi.document_date', '>=', Carbon::today())
                   ->orWhere('history_wi.expired_at', '>=', Carbon::now());
@@ -1452,15 +1453,7 @@ class CreateWiController extends Controller
                 $confirmedQty = (float)($item->confirmed_qty_total ?? 0);
                 $remarkQty = (float)($item->remark_qty_total ?? 0);
 
-                $remarkHistory = [];
-                if ($remarkQty > 0) {
-                    $remarkHistory[] = [
-                        'qty' => $remarkQty,
-                        'remark_text' => $item->remark_text ?? '',
-                        'tag' => $item->tag ?? '',
-                        'created_at' => $item->updated_at
-                    ];
-                }
+
 
                 $totalDone = $confirmedQty + $remarkQty;
                 $remainingQty = max(0, $assignedQty - $totalDone);
@@ -1517,7 +1510,7 @@ class CreateWiController extends Controller
                     'tag'           => $item->tag ?? null,
                     'remark_qty'    => $remarkQty,
                     'remark_qty_total'=> $remarkQty,
-                    'remark_history'=> $remarkHistory, // Added remark_history
+
                     'vgw01'         => $item->vgw01 ?? 0,
                     'vge01'         => $item->vge01 ?? '',
                     'machining'     => (int)($item->machining ?? 0),
