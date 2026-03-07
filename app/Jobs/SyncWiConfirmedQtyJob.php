@@ -52,7 +52,8 @@ class SyncWiConfirmedQtyJob implements ShouldQueue
                                 (string) $item->aufnr,
                                 (string) $item->vornr,
                                 (string) $item->nik,
-                                (string) $budat
+                                (string) $budat,
+                                (string) $wi->plant_code
                             );
 
                             if (($res['status'] ?? 'failed') === 'success') {
@@ -65,6 +66,7 @@ class SyncWiConfirmedQtyJob implements ShouldQueue
                                     'vornr' => $item->vornr,
                                     'nik' => $item->nik,
                                     'budat' => $budat,
+                                    'werks' => $wi->plant_code,
                                     'msg_error' => $res['msg_error'] ?? null,
                                     'http_code' => $res['http_code'] ?? null,
                                 ]);
