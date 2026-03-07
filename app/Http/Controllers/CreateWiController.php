@@ -114,7 +114,7 @@ class CreateWiController extends Controller
                 $sapPassword = session('password');
                 
                 if ($sapUsername && $sapPassword && $documents->isNotEmpty()) {
-                    $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                    $apiUrl = env('WI_ENDPOINT_URL', 'http://192.168.90.27:5016');
                     $endpoint = rtrim($apiUrl, '/') . '/api/delete_document_wi';
 
                     foreach ($documents as $doc) {
@@ -393,7 +393,7 @@ class CreateWiController extends Controller
             $sapPassword = session('password');
             
             if ($sapUsername && $sapPassword) {
-                $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                $apiUrl = env('WI_ENDPOINT_URL', 'http://192.168.90.27:5016');
                 $endpoint = rtrim($apiUrl, '/') . '/api/add_remark_qty';
                 
                 $payload = [
@@ -532,7 +532,7 @@ class CreateWiController extends Controller
                     $sapPassword = session('password');
                     
                     if ($sapUsername && $sapPassword) {
-                        $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                        $apiUrl = env('WI_ENDPOINT_URL', 'http://192.168.90.27:5016');
                         $endpoint = rtrim($apiUrl, '/') . '/api/delete_document_wi';
                         
                         $payload = [
@@ -1123,7 +1123,7 @@ class CreateWiController extends Controller
                             'items' => $pythonItems
                         ];
                         
-                        $flaskApiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                        $flaskApiUrl = env('WI_ENDPOINT_URL', 'http://192.168.90.27:5016');
                         
                         $response = Http::timeout(15)
                             ->withHeaders([
@@ -1752,7 +1752,7 @@ class CreateWiController extends Controller
                 $sapPassword = session('password');
                 
                 if ($sapUsername && $sapPassword) {
-                    $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                    $apiUrl = env('WI_ENDPOINT_URL', 'http://192.168.90.27:5016');
                     $endpoint = rtrim($apiUrl, '/') . '/api/edit_qty_wi';
                     
                     $payload = [
@@ -3537,7 +3537,7 @@ class CreateWiController extends Controller
                         'items' => $pythonItems
                     ];
                     
-                    $flaskApiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                    $flaskApiUrl = env('WI_ENDPOINT_URL', 'http://192.168.90.27:5016');
                     
                     $response = Http::timeout(15)
                         ->withHeaders([
@@ -3643,7 +3643,7 @@ class CreateWiController extends Controller
                 $sapPassword = session('password');
                 
                 if ($sapUsername && $sapPassword) {
-                    $apiUrl = env('WI_ENDPOINT_URL', 'http://127.0.0.1:5015');
+                    $apiUrl = env('WI_ENDPOINT_URL', 'http://192.168.90.27:5016');
                     $endpoint = rtrim($apiUrl, '/') . '/api/delete_wi_item';
                     
                     $payload = [

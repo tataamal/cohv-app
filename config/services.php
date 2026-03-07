@@ -44,7 +44,7 @@ return [
     ],
 
     'sap_konfirmasi' => [
-        'base_url' => env('SAP_KONFIRMASI_API_URL', 'http://127.0.0.1:5014'),
+        'base_url' => env('SAP_KONFIRMASI_API_URL', 'http://192.168.90.27:5015'),
         'timeout'  => (int) env('SAP_KONFIRMASI_TIMEOUT', 15),
         'username'  => env('SAP_KONFIRMASI_USERNAME', 'auto_email'),
         'password'  => env('SAP_KONFIRMASI_PASSWORD', '11223344'),
