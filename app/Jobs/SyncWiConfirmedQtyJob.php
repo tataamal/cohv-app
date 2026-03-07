@@ -16,6 +16,7 @@ class SyncWiConfirmedQtyJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+    public int $timeout = 3600;
     public array $backoff = [60, 180, 600];
 
     public function handle(\App\Services\CheckQuantityConfiramsi $service): void
