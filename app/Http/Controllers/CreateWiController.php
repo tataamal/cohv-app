@@ -1243,12 +1243,12 @@ class CreateWiController extends Controller
 
             if ($start && $end) {
                 $query->whereDate('document_date', '>=', $start->format('Y-m-d'))
-                      ->whereDate('document_date', '<=', $end->format('Y-m-d'));
+                      ->whereDate('document_date', '<', $end->format('Y-m-d'));
             }
         } else {
             $query->where(function($q) use ($today) {
                 $q->whereDate('document_date', '>=', $today->copy()->subDays(7))
-                  ->orWhereDate('expired_at', '>', $today);
+                  ->orWhereDate('expired_at', '>=', $today);
             });
         }
 
