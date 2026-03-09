@@ -1515,14 +1515,44 @@ class CreateWiController extends Controller
 
             $doc->pro_summary = $summary;
 
+            $docCat = '';
             if ($isFullyCompleted) {
+                $docCat = 'COMPLETED';
                 $completedWIDocuments->push($doc);
             } elseif ($doc->is_expired) {
+                $docCat = 'NOT COMPLETED';
                 $expiredWIDocuments->push($doc);
             } elseif ($doc->is_inactive) {
+                $docCat = 'INACTIVE';
                 $inactiveWIDocuments->push($doc);
             } else {
+                $docCat = 'ACTIVE';
                 $activeWIDocuments->push($doc);
+            }
+            
+            // Assign the computed document-level category so the view or report can reference it
+            $doc->computed_category = $docCat;
+        }
+
+        // Apply dropdown status filter if present
+        if ($request->filled('status')) {
+            $reqStatus = $request->status;
+            if ($reqStatus === 'ACTIVE') {
+                $inactiveWIDocuments = collect();
+                $expiredWIDocuments = collect();
+                $completedWIDocuments = collect();
+            } elseif ($reqStatus === 'INACTIVE') {
+                $activeWIDocuments = collect();
+                $expiredWIDocuments = collect();
+                $completedWIDocuments = collect();
+            } elseif ($reqStatus === 'NOT COMPLETED') {
+                $activeWIDocuments = collect();
+                $inactiveWIDocuments = collect();
+                $completedWIDocuments = collect();
+            } elseif ($reqStatus === 'COMPLETED') {
+                $activeWIDocuments = collect();
+                $inactiveWIDocuments = collect();
+                $expiredWIDocuments = collect();
             }
         }
 
@@ -1959,12 +1989,50 @@ class CreateWiController extends Controller
         $allProcessedItems = [];
         $finalReports = [];
         $statusFilter = $request->input('filter_status');
+        $now = Carbon::now();
         
         // Loop Each Doc
         foreach($documents as $doc) {
+            $items = $doc->items;
+            
+            // Compute document category
+            [$start, $end] = $this->wiStartEnd($doc);
+            $is_expired  = $end ? $now->greaterThan($end) : false;
+            $is_inactive = $start && !$is_expired ? $now->lessThan($start) : false;
+            $isFullyCompleted = $items->isNotEmpty();
+
+            foreach ($items as $chkItem) {
+                $aQty = (float)($chkItem->assigned_qty ?? 0);
+                $cQty = (float)($chkItem->confirmed_qty_total ?? 0);
+                $rQty = (float)($chkItem->remark_qty_total ?? 0);
+                if (($cQty + $rQty) < $aQty) {
+                    $isFullyCompleted = false;
+                    break;
+                }
+            }
+
+            $docCat = '';
+            if ($isFullyCompleted) {
+                $docCat = 'COMPLETED';
+            } elseif ($is_expired) {
+                $docCat = 'NOT COMPLETED';
+            } elseif ($is_inactive) {
+                $docCat = 'INACTIVE';
+            } else {
+                $docCat = 'ACTIVE';
+            }
+
+            // Document-Level filtering
+            if ($statusFilter) {
+                 if ($statusFilter === 'ACTIVE' && $docCat !== 'ACTIVE') continue;
+                 if ($statusFilter === 'INACTIVE' && $docCat !== 'INACTIVE') continue;
+                 if ($statusFilter === 'NOT COMPLETED' && $docCat !== 'NOT COMPLETED') continue;
+                 if ($statusFilter === 'COMPLETED' && $docCat !== 'COMPLETED') continue;
+            }
+
             $docItems = [];
             // Refactored: Use relationship instead of payload_data
-            foreach ($doc->items as $item) {
+            foreach ($items as $item) {
                 // Item Processing Logic
                 $wc = !empty($item->child_wc) ? $item->child_wc : ($item->parent_wc ?? '-');
                 $matnr = $item->material_number ?? '';
@@ -2033,28 +2101,6 @@ class CreateWiController extends Controller
                 } else {
                     $status = 'ACTIVE';
                 }
-
-                // FILTER LOGIC PER ITEM
-                $keep = true;
-                if ($statusFilter) {
-                    if ($statusFilter === 'NOT COMPLETED') { 
-                        if (!in_array($status, ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) $keep = false;
-                    } elseif ($statusFilter === 'COMPLETED') {
-                         if (!in_array($status, ['COMPLETED', 'COMPLETED WITH REMARK'])) $keep = false;
-                    } else {
-                        if ($status !== $statusFilter) $keep = false;
-                    }
-                }
-                
-                if (!$statusFilter && !$request->has('wi_codes')) {
-                }
-                
-                if (!$keep && $request->has('wi_codes')) {
-                    // Re-evaluate for Manual Print
-                    $keep = true; 
-                }
-
-                if (!$keep) continue;
 
                 // Rest of Fields
                 $kdauf = $item->kdauf ?? '-';
