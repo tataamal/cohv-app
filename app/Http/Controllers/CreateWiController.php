@@ -1857,32 +1857,20 @@ class CreateWiController extends Controller
                 $dates = explode(' to ', $date);
                 if (count($dates) == 2) {
                     if ($dates[0] === $dates[1]) {
-                         $query->where(function($q) use ($dates) {
-                             $q->whereDate('document_date', $dates[0])
-                               ->orWhereDate('expired_at', $dates[0]);
-                         });
+                         $query->whereDate('document_date', $dates[0]);
                          $dateInfo = Carbon::parse($dates[0])->format('d-m-Y');
                     } else {
-                         $query->where(function($q) use ($dates) {
-                            $q->whereBetween('document_date', [$dates[0], $dates[1]])
-                              ->orWhereBetween('expired_at', [$dates[0], $dates[1]]);
-                         });
+                         $query->whereBetween('document_date', [$dates[0], $dates[1]]);
                          $start = Carbon::parse($dates[0])->format('d-m-Y');
                          $end = Carbon::parse($dates[1])->format('d-m-Y');
                          $dateInfo = "$start s/d $end";
                     }
                 } else {
-                    $query->where(function($q) use ($dates) {
-                         $q->whereDate('document_date', $dates[0])
-                           ->orWhereDate('expired_at', $dates[0]);
-                    });
+                    $query->whereDate('document_date', $dates[0]);
                     $dateInfo = Carbon::parse($dates[0])->format('d-m-Y');
                 }
             } else {
-                $query->where(function($q) use ($date) {
-                     $q->whereDate('document_date', $date)
-                       ->orWhereDate('expired_at', $date);
-                });
+                $query->whereDate('document_date', $date);
                 $dateInfo = Carbon::parse($date)->format('d-m-Y');
             }
         }
