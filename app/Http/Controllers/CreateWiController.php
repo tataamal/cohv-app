@@ -1293,9 +1293,6 @@ class CreateWiController extends Controller
             });
         }
 
-        if ($request->filled('workcenter') && $request->workcenter !== 'all') {
-            $query->where('workcenter', $request->workcenter);
-        }
 
         $wiDocuments = $query->with(['items'])
             ->orderBy('document_date', 'desc')
@@ -1312,13 +1309,6 @@ class CreateWiController extends Controller
             ->get();
 
         $sapPlant = $nama_bagian ? $nama_bagian->plant : $plantCode;
-
-        $wcNames = workcenter::where('plant', $sapPlant)
-            ->get()
-            ->mapWithKeys(function ($item) {
-                 return [strtoupper($item->kode_wc) => $item->description];
-            })
-            ->toArray();
 
         $childWorkcenters = workcenter::where('plant', $sapPlant)
             ->get()
@@ -1607,7 +1597,6 @@ class CreateWiController extends Controller
             'inactiveWIDocuments' => $inactiveWIDocuments,
             'expiredWIDocuments' => $expiredWIDocuments,
             'completedWIDocuments' => $completedWIDocuments,
-            'wcNames' => $wcNames,
             'workcenters' => $workcenters,
             'refWorkcenters' => $childWorkcenters,
             'workcenterMappings' => $workcenterMappings,

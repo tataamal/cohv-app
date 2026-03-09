@@ -37,24 +37,24 @@
                         <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Tanggal Dokumen</label>
                         <div class="input-group input-group-sm">
                             <input type="text" name="date" id="dateInput" class="form-control flatpickr-range" value="{{ request('date') }}" placeholder="Pilih Rentang Tanggal..." onchange="document.getElementById('filterForm').submit()">
-                            {{-- Removed Quick Buttons to save space or keep them if they fit --}}
                              <button type="button" class="btn btn-outline-secondary px-2" onclick="setQuickDate('today'); document.getElementById('filterForm').submit()">Hari Ini</button>
                              <button type="button" class="btn btn-outline-secondary px-2" onclick="setQuickDate('yesterday'); document.getElementById('filterForm').submit()">Kemarin</button>
                         </div>
                     </div>
 
-                    {{-- Workcenter Filter --}}
+                    {{-- Status Filter --}}
                     <div class="col-lg-2">
-                        <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Workcenter</label>
-                        <select name="workcenter" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
-                            <option value="all">Semua WC</option>
-                            @foreach($wcNames as $code => $name)
-                                <option value="{{ $code }}" {{ request('workcenter') == $code ? 'selected' : '' }}>{{ $code }}</option>
-                            @endforeach
+                        <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">Status Doc</label>
+                        <select name="status" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
+                            <option value="">Semua Status</option>
+                            <option value="ACTIVE" {{ request('status') == 'ACTIVE' ? 'selected' : '' }}>Aktif</option>
+                            <option value="INACTIVE" {{ request('status') == 'INACTIVE' ? 'selected' : '' }}>Belum Aktif</option>
+                            <option value="NOT COMPLETED" {{ request('status') == 'NOT COMPLETED' ? 'selected' : '' }}>Tidak Aktif</option>
+                            <option value="COMPLETED" {{ request('status') == 'COMPLETED' ? 'selected' : '' }}>Selesai</option>
                         </select>
                     </div>
 
-                    {{-- NIK Filter (NEW) --}}
+                    {{-- NIK Filter --}}
                     <div class="col-lg-2">
                         <label class="form-label fw-bold text-uppercase text-muted mb-1" style="font-size: 11px;">NIK</label>
                         <input type="text" name="search_nik" class="form-control form-control-sm" 
@@ -302,7 +302,7 @@
                                             </div>
                                             <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
                                                 <span class="text-xs fw-bold text-secondary">
-                                                    {{ $document->workcenter }} - {{ $wcNames[strtoupper($document->workcenter)] ?? '' }}
+                                                    {{ $document->workcenter }}
                                                 </span>
 
                                                 @if(!empty($document->machining))
@@ -496,7 +496,7 @@
                                             </div>
                                             <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
                                                 <span class="text-xs fw-bold text-secondary">
-                                                    {{ $document->workcenter }} - {{ $wcNames[strtoupper($document->workcenter)] ?? '' }}
+                                                    {{ $document->workcenter }}
                                                 </span>
                                                 @if(!empty($document->machining))
                                                     <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
