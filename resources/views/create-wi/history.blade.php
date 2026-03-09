@@ -289,12 +289,10 @@
                                                             <i class="fa-solid fa-lock me-1"></i> Tambah Item
                                                         </button>
                                                     @endif
-                                                    @if(Auth::user()->name === 'DEVELOPER')
                                                         <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-3" style="font-size: 0.75rem;"
                                                             onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
                                                             <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
                                                         </button>
-                                                    @endif
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="badge bg-light text-dark border">{{ $docItemsCount }} Item</span>
@@ -478,12 +476,10 @@
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <div>
                                                     <h6 class="fw-bold mb-1 d-inline-block align-middle me-2">{{ $document->wi_document_code }}</h6>
-                                                    @if(Auth::user()->name === 'DEVELOPER')
                                                         <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-1 me-1" style="font-size: 0.75rem;"
                                                             onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
                                                             <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
                                                         </button>
-                                                    @endif
                                                     <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 ms-2" style="font-size: 0.75rem;" 
                                                         onclick='openAddItemModal(@json($document->wi_document_code), @json($document->workcenter), @json(!empty($document->machining)))'>
                                                         <i class="fa-solid fa-plus me-1"></i> Tambah Item
@@ -635,12 +631,10 @@
                                         <div>
                                             <div class="d-flex align-items-center mb-1">
                                                 <h6 class="fw-bold mb-0 me-2">{{ $document->wi_document_code }}</h6>
-                                                @if(Auth::user()->name === 'DEVELOPER')
                                                     <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 me-2" style="font-size: 0.75rem;"
                                                         onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
                                                         <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
                                                     </button>
-                                                @endif
                                             </div>
                                             @if(!empty($document->machining))
                                                 <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
@@ -830,12 +824,10 @@
                                             <div>
                                                 <div class="d-flex align-items-center mb-1">
                                                     <h6 class="fw-bold mb-0 me-2">{{ $document->wi_document_code }}</h6>
-                                                    @if(Auth::user()->name === 'DEVELOPER')
                                                         <button class="btn btn-sm btn-success text-white rounded-pill px-3 fw-bold shadow-sm py-0 me-2" style="font-size: 0.75rem;"
                                                             onclick="checkKonfirmasi('{{ $document->wi_document_code }}')">
                                                             <i class="fa-solid fa-clipboard-check me-1"></i> Cek Konfirmasi
                                                         </button>
-                                                    @endif
                                                 </div>
                                                 @if(!empty($document->machining))
                                                     <span class="badge bg-warning text-dark border shadow-sm" style="font-size:0.7rem;">Machining</span>
