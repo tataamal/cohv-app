@@ -225,11 +225,9 @@
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllActive">Pilih Semua</label>
                                 </div>
                                 <div class="d-flex gap-2" id="actionGroupActive">
-                                    @if(Auth::user()->name === 'DEVELOPER')
                                         <button type="button" id="btnActiveCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('active')">
                                             <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countActiveCheckConfirmation">0</span>)
                                         </button>
-                                    @endif
                                     <button type="button" id="btnActiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('active')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countActiveDel">0</span>)
                                     </button>
@@ -437,11 +435,9 @@
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllInactive">Pilih Semua</label>
                                 </div>
                                 <div class="d-flex gap-2" id="actionGroupInactive">
-                                    @if(Auth::user()->name === 'DEVELOPER')
                                         <button type="button" id="btnInactiveCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('inactive')">
                                             <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countInactiveCheckConfirmation">0</span>)
                                         </button>
-                                    @endif
                                     <button type="button" id="btnInactiveDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('inactive')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countInactiveDel">0</span>)
                                     </button>
@@ -597,11 +593,9 @@
                                     <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllExpired">Pilih Semua</label>
                                 </div>
                                 <div class="d-flex gap-2" id="actionGroupExpired">
-                                    @if(Auth::user()->name === 'DEVELOPER')
                                         <button type="button" id="btnExpiredCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('expired')">
                                             <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countExpiredCheckConfirmation">0</span>)
                                         </button>
-                                    @endif
                                     <button type="button" id="btnExpiredDelete" class="btn btn-outline-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('expired')">
                                         <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countExpiredDel">0</span>)
                                     </button>
@@ -790,11 +784,9 @@
                                         <label class="form-check-label ms-1 small fw-bold text-muted" for="selectAllCompleted">Pilih Semua</label>
                                     </div>
                                     <div class="d-flex gap-2" id="actionGroupCompleted">
-                                        @if(Auth::user()->name === 'DEVELOPER')
                                             <button type="button" id="btnCompletedCheckConfirmation" class="btn btn-success text-white btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmCheckConfirmation('completed')">
                                                 <i class="fa-solid fa-check me-1"></i> Konfirmasi (<span id="countCompletedCheckConfirmation">0</span>)
                                             </button>
-                                        @endif
                                         <button type="button" id="btnCompletedDelete" class="btn btn-danger btn-sm px-3 rounded-pill fw-bold shadow-sm d-none" onclick="confirmDelete('completed')">
                                             <i class="fa-solid fa-trash me-1"></i> Hapus (<span id="countCompletedDel">0</span>)
                                         </button>
