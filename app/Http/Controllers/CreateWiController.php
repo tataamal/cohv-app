@@ -903,10 +903,7 @@ class CreateWiController extends Controller
                         }
 
                         $wcId = (int)$resolved[$code]['id'];
-
-                        // INI YANG BENAR: total detik kapasitas sudah dihitung dari operating_time di SERVICE
                         $totalSec = (int)($resolved[$code]['capacity_total_sec'] ?? WorkcenterConsumeService::MIN_CAPACITY_SEC);
-
                         $needsByWcId[$wcId]  = ($needsByWcId[$wcId] ?? 0) + (int)$needsByWcCode[$code];
                         $totalsByWcId[$wcId] = $totalSec;
                     }
@@ -915,10 +912,6 @@ class CreateWiController extends Controller
                     ksort($totalsByWcId);
                 }
 
-
-                // =========================================================
-                // A) TRANSAKSI KECIL: lock sequence + (optional) consume + create header
-                // =========================================================
                 $maxRetry = 5;
                 $history = null;
                 $documentCode = null;
@@ -951,8 +944,6 @@ class CreateWiController extends Controller
                             $documentCode = $docPrefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
 
                             $initialStatus = ($dateForDb === $todayStr) ? 'ACTIVE' : 'INACTIVE';
-
-                            // Always consume if needed, ignoring status
                             if ($shouldConsume && !empty($needsByWcId)) {
                                 $consumeService->consumeManyOrFail($dateForDb, $needsByWcId, $totalsByWcId);
                             }
@@ -997,9 +988,6 @@ class CreateWiController extends Controller
                     throw new \RuntimeException("Gagal membuat WI header setelah {$maxRetry} percobaan.");
                 }
 
-                // =========================================================
-                // B) TRANSAKSI TERPISAH: insert items + pro
-                // =========================================================
                 try {
                     DB::transaction(function () use ($history, $items, $headerWc) {
                         $seen = [];
@@ -1221,7 +1209,6 @@ class CreateWiController extends Controller
         $today = Carbon::today();
         $query = HistoryWi::where('plant_code', $plantCode);
 
-        // Cek Dokumen INACTIVE -> ACTIVE
         $inactives = HistoryWi::where('plant_code', $plantCode)
             ->where('status', 'INACTIVE')
             ->get();
@@ -1255,27 +1242,8 @@ class CreateWiController extends Controller
             }
 
             if ($start && $end) {
-                $query->where(function($q) use ($start, $end) {
-                    $q->where(function($sub) use ($start, $end) {
-                        $sub->whereNotNull('expired_at')
-                            ->whereDate('document_date', '<=', $end)
-                            ->whereDate('expired_at', '>=', $start);
-                    })
-                    ->orWhere(function($sub) use ($start, $end) {
-                        $sub->whereNull('expired_at')
-                            ->where('longshift', 1)
-                            ->whereDate('document_date', '>=', $start->copy()->subDay())
-                            ->whereDate('document_date', '<=', $end);
-                    })
-                    ->orWhere(function($sub) use ($start, $end) {
-                        $sub->whereNull('expired_at')
-                            ->where(function($n) {
-                                $n->where('longshift', '!=', 1)
-                                  ->orWhereNull('longshift');
-                            })
-                            ->whereBetween('document_date', [$start, $end]);
-                    });
-                });
+                $query->whereDate('document_date', '>=', $start->format('Y-m-d'))
+                      ->whereDate('document_date', '<=', $end->format('Y-m-d'));
             }
         } else {
             $query->where(function($q) use ($today) {
@@ -1534,13 +1502,13 @@ class CreateWiController extends Controller
                 foreach ($childrenOfThisWc as $child) {
                     $cCode = strtoupper($child->childWorkcenter->kode_wc);
                     $cap = $wcCapacityMap[$cCode] ?? 0;
-                    if ($cap == 0) $cap = 9.5; // fallback 9.5 hours
-                    $maxMins += ($cap * 60); // Convert Hours to Minutes
+                    if ($cap == 0) $cap = 9.5; 
+                    $maxMins += ($cap * 60); 
                 }
             } else {
                 $cap = $wcCapacityMap[$targetWcCode] ?? 0;
-                if ($cap == 0) $cap = 9.5; // fallback 9.5 hours
-                $maxMins = ($cap * 60); // Convert Hours to Minutes
+                if ($cap == 0) $cap = 9.5; 
+                $maxMins = ($cap * 60); 
             }
 
             $percentageLoad = $maxMins > 0 ? ($summary['total_load_mins'] / $maxMins) * 100 : 0;
@@ -1593,7 +1561,6 @@ class CreateWiController extends Controller
         unset($cap);
 
 
-        // [NEW] Fetch consumption for today (copied from index)
         $wcIds = $workcenterMappings->pluck('wc_induk_id')
             ->merge($workcenterMappings->pluck('wc_anak_id'))
             ->filter()

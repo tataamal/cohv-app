@@ -29,7 +29,7 @@ class SyncWiConfirmedQtyJob implements ShouldQueue
                 'DELETED',
             ])
             ->with(['items' => function ($q) {
-                $q->select('id', 'history_wi_id', 'aufnr', 'vornr', 'nik', 'confirmed_qty_total');
+                $q->select('id', 'history_wi_id', 'aufnr', 'vornr', 'nik', 'confirmed_qty_total', 'status');
             }])
             ->orderBy('id')
             ->chunkById(50, function ($wis) use ($service) {
@@ -37,14 +37,28 @@ class SyncWiConfirmedQtyJob implements ShouldQueue
                 foreach ($wis as $wi) {
                     if (!$wi->document_date) continue;
 
-                    $isLongshift = (int) $wi->longshift === 1;
-
-                    $dates = [$wi->document_date];
-                    if ($isLongshift) {
-                        $dates[] = $wi->document_date->copy()->subDay();
+                    $isMachining = (int) $wi->machining === 1;
+                    $dates = [];
+                    
+                    if ($isMachining) {
+                        $start = $wi->document_date->copy()->startOfDay();
+                        $end = $wi->expired_at ? \Carbon\Carbon::parse($wi->expired_at)->endOfDay() : \Carbon\Carbon::now()->endOfDay();
+                        
+                        $currentDate = $start->copy();
+                        while ($currentDate->lessThanOrEqualTo($end)) {
+                            $dates[] = $currentDate->copy();
+                            $currentDate->addDay();
+                        }
+                    } else {
+                        $dates = [$wi->document_date];
                     }
 
                     foreach ($wi->items as $item) {
+                        $itemStatus = strtoupper($item->status ?? '');
+                        if ($itemStatus === 'COMPLETED' || $itemStatus === 'COMPLETED WITH REMARK') {
+                            continue;
+                        }
+
                         $totalConfirmed = 0.0;
 
                         foreach ($dates as $d) {
