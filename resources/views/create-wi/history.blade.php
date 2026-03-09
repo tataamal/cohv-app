@@ -3186,8 +3186,10 @@
             const date = urlParams.get('date') || '';
             const search = urlParams.get('search') || '';
             const status = urlParams.get('status') || '';
+            const nik = urlParams.get('search_nik') || '';
+            const multi = urlParams.get('multi_search') || '';
             
-            const url = `{{ route('wi.preview-log', ['kode' => $plantCode]) }}?filter_date=${encodeURIComponent(date)}&filter_search=${encodeURIComponent(search)}&filter_status=${encodeURIComponent(status)}`;
+            const url = `{{ route('wi.preview-log', ['kode' => $plantCode]) }}?filter_date=${encodeURIComponent(date)}&filter_search=${encodeURIComponent(search)}&filter_status=${encodeURIComponent(status)}&filter_nik=${encodeURIComponent(nik)}&filter_multi=${encodeURIComponent(multi)}`;
             window.open(url, '_blank');
         };
 
@@ -3206,6 +3208,8 @@
             const date = urlParams.get('date') || '';
             const search = urlParams.get('search') || '';
             const status = urlParams.get('status') || '';
+            const nik = urlParams.get('search_nik') || '';
+            const multi = urlParams.get('multi_search') || '';
 
             fetch('{{ route("wi.email-log", ["kode" => $plantCode]) }}', {
                 method: 'POST',
@@ -3217,6 +3221,8 @@
                     filter_date: date,
                     filter_search: search,
                     filter_status: status,
+                    filter_nik: nik,
+                    filter_multi: multi,
                     recipients: recipients
                 })
             })

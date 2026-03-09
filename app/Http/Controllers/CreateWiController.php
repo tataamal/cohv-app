@@ -1856,11 +1856,46 @@ class CreateWiController extends Controller
                 $dateInfo = Carbon::parse($date)->format('d-m-Y');
             }
         }
-        if ($search) {
-             $query->where(function($q) use ($search) {
-                $q->where('wi_document_code', 'like', "%$search%");
+        $searchNik = $request->input('filter_nik');
+        $multiSearch = $request->input('filter_multi');
+
+        if ($searchNik) {
+            $query->whereHas('items', function($q) use ($searchNik) {
+                $q->where('nik', 'like', "%{$searchNik}%");
             });
         }
+
+        if ($multiSearch) {
+            $keywords = preg_split('/[\s,]+/', $multiSearch, -1, PREG_SPLIT_NO_EMPTY);
+            if (count($keywords) > 0) {
+                $query->where(function($q) use ($keywords) {
+                    $q->whereIn('wi_document_code', $keywords)
+                      ->orWhereHas('items', function($q2) use ($keywords) {
+                          $q2->whereIn('aufnr', $keywords)
+                             ->orWhereIn('nik', $keywords);
+                      });
+                });
+            }
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('wi_document_code', 'like', "%{$search}%")
+                ->orWhere('workcenter', 'like', "%{$search}%")
+                ->orWhereHas('items', function($q2) use ($search) {
+                    $q2->where('aufnr', 'like', "%{$search}%")
+                        ->orWhere('material_desc', 'like', "%{$search}%")
+                        ->orWhere('operator_name', 'like', "%{$search}%")
+                        ->orWhere('nik', 'like', "%{$search}%");
+                })
+                ->orWhereHas('items', function($q3) use ($search) {
+                    $q3->where('remark_text', 'like', "%{$search}%")
+                        ->orWhere('tag', 'like', "%{$search}%")
+                        ->orWhere('status', 'like', "%{$search}%");
+                });
+            });
+        }
+
         $documents = $query->orderBy('created_at', 'desc')->get();
 
         $filterInfo = [];
@@ -2005,7 +2040,7 @@ class CreateWiController extends Controller
                     if ($statusFilter === 'NOT COMPLETED') { 
                         if (!in_array($status, ['NOT COMPLETED', 'NOT COMPLETED WITH REMARK'])) $keep = false;
                     } elseif ($statusFilter === 'COMPLETED') {
-                         if ($status !== 'COMPLETED') $keep = false;
+                         if (!in_array($status, ['COMPLETED', 'COMPLETED WITH REMARK'])) $keep = false;
                     } else {
                         if ($status !== $statusFilter) $keep = false;
                     }
