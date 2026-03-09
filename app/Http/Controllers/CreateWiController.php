@@ -1242,8 +1242,31 @@ class CreateWiController extends Controller
             }
 
             if ($start && $end) {
-                $query->whereDate('document_date', '>=', $start->format('Y-m-d'))
-                      ->whereDate('document_date', '<', $end->format('Y-m-d'));
+                $query->where(function($q) use ($start, $end) {
+                    // Dokumen yang memiliki expired_at
+                    $q->where(function($sub) use ($start, $end) {
+                        $sub->whereNotNull('expired_at')
+                            ->whereDate('document_date', '<=', $end)
+                            ->whereDate('expired_at', '>=', $start);
+                    })
+                    // Dokumen longshift tanpa expired_at (berlaku H dan H+1)
+                    ->orWhere(function($sub) use ($start, $end) {
+                        $sub->whereNull('expired_at')
+                            ->where('longshift', 1)
+                            ->whereDate('document_date', '>=', $start->copy()->subDay())
+                            ->whereDate('document_date', '<=', $end);
+                    })
+                    // Dokumen biasa (non-longshift) tanpa expired_at (hanya berlaku hari itu)
+                    ->orWhere(function($sub) use ($start, $end) {
+                        $sub->whereNull('expired_at')
+                            ->where(function($n) {
+                                $n->where('longshift', '!=', 1)
+                                  ->orWhereNull('longshift');
+                            })
+                            ->whereDate('document_date', '>=', $start)
+                            ->whereDate('document_date', '<=', $end);
+                    });
+                });
             }
         } else {
             $query->where(function($q) use ($today) {
