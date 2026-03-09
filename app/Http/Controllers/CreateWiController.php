@@ -1248,7 +1248,7 @@ class CreateWiController extends Controller
         } else {
             $query->where(function($q) use ($today) {
                 $q->whereDate('document_date', '>=', $today->copy()->subDays(7))
-                  ->orWhereDate('expired_at', '>=', $today);
+                  ->orWhereDate('expired_at', '>', $today);
             });
         }
 
