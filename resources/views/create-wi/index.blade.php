@@ -457,9 +457,13 @@
         document.addEventListener("DOMContentLoaded", function() {
             let savedDate = sessionStorage.getItem('CURRENT_CAPACITY_DATE') || "today";
             savedDate = savedDate.replace(/['"]+/g, '');
+            
+            let minDateObj = new Date();
+            minDateObj.setDate(minDateObj.getDate() - 1);
+
             flatpickr(".flatpickr-date", {
                 dateFormat: "Y-m-d",
-                minDate: "today",
+                minDate: minDateObj,
                 defaultDate: savedDate
             });
             flatpickr(".flatpickr-time", {
@@ -4333,10 +4337,13 @@
                     setTimeout(() => {
                         if(input) {
                             try {
+                                let minDateObj = new Date();
+                                minDateObj.setDate(minDateObj.getDate() - 1);
+                                
                                 const fp = flatpickr('#' + uniqueId, { 
                                     dateFormat: 'Y-m-d', 
                                     defaultDate: lastDate, 
-                                    minDate: 'today' 
+                                    minDate: minDateObj 
                                 });
                             } catch(e) {
                                 console.error('Flatpickr init error', e);
