@@ -465,6 +465,10 @@ class CreateWiController extends Controller
                 continue;
             }
 
+            if ((int)$document->longshift === 1 && \Carbon\Carbon::parse($document->document_date)->isToday()) {
+                continue;
+            }
+
             $budat = Carbon::parse($document->document_date)->format('dmY');
             // $budat = "28022026";
             $werks = $document->plant_code ?? '';

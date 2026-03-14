@@ -181,12 +181,18 @@ class WorkInstructionApiController extends Controller
 
                     HistoryWiItem::where('history_wi_id', $doc->id)->update(['status' => 'ACTIVE']);
 
+                    $doc->status = 'ACTIVE';
+
                     foreach ($doc->items as $item) {
                         $item->status = 'ACTIVE';
                     }
                 }
             }
         }
+
+        $documents = $documents->filter(function ($doc) {
+            return $doc->status === 'ACTIVE';
+        });
 
         if ($documents->isEmpty()) {
             return response()->json([

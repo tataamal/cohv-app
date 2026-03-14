@@ -21,8 +21,17 @@ class SyncWiConfirmedQtyJob implements ShouldQueue
 
     public function handle(\App\Services\CheckQuantityConfiramsi $service): void
     {
+        $today = today();
+        $yesterday = today()->subDay();
+
         HistoryWi::query()
-            ->whereDate('document_date', today())
+            ->where(function ($query) use ($today, $yesterday) {
+                $query->whereDate('document_date', $today)
+                      ->orWhere(function ($sub) use ($yesterday) {
+                          $sub->where('longshift', 1)
+                              ->whereDate('document_date', $yesterday);
+                      });
+            })
             ->whereNotIn('status', [
                 'COMPLETED',
                 'COMPLETED WITH REMARK',
@@ -36,6 +45,10 @@ class SyncWiConfirmedQtyJob implements ShouldQueue
 
                 foreach ($wis as $wi) {
                     if (!$wi->document_date) continue;
+
+                    if ((int)$wi->longshift === 1 && \Carbon\Carbon::parse($wi->document_date)->isToday()) {
+                        continue;
+                    }
 
                     $isMachining = (int) $wi->machining === 1;
                     $dates = [];
